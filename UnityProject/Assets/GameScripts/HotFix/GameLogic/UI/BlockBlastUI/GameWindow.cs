@@ -37,6 +37,7 @@ namespace GameLogic.BlockBlastUI
 
         private int _draggingShapeId = -1;
         private bool _gameOverTriggered;
+        private bool _newBestTriggered;
 
         protected override void OnCreate()
         {
@@ -57,11 +58,16 @@ namespace GameLogic.BlockBlastUI
             _state.SaveArr = MakeEmptyBoard();
             _board.ConvertFromArr(_state.SaveArr);
             DynamicWeightDiff.Instance.BeginGame();
-            _state.SetFirstHand();
+            // 初始 3 块随机（清空槽后走动态调度；空棋盘下回落到随机无死局）
+            _state.OperaArr[0] = null;
+            _state.OperaArr[1] = null;
+            _state.OperaArr[2] = null;
+            _state.RefillPieces(_board);
             _state.Score = 0;
             _state.Combo = 0;
             _displayedScore = 0;
             _gameOverTriggered = false;
+            _newBestTriggered = false;
 
             BuildStaticUI();
             InitGhostPool();
@@ -286,6 +292,12 @@ namespace GameLogic.BlockBlastUI
                 int clearScore = clearedCells * 10 + lines * lines * 30;
                 _state.AddScore(clearScore);
                 RenderBoard();
+
+                // 反馈弹字：PERFECT（清空）> COMBO×N（连击≥2）
+                if (_board.IsEmpty())
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, "PERFECT!", 64, new Color32(0xff, 0xe4, 0x4a, 0xFF));
+                else if (_state.Combo >= 2)
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, $"COMBO x{_state.Combo}", 56, new Color32(0xff, 0x77, 0xbb, 0xFF));
             }
             else
             {
@@ -391,6 +403,12 @@ namespace GameLogic.BlockBlastUI
             {
                 _bestText.text = _state.Score.ToString();
                 _bestText.color = new Color32(0xff, 0xe0, 0x66, 0xFF);
+                // 本局首次破纪录弹字（仅一次）
+                if (!_newBestTriggered && _initialHigh > 0)
+                {
+                    _newBestTriggered = true;
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 300, "NEW BEST!", 56, new Color32(0xff, 0xe4, 0x4a, 0xFF));
+                }
             }
         }
 

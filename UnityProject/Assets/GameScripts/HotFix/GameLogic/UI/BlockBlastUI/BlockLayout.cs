@@ -11,9 +11,15 @@ namespace GameLogic.BlockBlastUI
     /// </summary>
     public static class BlockLayout
     {
-        // 设计分辨率
+        // 设计分辨率（内部坐标系，保持 750×1334 不变，便于所有布局常量稳定）
         public const float DesignWidth = 750f;
         public const float DesignHeight = 1334f;
+
+        // UIRoot CanvasScaler 实际参考分辨率（用户设为 1080×1920）。
+        // Content 面板按 ContentScale 整体放大，使 750 设计宽填满 1080 参考宽（同为 9:16）。
+        public const float ReferenceWidth = 1080f;
+        public const float ReferenceHeight = 1920f;
+        public const float ContentScale = ReferenceWidth / DesignWidth;  // 1.44
 
         // 棋盘
         public const int BoardSize = 8;                 // 8×8

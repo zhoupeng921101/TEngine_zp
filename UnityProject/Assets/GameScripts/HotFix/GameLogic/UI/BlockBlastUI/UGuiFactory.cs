@@ -36,6 +36,8 @@ namespace GameLogic.BlockBlastUI
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(BlockLayout.DesignWidth, BlockLayout.DesignHeight);
             rt.anchoredPosition = Vector2.zero;
+            // 750 设计坐标系整体放大到 1080 参考分辨率（9:16 同比例），填满画布
+            rt.localScale = new Vector3(BlockLayout.ContentScale, BlockLayout.ContentScale, 1f);
             return rt;
         }
 
