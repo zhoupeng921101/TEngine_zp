@@ -1,0 +1,141 @@
+/* ============================================================
+   Block Blast 策划文档 - 共享样式
+   通俗、清晰、易读。所有设计文档统一引用本文件。
+   ============================================================ */
+
+:root {
+  --bg: #0f1220;
+  --bg-soft: #171b2e;
+  --card: #1d2238;
+  --card-hover: #252b48;
+  --border: #2c3354;
+  --text: #e6e9f5;
+  --text-dim: #9aa3c4;
+  --accent: #6c8cff;
+  --accent-soft: #2a3566;
+  --good: #5bd6a0;
+  --warn: #ffcf5c;
+  --bad: #ff7a8a;
+  --radius: 14px;
+  --maxw: 880px;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: linear-gradient(160deg, #0f1220 0%, #141830 100%);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+  line-height: 1.75;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 32px 24px 96px; }
+
+/* ---------- 顶部导航 / 面包屑 ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  backdrop-filter: blur(10px);
+  background: rgba(15,18,32,.82);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner {
+  max-width: var(--maxw); margin: 0 auto; padding: 12px 24px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.brand { font-weight: 700; color: var(--text); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.brand .dot { width: 12px; height: 12px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.crumbs { color: var(--text-dim); font-size: 14px; }
+.crumbs a { color: var(--text-dim); text-decoration: none; }
+.crumbs a:hover { color: var(--accent); }
+
+/* ---------- 标题 ---------- */
+h1, h2, h3 { line-height: 1.3; }
+h1 { font-size: 30px; margin: 8px 0 6px; }
+.subtitle { color: var(--text-dim); margin: 0 0 28px; font-size: 15px; }
+h2 {
+  font-size: 22px; margin: 40px 0 14px; padding-left: 12px;
+  border-left: 4px solid var(--accent);
+}
+h3 { font-size: 17px; margin: 26px 0 10px; color: #c6cdf0; }
+
+p { margin: 12px 0; }
+a { color: var(--accent); }
+
+ul, ol { padding-left: 22px; }
+li { margin: 6px 0; }
+
+code {
+  background: #0c0f1c; border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 6px;
+  font-family: "JetBrains Mono", Consolas, monospace; font-size: 13.5px;
+  color: #b8c4ff;
+}
+
+/* ---------- 卡片 / 文档目录 ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; margin: 24px 0; }
+.card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 18px 16px;
+  transition: .18s transform, .18s background, .18s border-color;
+}
+.card:hover { background: var(--card-hover); border-color: var(--accent); transform: translateY(-3px); }
+.card .tag { font-size: 12px; color: var(--accent); letter-spacing: .5px; text-transform: uppercase; }
+.card h3 { margin: 6px 0 6px; color: var(--text); }
+.card p { margin: 0; color: var(--text-dim); font-size: 14px; }
+.card.todo { opacity: .55; border-style: dashed; }
+.card.todo:hover { transform: none; border-color: var(--border); background: var(--card); }
+
+/* ---------- 提示框 ---------- */
+.callout {
+  border-radius: var(--radius); padding: 14px 16px; margin: 18px 0;
+  border: 1px solid var(--border); background: var(--bg-soft);
+}
+.callout.note { border-left: 4px solid var(--accent); }
+.callout.good { border-left: 4px solid var(--good); }
+.callout.warn { border-left: 4px solid var(--warn); }
+.callout.bad  { border-left: 4px solid var(--bad); }
+.callout b { color: var(--text); }
+
+/* ---------- 表格 ---------- */
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-weight: 600; background: var(--bg-soft); }
+tr:hover td { background: rgba(108,140,255,.06); }
+
+/* ---------- 流程步骤 ---------- */
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps li { position: relative; padding: 10px 0 10px 44px; border-bottom: 1px dashed var(--border); }
+.steps li::before {
+  counter-increment: step; content: counter(step);
+  position: absolute; left: 0; top: 10px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; border: 1px solid var(--accent);
+}
+
+/* ---------- 标签 chip ---------- */
+.chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12.5px; border: 1px solid var(--border); background: var(--bg-soft); color: var(--text-dim); }
+.chip.good { color: var(--good); border-color: var(--good); }
+.chip.bad  { color: var(--bad); border-color: var(--bad); }
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+
+/* ---------- 相关文档 ---------- */
+.related { margin-top: 56px; padding-top: 22px; border-top: 1px solid var(--border); }
+.related h2 { border: 0; padding: 0; font-size: 16px; color: var(--text-dim); margin-bottom: 12px; }
+.related-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.related-links a {
+  text-decoration: none; color: var(--text);
+  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  padding: 7px 16px; font-size: 14px; transition: .15s;
+}
+.related-links a:hover { border-color: var(--accent); color: var(--accent); }
+
+footer { margin-top: 40px; color: var(--text-dim); font-size: 13px; text-align: center; }

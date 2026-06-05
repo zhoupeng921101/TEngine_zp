@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>提案 P0：Combo 连击 &amp; 打击感 · Block Blast 策划文档</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="index.html">总览</a> / 提案 P0 · Combo &amp; 打击感</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>提案 P0：Combo 连击 &amp; 打击感</h1>
+  <p class="subtitle">设计提案 · 待评审 · 给消除补上「声、光、字、分」四件套，把已埋好的 Combo 变量真正变成爽点。</p>
+
+  <div class="callout note">
+    <b>立项信息</b>
+    <table>
+      <tr><th>优先级</th><td><span class="chip bad">P0</span> 体验地基</td></tr>
+      <tr><th>状态</th><td>待评审</td></tr>
+      <tr><th>预计工作量</th><td>约 3~5 人日（程序为主，无新美术需求，需补音频）</td></tr>
+      <tr><th>依赖</th><td>无前置；可独立于关卡模式先做</td></tr>
+      <tr><th>关联</th><td><a href="01-gameplay-overview.html">玩法总览</a>（Combo 现状）· <a href="03-reference-gap-roadmap.html">移植路线图</a>（P0 来源）</td></tr>
+    </table>
+  </div>
+
+  <h2>一、背景与问题</h2>
+  <ul>
+    <li><b>当前完全没有打击反馈</b>：落子、消除都是瞬间替换色块，无动画、无音效、无浮分。手感「干」，是留存硬伤。</li>
+    <li><b>Combo 变量空转</b>：<code>BlockGameState.Combo</code> 已在累加（连续消除 +1、断了清零），但<b>既不显示、也不计分</b>，是一个埋好却没接线的钩子。</li>
+    <li><b>资源大部分现成</b>：消除粒子 <code>block_diamonds</code>、发光 <code>glow_blue</code>、浮分数字 <code>digits_white/yellow</code> 图集 Unity 已有。<b>唯一缺口是音频</b>（5 个音效 + BGM 尚未导入工程）。</li>
+    <li><b>有成熟参考可抄</b>：Web 参考工程 <code>Game.ts</code> 已完整实现这套反馈（消除动画 + 粒子 + 浮分 + COMBO/PERFECT 弹字 + 音效钩子），逻辑可直接平移。</li>
+  </ul>
+
+  <h2>二、设计目标</h2>
+  <div class="callout good">
+    每一次落子有回应、每一次消除有爆发、连续消除有累积的兴奋感。目标是让玩家「为了再听一次那个清脆的连消音而继续玩」。
+  </div>
+
+  <h2>三、功能拆解</h2>
+
+  <h3>① 落子反馈（轻）</h3>
+  <table>
+    <tr><th>触发</th><th>表现</th><th>资源</th></tr>
+    <tr><td>合法落子</td><td>方块落定时轻微缩放回弹（1.1→1.0，120ms）+ 落子音 <code>sfx_place</code></td><td>音效待补</td></tr>
+    <tr><td>非法落子</td><td>回弹动画（已有）+ 低沉错误音（可选）</td><td>音效待补</td></tr>
+  </table>
+
+  <h3>② 消除反馈（重 · 核心爽点）</h3>
+  <table>
+    <tr><th>层</th><th>表现</th><th>资源</th><th>现成</th></tr>
+    <tr><td>消除动画</td><td>被消格 放大 1.4× + 淡出（280ms，Sine.Out）后销毁</td><td>纯 tween</td><td><span class="chip good">✓</span></td></tr>
+    <tr><td>粒子爆破</td><td>每个消除格中心炸 diamond 碎片</td><td><code>block_diamonds</code></td><td><span class="chip good">✓</span></td></tr>
+    <tr><td>浮动加分</td><td>棋盘中央升起 <code>+N</code> 金色数字（上浮 60px + 淡出，750ms）</td><td><code>digits_yellow</code></td><td><span class="chip good">✓</span></td></tr>
+    <tr><td>消除音</td><td><code>sfx_clear</code>，音量随连击/行数微升（脆度递进）</td><td>音效待补</td><td><span class="chip bad">✗</span></td></tr>
+  </table>
+
+  <h3>③ Combo 连击系统</h3>
+  <table>
+    <tr><th>触发条件</th><th>表现</th></tr>
+    <tr><td><code>Combo ≥ 2</code>（连续两次落子都触发消除）</td><td>屏幕中央弹大字 <code>COMBO ×N</code>（粉色，缩放弹入 0.3→1，约 420ms）</td></tr>
+    <tr><td>消除后<b>棋盘清空</b></td><td>弹 <code>PERFECT!</code>（金色），盖过 COMBO，最高规格庆祝</td></tr>
+    <tr><td>本次落子未消除</td><td><code>Combo</code> 清零（已有逻辑）</td></tr>
+  </table>
+
+  <h3>④ 背景音乐</h3>
+  <p>主玩法循环播放 BGM <code>bgm_main</code>，音量默认 0.3；提供静音开关（P0 可只做后台静音逻辑，UI 开关并入后续体验优化）。</p>
+
+  <h2>四、数值设计：Combo 是否进计分？（新设计决策）</h2>
+  <div class="callout warn">
+    <b>注意：原版与 Web 参考都<u>没有</u>把 Combo 计入得分公式</b>，combo 仅用于表现。这里提出一个<b>可选增强</b>，需决策是否采用。
+  </div>
+  <p>当前消除得分公式（落子另算每格 +1）：</p>
+  <p style="text-align:center;font-size:17px"><code>消除分 = 消除格数 × 10 + 行列数² × 30</code></p>
+
+  <h3>方案 A：保持原样（combo 仅表现）</h3>
+  <p>最稳，零数值风险，纯粹靠声光字提升手感。<b>推荐作为首版。</b></p>
+
+  <h3>方案 B：Combo 计入倍率（可选增强）</h3>
+  <p>给消除分乘一个随连击递增的倍率，奖励「连续运营」而非「一次大消」：</p>
+  <p style="text-align:center;font-size:17px"><code>消除分 = (消除格数 × 10 + 行列数² × 30) × comboMul</code></p>
+  <table>
+    <tr><th>Combo</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5+</th></tr>
+    <tr><td><b>comboMul</b></td><td>1.0</td><td>1.2</td><td>1.4</td><td>1.6</td><td>2.0（封顶）</td></tr>
+  </table>
+  <div class="callout note">
+    倍率温和封顶（2.0），避免高分通胀失控。这套倍率<b>建议外置到配置表</b>，方便调。若采用 B，需重新评估 <a href="02-dynamic-difficulty.html">动态难度</a> 的分数门槛（1000/15000 等）是否要同步上调，因为得分速度会变快。
+  </div>
+
+  <h2>五、资源依赖</h2>
+  <table>
+    <tr><th>资源</th><th>用途</th><th>状态</th></tr>
+    <tr><td><code>block_diamonds</code> 图集</td><td>消除粒子</td><td><span class="chip good">现成</span></td></tr>
+    <tr><td><code>glow_blue</code> 图集</td><td>消除/落子辉光</td><td><span class="chip good">现成</span></td></tr>
+    <tr><td><code>digits_white / digits_yellow</code></td><td>浮动加分数字</td><td><span class="chip good">现成</span></td></tr>
+    <tr><td><code>sfx_place / sfx_clear / sfx_over</code> 等 5 音效</td><td>落子/消除/结束音</td><td><span class="chip bad">缺，需从原版提取或重新配</span></td></tr>
+    <tr><td><code>bgm_main</code></td><td>背景音乐</td><td><span class="chip bad">缺</span></td></tr>
+    <tr><td>COMBO / PERFECT 字样</td><td>连击弹字</td><td><span class="chip warn">可用文字+描边代生成（参考工程即如此），无需美术</span></td></tr>
+  </table>
+
+  <h2>六、验收标准</h2>
+  <ul>
+    <li>落子有缩放回弹 + 音效；非法落子有回弹。</li>
+    <li>消除时：被消格有放大淡出动画 + 粒子 + 浮动 <code>+N</code> + 消除音。</li>
+    <li>连续消除 ≥2 次弹 <code>COMBO ×N</code>；消空棋盘弹 <code>PERFECT!</code>。</li>
+    <li>BGM 循环播放，可后台静音。</li>
+    <li>（若采用方案 B）连击倍率正确进分，倍率值可配。</li>
+  </ul>
+
+  <h2>七、工作量与风险</h2>
+  <table>
+    <tr><th>事项</th><th>估时</th><th>风险</th></tr>
+    <tr><td>消除动画 + 粒子 + 浮分</td><td>1.5 人日</td><td>低（图集现成、tween 简单）</td></tr>
+    <tr><td>Combo / PERFECT 弹字</td><td>0.5 人日</td><td>低</td></tr>
+    <tr><td>音效 / BGM 接入</td><td>1 人日</td><td><b>中——音频资源需先拿到</b></td></tr>
+    <tr><td>（可选）Combo 倍率 + 配置</td><td>1 人日</td><td>中（牵动数值平衡）</td></tr>
+  </table>
+  <div class="callout warn"><b>最大阻塞：音频资源</b>。若一时拿不到，可先做「无声版」打击感（动画+粒子+浮分+弹字）上线，音效作为快速跟进项。</div>
+
+  <div class="related">
+    <h2>相关文档</h2>
+    <div class="related-links">
+      <a href="index.html">← 返回总览</a>
+      <a href="01-gameplay-overview.html">玩法总览</a>
+      <a href="03-reference-gap-roadmap.html">移植路线图</a>
+      <a href="05-proposal-adventure.html">提案 P1 · Adventure 关卡</a>
+    </div>
+  </div>
+
+  <footer>Block Blast · TEngine 项目策划文档 · 提案 P0 · 由策划维护</footer>
+</div>
+
+</body>
+</html>

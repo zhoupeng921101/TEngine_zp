@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原版功能差距 & 移植路线图 · Block Blast 策划文档</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="index.html">总览</a> / 原版功能差距 &amp; 移植路线图</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>原版功能差距 &amp; 移植路线图</h1>
+  <p class="subtitle">现状盘点 · 把「原版完整设计」「Web 参考工程」「Unity 当前版本」三方对齐，列清楚缺什么、数据现不现成、该先做哪个。</p>
+
+  <div class="callout note">
+    <b>三个项目的关系：</b>
+    <ul>
+      <li><b>原版</b>：<code>com.block.juggle v7.7.6</code>（Cocos 手游，已逆向）—— 设计的「完全体」。</li>
+      <li><b>Web 参考工程</b>：<code>template-vite-ts-zp</code>（Phaser4 + TS）—— 按原版逆向复刻，<b>含关卡数据 / 收集玩法 / 星级等完整结构</b>，但特效与关卡推进逻辑自己也还没写完。</li>
+      <li><b>Unity 当前版本</b>：本项目（TEngine）—— 从 Web 参考<b>移植了「Classic 无尽」这一个切片</b>，核心玩法 + 动态难度已完整可玩。</li>
+    </ul>
+    一句话：<b>Unity = 原版的 Classic 切片</b>；原版的关卡 / 收集 / 特效体系，Unity 这边都还没有。
+  </div>
+
+  <h2>一、保真度核对（已移植部分）</h2>
+  <p>Unity 与 Web 参考的核心数值<b>逐项交叉验证一致</b>，移植质量可信：</p>
+  <table>
+    <tr><th>项</th><th>Web 参考</th><th>Unity</th><th>结论</th></tr>
+    <tr><td>调权因子 factorList（8 种）</td><td>gameconfig.json</td><td>GameConfigBB.cs</td><td><span class="chip good">完全一致</span></td></tr>
+    <tr><td>算法采样次数</td><td>FILL80…死亡320</td><td>同</td><td><span class="chip good">完全一致</span></td></tr>
+    <tr><td>新手首发</td><td>[9, 39, 24]</td><td>[9, 39, 24]</td><td><span class="chip good">一致</span></td></tr>
+    <tr><td>COMMON 形状池</td><td>39 个</td><td>39 个</td><td><span class="chip good">一致</span></td></tr>
+    <tr><td>早期屏蔽列表</td><td>12 个 id / &lt;10000 分</td><td>同</td><td><span class="chip good">一致</span></td></tr>
+    <tr><td>权重表 weightcfg</td><td>weightcfg.json</td><td>136 行 .bytes</td><td><span class="chip good">已转 Luban</span></td></tr>
+  </table>
+  <p style="color:var(--text-dim);font-size:13px">详见 → <a href="02-dynamic-difficulty.html">动态难度拆解</a>。下面重点是<b>没移植</b>的部分。</p>
+
+  <h2>二、功能差距总表</h2>
+  <p>图例：<span class="chip good">有</span> 已实现 ·
+     <span class="chip warn">半</span> 部分/数据现成 ·
+     <span class="chip bad">无</span> 缺失 ·
+     <span class="chip">蓝图</span> 仅有设计/结构，无成品代码</p>
+  <table>
+    <tr><th>功能</th><th>原版</th><th>Web 参考</th><th>Unity</th><th>数据现成度</th></tr>
+    <tr><td><b>Classic 无尽模式</b></td><td><span class="chip good">有</span></td><td><span class="chip good">有</span></td><td><span class="chip good">有</span></td><td>—</td></tr>
+    <tr><td>动态难度 DDA</td><td><span class="chip good">有</span></td><td><span class="chip good">有</span></td><td><span class="chip good">有</span></td><td>权重表已转 Luban</td></tr>
+    <tr><td><b>Adventure 关卡模式</b></td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td><b>360 + 2000 关 JSON 现成</b></td></tr>
+    <tr><td>关卡：预置障碍棋盘 Map[64]</td><td><span class="chip good">有</span></td><td><span class="chip warn">解析有</span></td><td><span class="chip bad">无</span></td><td>每关 Map 数据现成</td></tr>
+    <tr><td>过关条件：冲分 score_to_win</td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td>360 关中 246 关</td></tr>
+    <tr><td><b>收集玩法 collect</b></td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td>360 关中 114 关</td></tr>
+    <tr><td>星级评定（1/2/3 星）</td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td>ratios [1.0,1.5,2.0]</td></tr>
+    <tr><td>关卡级难度覆盖 weightMin/Max</td><td><span class="chip good">有</span></td><td><span class="chip warn">字段有</span></td><td><span class="chip bad">无</span></td><td>每关字段现成</td></tr>
+    <tr><td><b>Combo 连击表现</b></td><td><span class="chip good">有</span></td><td><span class="chip bad">无</span></td><td><span class="chip warn">仅计数</span></td><td>Unity 已埋计数变量</td></tr>
+    <tr><td>特效：消除动画/粒子/浮分</td><td><span class="chip good">有</span></td><td><span class="chip bad">无</span></td><td><span class="chip bad">无</span></td><td>图集资源待确认</td></tr>
+    <tr><td>音效 / BGM</td><td><span class="chip good">有</span></td><td><span class="chip warn">已接入</span></td><td><span class="chip bad">无</span></td><td>5 音效文件</td></tr>
+    <tr><td>PVP 对战</td><td><span class="chip good">有</span></td><td><span class="chip bad">无</span></td><td><span class="chip bad">无</span></td><td>仅菜单入口</td></tr>
+    <tr><td>运行时调参面板</td><td><span class="chip good">有</span></td><td><span class="chip good">有</span></td><td><span class="chip bad">砍掉</span></td><td>Unity 改静态配置</td></tr>
+  </table>
+
+  <h2>三、重点缺口拆解</h2>
+
+  <h3>① Adventure 关卡模式（数据最现成，价值最大）</h3>
+  <p>关卡数据已是成品 JSON（<code>default360.json</code> / <code>default2000.json</code>），结构清晰，Unity 只需做「读表 + 过关逻辑 + UI」：</p>
+  <table>
+    <tr><th>字段</th><th>含义</th></tr>
+    <tr><td><code>Map[64]</code></td><td>8×8 初始棋盘：0=空，1-7=预置障碍方块（带色）。让每关有独特开局形状</td></tr>
+    <tr><td><code>levelTarget</code> / <code>Condition.RequiredScore</code></td><td>过关目标分</td></tr>
+    <tr><td><code>Condition.Name</code></td><td><code>score_to_win</code>（冲分）/ <code>collect</code>（收集）</td></tr>
+    <tr><td><code>RequiredCollections[]</code></td><td>收集要求：<code>Key=9999</code> 表示分数，其余表示元素类型 + 数量</td></tr>
+    <tr><td><code>weightMin</code> / <code>weightMax</code></td><td>本关 dynamicWeight 锁定区间 —— 逐关定制难度的钩子</td></tr>
+  </table>
+  <div class="callout good"><b>设计杠杆：</b> <code>weightMin/Max</code> 让关卡模式能<b>复用 Classic 的橡皮筋系统</b>做关卡级难度控制——同一套 DDA，关卡里把橡皮筋的活动范围一锁，就能精确编排「这关偏放水 / 那关偏做局」。不用另写难度系统。</div>
+
+  <h3>② Combo 连击：补上从「计数」到「爽点」的最后一环</h3>
+  <p>Unity 已有 <code>Combo</code> 计数变量但没用途（见 <a href="01-gameplay-overview.html">玩法总览</a>）。原版设计里它驱动两件事：</p>
+  <ul>
+    <li><b>表现</b>：连击弹字 <code>text_combo</code> / 满屏 <code>text_perfect</code> + 浮动加分</li>
+    <li><b>（可选）计分</b>：连击倍率进得分公式 —— 目前 Unity 和 Web 参考都<b>没</b>把 combo 计入分数，是一个可选的数值增强点</li>
+  </ul>
+  <div class="callout note">这是<b>性价比最高的小改</b>：变量已在，只差表现层 + 一行倍率公式，就能显著提升消除手感。</div>
+
+  <h3>③ 特效 / 音效：原版与参考都欠的账</h3>
+  <p>消除动画、粒子、浮分、BGM——<b>连 Web 参考自己都是 🔴 未做</b>（它的 Phase 6 全部待办）。所以这块对 Unity 是「从零做」，没有现成逻辑可抄，只能参考原版手感。</p>
+
+  <h2>四、移植优先级建议</h2>
+  <p>按「价值 ÷ 成本」排序（成本受「数据/逻辑现成度」影响很大）：</p>
+  <table>
+    <tr><th>优先级</th><th>事项</th><th>理由</th><th>成本</th></tr>
+    <tr><td><span class="chip bad">P0</span></td><td>Combo 连击表现 + 浮分</td><td>变量已埋，立竿见影提手感，改动最小</td><td>低</td></tr>
+    <tr><td><span class="chip bad">P0</span></td><td>消除动画 + 音效</td><td>当前无任何打击反馈，是体验硬伤</td><td>中</td></tr>
+    <tr><td><span class="chip warn">P1</span></td><td>Adventure 关卡（先做 score_to_win）</td><td>360/2000 关数据现成，复用 DDA + weightMin/Max</td><td>中</td></tr>
+    <tr><td><span class="chip warn">P1</span></td><td>星级结算 + GameOver/通关界面</td><td>关卡模式的闭环，ratios 现成</td><td>中</td></tr>
+    <tr><td><span class="chip">P2</span></td><td>收集玩法 collect</td><td>需新增元素生成/收集计数系统，再加 114 关</td><td>高</td></tr>
+    <tr><td><span class="chip">P3</span></td><td>PVP 对战</td><td>原版仅入口，无现成逻辑，工程量大</td><td>很高</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <b>建议路线：</b> 先用 P0 把 Classic 的「打击感」补齐（这是留存的地基），再上 P1 的关卡模式打开内容量。收集 / PVP 放后面，等核心体验立住。
+  </div>
+
+  <div class="related">
+    <h2>相关文档</h2>
+    <div class="related-links">
+      <a href="index.html">← 返回总览</a>
+      <a href="01-gameplay-overview.html">玩法总览</a>
+      <a href="02-dynamic-difficulty.html">动态难度拆解</a>
+    </div>
+  </div>
+
+  <footer>Block Blast · TEngine 项目策划文档 · 对比自 template-vite-ts-zp（Phaser 参考工程）· 由策划维护</footer>
+</div>
+
+</body>
+</html>

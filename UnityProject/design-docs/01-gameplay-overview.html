@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>玩法总览 · Block Blast 策划文档</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="index.html">总览</a> / 玩法总览</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>玩法总览</h1>
+  <p class="subtitle">现状分析 · 一句话：8×8 拖放消除无尽模式，得分靠「憋大招多行列同消」，真正的核心是一套<b>会偷偷调整发牌难易的动态难度系统</b>，让你总觉得「就差一点」。</p>
+
+  <div class="callout note">
+    <b>本文档基于代码现状整理</b>，对应模块：<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。目前仅 <b>Classic（无尽）模式</b>，无关卡 / 冒险 / 收集。
+  </div>
+
+  <h2>一、核心玩法循环</h2>
+  <p>经典 <b>8×8 棋盘 + 三块拖放消除</b>（同类：Block Blast / 1010!）。每回合流程：</p>
+  <ol class="steps">
+    <li>手上有 <b>3 个候选方块</b>（<code>OperaArr[3]</code>）。</li>
+    <li>拖拽方块到棋盘空位落子，落点合法才放得下；拖动时有 <b>ghost 预览</b>（<span class="chip good">绿色可放</span> / <span class="chip bad">红色不可放</span>）。</li>
+    <li>落子后检测<b>整行 / 整列填满 → 消除</b>。</li>
+    <li>三块全部用完 → <b>补满下一组 3 块</b>。</li>
+    <li>剩余手牌<b>无任何合法落点 → Game Over</b>。</li>
+  </ol>
+  <p>三窗口流转：主菜单 <code>MainMenuWindow</code> → 游戏 <code>GameWindow</code> → 结算 <code>GameOverWindow</code>。</p>
+
+  <h2>二、得分规则</h2>
+  <table>
+    <tr><th>行为</th><th>得分公式</th><th>说明</th></tr>
+    <tr><td>落子</td><td><code>每格 +1</code></td><td>方块占几格加几分</td></tr>
+    <tr><td>消除</td><td><code>消除格数 × 10 + 行列数² × 30</code></td><td>同时消越多行列，奖励呈<b>平方级</b>暴涨</td></tr>
+  </table>
+  <p>消除收益示例（平方奖励鼓励「憋大招」）：</p>
+  <table>
+    <tr><th>同时消除</th><th>行列数²×30</th><th>体感</th></tr>
+    <tr><td>1 行/列</td><td>+30</td><td>常规</td></tr>
+    <tr><td>2 行/列</td><td>+120</td><td>值得等</td></tr>
+    <tr><td>3 行/列</td><td>+270</td><td>大爽点</td></tr>
+  </table>
+  <div class="callout warn">
+    <b>注意（潜在设计点）：</b> 代码里有 <b>Combo 连击</b>计数（连续落子都有消除则 +1，断了清零），<b>但 Combo 目前没有进入任何得分公式</b>——是一个已埋好但未启用的爽点钩子。
+  </div>
+
+  <h2>三、方块库</h2>
+  <ul>
+    <li>共 <b>71 种形状</b>定义，实际抽取池为 <b>39 种 COMMON</b>。</li>
+    <li>新手<b>首发固定</b> <code>[9, 39, 24]</code>（2×2 方块、L 形、大 L），保证开局好上手。</li>
+    <li><b>早期屏蔽</b>：分数 &lt; 10000 时，剔除特别难放的大形状（<code>EarlyGameBlockedIds</code>），降低前期挫败。</li>
+  </ul>
+
+  <h2>四、最大特色：动态难度调度</h2>
+  <p>这是本作区别于普通方块消除的<b>灵魂</b>——发牌<b>不是纯随机，而是根据玩家表现「做局」</b>（一套橡皮筋式动态难度 DDA）。分数段决定调度策略：</p>
+  <table>
+    <tr><th>分数段</th><th>调度行为</th></tr>
+    <tr><td>&lt; 1000</td><td>纯随机无死亡，保证开局不卡</td></tr>
+    <tr><td>1000 ~ 15000</td><td><b>清屏窗口</b>：系统用贪心算法主动喂「能清空棋盘」的方块，引导清盘；清空后冷却 1~2 回合走普通调度，再开窗口（张弛节奏）</td></tr>
+    <tr><td>≥ 1000 激活</td><td><b>动态权重</b>：8 种算法按权重抽取发牌</td></tr>
+  </table>
+
+  <h3>8 种发牌算法（从「放水」到「做死」）</h3>
+  <table>
+    <tr><th>算法</th><th>倾向</th></tr>
+    <tr><td>Fill / ClearAll / AllCombination</td><td><span class="chip good">放水</span> 好放、好消、助清盘</td></tr>
+    <tr><td>RandomNoDie / EasyDiff</td><td><span class="chip">中性偏易</span></td></tr>
+    <tr><td>Add3（熵增）/ Diff（困难）/ StraightDeathDiff（死亡难题）</td><td><span class="chip bad">做局</span> 故意给难放 / 逼死的方块</td></tr>
+  </table>
+  <p>核心变量 <code>dynamicWeight</code>：玩家放了「难」方块权重下降、放「易」方块权重上升，系统据此在不同 <b>tier（难度档）</b>间切换发牌策略，让玩家长期停在「差点死又没死」的心流区。权重配置走 Luban 表 <code>weightcfg</code>。</p>
+  <div class="callout note">这套系统是本作的灵魂，单独拆成一篇详解（含 8 种算法逐一拆解 + 真实权重数据）：→ <a href="02-dynamic-difficulty.html">动态难度拆解</a>。</div>
+
+  <h2>五、其它</h2>
+  <ul>
+    <li><b>存档</b>：棋盘 + 手牌 + 分数 + 最高分本地持久化，支持断线续玩。</li>
+    <li><b>UI</b>：纯几何 UGUI 代码绘制（无美术 prefab），有分数滚动动画。</li>
+  </ul>
+
+  <div class="related">
+    <h2>相关文档</h2>
+    <div class="related-links">
+      <a href="index.html">← 返回总览</a>
+      <a href="index.html">动态难度拆解（待补充）</a>
+    </div>
+  </div>
+
+  <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
+</div>
+
+</body>
+</html>

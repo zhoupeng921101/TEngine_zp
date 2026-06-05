@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Block Blast 策划文档 · 总览</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs">总览</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>Block Blast 策划文档库</h1>
+  <p class="subtitle">8×8 拖放方块消除 · 无尽模式 · 动态难度核心。这里收录所有玩法 / 数值 / 系统设计文档，持续更新。</p>
+
+  <div class="callout note">
+    <b>怎么用：</b> 每篇文档都可独立查看，底部有「相关文档」互相跳转。带虚线边框、变灰的卡片是<b>规划中（待补充）</b>的文档。
+  </div>
+
+  <h2>📐 现状分析</h2>
+  <div class="cards">
+    <a class="card" href="01-gameplay-overview.html">
+      <span class="tag">现状 · 核心</span>
+      <h3>玩法总览</h3>
+      <p>核心循环、得分规则、方块库、动态难度系统——当前游戏到底是怎么玩的。</p>
+    </a>
+    <a class="card" href="02-dynamic-difficulty.html">
+      <span class="tag">现状 · 数值</span>
+      <h3>动态难度拆解</h3>
+      <p>会读心的发牌系统：dynamicWeight 橡皮筋、8 种算法、136 行权重表真实数据。</p>
+    </a>
+  </div>
+
+  <h2>🔍 原版参考</h2>
+  <div class="cards">
+    <a class="card" href="03-reference-gap-roadmap.html">
+      <span class="tag">现状 · 路线图</span>
+      <h3>原版功能差距 &amp; 移植路线图</h3>
+      <p>原版 / Web 参考 / Unity 三方对齐：缺什么、数据现不现成、先做哪个（含优先级建议）。</p>
+    </a>
+  </div>
+
+  <h2>🎯 设计提案</h2>
+  <div class="cards">
+    <a class="card" href="04-proposal-combo-juice.html">
+      <span class="tag">提案 · P0 · 体验</span>
+      <h3>Combo 连击 &amp; 打击感</h3>
+      <p>声/光/字/分四件套，激活空转的 Combo 变量。含连击倍率可选数值方案。</p>
+    </a>
+    <a class="card" href="05-proposal-adventure.html">
+      <span class="tag">提案 · P1 · 玩法</span>
+      <h3>Adventure 关卡模式</h3>
+      <p>360/2000 关现成数据 + 星级 + 复用 DDA 做关卡难度。含分期实施路线。</p>
+    </a>
+  </div>
+
+  <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
+</div>
+
+</body>
+</html>
