@@ -23,3 +23,7 @@ Tools/GameEventSourceGenerator/SourceGenerator/obj
 
 #openspec
 openspec/
+UnityProject/Assets/Screenshots/
+UnityProject/Assets/AssetRaw/UIRaw/Atlas/misc/
+UnityProject/UserSettings/
+UnityProject/Assets/Screenshots.meta
