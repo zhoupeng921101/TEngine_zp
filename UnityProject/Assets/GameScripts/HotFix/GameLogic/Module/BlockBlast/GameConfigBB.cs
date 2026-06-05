@@ -12,6 +12,12 @@ namespace GameLogic.BlockBlast
         /// <summary>动态调度激活分数门槛。</summary>
         public const int ActivationScore = 1000;
 
+        /// <summary>
+        /// 是否显示「不可放置」的红色 ghost 预览。
+        /// 默认关闭：落点非法时不显示任何 ghost（仅在可放置时显示绿色预览）。
+        /// </summary>
+        public static bool ShowInvalidGhost = false;
+
         /// <summary>每种算法的调权因子（首次/换向 vs 同向连续）。</summary>
         public static readonly IReadOnlyDictionary<AlgorithmKind, WeightFactor> FactorList = new Dictionary<AlgorithmKind, WeightFactor>
         {

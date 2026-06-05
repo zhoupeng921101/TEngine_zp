@@ -350,6 +350,10 @@ namespace GameLogic.BlockBlastUI
 
             bool canPlace = col >= 0 && row >= 0 && col + shape.Width <= N && row + shape.Height <= N
                 && _board.CanPutBlock(_draggingShapeId, new Vec2Int(col, row));
+
+            // 不可放置的红色 ghost 受开关控制，默认关闭 → 落点非法时不显示任何预览
+            if (!canPlace && !GameConfigBB.ShowInvalidGhost) return;
+
             var color = canPlace ? BlockLayout.GhostOkColor : BlockLayout.GhostBadColor;
 
             for (int r = 0; r < shape.Height; r++)
