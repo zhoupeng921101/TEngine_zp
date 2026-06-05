@@ -2,7 +2,7 @@
 name: "wiki-query-agent"
 description: "Use this agent ONLY when explicitly instructed by a skill (e.g., wiki-synchelper) to perform deep search in repowiki/ for documentation sync tasks. Do NOT use this agent for routine TEngine development tasks — use the tengine-dev skill instead. This agent is NOT a general-purpose TEngine reference tool."
 tools: Glob, Grep, Read, WebSearch
-model: sonnet
+model: opus
 color: blue
 memory: project
 ---
