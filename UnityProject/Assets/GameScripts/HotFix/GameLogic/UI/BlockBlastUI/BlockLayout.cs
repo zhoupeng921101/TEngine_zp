@@ -37,6 +37,11 @@ namespace GameLogic.BlockBlastUI
         // 拖拽
         public static float DragScale => CellSize / SlotCell;   // 拖起放大倍数 ≈1.79
         public const float DragFingerOffsetY = 184f;            // 方块在手指上方（110*1.667）
+        public const float DragGain = 1.2f;                     // 方块位移 = 触控位移 × 1.2
+
+        // 候选槽命中区（整块区域可点选，不必点到方块本身）。3 个槽水平平铺。
+        public const float SlotZoneWidth = SlotSpacing - 10f;   // ≈207
+        public const float SlotZoneHeight = 250f;
 
         // 颜色
         public static readonly Color BoardOuterColor = new Color32(0x2a, 0x2a, 0x55, 0xFF);

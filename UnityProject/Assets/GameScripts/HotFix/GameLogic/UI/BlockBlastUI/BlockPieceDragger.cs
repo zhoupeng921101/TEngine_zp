@@ -6,17 +6,17 @@ namespace GameLogic.BlockBlastUI
 {
     /// <summary>
     /// 候选方块拖拽器（运行时 AddComponent 到槽容器上）。
-    /// 自身只负责"跟手 + 放大 + 回调"，落点判定/落子逻辑全部回调给 GameWindow。
-    /// HybridCLR 下热更 MonoBehaviour 通过 AddComponent 动态挂载，不进 prefab 序列化。
+    /// 交互：按下即放大并"拾起"（无需先拖动）；移动按 1.2× 增益跟手 + 拇指上方 offset；
+    /// 抬手（含未拖动的点击）统一回调 OnEnd 由 GameWindow 做落子/回弹判定。
+    /// 命中区为整个槽区域（GameWindow 把容器尺寸设为槽区域大小），点区域任意处即选中。
     /// </summary>
     public sealed class BlockPieceDragger : MonoBehaviour,
-        IBeginDragHandler, IDragHandler, IEndDragHandler
+        IPointerDownHandler, IDragHandler, IPointerUpHandler
     {
         public int SlotIndex;
 
-        /// <summary>拖拽回调（由 GameWindow 注入）。坐标为 UIRoot 本地坐标。</summary>
         public Action<int> OnBegin;
-        public Action<int, Vector2> OnDragMove; // (slotIndex, 当前指针对应的方块中心本地坐标)
+        public Action<int, Vector2> OnDragMove;
         public Action<int> OnEnd;
 
         private RectTransform _rt;
@@ -24,6 +24,9 @@ namespace GameLogic.BlockBlastUI
         private Canvas _canvas;
         private Vector2 _originAnchored;
         private Vector3 _originScale;
+
+        private Vector2 _pointerStart;  // 按下时指针的本地坐标
+        private Vector2 _pieceBase;     // 拾起基准（指针 + 上方 offset）
 
         private void Awake()
         {
@@ -39,34 +42,48 @@ namespace GameLogic.BlockBlastUI
             _originScale = _rt.localScale;
         }
 
-        public void OnBeginDrag(PointerEventData e)
+        private Camera EventCam =>
+            _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay ? _canvas.worldCamera : null;
+
+        private bool ToLocal(Vector2 screen, out Vector2 local)
+        {
+            if (_parentRt == null) { local = default; return false; }
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(_parentRt, screen, EventCam, out local);
+        }
+
+        public void OnPointerDown(PointerEventData e)
         {
             RecordOrigin();
+            // 按下立即放大 + 提层（不依赖拖动阈值）
             _rt.localScale = _originScale * BlockLayout.DragScale;
             _rt.SetAsLastSibling();
             OnBegin?.Invoke(SlotIndex);
-        }
 
-        public void OnDrag(PointerEventData e)
-        {
-            if (_parentRt == null) return;
-            var cam = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
-                ? _canvas.worldCamera : null;
-            // 把屏幕点转到父容器本地坐标，方块中心 = 指针上方 offset
-            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_parentRt, e.position, cam, out var local))
+            if (ToLocal(e.position, out var local))
             {
-                local.y += BlockLayout.DragFingerOffsetY;
-                _rt.anchoredPosition = local;
+                _pointerStart = local;
+                _pieceBase = local + Vector2.up * BlockLayout.DragFingerOffsetY;
+                _rt.anchoredPosition = _pieceBase;
                 OnDragMove?.Invoke(SlotIndex, _rt.anchoredPosition);
             }
         }
 
-        public void OnEndDrag(PointerEventData e)
+        public void OnDrag(PointerEventData e)
+        {
+            if (ToLocal(e.position, out var local))
+            {
+                // 位移按 1.2× 增益放大
+                _rt.anchoredPosition = _pieceBase + (local - _pointerStart) * BlockLayout.DragGain;
+                OnDragMove?.Invoke(SlotIndex, _rt.anchoredPosition);
+            }
+        }
+
+        public void OnPointerUp(PointerEventData e)
         {
             OnEnd?.Invoke(SlotIndex);
         }
 
-        /// <summary>非法落子时回弹到原位（恢复缩放）。</summary>
+        /// <summary>非法落子 / 点击未拖动时回弹到原位（恢复缩放）。</summary>
         public void ResetToOrigin()
         {
             _rt.anchoredPosition = _originAnchored;

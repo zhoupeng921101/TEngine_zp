@@ -192,9 +192,11 @@ namespace GameLogic.BlockBlastUI
                 var container = UGuiFactory.CreateNode(_slotLayer, $"slot_{i}");
                 float totalW = shape.Width * BlockLayout.SlotCell;
                 float totalH = shape.Height * BlockLayout.SlotCell;
-                UGuiFactory.PlaceByDesignCenter(container, slotDx, BlockLayout.SlotY, Mathf.Max(totalW, 110), Mathf.Max(totalH, 110));
+                // 容器尺寸 = 整个槽区域（点区域任意处即选中），方块格仍居中
+                UGuiFactory.PlaceByDesignCenter(container, slotDx, BlockLayout.SlotY,
+                    BlockLayout.SlotZoneWidth, BlockLayout.SlotZoneHeight);
 
-                // 透明 hit 区（拖拽 raycast 目标）
+                // 透明 hit 区（覆盖整个槽区域，拖拽 raycast 目标）
                 var hit = container.gameObject.AddComponent<Image>();
                 hit.color = new Color(1, 1, 1, 0);
                 hit.raycastTarget = true;
