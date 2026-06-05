@@ -35,8 +35,16 @@ public partial class GameApp
     
     private static void StartGameLogic()
     {
-        // GameEvent.Get<ILoginUI>().ShowLoginUI();
-        GameModule.UI.ShowUIAsync<BattleMainUI>();
+        // Block Blast：预热动态权重表（ConfigSystem 懒加载，失败则退化随机），打开主菜单
+        try
+        {
+            GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight();
+        }
+        catch (System.Exception e)
+        {
+            Log.Warning($"[GameApp] 权重表初始化失败，动态难度退化为随机：{e.Message}");
+        }
+        GameModule.UI.ShowUIAsync<GameLogic.BlockBlastUI.MainMenuWindow>();
     }
     
     private static void Release()
