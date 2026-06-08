@@ -32,12 +32,20 @@ namespace PSDUIImporter
         private ILayerImport layoutElemLayerImport;
         private ILayerImport tabGroupLayerImport; 
 
-        public PSDImportCtrl(string xmlFilePath)
+        /// <summary>
+        /// 直解入口：吃一个已构建好的 PSDUI（来自 PSD 直接解析，PsdDirectImporter）。
+        /// XML 导入流程已移除，这是唯一入口。
+        /// 调用方需保证：① 切图 PNG 已写入 baseDirectory 并已 AssetDatabase.Refresh；
+        /// ② baseDirectory 形如 "Assets/.../"，baseFilename 为不带后缀的根名。
+        /// </summary>
+        public PSDImportCtrl(PSDUI psdUI, string baseDirectory, string baseFilename)
         {
-            InitDataAndPath(xmlFilePath);
+            this.psdUI = psdUI;
+            PSDImportUtility.baseFilename = baseFilename;
+            PSDImportUtility.baseDirectory = baseDirectory;
             InitCanvas();
-            LoadLayers();
-            MoveLayers();
+            LoadLayers();   // 复用：对已落盘的 PNG 设置 TextureImporter（Sprite/图集tag/九宫格border）
+            MoveLayers();   // 复用：Global 源图移动到公共图集目录（直解流程下通常 no-op）
             InitDrawers();
             PSDImportUtility.ParentDic.Clear();
         }
@@ -127,24 +135,6 @@ namespace PSDUIImporter
                 default:
                     break;
             }
-        }
-
-        private void InitDataAndPath(string xmlFilePath)
-        {
-            psdUI = (PSDUI)PSDImportUtility.DeserializeXml(xmlFilePath, typeof(PSDUI));
-            Debug.Log(psdUI.psdSize.width + "=====psdSize======" + psdUI.psdSize.height);
-            if (psdUI == null)
-            {
-                Debug.Log("The file " + xmlFilePath + " wasn't able to generate a PSDUI.");
-                return;
-            }
-#if UNITY_5_2
-            if (EditorApplication.SaveCurrentSceneIfUserWantsTo() == false) { return; }
-#elif UNITY_5_3_OR_NEWER
-            if (EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo() == false) { return; }
-#endif
-            PSDImportUtility.baseFilename = Path.GetFileNameWithoutExtension(xmlFilePath);
-            PSDImportUtility.baseDirectory = "Assets/" + Path.GetDirectoryName(xmlFilePath.Remove(0, Application.dataPath.Length + 1)) + "/";
         }
 
         private void InitCanvas()
