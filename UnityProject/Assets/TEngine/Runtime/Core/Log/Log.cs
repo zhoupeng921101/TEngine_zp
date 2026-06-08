@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using UnityEngine;
 
 namespace TEngine
 {
@@ -542,6 +543,7 @@ namespace TEngine
         [Conditional("ENABLE_INFO_LOG")]
         [Conditional("ENABLE_DEBUG_AND_ABOVE_LOG")]
         [Conditional("ENABLE_INFO_AND_ABOVE_LOG")]
+        [HideInCallstack]
         public static void Info(string message)
         {
             GameFrameworkLog.Info(message);
@@ -576,6 +578,7 @@ namespace TEngine
         [Conditional("ENABLE_INFO_LOG")]
         [Conditional("ENABLE_DEBUG_AND_ABOVE_LOG")]
         [Conditional("ENABLE_INFO_AND_ABOVE_LOG")]
+        [HideInCallstack]
         public static void Info<T1, T2>(string format, T1 arg1, T2 arg2)
         {
             GameFrameworkLog.Info(format, arg1, arg2);

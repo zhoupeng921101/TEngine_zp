@@ -1,4 +1,6 @@
-﻿namespace TEngine
+﻿using UnityEngine;
+
+namespace TEngine
 {
     /// <summary>
     /// 游戏框架日志类。
@@ -558,6 +560,7 @@
         /// 打印信息级别日志，用于记录程序正常运行日志信息。
         /// </summary>
         /// <param name="message">日志内容。</param>
+        [HideInCallstack]
         public static void Info(string message)
         {
             if (s_LogHelper == null)

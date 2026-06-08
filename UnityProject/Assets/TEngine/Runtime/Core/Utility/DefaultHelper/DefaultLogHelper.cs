@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Callbacks;
@@ -36,6 +37,7 @@ namespace TEngine
         /// <param name="level">游戏框架日志等级。</param>
         /// <param name="message">日志信息。</param>
         /// <exception cref="GameFrameworkException">游戏框架异常类。</exception>
+        [HideInCallstack]
         public void Log(GameFrameworkLogLevel level, object message)
         {
             switch (level)
@@ -124,6 +126,7 @@ namespace TEngine
             return _stringBuilder;
         }
 
+        [HideInCallstack]
         private static void LogImp(ELogLevel type, string logString)
         {
             if (type < FILTER_LEVEL)
