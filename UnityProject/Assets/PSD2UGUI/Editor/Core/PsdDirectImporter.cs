@@ -103,23 +103,30 @@ namespace PSDUIImporter
         }
 
         //====================================================================
+        // 图层名 = 标注来源（CEP 在 PS 端把 @ 标签写进图层名）。无标注则为原始图层名。
+        //====================================================================
+        private string EffName(IPsdLayer layer)
+        {
+            return layer == null ? "" : (layer.Name ?? "");
+        }
+
+        //====================================================================
         // 调度：对应 jsx 的 exportLayer / exportLayerSet / exportArtLayer
         //====================================================================
 
         private Layer ExportLayer(IPsdLayer l)
         {
             if (l == null) return null;
-            if (l.Name != null && l.Name.IndexOf("@NoExport", StringComparison.Ordinal) >= 0) return null;
+            if (EffName(l) != null && EffName(l).IndexOf("@NoExport", StringComparison.Ordinal) >= 0) return null;
 
             bool isGroup = l.Childs != null && l.Childs.Length > 0;
-            if (isGroup)
-                return ExportLayerSet(l);
-            return ExportArtLayer(l);
+            Layer result = isGroup ? ExportLayerSet(l) : ExportArtLayer(l);
+            return result;
         }
 
         private Layer ExportLayerSet(IPsdLayer g)
         {
-            string name = g.Name ?? "";
+            string name = EffName(g) ?? "";
 
             // @PNG / @JPG：整组合成为单张图
             if (Has(name, "@PNG") || Has(name, "@JPG"))
@@ -145,7 +152,7 @@ namespace PSDUIImporter
 
         private Layer ExportArtLayer(IPsdLayer l)
         {
-            string name = l.Name ?? "";
+            string name = EffName(l) ?? "";
             if (Has(name, "@Size") || Has(name, "@NoExport")) return null;
 
             Layer layer = new Layer { name = MakeValidName(name), type = LayerType.Normal };
@@ -186,7 +193,7 @@ namespace PSDUIImporter
         // Button / Toggle / InputField / TabGroup：子层为各自的 art 子图
         private Layer BuildChildrenLayer(IPsdLayer g, LayerType type)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = type };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = type };
             layer.layers = ExportChildren(g);
             return layer;
         }
@@ -194,14 +201,14 @@ namespace PSDUIImporter
         // Panel：image = 名字含 background 的子图；layers = 其余子层
         private Layer BuildPanel(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.Panel };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.Panel };
             List<Layer> others = new List<Layer>();
             foreach (IPsdLayer c in g.Childs)
             {
-                if (c.Name != null && c.Name.ToLower().Contains("background") && IsImageLayer(c))
+                if (EffName(c) != null && EffName(c).ToLower().Contains("background") && IsImageLayer(c))
                 {
-                    PSImage img = new PSImage { name = MakeValidName(c.Name) };
-                    BuildImage(c, img, c.Name);
+                    PSImage img = new PSImage { name = MakeValidName(EffName(c)) };
+                    BuildImage(c, img, EffName(c));
                     layer.image = img;
                 }
                 else
@@ -210,14 +217,20 @@ namespace PSDUIImporter
                     if (cl != null) others.Add(cl);
                 }
             }
-            if (layer.image == null) layer.image = new PSImage { name = layer.name, imageType = ImageType.Image, imageSource = ImageSource.Custom };
+            // 无 background 子层时的兜底：必须带 size/position，否则 SpriteImport 取 image.size 会 NRE
+            if (layer.image == null)
+            {
+                PSImage fb = new PSImage { name = layer.name, imageType = ImageType.Image, imageSource = ImageSource.Custom };
+                SetGeom(fb, g);
+                layer.image = fb;
+            }
             layer.layers = others.ToArray();
             return layer;
         }
 
         private Layer BuildLayoutElement(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.LayoutElement };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.LayoutElement };
             SetLayerGeom(layer, SizeRef(g));
             layer.layers = ExportChildren(g);
             return layer;
@@ -226,11 +239,11 @@ namespace PSDUIImporter
         // Grid: arguments = [rows, cols, cellW, cellH, gapX, gapY]
         private Layer BuildGrid(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.Grid };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.Grid };
             IPsdLayer sizeRef = SizeRef(g);
             SetLayerGeom(layer, sizeRef);
 
-            string[] ps = (g.Name ?? "").Split(':');
+            string[] ps = (EffName(g) ?? "").Split(':');
             int rows = ParseInt(ps, 1, 1);
             int cols = ParseInt(ps, 2, 1);
 
@@ -254,11 +267,11 @@ namespace PSDUIImporter
         // ScrollView: arguments = [dir(H/V), spacing, leftPad, topPad]
         private Layer BuildScrollView(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.ScrollView };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.ScrollView };
             IPsdLayer sizeRef = SizeRef(g);
             SetLayerGeom(layer, sizeRef);
 
-            string[] ps = (g.Name ?? "").Split(':');
+            string[] ps = (EffName(g) ?? "").Split(':');
             string dir = ps.Length > 1 ? ps[1] : "V";
 
             List<IPsdLayer> content = ContentChildren(g);
@@ -291,9 +304,9 @@ namespace PSDUIImporter
         // Group(LayoutGroup): arguments = [dir(V/H), span]
         private Layer BuildLayoutGroup(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.Group };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.Group };
             SetLayerGeom(layer, SizeRef(g));
-            string[] ps = (g.Name ?? "").Split(':');
+            string[] ps = (EffName(g) ?? "").Split(':');
             string dir = ps.Length > 1 ? ps[1] : "V";
             string span = ps.Length > 2 ? ps[2] : "0";
             layer.arguments = new[] { dir, span };
@@ -304,9 +317,9 @@ namespace PSDUIImporter
         // Slider: arguments = [dir]; 子层 _bg/_fill/_handle
         private Layer BuildSlider(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.Slider };
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.Slider };
             SetLayerGeom(layer, SizeRef(g));
-            string[] ps = (g.Name ?? "").Split(':');
+            string[] ps = (EffName(g) ?? "").Split(':');
             layer.arguments = new[] { ps.Length > 1 ? ps[1] : "L" };
             layer.layers = ExportChildren(g, skipSize: true);
             return layer;
@@ -315,15 +328,15 @@ namespace PSDUIImporter
         // ScrollBar: arguments = [dir, percent]; Unity 端只读单个 layer.image
         private Layer BuildScrollBar(IPsdLayer g)
         {
-            Layer layer = new Layer { name = StripTag(g.Name), type = LayerType.ScrollBar };
-            string[] ps = (g.Name ?? "").Split(':');
+            Layer layer = new Layer { name = StripTag(EffName(g)), type = LayerType.ScrollBar };
+            string[] ps = (EffName(g) ?? "").Split(':');
             layer.arguments = new[] { ps.Length > 1 ? ps[1] : "B", ps.Length > 2 ? ps[2] : "0.2" };
             foreach (IPsdLayer c in g.Childs)
             {
                 if (!IsImageLayer(c)) continue;
-                PSImage img = new PSImage { name = MakeValidName(c.Name) };
-                BuildImage(c, img, c.Name);
-                if (c.Name != null && c.Name.ToLower().Contains("background")) { layer.image = img; break; }
+                PSImage img = new PSImage { name = MakeValidName(EffName(c)) };
+                BuildImage(c, img, EffName(c));
+                if (EffName(c) != null && EffName(c).ToLower().Contains("background")) { layer.image = img; break; }
                 if (layer.image == null) layer.image = img;
             }
             return layer;
@@ -332,12 +345,12 @@ namespace PSDUIImporter
         // @PNG/@JPG 组 → 合成单张图（Normal 层 + image）
         private Layer ExportGroupAsImage(IPsdLayer g)
         {
-            Layer layer = new Layer { name = MakeValidName(g.Name), type = LayerType.Normal };
+            Layer layer = new Layer { name = MakeValidName(EffName(g)), type = LayerType.Normal };
             PSImage img = new PSImage
             {
                 name = layer.name,
                 imageType = ImageType.Image,
-                imageSource = SourceOf(g.Name),
+                imageSource = SourceOf(EffName(g)),
                 opacity = g.Opacity * 100f
             };
             SetGeom(img, g);
@@ -511,7 +524,7 @@ namespace PSDUIImporter
             List<Layer> list = new List<Layer>();
             foreach (IPsdLayer c in g.Childs)
             {
-                if (skipSize && c.Name != null && c.Name.IndexOf("@Size", StringComparison.Ordinal) >= 0) continue;
+                if (skipSize && EffName(c) != null && EffName(c).IndexOf("@Size", StringComparison.Ordinal) >= 0) continue;
                 Layer l = ExportLayer(c);
                 if (l != null) list.Add(l);
             }
@@ -522,7 +535,7 @@ namespace PSDUIImporter
         private IPsdLayer SizeRef(IPsdLayer g)
         {
             foreach (IPsdLayer c in g.Childs)
-                if (c.Name != null && c.Name.IndexOf("@Size", StringComparison.Ordinal) >= 0)
+                if (EffName(c) != null && EffName(c).IndexOf("@Size", StringComparison.Ordinal) >= 0)
                     return c;
             return g;
         }
@@ -530,7 +543,7 @@ namespace PSDUIImporter
         private IPsdLayer FirstContentChild(IPsdLayer g)
         {
             foreach (IPsdLayer c in g.Childs)
-                if (c.Name == null || c.Name.IndexOf("@Size", StringComparison.Ordinal) < 0)
+                if (EffName(c) == null || EffName(c).IndexOf("@Size", StringComparison.Ordinal) < 0)
                     return c;
             return null;
         }
@@ -539,7 +552,7 @@ namespace PSDUIImporter
         {
             List<IPsdLayer> list = new List<IPsdLayer>();
             foreach (IPsdLayer c in g.Childs)
-                if (c.Name == null || c.Name.IndexOf("@Size", StringComparison.Ordinal) < 0)
+                if (EffName(c) == null || EffName(c).IndexOf("@Size", StringComparison.Ordinal) < 0)
                     list.Add(c);
             return list;
         }
@@ -674,7 +687,7 @@ namespace PSDUIImporter
             }
             catch (Exception e)
             {
-                Debug.LogWarning("文本样式提取失败(已用兜底): " + (l.Name ?? "") + " : " + e.Message);
+                Debug.LogWarning("文本样式提取失败(已用兜底): " + (EffName(l) ?? "") + " : " + e.Message);
             }
             return ts;
         }
