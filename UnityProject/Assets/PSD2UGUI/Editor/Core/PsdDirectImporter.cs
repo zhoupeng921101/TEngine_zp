@@ -28,7 +28,7 @@ namespace PSDUIImporter
     /// </summary>
     public class PsdDirectImporter
     {
-        [MenuItem("QuickTool/PSD Direct Import ...", false, 2)]
+        [MenuItem("Tools/PSD2UGUI/PSD Direct Import ...", false, 2)]
         public static void ImportPsdDirect()
         {
             string psdPath = EditorUtility.OpenFilePanel("选择要导入的 PSD", Application.dataPath, "psd");

@@ -13,7 +13,7 @@ namespace PSDUIImporter
     /// </summary>
     public class ComponentizeWindow : EditorWindow
     {
-        [MenuItem("QuickTool/PSD2UGUI 组件化")]
+        [MenuItem("Tools/PSD2UGUI/组件化")]
         public static void Open()
         {
             GetWindow<ComponentizeWindow>("PSD2UGUI 组件化").minSize = new Vector2(280, 300);
