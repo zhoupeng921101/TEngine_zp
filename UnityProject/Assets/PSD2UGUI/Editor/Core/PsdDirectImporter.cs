@@ -54,6 +54,7 @@ namespace PSDUIImporter
         private int canvasW, canvasH;
         private int uuid = 1;
         private readonly Dictionary<string, byte[]> pendingPng = new Dictionary<string, byte[]>(); // 绝对路径 -> bytes
+        private readonly Dictionary<string, string> renderedKeyToName = new Dictionary<string, string>(); // 内容hash|type|args -> 已生成图名（去重：重复拷贝图只生成1张）
         private readonly List<ShadowInfo> shadowTargets = new List<ShadowInfo>(); // 需要补 Shadow 的对象 + 精确参数
 
         private struct ShadowInfo
@@ -114,9 +115,17 @@ namespace PSDUIImporter
         // 调度：对应 jsx 的 exportLayer / exportLayerSet / exportArtLayer
         //====================================================================
 
+        // 隐藏层（PSD 关了眼睛）不导入；隐藏组在此返回 null → 整个子树跳过
+        private static bool IsHidden(IPsdLayer l)
+        {
+            Ntreev.Library.Psd.PsdLayer pl = l as Ntreev.Library.Psd.PsdLayer;
+            return pl != null && !pl.IsVisible;
+        }
+
         private Layer ExportLayer(IPsdLayer l)
         {
             if (l == null) return null;
+            if (IsHidden(l)) return null;
             if (EffName(l) != null && EffName(l).IndexOf("@NoExport", StringComparison.Ordinal) >= 0) return null;
 
             bool isGroup = l.Childs != null && l.Childs.Length > 0;
@@ -394,16 +403,39 @@ namespace PSDUIImporter
             List<string> args = new List<string> { ts.colorHex, ts.font, ts.size.ToString(), ts.text };
             if (!string.IsNullOrEmpty(ts.justification)) args.Add(ts.justification);
             img.arguments = args.ToArray();
+            if (!string.IsNullOrEmpty(ts.outlineHex) && ts.outlineWidth > 0f)
+                img.outline = ts.outlineHex + "|" + ts.outlineWidth.ToString("0.##", CultureInfo.InvariantCulture);
             // Label 不切图（TextImport 用字体渲染）
         }
 
-        // 渲染图层像素 → PNG bytes，排队写入（Global 源不渲染，引用既有公共图集）
+        // 渲染图层像素 → PNG bytes，排队写入（Global 源不渲染，引用既有公共图集）。
+        // 去重：同像素内容 + 同切图类型/9宫格参数 的层只生成 1 张，重复层复用同名。
         private void QueueRender(PSImage img, IPsdLayer l)
         {
             if (img.imageSource == ImageSource.Global) return;
             byte[] png = RenderLayerPng(l);
-            if (png != null)
-                pendingPng[Path.Combine(Application.dataPath, baseFilename, img.name + ".png")] = png;
+            if (png == null) return;
+
+            string key = ContentKey(png, img);
+            string existing;
+            if (renderedKeyToName.TryGetValue(key, out existing))
+            {
+                img.name = existing; // 命中重复：指向已生成的那张，不再写新文件
+                return;
+            }
+            renderedKeyToName[key] = img.name;
+            pendingPng[Path.Combine(Application.dataPath, baseFilename, img.name + ".png")] = png;
+        }
+
+        // 去重键 = PNG 内容 MD5 + 切图类型 + 参数（9宫格 border 不同则不共享）
+        private static string ContentKey(byte[] png, PSImage img)
+        {
+            using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+            {
+                string hex = System.BitConverter.ToString(md5.ComputeHash(png)).Replace("-", "");
+                string args = (img.arguments != null) ? string.Join(",", img.arguments) : "";
+                return hex + "|" + (int)img.imageType + "|" + args;
+            }
         }
 
         private static byte[] RenderLayerPng(IImageSource src)
@@ -453,6 +485,7 @@ namespace PSDUIImporter
             // 自底向上（Ntreev Childs 已是底→顶）
             foreach (IPsdLayer c in node.Childs)
             {
+                if (IsHidden(c)) continue;   // @PNG 合成同样跳过隐藏子层
                 if (c.Childs != null && c.Childs.Length > 0)
                 {
                     CompositeInto(c, ox, oy, W, H, canvas);
@@ -632,11 +665,13 @@ namespace PSDUIImporter
             public string font;
             public int size;
             public string justification;
+            public string outlineHex;   // 描边颜色 RRGGBB；null=无描边
+            public float outlineWidth;  // 描边粗细(px)
         }
 
         private TextStyle ExtractTextStyle(IPsdLayer l)
         {
-            TextStyle ts = new TextStyle { text = "", colorHex = "FFFFFF", font = "Arial", size = 24, justification = null };
+            TextStyle ts = new TextStyle { text = "", colorHex = "FFFFFF", font = "Arial", size = 24, justification = null, outlineHex = null, outlineWidth = 0f };
             try
             {
                 IProperties tysh = l.Resources["TySh"] as IProperties;
@@ -684,6 +719,10 @@ namespace PSDUIImporter
                     if (pprops != null && pprops.Contains("Justification"))
                         ts.justification = "Justification." + JustName(Convert.ToInt32(pprops["Justification"]));
                 }
+
+                // 描边：lfx2.FrFX → 颜色 + 粗细(px)，喂给 TextImport 加 Outline
+                string oh; float ow;
+                if (TryExtractStroke(l, scaleY, out oh, out ow)) { ts.outlineHex = oh; ts.outlineWidth = ow; }
             }
             catch (Exception e)
             {
@@ -809,6 +848,37 @@ namespace PSDUIImporter
                 return true;
             }
             catch { return false; }
+        }
+
+        // 从 lfx2.FrFX(描边/Stroke) 读颜色 + 粗细 → 喂 TextImport 加 UGUI Outline。
+        // PS: Clr(Rd/Grn/Bl 0..255) / Sz(px)。enab=false 跳过。粗细按文本缩放同步。
+        private bool TryExtractStroke(IPsdLayer l, double scale, out string hex, out float width)
+        {
+            hex = null; width = 0f;
+            try
+            {
+                if (l.Resources == null || !l.Resources.Contains("lfx2")) return false;
+                IProperties fx = l.Resources["lfx2"] as IProperties;
+                IProperties fr = fx != null && fx.Contains("FrFX") ? fx["FrFX"] as IProperties : null;
+                if (fr == null) return false;
+                if (fr.Contains("enab") && !Convert.ToBoolean(fr["enab"])) return false;
+
+                double sz = UnitVal(fr, "Sz");
+                if (sz <= 0) return false;
+
+                int r = 255, g = 255, b = 255;
+                IProperties clr = fr.Contains("Clr") ? fr["Clr"] as IProperties : null;
+                if (clr != null)
+                {
+                    r = Mathf.Clamp((int)Math.Round(ToD(clr, "Rd")), 0, 255);
+                    g = Mathf.Clamp((int)Math.Round(ToD(clr, "Grn")), 0, 255);
+                    b = Mathf.Clamp((int)Math.Round(ToD(clr, "Bl")), 0, 255);
+                }
+                hex = r.ToString("X2") + g.ToString("X2") + b.ToString("X2");
+                width = (float)Math.Max(1.0, sz * (scale <= 0 ? 1.0 : scale));
+                return true;
+            }
+            catch { hex = null; width = 0f; return false; }
         }
 
         // 读 StructureUnitFloat 的 Value

@@ -91,26 +91,28 @@ namespace PSDUIImporter
                 myText.alignment = TextAnchor.MiddleLeft;
             }
 
-            // OutLine
+            // OutLine（描边）：image.outline = "RRGGBB|粗细px"
             if (!string.IsNullOrEmpty(image.outline))
             {
-                Debug.LogError(image.outline);
-
                 var _temp = image.outline.Split('|');
-
-                // 第一位颜色
-                Color effectColor;
 
                 Outline _outline = ownObj.AddMissingComponent<Outline>();
 
-                if (UnityEngine.ColorUtility.TryParseHtmlString(("#" + _temp[0]), out effectColor))
+                // 第一位：颜色
+                Color effectColor;
+                if (_temp.Length > 0 && UnityEngine.ColorUtility.TryParseHtmlString("#" + _temp[0], out effectColor))
                 {
                     _outline.effectColor = effectColor;
                 }
-                // 第二位
 
-                // 第三位
-
+                // 第二位：粗细(px) → effectDistance（UGUI Outline 四向偏移近似）
+                float w;
+                if (_temp.Length > 1 &&
+                    float.TryParse(_temp[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out w) &&
+                    w > 0f)
+                {
+                    _outline.effectDistance = new Vector2(w, w);
+                }
             }
 
             rectTransform.sizeDelta = new Vector2(image.size.width, image.size.height);
