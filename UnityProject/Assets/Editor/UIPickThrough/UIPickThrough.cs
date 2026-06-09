@@ -18,6 +18,7 @@ namespace EditorTools.UIPickThrough
         const string MenuPath = "Tools/UI Pick-Through 穿透选择";
         const string PrefKey = "EditorTools.UIPickThrough.Enabled";
         const float SamePointThreshold = 4f; // 判定“同一位置再点”的像素阈值
+        const double DrillResetTimeout = 2.0; // 连点间隔超过此秒数则重置钻取，从最上层重新开始
 
         static bool s_enabled;
 
@@ -25,6 +26,7 @@ namespace EditorTools.UIPickThrough
         static Vector2 s_lastMouse;
         static int s_lastIndex = -1;
         static GameObject s_lastPicked;
+        static double s_lastPickTime; // 上次穿透选择的时间（EditorApplication.timeSinceStartup）
 
         // 点击/拖拽判定
         static bool s_armed;        // 已按下、尚未判定为拖拽
@@ -38,7 +40,8 @@ namespace EditorTools.UIPickThrough
         struct Hit
         {
             public Graphic graphic;
-            public long order; // 绘制顺序排序键，越大越靠上
+            public long order;   // 绘制顺序排序键，越大越靠上
+            public bool picture; // 是否为有内容的图片（带 sprite/texture），优先于空容器节点
         }
 
         static UIPickThrough()
@@ -87,20 +90,20 @@ namespace EditorTools.UIPickThrough
                     break;
 
                 case EventType.MouseDrag:
-                    // 位移超过阈值，或有工具抢走了 hotControl —— 视为拖拽，放弃这次点击
-                    if (s_armed &&
-                        ((e.mousePosition - s_downPos).sqrMagnitude > DragSlop * DragSlop
-                         || GUIUtility.hotControl != 0))
-                    {
+                    // 只用位移区分：真正拖动（超过阈值）才放弃这次点击，让工具去拖。
+                    // 不再看 hotControl —— 工具会在 MouseDown 抢占 hotControl，
+                    // 若据此放弃，会导致选中后同位置连点全被吞、无法钻取。
+                    if (s_armed && (e.mousePosition - s_downPos).sqrMagnitude > DragSlop * DragSlop)
                         s_armed = false;
-                    }
                     break;
 
                 case EventType.MouseUp:
-                    // 纯点击（没拖动、也没有工具占用 hotControl）才执行穿透选择
-                    if (e.button == 0 && s_armed && GUIUtility.hotControl == 0 &&
+                    // 纯点击（没拖动）就执行穿透选择，哪怕点在选中物的手柄/可拖区域上。
+                    // 强制清 hotControl，避免吞掉工具的占用导致后续卡死；再 Use 抑制原生点选。
+                    if (e.button == 0 && s_armed &&
                         (e.mousePosition - s_downPos).sqrMagnitude <= DragSlop * DragSlop)
                     {
+                        GUIUtility.hotControl = 0;
                         Pick(e);
                         e.Use();
                     }
@@ -126,16 +129,24 @@ namespace EditorTools.UIPickThrough
                 return;
             }
 
-            // 绘制顺序降序：index 0 = 最上层
-            s_hits.Sort((a, b) => b.order.CompareTo(a.order));
+            // 排序：图片优先（空节点排后），同档内按绘制顺序降序（上层在前）。
+            // 这样 index 0 = 最上层的图片；点不到图片时才轮到空节点。
+            s_hits.Sort((a, b) =>
+            {
+                if (a.picture != b.picture) return a.picture ? -1 : 1;
+                return b.order.CompareTo(a.order);
+            });
 
+            // 连点钻取需同时满足：位置相近 且 距上次点击不超过超时阈值
+            double now = EditorApplication.timeSinceStartup;
             bool samePoint =
                 (e.mousePosition - s_lastMouse).sqrMagnitude <= SamePointThreshold * SamePointThreshold;
-            int lastListIndex = samePoint ? IndexOf(s_lastPicked) : -1;
+            bool inTime = (now - s_lastPickTime) <= DrillResetTimeout;
+            int lastListIndex = (samePoint && inTime) ? IndexOf(s_lastPicked) : -1;
 
-            int pick = (samePoint && lastListIndex >= 0)
+            int pick = (lastListIndex >= 0)
                 ? (lastListIndex + 1) % s_hits.Count // 往下钻，循环回顶
-                : 0;                                  // 最上层
+                : 0;                                  // 最上层（新位置或已超时重置）
 
             GameObject go = s_hits[pick].graphic.gameObject;
             Selection.activeGameObject = go;
@@ -143,6 +154,7 @@ namespace EditorTools.UIPickThrough
             s_lastPicked = go;
             s_lastIndex = pick;
             s_lastMouse = e.mousePosition;
+            s_lastPickTime = now;
         }
 
         static int IndexOf(GameObject go)
@@ -173,9 +185,13 @@ namespace EditorTools.UIPickThrough
                 g.rectTransform.GetWorldCorners(s_corners);
                 if (!RayHitQuad(ray, s_corners)) continue;
 
-                s_hits.Add(new Hit { graphic = g, order = DrawOrder(g, c) });
+                s_hits.Add(new Hit { graphic = g, order = DrawOrder(g, c), picture = IsPicture(g) });
             }
         }
+
+        // 用 Graphic 基类的 raycastTarget 判断：可命中的才算“图片”，
+        // raycastTarget=false 的（如容器/背景空节点）排后，点不到图片时才轮到。
+        static bool IsPicture(Graphic g) => g.raycastTarget;
 
         // 绘制顺序键：高位 Canvas sortingOrder，低位 Graphic.depth（canvas 重建后的批次顺序）
         static long DrawOrder(Graphic g, Canvas c)
