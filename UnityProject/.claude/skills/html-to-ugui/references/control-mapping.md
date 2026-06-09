@@ -73,9 +73,13 @@ Dropdown (Image + TMP_Dropdown)
 
 ## 文本组件选择
 
-Unity 烘焙器支持两种文本组件，在 Baker 窗口中切换：
-- **TMP 模式**（默认）：使用 `TextMeshProUGUI`，推荐
-- **Legacy 模式**：使用 `UnityEngine.UI.Text`，勾选"使用旧版 Text"
+Unity 6（本工程 6000.4）已移除内置 legacy 字体（`Arial.ttf` 抛错、`LegacyRuntime.ttf` 取不到），legacy `Text` 会因无字体而隐形。因此 Baker **统一使用 TMP**：
+
+- `text` / `button` / `input` / `dropdown` 的文本均为 `TextMeshProUGUI`，字体取 `TMP_Settings.defaultFontAsset`（LiberationSans SDF）。
+- `toggle` 用内置 `DefaultControls` 生成结构后，Label 自动从 legacy `Text` 替换为 TMP，避免隐形。
+- `slider` / `scroll` 无可见文本，沿用内置 `DefaultControls`。
+
+> 实现见 `Assets/Editor/HtmlToUGUI/HtmlToUGUIBaker.cs`，对外入口 `HtmlToUGUIBaker.Bake(json, parentRect)` 可供自动化调用。
 
 ## RectTransform 定位规则
 
