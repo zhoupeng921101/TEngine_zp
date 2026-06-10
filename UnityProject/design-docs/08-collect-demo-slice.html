@@ -23,7 +23,7 @@
     <b>立项信息</b>
     <table>
       <tr><th>类型</th><td><span class="chip">垂直切片 / Demo</span> 机制验证，非正式关卡内容</td></tr>
-      <tr><th>状态</th><td>设计完成 · 待开发</td></tr>
+      <tr><th>状态</th><td>已落地 · Demo 可跑（<code>CollectDemo</code> / <code>CollectDemoWindow</code> / <code>CollectWinWindow</code>，含 Classic 回归测试）</td></tr>
       <tr><th>方向约束</th><td>离线还原 · 去变现（不含体力 / 道具购买 / 广告复活）</td></tr>
       <tr><th>挂接对象</th><td><a href="07-blockblast-code-architecture.html">现有 BlockBlast Classic 切片</a>（棋盘 / 算法 / 形状 / 持久化）</td></tr>
       <tr><th>关联</th><td><a href="03-reference-gap-roadmap.html">移植路线图</a>（collect 来源）· <a href="05-proposal-adventure.html">Adventure 关卡</a>（收集关的完整形态）</td></tr>
@@ -73,7 +73,7 @@
     <tr>
       <td><b>A. 障碍格预置</b></td>
       <td><code>Game.ts → seedCollectionElements()</code>：关卡开局把 <code>Map[64]</code> 的预置障碍格洗牌，按每类型 <code>min(剩余, max(2, floor(target×0.6)))</code> 个，在障碍格上播种元素。</td>
-      <td><span class="chip warn">可选</span> 切片默认空棋盘、无 Map 障碍，故此来源默认不用；如需「一进场就有收集物」可选做少量初始预置（见 §3.3）。</td>
+      <td><span class="chip warn">可选</span> 切片默认空棋盘、无 Map 障碍，故此来源默认不用；如需「一进场就有收集物」可选做少量初始预置兜底。</td>
     </tr>
     <tr>
       <td><b>B. 候选块携带</b></td>
@@ -89,12 +89,12 @@
     <tr><td>消除计数</td><td><code>Game.ts</code>（消除流程）：消行/列时遍历被清格，若 <code>elementArr[r][c]</code> 有元素 → <code>collected[elem]++</code>，并清空该格 overlay；随后 <code>refreshCollectCounters()</code> 刷新顶部 UI + 元素飞向计数器动画。</td></tr>
     <tr><td>达标判定</td><td><code>GameState.isCollectionComplete()</code>：所有类型 <code>collected[t] ≥ collectionTargets[t]</code> 即达标。<code>checkLevelComplete()</code> 在收集模式下：达标 → 评星（<code>calcCollectionStars()</code> 按步数效率）→ 进结算。</td></tr>
   </table>
-  <div class="callout note"><b>原版星级（步数效率）</b>：<code>moves ≤ ceil(total×0.6)</code> → 3 星；<code>≤ total</code> → 2 星；否则 1 星（<code>total</code> = 所有目标数量之和）。<b>切片简化：达标即胜，星级评定砍掉</b>（属关卡结算范畴，见 §4 不做项）。</div>
+  <div class="callout note"><b>原版星级（步数效率）</b>：<code>moves ≤ ceil(total×0.6)</code> → 3 星；<code>≤ total</code> → 2 星；否则 1 星（<code>total</code> = 所有目标数量之和）。<b>切片简化：达标即胜，星级评定砍掉</b>（属关卡结算范畴，见 §3.2 不做项）。</div>
 
   <h2>三、Unity 切片范围</h2>
   <h3>3.1 做什么（In Scope）</h3>
   <ul>
-    <li><b>元素数据模型</b>：9 种元素枚举 + Key 映射（100–107 / 200 / 9999）+ 一份<b>静态 demo 收集目标</b>（如 ◆×10、★×8，硬编码，不接表）。</li>
+    <li><b>元素数据模型</b>：9 种元素枚举 + Key 映射（100–107 / 200 / 9999）+ 一份<b>静态 demo 收集目标</b>（如 ◆×6、★×5，硬编码，不接表）。</li>
     <li><b>元素叠加层</b>：与 <code>SaveArr</code> 平行的 <code>ElementArr[8][8]</code> + <code>Collected</code> / <code>CollectionTargets</code> 两个计数字典。</li>
     <li><b>元素生成</b>：候选块携带（复刻 buildPiece 的 ~22% 注入，只出「仍需收集」类型）。</li>
     <li><b>落子转移</b>：落子时把方块携带的元素写入棋盘 overlay。</li>
@@ -116,22 +116,13 @@
     <tr><td>变现 / 体力 / 道具 / 广告复活</td><td>项目方向：离线还原、去变现</td></tr>
   </table>
 
-  <h3>3.3 待 boss 决策的范围开关</h3>
-  <table>
-    <tr><th>决策点</th><th>选项</th><th>策划建议</th></tr>
-    <tr><td>元素来源</td><td>A 纯候选块携带 / B 也在初始棋盘预置少量元素</td><td><b>A 为主</b>。若希望「一进场就看到收集物、出镜更快」，可加 B 的轻量版（开局随机预置几个方块并贴元素）。默认只做 A。</td></tr>
-    <tr><td>窗口落地</td><td>A 新建独立 <code>CollectDemoWindow</code> / B 在现有 <code>GameWindow</code> 加 collect 分支</td><td><b>A 新建独立窗口</b>。复用渲染 / 拖拽逻辑，但不污染已跑通的 Classic 流程，回归风险最低。</td></tr>
-    <tr><td>失败兜底</td><td>无可落子且未达标 → 复用现有 GameOver / 或无失败（一直补到达标）</td><td><b>复用现有 GameOver</b>，与 Classic 一致，零额外成本。</td></tr>
-    <tr><td>元素表现</td><td>沿用 glyph / 纯色 / 等美术出图</td><td><b>先用 glyph 或纯色叠加</b>，零美术依赖，demo 阶段够用。</td></tr>
-  </table>
-
   <h2>四、核心系统设计</h2>
 
   <h3>4.1 数据模型</h3>
   <table>
     <tr><th>结构</th><th>设计</th><th>对应原版</th></tr>
     <tr><td><code>CollectElement</code>（枚举）</td><td>Diamond=100…Crown=107, Stone=200。建议直接用 Key 值作枚举值，省一层映射。</td><td><code>ElementType</code> + <code>COLLECT_KEY_MAP</code></td></tr>
-    <tr><td>Demo 目标配置</td><td>静态：<code>(◆,10),(★,8)</code> 之类。一处常量，方便改数验证。</td><td><code>RequiredCollections[]</code>（去掉 Key 9999）</td></tr>
+    <tr><td>Demo 目标配置</td><td>静态：<code>(◆,6),(★,5)</code> 之类。一处常量，方便改数验证。</td><td><code>RequiredCollections[]</code>（去掉 Key 9999）</td></tr>
     <tr><td>元素叠加层</td><td><code>ElementArr[8][8]</code>，0/None 表示无元素。</td><td><code>elementArr</code></td></tr>
     <tr><td>计数器</td><td><code>CollectionTargets&lt;CollectElement,int&gt;</code>、<code>Collected&lt;CollectElement,int&gt;</code>。</td><td><code>collectionTargets</code> / <code>collected</code></td></tr>
     <tr><td><code>CollectMode</code> 开关</td><td>布尔门控。off 时叠加层 / 生成逻辑全部短路，Classic 行为零变化。</td><td>原版 <code>isCollectionMode()</code></td></tr>
@@ -169,13 +160,10 @@
   </table>
   <div class="callout note"><b>回归红线</b>：收集相关逻辑必须由 <code>CollectMode</code> 门控；off 时 <code>BlockGameState</code> 的落子 / 消除 / 补块 / 存档行为与现状逐字节一致。Classic 模式回归测试必须通过。</div>
 
-  <h2>六、验收标准（详见交接区）</h2>
-  <p>逐条功能点 + 可核对的完成定义已写入 <code>pipeline/state/plan.md</code> 的「交接区」表格，共 9 条，供开发实现、测试核对。</p>
-
-  <h2>七、风险</h2>
+  <h2>六、风险</h2>
   <table>
     <tr><th>风险</th><th>应对</th></tr>
-    <tr><td>纯靠候选块携带，凑齐最后 1~2 个元素可能很慢（看脸）</td><td>注入概率 / 仅出仍需类型设为可调；必要时开 §3.3 的初始预置（B 来源）兜底出镜</td></tr>
+    <tr><td>纯靠候选块携带，凑齐最后 1~2 个元素可能很慢（看脸）</td><td>注入概率 / 仅出仍需类型设为可调；必要时做少量初始预置（§2.3 障碍格预置来源）兜底出镜</td></tr>
     <tr><td>元素已达标后仍出该类型，浪费手感</td><td>buildPiece 注入只从「Collected &lt; Target」集合抽（已复刻原版逻辑）</td></tr>
     <tr><td>collect 分支污染 Classic 落子 / 消除 / 存档</td><td>全部 collect 逻辑 <code>CollectMode</code> 门控 + 独立窗口；Classic 回归测试为硬验收</td></tr>
     <tr><td>元素与方块格的填充顺序错位（图标贴错格）</td><td>转移用与 <code>PlacePiece</code> 完全相同的行优先 + 位判断遍历，落子后目视核对位置</td></tr>

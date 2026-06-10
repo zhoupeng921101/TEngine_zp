@@ -26,7 +26,7 @@
       <li><b>Web 参考工程</b>：<code>template-vite-ts-zp</code>（Phaser4 + TS）—— 按原版逆向复刻，<b>含关卡数据 / 收集玩法 / 星级等完整结构</b>，但特效与关卡推进逻辑自己也还没写完。</li>
       <li><b>Unity 当前版本</b>：本项目（TEngine）—— 从 Web 参考<b>移植了「Classic 无尽」这一个切片</b>，核心玩法 + 动态难度已完整可玩。</li>
     </ul>
-    一句话：<b>Unity = 原版的 Classic 切片</b>；原版的关卡 / 收集 / 特效体系，Unity 这边都还没有。
+    一句话：<b>Unity = 原版的 Classic 切片</b>；收集玩法已落地独立 Demo 切片（<a href="08-collect-demo-slice.html">收集 Demo 切片</a>，机制验证、未接关卡），原版的关卡 / 特效体系 Unity 这边还没有。
   </div>
 
   <h2>一、保真度核对（已移植部分）</h2>
@@ -54,7 +54,7 @@
     <tr><td><b>Adventure 关卡模式</b></td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td><b>360 + 2000 关 JSON 现成</b></td></tr>
     <tr><td>关卡：预置障碍棋盘 Map[64]</td><td><span class="chip good">有</span></td><td><span class="chip warn">解析有</span></td><td><span class="chip bad">无</span></td><td>每关 Map 数据现成</td></tr>
     <tr><td>过关条件：冲分 score_to_win</td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td>360 关中 246 关</td></tr>
-    <tr><td><b>收集玩法 collect</b></td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td>360 关中 114 关</td></tr>
+    <tr><td><b>收集玩法 collect</b></td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip warn">Demo 切片</span></td><td>360 关中 114 关</td></tr>
     <tr><td>星级评定（1/2/3 星）</td><td><span class="chip good">有</span></td><td><span class="chip">蓝图</span></td><td><span class="chip bad">无</span></td><td>ratios [1.0,1.5,2.0]</td></tr>
     <tr><td>关卡级难度覆盖 weightMin/Max</td><td><span class="chip good">有</span></td><td><span class="chip warn">字段有</span></td><td><span class="chip bad">无</span></td><td>每关字段现成</td></tr>
     <tr><td><b>Combo 连击表现</b></td><td><span class="chip good">有</span></td><td><span class="chip bad">无</span></td><td><span class="chip warn">仅计数</span></td><td>Unity 已埋计数变量</td></tr>
@@ -97,7 +97,7 @@
     <tr><td><span class="chip bad">P0</span></td><td>消除动画 + 音效</td><td>当前无任何打击反馈，是体验硬伤</td><td>中</td></tr>
     <tr><td><span class="chip warn">P1</span></td><td>Adventure 关卡（先做 score_to_win）</td><td>360/2000 关数据现成，复用 DDA + weightMin/Max</td><td>中</td></tr>
     <tr><td><span class="chip warn">P1</span></td><td>星级结算 + GameOver/通关界面</td><td>关卡模式的闭环，ratios 现成</td><td>中</td></tr>
-    <tr><td><span class="chip">P2</span></td><td>收集玩法 collect</td><td>需新增元素生成/收集计数系统，再加 114 关</td><td>高</td></tr>
+    <tr><td><span class="chip">P2</span></td><td>收集玩法 collect（关卡化）</td><td>元素生成 / 收集计数 / 达标判定已由 <a href="08-collect-demo-slice.html">Demo 切片</a> 验证；剩接关卡数据 + 114 关</td><td>中</td></tr>
     <tr><td><span class="chip">P3</span></td><td>PVP 对战</td><td>原版仅入口，无现成逻辑，工程量大</td><td>很高</td></tr>
   </table>
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PSD2UGUI 组件化工具 · 设计 v2 · TEngine 文档</title>
+<title>PSD2UGUI 组件化工具 · TEngine 文档</title>
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -11,12 +11,12 @@
 <div class="topbar">
   <div class="topbar-inner">
     <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs"><a href="index.html">总览</a> / PSD2UGUI 组件化工具（设计 v1）</span>
+    <span class="crumbs"><a href="index.html">总览</a> / PSD2UGUI 组件化工具</span>
   </div>
 </div>
 
 <div class="wrap">
-  <h1>PSD2UGUI 组件化工具 · 设计 v2</h1>
+  <h1>PSD2UGUI 组件化工具</h1>
   <p class="subtitle">工具 / 管线 · 给「PSD 直解导入」生成的扁平节点，在 Unity 端一键挂上对应 UGUI 组件；spriteState / fill·handle / content 等引用在 Inspector 里连。</p>
 
   <div class="callout note">
@@ -88,17 +88,6 @@
     <li><b>报告</b>：控制台打印挂载结果。</li>
   </ul>
 
-  <h2>七、设计沿革（已落地）</h2>
-  <p>设计经历一次关键简化——从「角色指派 + 自动连线」转向<b>组件调色板 + Inspector 手连</b>。要点：</p>
-  <table>
-    <tr><th>项</th><th>结论</th></tr>
-    <tr><td>组件范围</td><td><span class="chip good">已实现</span> 控件 + 布局/滚动 + 图形一整排；TabGroup 待补一颗按钮</td></tr>
-    <tr><td>角色指派 / 自动连线</td><td><span class="chip bad">已弃</span> 原「缩略图指派 + 自动收 spriteState + 删状态节点 + 几何推断」全部取消，改 Inspector 手连</td></tr>
-    <tr><td>入口</td><td><span class="chip good">已定</span> 仅停靠窗口（不做右键）</td></tr>
-    <tr><td>命名依赖</td><td><span class="chip good">已定</span> 完全不依赖图层命名</td></tr>
-    <tr><td>状态</td><td><span class="chip good">已实现</span> 编译 0 error；Button / AddSelectable 核心运行时冒烟通过；待用户窗口实操</td></tr>
-  </table>
-
   <div class="related">
     <h2>相关文档</h2>
     <div class="related-links">
@@ -107,7 +96,7 @@
     </div>
   </div>
 
-  <footer>TEngine 项目 · 工具/管线文档 · PSD2UGUI 组件化设计 v2 · 已落地（组件调色板）</footer>
+  <footer>TEngine 项目 · 工具/管线文档 · PSD2UGUI 组件化 · 已落地（组件调色板）</footer>
 </div>
 
 </body>
