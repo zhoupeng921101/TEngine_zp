@@ -15,7 +15,7 @@ namespace EditorTools.UIPickThrough
     [InitializeOnLoad]
     public static class UIPickThrough
     {
-        const string MenuPath = "Tools/UI Pick-Through 穿透选择";
+        const string MenuPath = "Configs/UI Pick-Through 穿透选择";
         const string PrefKey = "EditorTools.UIPickThrough.Enabled";
         const float SamePointThreshold = 4f; // 判定“同一位置再点”的像素阈值
         const double DrillResetTimeout = 2.0; // 连点间隔超过此秒数则重置钻取，从最上层重新开始
