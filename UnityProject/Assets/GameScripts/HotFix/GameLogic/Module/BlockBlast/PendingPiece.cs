@@ -19,6 +19,12 @@ namespace GameLogic.BlockBlast
         public bool HasAlgo;
         public AlgorithmKind Algo;
 
+        /// <summary>
+        /// 收集模式下携带的元素：按形状「填充格行优先顺序」每格一个（None=无）。
+        /// 非收集模式恒为 null（Classic 零影响）。落子时随方块格转移到 ElementArr。
+        /// </summary>
+        public CollectElement[] Elements;
+
         public PendingPiece(int shapeId, BlockColor color)
         {
             ShapeId = shapeId;

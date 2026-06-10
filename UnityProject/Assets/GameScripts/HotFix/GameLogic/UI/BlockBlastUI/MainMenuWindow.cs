@@ -39,8 +39,19 @@ namespace GameLogic.BlockBlastUI
                 GameModule.UI.ShowUIAsync<GameWindow>();
             });
 
+            // 收集 Demo 入口
+            var btnCollect = UGuiFactory.CreateButton(content, "BtnCollect", cx, 870, 470, 120, "收集 DEMO", 40,
+                new Color32(0x33, 0xaa, 0x55, 0xFF), Color.white, out _, out _);
+            UGuiFactory.CreateText(content, "CollectSub", cx, 925, 470, 40, "收集玩法切片 · 凑齐目标过关", 22,
+                new Color32(0xdd, 0xff, 0xee, 0xFF));
+            btnCollect.onClick.AddListener(() =>
+            {
+                GameModule.UI.CloseUI<MainMenuWindow>();
+                GameModule.UI.ShowUIAsync<CollectDemoWindow>();
+            });
+
             // BEST
-            UGuiFactory.CreateText(content, "Best", cx, 850, 470, 50, $"BEST  {state.HighScore}", 32,
+            UGuiFactory.CreateText(content, "Best", cx, 1010, 470, 50, $"BEST  {state.HighScore}", 32,
                 new Color32(0xaa, 0xbb, 0xdd, 0xFF));
         }
     }

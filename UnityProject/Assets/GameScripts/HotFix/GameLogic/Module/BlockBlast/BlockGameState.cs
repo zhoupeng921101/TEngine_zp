@@ -26,6 +26,22 @@ namespace GameLogic.BlockBlast
         /// <summary>连击数（连续消除 +1，未消除清零）。</summary>
         public int Combo;
 
+        // ─── 收集模式（Collect Demo 切片）─────────────────────────
+        // 红线：所有 collect 状态/逻辑由 CollectMode 门控；off 时落子/消除/补块/存档
+        //       与 Classic 现状逐字节一致（回归硬验收）。
+
+        /// <summary>收集模式开关。off 时所有 collect 分支短路，Classic 行为零变化。</summary>
+        public bool CollectMode;
+
+        /// <summary>与 SaveArr 平行的元素叠加层（None=该格无元素）。仅收集模式分配/使用。</summary>
+        public CollectElement[][] ElementArr;
+
+        /// <summary>各类型收集目标数量（活跃类型）。</summary>
+        public readonly Dictionary<CollectElement, int> CollectionTargets = new Dictionary<CollectElement, int>();
+
+        /// <summary>各类型已收集数量。</summary>
+        public readonly Dictionary<CollectElement, int> Collected = new Dictionary<CollectElement, int>();
+
         protected override void OnInit()
         {
             SaveArr = MakeEmptyBoard();
@@ -33,6 +49,20 @@ namespace GameLogic.BlockBlast
             Score = 0;
             HighScore = 0;
             Combo = 0;
+            CollectMode = false;
+            ElementArr = null;
+            CollectionTargets.Clear();
+            Collected.Clear();
+        }
+
+        private static CollectElement[][] MakeEmptyElementArr()
+        {
+            var b = new CollectElement[8][];
+            for (int r = 0; r < 8; r++)
+            {
+                b[r] = new CollectElement[8]; // 默认 None(=0)
+            }
+            return b;
         }
 
         private static int[][] MakeEmptyBoard()
@@ -80,7 +110,45 @@ namespace GameLogic.BlockBlast
         }
 
         public PendingPiece BuildPiece(int shapeId)
-            => new PendingPiece(shapeId, RandomColor());
+        {
+            var piece = new PendingPiece(shapeId, RandomColor());
+            if (CollectMode) InjectElements(piece, shapeId);
+            return piece;
+        }
+
+        /// <summary>
+        /// 收集模式：对候选块每个填充格按 InjectChance 概率注入一个「仍需收集」类型
+        /// （Collected &lt; Target 的类型集合里随机抽）。某类型已达标后不再出。
+        /// 复刻原版 buildPiece 的元素注入。
+        /// </summary>
+        private void InjectElements(PendingPiece piece, int shapeId)
+        {
+            var shape = BlockShapeMap.Get(shapeId);
+            if (shape == null) return;
+
+            // 仍需收集的类型集合（已达标的剔除，避免「凑齐了还出」）
+            var needed = new List<CollectElement>();
+            foreach (var kv in CollectionTargets)
+            {
+                int got = Collected.TryGetValue(kv.Key, out var g) ? g : 0;
+                if (got < kv.Value) needed.Add(kv.Key);
+            }
+            if (needed.Count == 0) return;
+
+            int cellCount = BlockShapeMap.GetCellCount(shapeId);
+            if (cellCount <= 0) return;
+            var elements = new CollectElement[cellCount];
+            bool any = false;
+            for (int i = 0; i < cellCount; i++)
+            {
+                if (RandomSource.NextDouble() < CollectDemo.InjectChance)
+                {
+                    elements[i] = needed[RandomSource.Index(needed.Count)];
+                    any = true;
+                }
+            }
+            if (any) piece.Elements = elements;
+        }
 
         /// <summary>3 个形状互不重复的随机 trio（池耗尽时回落到允许重复）。</summary>
         private List<PendingPiece> RandomDistinctTrio()
@@ -182,6 +250,10 @@ namespace GameLogic.BlockBlast
             var shape = BlockShapeMap.Get(piece.ShapeId);
             if (shape != null)
             {
+                // 收集模式：按相同的「填充格行优先顺序」把 piece.Elements[cellIdx] 转移到 ElementArr。
+                // off 时 transferElements=false，下面只多走一个本地计数器，SaveArr 结果逐字节不变。
+                bool transferElements = CollectMode && ElementArr != null && piece.Elements != null;
+                int cellIdx = 0;
                 for (int r = 0; r < shape.Height; r++)
                 {
                     for (int c = 0; c < shape.Width; c++)
@@ -190,6 +262,13 @@ namespace GameLogic.BlockBlast
                         if (colBit != 0)
                         {
                             SaveArr[posRow + r][posCol + c] = colorIdx;
+                            if (transferElements && cellIdx < piece.Elements.Length)
+                            {
+                                var el = piece.Elements[cellIdx];
+                                if (el != CollectElement.None)
+                                    ElementArr[posRow + r][posCol + c] = el;
+                            }
+                            cellIdx++;
                         }
                     }
                 }
@@ -226,6 +305,85 @@ namespace GameLogic.BlockBlast
                 }
             }
             return cleared;
+        }
+
+        // ─── 收集模式专用方法（全部由 CollectMode 门控）────────────
+
+        /// <summary>
+        /// 收集模式：统计被清行/列上的元素 → Collected[type]++ 并清该格 overlay。
+        /// 应在窗口拿到 CanClearRowCols 结果后、与 ClearRowsAndCols 配套调用。
+        /// 与 ClearRowsAndCols 一致：行列交叉格只计一次（行 pass 已清，列 pass 见 None 跳过）。
+        /// 返回本次收集到的元素总数。off 时返回 0、不做任何事。
+        /// </summary>
+        public int CollectClearedElements(IList<int> rows, IList<int> cols)
+        {
+            if (!CollectMode || ElementArr == null) return 0;
+            int gained = 0;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                int r = rows[i];
+                for (int c = 0; c < 8; c++) gained += CollectAt(r, c);
+            }
+            for (int i = 0; i < cols.Count; i++)
+            {
+                int c = cols[i];
+                for (int r = 0; r < 8; r++) gained += CollectAt(r, c);
+            }
+            return gained;
+        }
+
+        private int CollectAt(int r, int c)
+        {
+            var el = ElementArr[r][c];
+            if (el == CollectElement.None) return 0;
+            ElementArr[r][c] = CollectElement.None;
+            Collected[el] = (Collected.TryGetValue(el, out var g) ? g : 0) + 1;
+            return 1;
+        }
+
+        /// <summary>所有活跃类型 Collected ≥ Target 即达标。off 或无目标 → false。</summary>
+        public bool IsCollectionComplete()
+        {
+            if (!CollectMode || CollectionTargets.Count == 0) return false;
+            foreach (var kv in CollectionTargets)
+            {
+                int got = Collected.TryGetValue(kv.Key, out var g) ? g : 0;
+                if (got < kv.Value) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 重置进入收集 Demo：开启 CollectMode + 空棋盘 + 清元素层 + 清 Collected(全0)
+        /// + 按 DemoTargets 重设 Target + 补满 3 块。反复进入每次都从 0/target、空棋盘开始。
+        /// </summary>
+        public void ResetForCollectDemo(BinaryBoard board)
+        {
+            CollectMode = true;
+            SaveArr = MakeEmptyBoard();
+            ElementArr = MakeEmptyElementArr();
+            OperaArr = new PendingPiece[3];
+            Score = 0;
+            Combo = 0;
+            CollectionTargets.Clear();
+            Collected.Clear();
+            foreach (var t in CollectDemo.DemoTargets)
+            {
+                if (t.Element == CollectElement.None || t.Count <= 0) continue;
+                CollectionTargets[t.Element] = (CollectionTargets.TryGetValue(t.Element, out var v) ? v : 0) + t.Count;
+                Collected[t.Element] = 0;
+            }
+            if (board != null) board.ConvertFromArr(SaveArr);
+            RefillPieces(board);
+        }
+
+        /// <summary>退出收集 Demo：关闭门控 + 释放元素层，确保回到 Classic 行为零残留。</summary>
+        public void ExitCollectMode()
+        {
+            CollectMode = false;
+            ElementArr = null;
+            CollectionTargets.Clear();
+            Collected.Clear();
         }
 
         /// <summary>加分。</summary>

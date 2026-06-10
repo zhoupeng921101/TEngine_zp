@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlockBlast 代码架构剖析 · Block Blast 策划文档</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* 本页专用：代码块 / ASCII 架构图 / 文件树 */
+  pre.diagram {
+    background: #0c0f1c; border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; line-height: 1.5;
+    font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px;
+    color: #b8c4ff; margin: 18px 0;
+  }
+  pre.tree { color: #c6cdf0; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px;
+          border:1px solid var(--border); color:var(--text-dim); }
+  .legend { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 0; font-size:13px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="index.html">总览</a> / BlockBlast 代码架构剖析</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <h1>BlockBlast 代码架构剖析</h1>
+  <p class="subtitle">工程视角 · 看清离线还原版动态难度系统的 C# 代码是怎么分层、数据怎么流、热点在哪。数值与体感设计请看姊妹篇《<a href="02-dynamic-difficulty.html">动态难度拆解</a>》，本篇只讲<b>代码实现</b>。</p>
+
+  <div class="callout note">
+    <b>一句话定位：</b> 这套代码的核心不是「游戏逻辑」，而是一台<b>发牌操控机</b>——根据你的分数和一个隐藏「难度账户」<code>dynamicWeight</code>，在 8×8 位棋盘上做<b>蒙特卡洛搜索</b>，实时决定下一组方块是帮你消除（放水）还是逼你走投无路（做局）。整个模块<b>完全 headless</b>：除 <code>JsonUtility</code> 存档外不碰任何 Unity 运行时，可在 EditMode 直接单测。
+  </div>
+
+  <h2>一、分层结构</h2>
+  <p>目录路径：<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。命名空间 <code>GameLogic.BlockBlast.*</code>，独立 asmdef，对接 TEngine 热更。</p>
+  <pre class="diagram tree">BlockBlast/
+├── Core/                     纯棋盘数学（无随机、无难度，可单测）
+│   ├── BinaryBoard.cs            8×8 位掩码棋盘：放置 / 消除 / GameOver 判定
+│   ├── BlockShape(Map).cs        39 个白名单形状（位掩码定义）+ 难块子池
+│   ├── Vec2Int.cs / ClearResult.cs
+├── Algorithms/               难度引擎
+│   ├── BlockAlgorithms.cs        8 种发牌算法（放水 ↔ 做局光谱）+ 主分发器
+│   ├── BoardEvaluator.cs         评分器：枚举解 / 模拟消除 / 算熵
+│   ├── BoardAnalysis.cs          棋盘模式识别（近满行、最大空矩形…）
+│   ├── WeightConfigEntry.cs      tier 配置 POCO（对接 Luban 表）
+│   └── AlgorithmKind.cs
+├── DynamicWeightDiff.cs   ★  总调度器：选 tier → 抽算法 → 反馈调权
+├── OfferOverrides.cs         优先级覆盖层（开局 / 清盘特殊处理）
+├── BlockGameState.cs         对外门面：棋盘 + 手牌 + 分数 + 存档
+├── GameConfigBB.cs           调权因子 / 采样次数 / 首发牌（静态默认值）
+├── PendingPiece.cs           手牌方块（形状 + 颜色 + 算法标签）
+├── RandomSource.cs           可注入随机源（测试可固定种子）
+├── Persistence.cs            可注入存档后端（解耦 PlayerPrefs）
+├── SimpleSingleton.cs        轻量单例基类
+└── Tests/                    EditMode 单元测试</pre>
+
+  <div class="callout good">
+    分层很干净：<b>Core 不知道难度存在，Algorithms 不知道调度存在，调度器只编排不实现棋盘操作</b>。依赖方向单向向下，所以每层都能独立替换与测试。
+  </div>
+
+  <h2>二、模块职责一览</h2>
+  <table>
+    <tr><th>文件</th><th>角色</th><th>职责</th></tr>
+    <tr><td><code>BlockGameState</code></td><td>门面 / 单例</td><td>对 UI 层暴露的唯一入口：8×8 带色棋盘、3 个手牌槽、分数/连击、落子、消行、存读档。</td></tr>
+    <tr><td><code>BinaryBoard</code></td><td>核心数据结构</td><td>把棋盘压成 8 个 int 行掩码。所有放置/消除/可解性判定都是位运算。</td></tr>
+    <tr><td><code>DynamicWeightDiff</code></td><td>★ 调度大脑</td><td>维护 <code>dynamicWeight</code>，按分数+权重选 tier、抽算法、发完牌后反馈调权。</td></tr>
+    <tr><td><code>BlockAlgorithms</code></td><td>策略集合</td><td>8 种「该发什么牌」的具体手法，统一返回 3 个 shapeId。</td></tr>
+    <tr><td><code>BoardEvaluator</code></td><td>发动机</td><td>DFS 枚举一组牌的所有摆放、模拟消除、给候选打分。被所有算法复用。</td></tr>
+    <tr><td><code>OfferRegistry / IOfferOverride</code></td><td>覆盖层</td><td>在特定时机（开局、空盘）插队接管发牌，优先级高于正式调度。</td></tr>
+    <tr><td><code>GameConfigBB / WeightConfigEntry</code></td><td>配置</td><td>调权因子、采样次数、tier 表行结构。当前静态默认，预留接 Luban。</td></tr>
+    <tr><td><code>RandomSource / Persistence</code></td><td>基础设施</td><td>随机与存档抽象成可注入接口 —— 这是「可单测」的关键。</td></tr>
+  </table>
+
+  <h2>三、核心数据流</h2>
+  <p>玩家落子后若手牌用空，<code>RefillPieces</code> 触发整条调度链。下图是一次补牌的完整数据流：</p>
+  <pre class="diagram">        玩家落子 PlacePiece()
+            │
+            ▼
+  ┌────────────────────────┐   反馈    ┌────────────────────────────┐
+  │  BlockGameState（门面）  │─────────►│ DynamicWeightDiff.AddWeight  │ 难度账户
+  │  棋盘 / 手牌 / 分数 / 存档 │          │   dynamicWeight ±= factor    │ ±平滑
+  └───────────┬────────────┘          └────────────────────────────┘
+              │ 手牌空 → RefillPieces(board)
+              ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │  DynamicWeightDiff.OfferTrio(board, score)      ★ 调度核心      │
+  │   1. 清屏窗口?（score &lt; 15k） ─► BoardClearGreedy   （放水）     │
+  │   2. OfferOverrides 覆盖?      ─► 开局 Fill / 空盘 RandomNoDie   │
+  │   3. score &lt; 1000 未激活?      ─► RandomNoDie                   │
+  │   4. GetCurrentTier(weight,score) ─► PickAlgorithm(8 odds 加权) │
+  │   5. 后处理：早期屏蔽 + 三块去重                                  │
+  └───────────────────────────┬──────────────────────────────────┘
+                              │ algo
+                              ▼
+            ┌──────────────────────────────────┐
+            │ BlockAlgorithms.GenerateTrio      │  蒙特卡洛：
+            │  (Fill / Diff / StraightDeath…)   │  采样 N 次随机 trio
+            └───────────────┬──────────────────┘
+                            │ 每个候选 trio 打分
+                            ▼
+            ┌──────────────────────────────────┐
+            │ BoardEvaluator                    │
+            │  EnumerateSolutions（DFS 枚举解）  │
+            │  CountSolutions（解数 = 难度量化）  │
+            │  Simulate（模拟消除）/ Entropy（熵）│
+            └───────────────┬──────────────────┘
+                            │ 调用
+                            ▼
+            ┌──────────────────────────────────┐
+            │ BinaryBoard（位掩码）+ BoardAnalysis│
+            │  CanPutBlock / GetCanPutPoss      │
+            │  近满行 / 最大空矩形 识别           │
+            └──────────────────────────────────┘</pre>
+  <p class="legend">
+    <span class="pill">★ = 系统大脑</span>
+    <span class="pill">向下 = 调用依赖</span>
+    <span class="pill">向右虚反馈 = 难度账户更新</span>
+  </p>
+
+  <h2>四、三大支柱拆解</h2>
+
+  <h3>支柱 1 · BinaryBoard —— 位掩码棋盘</h3>
+  <p>每行用一个 int 的低 8 位表示，bit <code>(7 - col)</code> = 1 表示占用。整套棋盘操作都是位运算，极快：</p>
+  <ul>
+    <li><b>放置</b> <code>PutBlock</code>：把形状行掩码左移对齐后 <code>|=</code> 到棋盘行。</li>
+    <li><b>可放性</b> <code>CanPutBlock</code>：形状掩码与棋盘行 <code>&amp;</code> 非零即冲突。</li>
+    <li><b>满行/满列消除</b> <code>CanClearRowCols</code>：行掩码 == <code>255</code> 即满行；所有行 <code>&amp;</code> 起来取满列。</li>
+    <li><b>GameOver 判定</b> <code>CheckPutAllBlocks</code>：DFS 试所有摆放顺序，存在一种能全放下即未死。</li>
+  </ul>
+  <div class="callout note">所有「占用 / 空」都跟颜色无关。<b>颜色只活在 <code>BlockGameState.SaveArr</code> 这层带色 2D 数组里</b>，算法层完全不关心颜色——又一处干净的关注点分离。</div>
+
+  <h3>支柱 2 · BoardEvaluator —— 把「难度」变成可计算的数</h3>
+  <p>这是整套难度引擎的发动机。关键洞察：<b>一组牌的「解的数量」就是它的难度量化指标</b>。</p>
+  <ul>
+    <li><code>EnumerateSolutions</code>：DFS 枚举一组 trio 在当前盘面的所有合法摆放序列（带 limit 提前剪枝）。</li>
+    <li><code>CountSolutions</code>：只数解的个数。<b>做局算法</b>就是搜「解数趋近 1」的 trio，<b>放水算法</b>搜「能消最多 / 能清盘」的 trio。</li>
+    <li><code>Simulate</code>：模拟一条摆放序列并结算消除格数（与游戏内规则一致，避免行列交叉点重复计数）。</li>
+    <li><code>Entropy</code>：相邻格状态不同的边数 —— Add3「熵增」算法用它把盘面搞碎。</li>
+  </ul>
+
+  <h3>支柱 3 · DynamicWeightDiff —— 两级加权随机调度</h3>
+  <p>大脑的决策分两级，外加一条平滑反馈回路：</p>
+  <ol class="steps">
+    <li><b>选 tier</b>（<code>GetCurrentTier</code>）：用 <code>dynamicWeight ∈ FactorRange</code> <b>且</b> <code>score ∈ HighScoreRange</code> 命中一档；找不到精确档退化到「中点最近」的档。</li>
+    <li><b>抽算法</b>（<code>PickAlgorithmFromTier</code>）：在该 tier 的 8 个 odds 里加权随机抽一种算法。</li>
+    <li><b>反馈调权</b>（<code>AddWeight</code>）：发完牌按算法查 <code>FactorList</code> 拿增量累加回 <code>dynamicWeight</code>。<b>同向连续</b>用较小的 <code>Consecutive</code>、<b>换向</b>用较大的 <code>Basic</code> —— 防难度突变。</li>
+  </ol>
+  <div class="callout note">
+    代码里 <code>AddWeight</code> 有一段考古级注释：原版 TS 用 ±9999 sentinel 做 clamp，因 sentinel 比配置值还宽 → clamp 实际<b>失效</b>。还原版「修复」为按配置真实边界收敛。<b>这类与原版差异的标注贯穿全模块，是这套代码最值钱的部分之一。</b>
+  </div>
+
+  <h2>五、调度决策优先级（代码视角）</h2>
+  <p><code>OfferTrio</code> 是分层的「短路链」，从上往下命中即返回。每层对应一个明确的设计意图：</p>
+  <table>
+    <tr><th>优先级</th><th>触发条件</th><th>代码出口</th><th>意图</th></tr>
+    <tr><td>1 调试</td><td><code>ForceAlgorithm != null</code></td><td>指定算法</td><td>HUD 调试通道，线上不触发</td></tr>
+    <tr><td>2 清屏窗口</td><td>score &lt; 15000</td><td><code>BoardClearGreedyTrio</code></td><td><span class="chip good">放水</span> 制造「填满→清空」张弛，护早期留存</td></tr>
+    <tr><td>3 覆盖层</td><td>开局首发 / 空盘</td><td><code>OfferRegistry.Dispatch</code></td><td><span class="chip good">保护</span> 开局 Fill 给甜头、空盘不甩死局</td></tr>
+    <tr><td>4 未激活</td><td>score &lt; 1000</td><td><code>RandomNoDie</code></td><td><span class="chip">中性</span> 新手期绝不卡死</td></tr>
+    <tr><td>5 正式调度</td><td>其余</td><td>tier → algo</td><td>核心 DDA，详见《<a href="02-dynamic-difficulty.html">动态难度拆解</a>》</td></tr>
+    <tr><td>6 后处理</td><td>每次返回前</td><td>过滤 / 去重</td><td>早期屏蔽难块、三块图形去重</td></tr>
+  </table>
+  <p>覆盖层用<b>策略模式 + 注册表</b>（<code>IOfferOverride</code> 按 <code>TriggerTiming</code> 分桶、按 <code>Priority</code> 排序），新增一条特殊规则只要实现接口并注册，不动调度主干 —— 对扩展开放。</p>
+
+  <h2>六、工程亮点 &amp; 关注点</h2>
+  <div class="callout good"><b>亮点：</b>
+    <ul>
+      <li><b>完全 headless</b>：算法层零 Unity 依赖，<code>RandomSource</code>/<code>Persistence</code> 都是可注入接口，EditMode 单测可固定种子复现。</li>
+      <li><b>关注点分离彻底</b>：占用（位棋盘）↔ 颜色（带色数组）↔ 难度（调度器）三层互不渗透。</li>
+      <li><b>配置外置预留</b>：<code>WeightConfigEntry</code> 与采样次数都留了接 Luban 表的口子。</li>
+      <li><b>忠实标注与原版差异</b>，便于回溯「为什么这么写」。</li>
+    </ul>
+  </div>
+  <div class="callout warn"><b>关注点：</b>
+    <ul>
+      <li><b>CPU 热点</b>：<code>StraightDeathDiff</code> 采样 320 次、每次还要 DFS 枚举解，<b>满盘时是最重的开销</b>。目前靠 limit 剪枝兜着，量产前需测真机帧时间。</li>
+      <li><b>采样次数硬编码</b>在 <code>BlockAlgorithms.cs</code>（如死亡难题 320），建议外置配置，按机型/难度调。</li>
+      <li><b>难度手感强依赖 weightcfg 表与 FactorList</b>，目前是静态默认值，真正调校还没接表（见《<a href="02-dynamic-difficulty.html">动态难度拆解</a>》对 odds 表的分析）。</li>
+      <li><code>JsonUtility</code> 存档对 <code>int[][]</code> 不友好，已用「拍平成 64 长 int[]」绕过 —— 后续若换形状库需注意存档兼容。</li>
+    </ul>
+  </div>
+
+  <div class="related">
+    <h2>相关文档</h2>
+    <div class="related-links">
+      <a href="index.html">← 返回总览</a>
+      <a href="02-dynamic-difficulty.html">动态难度拆解（数值视角）</a>
+      <a href="01-gameplay-overview.html">玩法总览</a>
+      <a href="03-reference-gap-roadmap.html">移植路线图</a>
+    </div>
+  </div>
+
+  <footer>Block Blast · TEngine 项目策划文档 · 代码剖析自 Module/BlockBlast · 由策划维护</footer>
+</div>
+
+</body>
+</html>
