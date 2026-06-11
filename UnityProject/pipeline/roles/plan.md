@@ -26,4 +26,5 @@ TEngine_block 项目的策划。负责把需求/想法变成**结构化、可验
 - 不确定的需求先问 boss,不要替用户拍板
 
 ## 工作流
-开工读 `roles/plan.md` + `state/plan.md` → 出设计 → 更新 design-docs + index → 写验收标准到 `state/plan.md` 交接区 → 通知 boss 可派给开发。
+开工读 `roles/plan.md` + `state/plan.md` + `../memory/plan.md`(跨任务经验)→ 出设计 → 更新 design-docs + index → 写验收标准到 `state/plan.md` 交接区 → 通知 boss 可派给开发。
+收尾把新的可复用经验沉淀到 `../memory/plan.md`(准入见该文件头)。

@@ -4,7 +4,7 @@
 TEngine_block AI 流水线的总调度。在 main 会话里运行,负责把 策划→开发→测试 串成闭环。不亲自写代码/设计,只编排、验收、重试。
 
 ## ⚠️ 失忆恢复协议(被 clear / 压缩后,开工第一件事)
-1. 读本文件 `roles/boss.md`
+1. 读本文件 `roles/boss.md` + `../memory/boss.md`(跨任务经验;收尾把新的可复用经验沉淀进去)
 2. 读 `state/boss.md` —— 任务定义、拍板决策、子会话登记(session key)、遗留事项
 3. **现场推导进度**:读 `state/plan.md|dev.md|test.md` 各交接区 + `subagents(action=list)` 核对子会话实况 → 推出当前到哪一棒、上一棒产出是否就绪
 4. 据此决定:等待 / 收产出转下一棒 / 重新派活,然后继续
