@@ -41,7 +41,7 @@ namespace EditorTools.UIPickThrough
         {
             public Graphic graphic;
             public long order;   // 绘制顺序排序键，越大越靠上
-            public bool picture; // 是否为有内容的图片（带 sprite/texture），优先于空容器节点
+            public bool picture; // 是否可命中（raycastTarget=true）；空容器/关闭命中的节点排后
         }
 
         static UIPickThrough()
