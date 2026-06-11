@@ -1,41 +1,33 @@
 # 状态:Boss(编排日志)
 
-> 被 clear/压缩后,boss 开工先读 roles/boss.md + 本文件,再用 subagents(action=list) 核对子会话。
-> 任何编排动作后立刻更新本文件。
+> 只记不可推导信息:任务定义、拍板决策、spawn 登记、打回轮次、关单结论与遗留事项。
+> **不记阶段/进度**——恢复时从各 `state/*.md` 交接区 + `subagents(action=list)` 现场推导(规则见 roles/boss.md)。
 
 ## 当前任务
-复刻原版「收集玩法 collect」—— 方案 A:独立收集 demo 切片(不依赖完整关卡框架)。
-范围:元素生成 + 收集计数 + collect 达标判定 + 简单 UI,单关 demo,挂接在现有 BlockBlast Classic 切片之上。
+无(上一任务已关单,见「最近关单」)。
 
-## 当前阶段
-**第 3 棒:测试(进行中)** —— 开发已完成并经 boss 验收交接区(编译0报错+EditMode 77/77),已 spawn 测试做四类独立复验,等测试完成事件。
+## 子会话登记
+(无活跃 spawn)
 
-## 活跃子会话(clear 后靠这个接回)
-| 棒 | taskName | childSessionKey | runId | 状态 |
-|----|----------|-----------------|-------|------|
-| 策划 | plan | agent:main:subagent:89760266-3741-4c59-9021-60fd498268e6 | d404ca2e-bcd5-462a-bb11-e92a33dc3f4b | 已完成 |
-| 开发 | dev | agent:main:subagent:78903465-02f8-4e19-a268-53710a8ab610 | e13da92b-1008-42b4-bd46-703e4af84a50 | 已完成 |
-| 测试 | test | agent:main:subagent:d045faa8-fa6d-4139-92b0-e3e8187726e5 | 59d9464d-0e0d-4267-822e-c3bc8d57e006 | 进行中 |
+## 拍板决策
+(随任务开启填写;上一任务的决策已随关单归档至下方)
 
-## 用户已拍板的 §3.3 决策(2026-06-10)
-元素来源=A 纯候选块携带;窗口=A 独立 CollectDemoWindow;失败兜底=复用 GameOver;表现=glyph/纯色。详见 state/plan.md。
+## 最近关单
 
-## 流水线进度
-- [完成] 策划:`design-docs/08-collect-demo-slice.html` + 9 条验收标准(state/plan.md 交接区)
-- [完成] 用户拍板 §3.3(全取策划建议)
-- [完成] 开发:9 条验收逐条实现,CollectMode 门控,Classic 回归零变化;自检编译0报错+EditMode 77/77;交接区(改动摘要+文件清单+验证点)已就绪
-- [进行中] 测试:四类独立复验(编译/单测/Play手验/CodeReview),重点 Classic 回归红线 + CollectMode off 零副作用
+### 2026-06-11 关单:收集玩法 collect — 独立 demo 切片(方案 A)
+- **结论:PASS 交付**。策划→开发→测试三棒走完,测试四类验证全过(state/test.md,77/77 单测 + 5 张截图证据,Assets/Screenshots/collect_0*.png)。
+- 拍板记录(2026-06-10,§3.3):元素来源=A 纯候选块携带;窗口=A 独立 CollectDemoWindow;失败兜底=复用 GameOver;表现=glyph/纯色。
+- 打回轮次:0(一次通过)。
+- 本轮 spawn 登记(均已结束,留档供追溯):
+  | taskName | childSessionKey | runId |
+  |----------|-----------------|-------|
+  | plan | agent:main:subagent:89760266-3741-4c59-9021-60fd498268e6 | d404ca2e-bcd5-462a-bb11-e92a33dc3f4b |
+  | dev | agent:main:subagent:78903465-02f8-4e19-a268-53710a8ab610 | e13da92b-1008-42b4-bd46-703e4af84a50 |
+  | test | agent:main:subagent:d045faa8-fa6d-4139-92b0-e3e8187726e5 | 59d9464d-0e0d-4267-822e-c3bc8d57e006 |
 
-## 下一步
-等测试完成事件 → 读 state/test.md 总判定。
-- PASS → 回报用户(含 dev 标注的「需 Play 手验/热更出包需 HybridCLR」两条提醒)。
-- FAIL → 把 state/test.md 的可复现清单回灌 dev session(sessions_send 到 dev childSessionKey)重修。
-
-## dev 移交时标注的待办(回报用户时带上)
-1. 拖拽/glyph/计数动画/胜利面板/Classic 回归 5 项交互需 Play 手验(MCP 难模拟拖拽)。
-2. 正式出包需 HybridCLR 重生成热更 dll;无需 Luban。
-3. UX 取舍:收集失败复用 GameOver,「PLAY AGAIN」回 Classic、SCORE 显 0——如不满意需单独排期。
-
-## 待用户决策 / 风险
-- 收集玩法原本依赖关卡框架(Unity 未做),已按方案 A 切成独立 demo 规避。
-- 开发红线:CollectMode=off 时 Classic 行为必须零变化(回归硬验收,验收第 2 条)。
+## 遗留事项(未清,逐条标注归属)
+1. **[用户·人工]** Play 模式拖拽手感点验:真实拖拽落子 + ghost 落点高亮,Classic 与 Collect 两窗各一遍(MCP 无法模拟指针拖拽,其余渲染/逻辑已有截图+单测覆盖)。
+2. **[出包时]** 改动全在 GameScripts/HotFix/GameLogic,正式出包需 HybridCLR 重新生成热更 dll;无需 Luban。Editor 直跑无需额外步骤。
+3. **[待用户定夺·可不做]** UX 取舍:收集失败复用 GameOverWindow,「PLAY AGAIN」回 Classic、SCORE 显 0;如要「失败回收集」需单独排期。
+4. ~~**[待派活·与本任务无关]** EditMode 全量含 2 条 HtmlToUGUI 示例测试失败(Xxhq.Htmltougui.Editor.Tests.EditorExampleTest,NullReferenceException),属 html-to-ugui 管线遗留,建议清理。~~ **已清理(2026-06-11):** 删除整个 `Assets/HtmlToUGUI/Tests/` 目录(仅含包自带示例测试 EditorExampleTest + 叶子测试 asmdef,无人反向引用)及 `Tests.meta`。
+5. **[本条以上 1-3 用户已表态不处理]**(2026-06-11):拖拽手感点验/出包 HybridCLR/收集失败 UX 三条用户明确「不用管」,留档不再跟进。

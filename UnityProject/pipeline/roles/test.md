@@ -28,6 +28,7 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 - 对照文件清单做 diff review,重点查 `../CLAUDE.md` 编码红线:
   - 同步加载/Coroutine?模块访问方式?资源是否释放(泄漏)?热更边界是否越界?事件解耦?
 - 命名/节点前缀是否符合 naming-rules;事件是否触发 antipattern(泄漏/风暴)
+- **持久文件交叉检**:对开发改过的持久文件(含 `state/dev.md` 交接区)按 `CONVENTIONS.md`「交叉检」执行 lint + 抽查(指代词/diff 叙事/可推导副本)
 
 ## 产出(测试报告)
 写入 `state/test.md`,含:
