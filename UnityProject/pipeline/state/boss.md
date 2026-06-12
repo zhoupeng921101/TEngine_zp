@@ -15,7 +15,7 @@
 ## 最近关单
 
 ### 2026-06-11 关单:收集玩法 collect — 独立 demo 切片(方案 A)
-- **结论:PASS 交付**。策划→开发→测试三棒走完,测试四类验证全过(state/test.md,77/77 单测 + 5 张截图证据,Assets/Screenshots/collect_0*.png)。
+- **结论:PASS 交付**。策划→开发→测试三棒走完,测试四类验证全过(`archive/2026-06-11-collect-demo-slice/test.md`,77/77 单测 + 5 张截图证据,Assets/Screenshots/collect_0*.png)。
 - 拍板记录(2026-06-10,§3.3):元素来源=A 纯候选块携带;窗口=A 独立 CollectDemoWindow;失败兜底=复用 GameOver;表现=glyph/纯色。
 - 打回轮次:0(一次通过)。
 - 本轮 spawn 登记(均已结束,留档供追溯):

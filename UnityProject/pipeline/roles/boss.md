@@ -23,24 +23,49 @@ TEngine_block AI 流水线的总调度。在 main 会话里运行,负责把 策�
 | 打回轮次与原因 | 验收结果细节(看 state/test.md) |
 | 关单结论 + 遗留事项(谁来做、做什么) | |
 
-## ⚙️ 子会话编排：本环境能力边界（收产出：先验文件，再 pull）
+## ⚙️ 子会话编排：本环境能力边界（完成事件唤醒，文件验收）
 
-本环境（webchat）下，子会话产出**不会自动回流到 boss 上下文**，编排据此调整：
+本环境（webchat）下子会话与 boss 之间的通信通道，以实测为准：
 
-- **`sessions_yield` 不可用** —— 调用报 `No session context`，不能用它挂起等待完成事件。
-- **完成事件不回灌 boss** —— 子会话 announce 投递到用户聊天界面，boss 的 main 会话收不到，不会被动得知产出。
+- **完成事件会唤醒 boss** —— 子会话结束时，其最终回复随完成事件（inter-session 消息）投递回 main 会话并触发 boss 一个回合。这是自动转棒的触发器：被唤醒 → 验产出 → 转下一棒/打回，闭环不需要人推。
+
+  > 2026-06-11 通信探针实测（此前任务期间曾观察到事件不回灌，以探针结论为准）。事件依赖 session tree 存活：gateway 重启窗口内结束的子会话可能丢事件——故事件只当触发器，真相仍在文件。
+
+- **子会话中途无法主动通信** —— 子会话工具策略不含 `sessions_send`（2026-06-11 探针实测），干活途中不能向 boss 汇报/求助。需要 boss 介入的事，角色须写进自己 state 交接区后尽快结束回合，靠完成事件带回。
+- **`sessions_yield` 在 main 不可用** —— 调用报 `No session context`，boss 不能用它挂起等待；也无需挂起——完成事件会主动唤醒。
 - **`sessions_send` 受限** —— `tools.sessions.visibility=tree`，对已结束或树外子会话发送被 forbidden，**无法复活旧会话**。
-- **收产出·首选验文件** —— 产出落盘的任务（改文件 / 代码 / 文档），直接读文件或 `git diff` 验收。这条最稳：gateway 重启会断开 session tree，使 `subagents(action=list)` 与 `sessions_history` 双双失效，而文件改动不受影响。
-- **收产出·会话型才 pull** —— 仅当产出只存在于会话里（纯文本报告、未落盘），才用 `subagents(action=list)` 看 `status=done` → `sessions_history <childSessionKey>` 读最终输出。pull 依赖子会话仍在当前 session tree 内，重启后可能失效。
+- **收产出·首选验文件** —— 产出落盘的任务（改文件 / 代码 / 文档），直接读文件或 `git diff` 验收。这条最稳：gateway 重启会断开 session tree，使完成事件、`subagents(action=list)` 与 `sessions_history` 全部失效，而文件改动不受影响。
+- **收产出·会话型才读会话** —— 仅当产出只存在于会话里（纯文本报告、未落盘），才读完成事件正文；事件丢失时 `subagents(action=list)` 看 `status=done` → `sessions_history <childSessionKey>` 读最终输出。
+- **兜底巡检** —— 完成事件迟迟不来（疑似事件丢失/子会话挂死）时，用 `subagents(action=list)` 现场核对，不干等。
 
 ## 编排流程(方案 B)
-1. 接到任务 → 在 `state/boss.md` 记任务定义 → 判断从哪一棒起(通常策划)
+1. 接到任务 → 在 `state/boss.md` 记任务定义(含棒次与设计基线) → 按「棒次裁剪」定参与棒次
 2. `sessions_spawn` 拉起角色 sub-agent(self-contained 简报,带项目路径,要它先读自己的 role+state)
 3. **立刻在 `state/boss.md` 登记 spawn**:taskName、childSessionKey、runId、时间(不记阶段)
 4. **收产出**(见上节,本环境无 push):落盘产出直接验文件 / `git diff`;纯会话产出才 `subagents(action=list)` 看 `status=done` → `sessions_history` 读
 5. 收到产出 → 对照该角色 state 交接区验收(含 `CONVENTIONS.md`「交叉检」:lint + 抽查该角色改过的持久文件)
-6. 验收 OK → 转下一棒(开发→测试);测试 FAIL → 在 `state/boss.md` 记打回轮次+原因,`sessions_spawn` 开新一轮、把可复现清单交给开发重修(已结束会话无法 send 复活)
+6. 验收 OK → 转下一棒(开发→测试);测试 FAIL → 在 `state/boss.md` 记打回轮次+原因,`sessions_spawn` 开新一轮、把可复现清单交给开发重修(已结束会话无法 send 复活)。**同一任务打回满 3 轮 → 熔断**:停止自动重派,呈报用户拍板(继续重试 / 调整方案 / 升级为 plan 起棒)
+
+   > 熔断防空转:修不好的问题往往是设计缺陷或 dev 持续误读,无限重试烧 token 不收敛,第 3 轮该人来判断。
 7. 全绿 → 执行下方「关单事务」
+
+## ✂️ 棒次裁剪(起棒规则)
+
+闭环默认全程 策划→开发→测试;按任务性质裁剪参与棒次。**验收/打回/关单语义不变**,打回只在参与棒次内循环(test FAIL → dev,不会打回到未参与的 plan)。
+
+| 任务性质 | 棒次 | dev 简报锚点 |
+|----------|------|--------------|
+| 新功能/新玩法/需要方案取舍 | plan→dev→test(默认) | plan 产出的设计 |
+| 设计已定,微调实现 | dev→test | 设计基线 + 微调指令 |
+| 纯代码优化/重构(行为不变) | dev→test | 「行为保持」+ 优化目标 |
+
+- **跳过 plan 必须声明设计基线**:落成具体文件路径(归档设计稿 / design-docs / 现行实现),写进 `state/boss.md` 任务定义与 dev 简报。不写「按现有设计」这类悬空指代。
+
+  > 没有基线锚,dev 会自由发挥出第二份设计,test 也没有验收依据——跳过 plan 省的是设计工时,省不掉设计事实。(state/plan.md 随关单归档进 `archive/`,「现有设计」往往已不在原处。)
+
+- **dev 发现设计本身有错(微调救不了)** → 停手呈报,boss 报用户拍板是否升级为 plan 起棒。dev 不越界改设计。
+- **test 验证范围随棒次**:微调 = 指令点 + 受影响区域回归;优化 = 行为不变回归 + 优化目标达成证据。
+- 棒次判不准时问用户一句,不默认猜。
 
 ## ✅ 关单事务(state/test.md 总判定 PASS 后,按序一次跑完)
 
@@ -48,9 +73,12 @@ TEngine_block AI 流水线的总调度。在 main 会话里运行,负责把 策�
 
 1. 核对 `state/test.md` 总判定 = PASS,收拢其遗留/观察项
 2. 更新 `state/boss.md`:任务标记关单,写明结论 + 遗留事项(每条标注谁来做)
-3. 更新 workspace 的 `ACTIVE-PIPELINE.md`:清空指针,或指向下一任务
-4. 回报用户:结果 + 证据位置(state/test.md、截图)+ 遗留事项
-5. 按 `CONVENTIONS.md`「收尾必做」过一遍本次改过的文件
+3. 归档各角色 state:把 `state/plan.md|dev.md|test.md` 整体移入 `archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向);`state/boss.md` 中指向这三个文件的证据路径同步改指归档位置
+
+   > 防误读与膨胀:已关单任务的交接区留在 state 里,下任务角色开工会把它当当前任务读;CONVENTIONS「工作态:任务关闭时清空或归档」的流水线落点就是本步。
+4. 更新 workspace 的 `ACTIVE-PIPELINE.md`:清空指针,或指向下一任务
+5. 回报用户:结果 + 证据位置(`archive/<日期-任务名>/test.md`、截图)+ 遗留事项
+6. 按 `CONVENTIONS.md`「收尾必做」过一遍本次改过的文件
 
 > 全绿 ≠ 结束:关单事务跑完才算闭环。跑到一半中断,恢复后整段重跑(各步幂等)。
 
@@ -74,7 +102,9 @@ TEngine_block AI 流水线的总调度。在 main 会话里运行,负责把 策�
    - **正忙(running)** → 先告知用户它在跑什么,问要打断还是等它跑完
 3. 收产出(见上节):落盘产出验文件 / `git diff`;纯会话产出才 pull → 转交用户
 4. 手动档 = 我只传话:**不做**验收/转棒/失败回灌,也**不更新本 state 编排日志**(除非用户明确要求)
-5. 用户明确要正式闭环时,才切回自动编排(方案 B)
+5. 诉求里出现**转棒**(「改完让 test 验」「@dev>test X」这类速记同义)→ 这是任务,走方案 B + 棒次裁剪开单,不在手动档里转棒
+
+   > 转棒/打回/关单只有方案 B 一套实现;手动档里转棒会长出第二套残血副本。
 
 > 注:这几个指令**只在我(boss)被唤醒后**生效,顶层 `AGENTS.md` 不暴露它们,只暴露 `@boss` 入口。
 
