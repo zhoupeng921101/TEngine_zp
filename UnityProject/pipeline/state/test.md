@@ -6,7 +6,7 @@
 
 设计基线 = `design-docs/11-core-loop-completion.html`(§十一 验收清单 + §十二 8 条拍板)。git 基线 421a2c12。
 
-### 总判定:BLOCKED(运行门未达成 — Unity MCP 不可达,连续第四轮同一阻塞)
+### 总判定:BLOCKED(运行验证未达成 — Unity MCP 不可达,连续第四轮同一阻塞)
 
 非 PASS、非代码 FAIL。第 4 类(code review + 静态 API 核验 + 单测逐例手推)已全做且全部通过,未发现编译/逻辑/红线缺陷;但第 1-3 类(编译、EditMode、Play 手验)因环境阻塞跑不了,不可代签 PASS。判据见角色记忆「Unity MCP 不可达」条。
 
@@ -42,7 +42,7 @@
   - `Settle_ConsecutiveAllClear`:第 2 次 armed=false 且 boardEmptyAfter=true → 两个 if 分支均不进,不发奖、armed 保持 false。= §5.5 步 6 注。✓
   - `SpecialTrack_*`:已占槽不踢(Request 入队返 false)、PromoteFromWaiting 严格大于取最高优先级 + 同级 FIFO、TickCountdown 到点 OnExpired 升队。= §三。✓
   - `Wish_*` / `HammerCost_IsEight` / `Goddess_TenAllClears` / `Arbiter_*`(P0>P1、回落不接管)/ `Chest_*`(满 4 拒入、倒计时门、三选一去重、领取腾位)/ `Undo_RollsBackSettlementFields`(快照 Capture/Restore 覆盖 ComboChain/AllClearArmed/Soul/WishUsedToday/GoddessRating/GoddessLevel/特殊轨 Occupied+Waiting)。逐例核对 Snapshot 字段与 Restore 一一对应,无遗漏。✓
-- 回归(A):原 96 用例零改动(现状 Classic / merge-order off 路径未被本棒触碰),但**必须 Editor 实跑确认** 96 仍绿——静态不能替代回归判定。
+- 回归(A):原 96 用例零改动(现状 Classic / merge-order off 路径未被本环节触碰),但**必须 Editor 实跑确认** 96 仍绿——静态不能替代回归判定。
 
 #### 3. 手动功能验证 — BLOCKED(无法执行)
 

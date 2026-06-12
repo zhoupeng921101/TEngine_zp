@@ -11,9 +11,9 @@ export const meta = {
 
 // args: {
 //   task:      string  任务描述(self-contained,boss 现写)
-//   baton:     'full' | 'dev-test'  棒次(默认 full;dev-test 必须给 baseline)
-//   baseline:  string  设计基线文件路径(full 棒次时由 plan 产出覆盖)
-//   batonNote: string  微调指令/优化目标(裁棒任务用,可空)
+//   baton:     'full' | 'dev-test'  参与环节(默认 full;dev-test 必须给 baseline)
+//   baseline:  string  设计基线文件路径(full 参与环节时由 plan 产出覆盖)
+//   batonNote: string  微调指令/优化目标(裁剪环节的任务用,可空)
 //   devModel / testModel: 'opus' | 'sonnet'  模型档(boss 按 SKILL.md 选档表传;缺省继承会话模型)
 // }
 // 打回每轮 spawn 新 dev(workflow 内无续接),上下文靠 state 文件交接——文件是真相。
@@ -27,7 +27,7 @@ const PLAN_SCHEMA = {
     summary: { type: 'string', description: '一句话结论' },
     statePath: { type: 'string', description: '交接区路径' },
     designDoc: { type: 'string', description: '设计稿路径(design-docs/xx.html)' },
-    decisions: { type: 'array', items: { type: 'string' }, description: '本棒自主拍板的取舍(自治审计用)' },
+    decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍(自治审计用)' },
     blockers: { type: 'array', items: { type: 'string' }, description: '需用户裁决的方向性问题' },
   },
   required: ['summary', 'statePath', 'designDoc'],
@@ -38,7 +38,7 @@ const DEV_SCHEMA = {
   properties: {
     summary: { type: 'string', description: '一句话结论' },
     statePath: { type: 'string', description: '交接区路径' },
-    decisions: { type: 'array', items: { type: 'string' }, description: '本棒自主拍板的取舍' },
+    decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍' },
     designFlaw: { type: 'string', description: '设计本身有错且微调救不了时填原因,否则省略' },
   },
   required: ['summary', 'statePath'],
@@ -50,7 +50,7 @@ const TEST_SCHEMA = {
     verdict: { type: 'string', enum: ['PASS', 'FAIL'], description: '总判定' },
     statePath: { type: 'string', description: '报告路径' },
     reason: { type: 'string', description: 'FAIL 主因一句话' },
-    decisions: { type: 'array', items: { type: 'string' }, description: '本棒自主拍板的取舍' },
+    decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍' },
   },
   required: ['verdict', 'statePath'],
 }

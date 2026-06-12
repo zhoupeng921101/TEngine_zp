@@ -17,10 +17,10 @@
    - **铁律落地**:倍率**只乘显示分**(`DisplayScore`);元素产出 `EnqueueScoreElements(k)` 用**未乘连消的 baseScore**;全清判定用棋盘空 + 武装位,均不碰倍率。
    - 多消里程碑加码 `MultiClearMilestoneBonus(lines)`:3消→+1 Lv2、4消→+1 Lv2+1 Lv1、5消→+1 Lv2+2 Lv1、6+消→+1 Lv3,经 `AddDirect` 直发收集区(跳过逐级合成)。
    - 全清:武装位 `AllClearArmed`(开局 true),发 1 Lv3 + 推进女神 +1;发奖后置 false,须一次非全清落子重新武装(**不可连续 2 次**)。
-2. **订单双轨(§三)** — 新增 `SpecialOrderTrack.cs`(`SpecialOrderKind` 剧情>加急>黄金时段 + `SpecialOrder`)。`MergeOrderState.SpecialTrack`:0/1 占槽 + 等待队列;已占槽不被中途踢出(高优先级请求入队),槽空时升起队列最高优先级(同级 FIFO);加急倒计时 `TickCountdown` 到点过期升队。日常轨(`ActiveOrders=2`)零改动。demo 默认特殊轨空(触发器留窗口按条件投放,本棒未接 UI 触发)。
+2. **订单双轨(§三)** — 新增 `SpecialOrderTrack.cs`(`SpecialOrderKind` 剧情>加急>黄金时段 + `SpecialOrder`)。`MergeOrderState.SpecialTrack`:0/1 占槽 + 等待队列;已占槽不被中途踢出(高优先级请求入队),槽空时升起队列最高优先级(同级 FIFO);加急倒计时 `TickCountdown` 到点过期升队。日常轨(`ActiveOrders=2`)零改动。demo 默认特殊轨空(触发器留窗口按条件投放,本环节未接 UI 触发)。
 3. **体力/灵力/祈愿/HammerCost(§四/§7.1/§7.2)** — 单货币 `Soul` + `AddSoul`;祈愿兑体力 `WishForEnergy`(每日限 `WishPerDayLimit=3`,`WishSoulCost=20`→`WishEnergyGain=10`,封顶软上限不溢出,纯灵力无付费);`HammerCost=8`。自然恢复维持现状「留口子未实装」。
-4. **智能生成 R1–R3 仲裁(§八)** — 新增 `HandGenerationArbiter.Decide()` + `HandGenContext`(`NoClearStreak`/`AntiStreak`)。优先级链:P0防卡死(Fill)>P1清盘增难(Diff)>P2清盘引导(ClearAll)>P3高阶引导(AllCombination)>P4回落。**P4 返回 `Fallthrough`(不接管)= 现状 dynamicWeight 逐字节不变**;P0 与 P1 互斥时 P0 优先且 antiStreak 此手不递减;计数器 `OnPlaced` 照常更新。规则到 trio 复用既有 `BlockAlgorithms`,本棒**未改 dynamicWeight 本身**。
-5. **宝箱(§九,后置项)** — 新增 `ChestSystem.cs`:4 箱位、占槽倒计时 `Tick`、到点 `CanOpen`、`Open` 抽 3 不重复 Kind 三选一、`Claim` 腾位;`TierCountdownSec` 普通/稀有/史诗;**去变现红线:无付费/广告减时入口**。奖励发放(ChestReward→灵力/体力/图案/道具)接线归窗口,本棒只产出选项。
+4. **智能生成 R1–R3 仲裁(§八)** — 新增 `HandGenerationArbiter.Decide()` + `HandGenContext`(`NoClearStreak`/`AntiStreak`)。优先级链:P0防卡死(Fill)>P1清盘增难(Diff)>P2清盘引导(ClearAll)>P3高阶引导(AllCombination)>P4回落。**P4 返回 `Fallthrough`(不接管)= 现状 dynamicWeight 逐字节不变**;P0 与 P1 互斥时 P0 优先且 antiStreak 此手不递减;计数器 `OnPlaced` 照常更新。规则到 trio 复用既有 `BlockAlgorithms`,本环节**未改 dynamicWeight 本身**。
+5. **宝箱(§九,后置项)** — 新增 `ChestSystem.cs`:4 箱位、占槽倒计时 `Tick`、到点 `CanOpen`、`Open` 抽 3 不重复 Kind 三选一、`Claim` 腾位;`TierCountdownSec` 普通/稀有/史诗;**去变现红线:无付费/广告减时入口**。奖励发放(ChestReward→灵力/体力/图案/道具)接线归窗口,本环节只产出选项。
 6. **女神(§十,后置项)** — `MergeOrderState`:`GoddessRating`(N/10)+ `GoddessLevel`(只升不降),`AdvanceGoddess()` 满 10 清零升档;由 §5.5 全清统一推进。换背景统一归女神升级触发(§十去重),纯表现归窗口。
 7. **术语** — 新代码统一图案/收集区/合成/灵力/体力;无食材/生成器/仓库/虔诚币残留。
 8. **窗口最小接线** — `MergeOrderWindow.PlaceAndResolve` 的消除结算段替换为 `ClearSettlement.Settle`(替代原内联 combo/enqueue),新增 `PickMilestoneType()`(取订单所需类型之一作里程碑/全清产物归属)。`_state.Combo` 镜像 `ComboChain`。落子/拖拽手势层未动。
@@ -59,16 +59,16 @@
   - 悔棋回滚新字段(`Undo_RollsBackSettlementFields`)。
 - **需进 Play 模式手验**:`MergeOrderWindow` 实际落子时弹字(Good/Great/.../COMBO/PERFECT)、连消/多消/全清在真实拖拽下的表现。逻辑层已单测,风险集中在窗口接线的弹字分支与 PickMilestoneType 取值(手势层未动,回归风险低)。
 
-### 自检状态(⚠ 运行门仍阻塞 — Unity MCP 桥握手失败,环境问题持续第三轮)
+### 自检状态(⚠ 运行验证仍阻塞 — Unity MCP 桥握手失败,环境问题持续第三轮)
 
-运行门(编译 0 error + EditMode 全量)**三轮均未能自跑**,根因是 Unity MCP 桥未与编辑器建立会话,非代码缺陷。
+运行验证(编译 0 error + EditMode 全量)**三轮均未能自跑**,根因是 Unity MCP 桥未与编辑器建立会话,非代码缺陷。
 
 环境实测(本轮 = 第三轮,新增更具体的诊断):
 - Unity 编辑器进程存活(PID 11724,自 2026-06-12 20:19 起,~3.5GB),且 `Responding=True`——进程**未挂死**(进程级响应正常)。
 - MCP 桥进程(`mcp-for-unity` ×3)存活且 `Responding=True`;另有 `Unity.ILPP.Runner` / `UnityShaderCompiler` / `UnityPackageManager` 存活。
 - 但 `mcpforunity://instances` 仍 `instance_count: 0`;`read_console` 仍 `no_unity_session`;`refresh_unity(force, compile=request, wait_for_ready)` 仍 60s 超时未 ready。
 - **精化诊断**:进程都活且响应,但编辑器**未向桥注册会话**(instances 空)。这是「桥握手失败 / 编辑器内 MCP 监听未连上桥」,而非前两轮假设的「编辑器进程卡死」——编辑器进程响应正常,问题在编辑器与桥之间的会话注册链路。无论哪种,dev 都无法驱动该实例。
-- 判据(代码无关):若是本棒编译错误,编辑器会进「带错就绪」态、`read_console` 可读出 error 列表;此处全程 `no_session`(桥连不上),与本改动无关。
+- 判据(代码无关):若是本环节编译错误,编辑器会进「带错就绪」态、`read_console` 可读出 error 列表;此处全程 `no_session`(桥连不上),与本改动无关。
 - dev 侧无法安全解此阻塞:不擅自重启/强杀用户编辑器(有未保存编辑器态风险),桥会话注册在代码控制范围外。**复跑同一卡死实例徒劳**(memory 已记),不再空转重试。
 
 本轮做的事(全量静态再验,非"信上轮"):

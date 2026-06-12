@@ -4,7 +4,7 @@
 > 准入:只记跨任务可复用、且 pipeline SKILL/conventions 未覆盖的经验。
 
 - 项目 CLAUDE.md 会自动注入子 agent,但注入的是**主会话启动时的快照**:改 CLAUDE.md 后须重启会话才对子 agent 生效(2026-06-12 探针实测,新增章节未出现在子 agent 上下文)
-- SendMessage 续接子 agent 在本环境不可用(2026-06-12 探针实测):打回一律 spawn 新 dev、靠 state/test.md 可复现清单交接;再次 spawn 同类型 agent 是全新会话、零上下文(隔离彻底,盲评保证成立)
+- SendMessage 续接子 agent 在本环境不可用(2026-06-12 探针实测):打回一律 spawn 新 dev、靠 state/test.md 可复现清单交接;再次 spawn 同类型 agent 是全新会话、零上下文(隔离彻底,独立评审保证成立)
 - Workflow 机制可用(2026-06-12 探针实测:后台启动/内部 spawn/返回值/完成通知唤醒四环节全通,不占主会话回合)。**但按名调用时 args 不透传**(2026-06-12 两次实测:无论传 JSON 字符串还是对象,脚本侧 args 均为 undefined,角色 agent 防御性 BLOCKED 自停):启动 pipeline-auto 一律「复制脚本→任务参数内联为常量→Workflow{scriptPath}」,勿再按名+args 调用
 - 重要失败必须当场落盘(boss 编排日志记一行:什么失败/报错原文):2026-06-12 自治首跑疑似失败但零留痕,恢复后只能靠用户记忆+推测,根源已不可考
 - 备用手段·transcript 抢救:子 agent 对话全文落盘 `~\.claude\projects\<项目>\<session>.jsonl`(JSONL,保留约 30 天)。多轮打回怀疑新 dev 重蹈前任覆辙时,读上一轮 dev 的 transcript 提炼「前任工作纪要」塞进简报——手工版续接。小概率场景的手段,不进固定流程
