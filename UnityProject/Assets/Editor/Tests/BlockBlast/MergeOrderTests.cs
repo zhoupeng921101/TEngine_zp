@@ -64,13 +64,13 @@ namespace GameLogic.BlockBlast.Tests
                 for (int c = 0; c < 8; c++)
                 {
                     Assert.AreEqual(-1, s.SaveArr[r][c]);
-                    Assert.AreEqual(CollectElement.None, s.ElementArr[r][c]);
+                    Assert.AreEqual(MergeElement.None, s.ElementArr[r][c]);
                 }
 
             // 弄脏后再次进入应回到初始态
             m.Energy = 3;
             m.CompletedOrders = 4;
-            m.IngestElement(CollectElement.Diamond);
+            m.IngestElement(MergeElement.Diamond);
             s.ResetForMergeOrder(board);
             var m2 = s.MergeState;
             Assert.AreEqual(MergeOrderConfig.EnergyStart, m2.Energy);
@@ -131,7 +131,7 @@ namespace GameLogic.BlockBlast.Tests
 
             // 订单奖励可溢出软上限
             m.Energy = 28;
-            m.IngestElement(CollectElement.Diamond); // 满足初始订单0：Diamond Lv1 ×1
+            m.IngestElement(MergeElement.Diamond); // 满足初始订单0：Diamond Lv1 ×1
             Assert.IsTrue(m.CanDeliver(0));
             m.Deliver(0);
             Assert.AreEqual(28 + MergeOrderConfig.OrderRewardEnergy, m.Energy, "奖励体力可溢出软上限");
@@ -140,49 +140,49 @@ namespace GameLogic.BlockBlast.Tests
         // ───────────────────────── #6 消除元素入合成区 ─────────────────────────
 
         [Test]
-        public void CollectClearedElements_OutputsList_ClearsOverlay()
+        public void HarvestClearedElements_OutputsList_ClearsOverlay()
         {
             var s = BlockGameState.Instance;
             var board = new BinaryBoard();
             s.ResetForMergeOrder(board);
 
-            s.ElementArr[0][0] = CollectElement.Diamond;
-            s.ElementArr[0][1] = CollectElement.Diamond;
-            s.ElementArr[0][2] = CollectElement.Star;
+            s.ElementArr[0][0] = MergeElement.Diamond;
+            s.ElementArr[0][1] = MergeElement.Diamond;
+            s.ElementArr[0][2] = MergeElement.Star;
 
-            var outList = new List<CollectElement>();
-            int gained = s.CollectClearedElements(new[] { 0 }, new int[0], outList);
+            var outList = new List<MergeElement>();
+            int gained = s.HarvestClearedElements(new[] { 0 }, new int[0], outList);
 
             Assert.AreEqual(3, gained);
             Assert.AreEqual(3, outList.Count);
             int diamonds = 0, stars = 0;
             foreach (var e in outList)
             {
-                if (e == CollectElement.Diamond) diamonds++;
-                if (e == CollectElement.Star) stars++;
+                if (e == MergeElement.Diamond) diamonds++;
+                if (e == MergeElement.Star) stars++;
             }
             Assert.AreEqual(2, diamonds);
             Assert.AreEqual(1, stars);
-            Assert.AreEqual(CollectElement.None, s.ElementArr[0][0], "overlay 清空");
+            Assert.AreEqual(MergeElement.None, s.ElementArr[0][0], "overlay 清空");
         }
 
         [Test]
-        public void CollectClearedElements_RowColIntersection_CountedOnce()
+        public void HarvestClearedElements_RowColIntersection_CountedOnce()
         {
             var s = BlockGameState.Instance;
             var board = new BinaryBoard();
             s.ResetForMergeOrder(board);
 
             // 行 0 放 3 个 Diamond，列 1 放 1 个 Star，其中 (0,1) 属行列交叉
-            s.ElementArr[0][0] = CollectElement.Diamond;
-            s.ElementArr[0][1] = CollectElement.Diamond;
-            s.ElementArr[0][2] = CollectElement.Diamond;
-            s.ElementArr[3][1] = CollectElement.Star;
+            s.ElementArr[0][0] = MergeElement.Diamond;
+            s.ElementArr[0][1] = MergeElement.Diamond;
+            s.ElementArr[0][2] = MergeElement.Diamond;
+            s.ElementArr[3][1] = MergeElement.Star;
 
-            int gained = s.CollectClearedElements(new[] { 0 }, new[] { 1 });
+            int gained = s.HarvestClearedElements(new[] { 0 }, new[] { 1 });
             Assert.AreEqual(4, gained, "3 Diamond + 1 Star，交叉格只计一次");
-            Assert.AreEqual(CollectElement.None, s.ElementArr[0][1]);
-            Assert.AreEqual(CollectElement.None, s.ElementArr[3][1]);
+            Assert.AreEqual(MergeElement.None, s.ElementArr[0][1]);
+            Assert.AreEqual(MergeElement.None, s.ElementArr[3][1]);
         }
 
         // ───────────────────────── 落子元素转移（行优先顺序）─────────────────────────
@@ -199,19 +199,19 @@ namespace GameLogic.BlockBlast.Tests
             {
                 Elements = new[]
                 {
-                    CollectElement.Diamond,  // (0,0)
-                    CollectElement.None,     // (0,1)
-                    CollectElement.Star,     // (1,0)
-                    CollectElement.Diamond,  // (1,1)
+                    MergeElement.Diamond,  // (0,0)
+                    MergeElement.None,     // (0,1)
+                    MergeElement.Star,     // (1,0)
+                    MergeElement.Diamond,  // (1,1)
                 }
             };
             s.OperaArr[0] = piece;
             s.PlacePiece(0, board, 0, 0);
 
-            Assert.AreEqual(CollectElement.Diamond, s.ElementArr[0][0]);
-            Assert.AreEqual(CollectElement.None, s.ElementArr[0][1]);
-            Assert.AreEqual(CollectElement.Star, s.ElementArr[1][0]);
-            Assert.AreEqual(CollectElement.Diamond, s.ElementArr[1][1]);
+            Assert.AreEqual(MergeElement.Diamond, s.ElementArr[0][0]);
+            Assert.AreEqual(MergeElement.None, s.ElementArr[0][1]);
+            Assert.AreEqual(MergeElement.Star, s.ElementArr[1][0]);
+            Assert.AreEqual(MergeElement.Diamond, s.ElementArr[1][1]);
         }
 
         [Test]
@@ -221,7 +221,7 @@ namespace GameLogic.BlockBlast.Tests
             s.SetFirstHand();
             var board = new BinaryBoard();
             // 手动给 piece 塞元素，但 off 模式应被忽略（ElementArr 仍 null）
-            s.OperaArr[0].Elements = new[] { CollectElement.Diamond, CollectElement.Diamond, CollectElement.Diamond, CollectElement.Diamond };
+            s.OperaArr[0].Elements = new[] { MergeElement.Diamond, MergeElement.Diamond, MergeElement.Diamond, MergeElement.Diamond };
             s.PlacePiece(0, board, 0, 0);
             Assert.IsNull(s.ElementArr, "off 模式不应分配/写入元素层");
         }
@@ -233,10 +233,10 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = new MergeOrderState();
             m.Reset();
-            m.IngestElement(CollectElement.Diamond);
-            m.IngestElement(CollectElement.Diamond);
-            Assert.AreEqual(0, m.InventoryCount(CollectElement.Diamond, 1));
-            Assert.AreEqual(1, m.InventoryCount(CollectElement.Diamond, 2));
+            m.IngestElement(MergeElement.Diamond);
+            m.IngestElement(MergeElement.Diamond);
+            Assert.AreEqual(0, m.InventoryCount(MergeElement.Diamond, 1));
+            Assert.AreEqual(1, m.InventoryCount(MergeElement.Diamond, 2));
         }
 
         [Test]
@@ -244,10 +244,10 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = new MergeOrderState();
             m.Reset();
-            for (int i = 0; i < 4; i++) m.IngestElement(CollectElement.Star);
-            Assert.AreEqual(0, m.InventoryCount(CollectElement.Star, 1));
-            Assert.AreEqual(0, m.InventoryCount(CollectElement.Star, 2));
-            Assert.AreEqual(1, m.InventoryCount(CollectElement.Star, 3));
+            for (int i = 0; i < 4; i++) m.IngestElement(MergeElement.Star);
+            Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, 1));
+            Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, 2));
+            Assert.AreEqual(1, m.InventoryCount(MergeElement.Star, 3));
         }
 
         [Test]
@@ -255,8 +255,8 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = new MergeOrderState();
             m.Reset();
-            for (int i = 0; i < 8; i++) m.IngestElement(CollectElement.Leaf);
-            Assert.AreEqual(2, m.InventoryCount(CollectElement.Leaf, 3), "封顶 Lv3 不再合并，堆积成 2");
+            for (int i = 0; i < 8; i++) m.IngestElement(MergeElement.Leaf);
+            Assert.AreEqual(2, m.InventoryCount(MergeElement.Leaf, 3), "封顶 Lv3 不再合并，堆积成 2");
         }
 
         // ───────────────────────── #9/#10/#11 订单 ─────────────────────────
@@ -279,8 +279,8 @@ namespace GameLogic.BlockBlast.Tests
             m.Reset();
             // 初始订单1 = Star Lv2 ×1 → 摄入 2 Star 得 1 Lv2
             Assert.IsFalse(m.CanDeliver(1), "库存不足按钮置灰");
-            m.IngestElement(CollectElement.Star);
-            m.IngestElement(CollectElement.Star);
+            m.IngestElement(MergeElement.Star);
+            m.IngestElement(MergeElement.Star);
             Assert.IsTrue(m.CanDeliver(1));
 
             int scoreBefore = m.TotalScore;
@@ -288,7 +288,7 @@ namespace GameLogic.BlockBlast.Tests
             var nextExpected = MergeOrderConfig.OrderPool[2]; // 交付后该槽刷新为池下一项
 
             Assert.IsTrue(m.Deliver(1));
-            Assert.AreEqual(0, m.InventoryCount(CollectElement.Star, 2), "交付扣除合成物");
+            Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, 2), "交付扣除合成物");
             Assert.AreEqual(energyBefore + MergeOrderConfig.OrderRewardEnergy, m.Energy);
             Assert.AreEqual(scoreBefore + 2 * 1 * MergeOrderConfig.OrderScoreFactor, m.TotalScore);
             Assert.AreEqual(1, m.CompletedOrders);
@@ -364,12 +364,12 @@ namespace GameLogic.BlockBlast.Tests
             foreach (var e in m.PendingElements) Assert.Contains(e, needed, "类型 ⊆ NeededTypes");
 
             // 补牌按填充格行优先 FIFO 抽干：3x3(13) 9 格候选块取队头 2 个，余格 None
-            var expected = new List<CollectElement>(m.PendingElements);
+            var expected = new List<MergeElement>(m.PendingElements);
             var p = s.BuildPiece(13);
             Assert.IsNotNull(p.Elements);
             Assert.AreEqual(expected[0], p.Elements[0]);
             Assert.AreEqual(expected[1], p.Elements[1]);
-            Assert.AreEqual(CollectElement.None, p.Elements[2], "抽干后余格留空");
+            Assert.AreEqual(MergeElement.None, p.Elements[2], "抽干后余格留空");
             Assert.AreEqual(0, m.PendingElements.Count, "队列被抽干");
         }
 
@@ -396,7 +396,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.GreaterOrEqual(needed.Count, 2, "初始双订单类型不同（Diamond/Star）");
 
             m.EnqueueScoreElements(4); // 轮转游标从 0 起 → 覆盖两类、不偏科
-            var list = new List<CollectElement>(m.PendingElements);
+            var list = new List<MergeElement>(m.PendingElements);
             Assert.IsTrue(list.Contains(needed[0]) && list.Contains(needed[1]), "轮转应覆盖多个所需类型");
         }
 
@@ -442,8 +442,8 @@ namespace GameLogic.BlockBlast.Tests
             {
                 Elements = new[]
                 {
-                    CollectElement.Diamond, CollectElement.Diamond,
-                    CollectElement.Diamond, CollectElement.Diamond,
+                    MergeElement.Diamond, MergeElement.Diamond,
+                    MergeElement.Diamond, MergeElement.Diamond,
                 }
             };
             s.OperaArr[0] = piece;
@@ -456,7 +456,7 @@ namespace GameLogic.BlockBlast.Tests
             // 模拟窗口落子流程的全套副作用
             s.PlacePiece(0, board, 0, 0);
             m.SpendPlaceCost();
-            m.IngestElement(CollectElement.Diamond);
+            m.IngestElement(MergeElement.Diamond);
             m.CompletedOrders = 2;
             m.TotalScore = 999;
 
@@ -469,11 +469,11 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsTrue(m.Undo(s, board));
 
             Assert.IsTrue(board.IsEmpty(), "棋盘回滚");
-            Assert.AreEqual(CollectElement.None, s.ElementArr[0][0], "元素层回滚");
+            Assert.AreEqual(MergeElement.None, s.ElementArr[0][0], "元素层回滚");
             Assert.AreEqual(-1, s.SaveArr[0][0], "SaveArr 回滚");
             Assert.IsNotNull(s.OperaArr[0], "方块退回待选槽");
             Assert.AreEqual(energyBefore, m.Energy, "退回该次扣的体力");
-            Assert.AreEqual(0, m.InventoryCount(CollectElement.Diamond, 1), "合成区回滚");
+            Assert.AreEqual(0, m.InventoryCount(MergeElement.Diamond, 1), "合成区回滚");
             Assert.AreEqual(0, m.CompletedOrders, "订单进度回滚");
             Assert.AreEqual(0, m.TotalScore, "得分回滚");
             Assert.AreEqual(chargesBefore - 1, m.UndoCharges, "消耗一次悔棋次数");
@@ -502,7 +502,7 @@ namespace GameLogic.BlockBlast.Tests
             var m = s.MergeState;
 
             m.CaptureSnapshot(s, board);
-            m.IngestElement(CollectElement.Diamond); // 满足初始订单0
+            m.IngestElement(MergeElement.Diamond); // 满足初始订单0
             Assert.IsTrue(m.CanUndo);
             m.Deliver(0);
             Assert.IsFalse(m.CanUndo, "交付为已提交动作，清空悔棋栈");

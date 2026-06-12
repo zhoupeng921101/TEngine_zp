@@ -31,7 +31,7 @@ namespace GameLogic.BlockBlast
         //       与 Classic 现状逐字节一致（回归硬验收）。
 
         /// <summary>与 SaveArr 平行的元素叠加层（None=该格无元素）。仅 merge-order 模式分配/使用。</summary>
-        public CollectElement[][] ElementArr;
+        public MergeElement[][] ElementArr;
 
         /// <summary>合成+订单+体力模式开关。off 时所有 merge-order 分支短路，Classic 行为零变化。</summary>
         public bool MergeOrderMode;
@@ -51,12 +51,12 @@ namespace GameLogic.BlockBlast
             MergeState = null;
         }
 
-        private static CollectElement[][] MakeEmptyElementArr()
+        private static MergeElement[][] MakeEmptyElementArr()
         {
-            var b = new CollectElement[8][];
+            var b = new MergeElement[8][];
             for (int r = 0; r < 8; r++)
             {
-                b[r] = new CollectElement[8]; // 默认 None(=0)
+                b[r] = new MergeElement[8]; // 默认 None(=0)
             }
             return b;
         }
@@ -125,7 +125,7 @@ namespace GameLogic.BlockBlast
             int cellCount = BlockShapeMap.GetCellCount(shapeId);
             if (cellCount <= 0) return;
 
-            var elements = new CollectElement[cellCount];
+            var elements = new MergeElement[cellCount];
             for (int i = 0; i < cellCount && queue.Count > 0; i++)
                 elements[i] = queue.Dequeue();
             piece.Elements = elements;
@@ -246,7 +246,7 @@ namespace GameLogic.BlockBlast
                             if (transferElements && cellIdx < piece.Elements.Length)
                             {
                                 var el = piece.Elements[cellIdx];
-                                if (el != CollectElement.None)
+                                if (el != MergeElement.None)
                                     ElementArr[posRow + r][posCol + c] = el;
                             }
                             cellIdx++;
@@ -299,28 +299,28 @@ namespace GameLogic.BlockBlast
         /// 与 ClearRowsAndCols 一致：行列交叉格只计一次（行 pass 已清，列 pass 见 None 跳过）。
         /// 返回本次被清的元素总数。模式 off 时返回 0、不做任何事。
         /// </summary>
-        public int CollectClearedElements(IList<int> rows, IList<int> cols, List<CollectElement> output = null)
+        public int HarvestClearedElements(IList<int> rows, IList<int> cols, List<MergeElement> output = null)
         {
             if (!MergeOrderMode || ElementArr == null) return 0;
             int gained = 0;
             for (int i = 0; i < rows.Count; i++)
             {
                 int r = rows[i];
-                for (int c = 0; c < 8; c++) gained += CollectAt(r, c, output);
+                for (int c = 0; c < 8; c++) gained += HarvestAt(r, c, output);
             }
             for (int i = 0; i < cols.Count; i++)
             {
                 int c = cols[i];
-                for (int r = 0; r < 8; r++) gained += CollectAt(r, c, output);
+                for (int r = 0; r < 8; r++) gained += HarvestAt(r, c, output);
             }
             return gained;
         }
 
-        private int CollectAt(int r, int c, List<CollectElement> output)
+        private int HarvestAt(int r, int c, List<MergeElement> output)
         {
             var el = ElementArr[r][c];
-            if (el == CollectElement.None) return 0;
-            ElementArr[r][c] = CollectElement.None;
+            if (el == MergeElement.None) return 0;
+            ElementArr[r][c] = MergeElement.None;
             output?.Add(el);
             return 1;
         }

@@ -1,10 +1,10 @@
 namespace GameLogic.BlockBlast
 {
     /// <summary>
-    /// 合成+订单+体力 Demo 切片的静态配置（仿 08 的 <see cref="CollectDemo"/>，不接 Luban）。
+    /// 合成+订单+体力 Demo 切片的静态配置（仿 08 的 <see cref="MergeElementVisual"/>，不接 Luban）。
     /// 合成 / 订单 / 体力 / 得分驱动元素生成 / 兜底全部硬编码可调常量 + 手编循环订单池。
     /// 改数即调难度。默认值取自设计文档 §五配置表。
-    /// 表现（glyph / 纯色）直接复用 <see cref="CollectDemo.Glyph"/> / <see cref="CollectDemo.ColorOf"/>。
+    /// 表现（glyph / 纯色）直接复用 <see cref="MergeElementVisual.Glyph"/> / <see cref="MergeElementVisual.ColorOf"/>。
     /// </summary>
     public static class MergeOrderConfig
     {
@@ -89,14 +89,14 @@ namespace GameLogic.BlockBlast
         /// <summary>循环订单池。</summary>
         public static readonly Order[] OrderPool =
         {
-            new Order(CollectElement.Diamond, 1, 1), // d1 易   [初始槽0]
-            new Order(CollectElement.Star,    2, 1), // d2 易   [初始槽1]
-            new Order(CollectElement.Diamond, 3, 1), // d4 中
-            new Order(CollectElement.Leaf,    1, 1), // d1 易
-            new Order(CollectElement.Star,    3, 2), // d8 难
-            new Order(CollectElement.Diamond, 1, 1), // d1 易（难单后回落）
-            new Order(CollectElement.Heart,   2, 1), // d2 易-中
-            new Order(CollectElement.Leaf,    3, 1), // d4 中
+            new Order(MergeElement.Diamond, 1, 1), // d1 易   [初始槽0]
+            new Order(MergeElement.Star,    2, 1), // d2 易   [初始槽1]
+            new Order(MergeElement.Diamond, 3, 1), // d4 中
+            new Order(MergeElement.Leaf,    1, 1), // d1 易
+            new Order(MergeElement.Star,    3, 2), // d8 难
+            new Order(MergeElement.Diamond, 1, 1), // d1 易（难单后回落）
+            new Order(MergeElement.Heart,   2, 1), // d2 易-中
+            new Order(MergeElement.Leaf,    3, 1), // d4 中
         };
     }
 }

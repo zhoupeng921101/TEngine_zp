@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 6500890607300668563}
   - component: {fileID: 5670704784844930628}
   m_Layer: 0
-  m_Name: CollectWinWindow
+  m_Name: MergeOrderWinWindow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

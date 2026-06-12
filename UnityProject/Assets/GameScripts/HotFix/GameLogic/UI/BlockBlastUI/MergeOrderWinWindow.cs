@@ -10,8 +10,8 @@ namespace GameLogic.BlockBlastUI
     /// 合成订单 Demo 胜利面板：遮罩 + 卡片（「通关！」+ 结算行列表）+ 再来一局 / 返回主菜单。
     /// UserData = List&lt;string&gt;（结算行，由 MergeOrderWindow 快照传入）。弹出即锁输入。
     /// </summary>
-    [Window(UILayer.Top, location: "CollectWinWindow", fullScreen: true)]
-    public sealed class CollectWinWindow : UIWindow
+    [Window(UILayer.Top, location: "MergeOrderWinWindow", fullScreen: true)]
+    public sealed class MergeOrderWinWindow : UIWindow
     {
         protected override void OnCreate()
         {
@@ -44,7 +44,7 @@ namespace GameLogic.BlockBlastUI
                 new Color32(0x33, 0xaa, 0x55, 0xFF), Color.white, out _, out _);
             again.onClick.AddListener(() =>
             {
-                GameModule.UI.CloseUI<CollectWinWindow>();
+                GameModule.UI.CloseUI<MergeOrderWinWindow>();
                 GameModule.UI.ShowUIAsync<MergeOrderWindow>(); // 重新进入即 ResetForMergeOrder
             });
 
@@ -53,7 +53,7 @@ namespace GameLogic.BlockBlastUI
                 new Color(0, 0, 0, 0), new Color32(0x88, 0xcc, 0xaa, 0xFF), out _, out _);
             menu.onClick.AddListener(() =>
             {
-                GameModule.UI.CloseUI<CollectWinWindow>();
+                GameModule.UI.CloseUI<MergeOrderWinWindow>();
                 GameModule.UI.ShowUIAsync<MainMenuWindow>();
             });
         }

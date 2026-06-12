@@ -5,7 +5,7 @@
 
 ## 当前任务
 
-> **无活跃任务**。`score-element-rm-collect` 已于 2026-06-12 关单 PASS(详见下方「最近关单」)。
+> **无活跃任务**。`collect-rename` 已于 2026-06-12 关单 PASS(详见下方「最近关单」)。
 
 ---
 
@@ -53,6 +53,14 @@
 | test-score-element-rm-collect | agent:main:subagent:b0657719-0912-4a5d-8e5a-8014c83b9fd1 | 8935563a-2b12-4328-8772-4f68e3ce1166 | 2026-06-12 |
 
 ## 最近关单
+
+### 2026-06-12 关单:Collect* 共享设施正名(collect-rename;**流水线迁移 Claude Code 后首单**)
+- **结论:PASS 交付**。dev→test 两棒(纯重构裁棒),打回轮次 0。
+- 来源:score-element-rm-collect 拍板第 3 项注册的低优正名任务。9 个符号正名(`CollectElement→MergeElement`、`CollectDemo→MergeElementVisual`、`CollectWinWindow→MergeOrderWinWindow` 含 prefab/location/[Window]、`CollectClearedElements/CollectAt→HarvestClearedElements/HarvestAt` 等),行为零变化。
+- **运行门**:编译 0 error;EditMode `BlockBlast.Tests` 96/96;**Play 寻址链实测通畅**(ShowUIAsync\<MergeOrderWinWindow\> 实例化+CloseUI 回主菜单,截图 `Assets/Screenshots/collect-rename_02_winwindow.png`);三对 .meta git rename 保 GUID;旧符号全工程 0 匹配。
+- 证据:`archive/2026-06-12-collect-rename/test.md`(四类全过)+ 同目录 dev.md(改名清单)。
+- 模型档:dev=opus、test=opus(寻址链风险,不省档)。spawn 登记:dev `aafa03ff1c55f2800`、test `ad48020494dfd5675`(均已结束)。
+- 流水线机制验证(首单顺带):角色卡硬注入、子 agent unityMCP 直跑运行门(boss 无需补跑,OpenClaw 时代的代跑路径退役)、返回契约三行便条、交接区协议、关单事务——全部如设计运转;打回循环未触发(0 打回),留待后续任务实测。
 
 ### 2026-06-12 关单:消除得分驱动元素生成 + 移除收集 demo(score-element-rm-collect)
 - **结论:PASS 交付**。plan→dev→test 三棒走完,打回轮次 0。
@@ -102,3 +110,4 @@
 7. **[生产化时·设计约束]** 自动两两配对使非封顶等级库存恒 ≤1,「Lv1×N(N≥2)」型订单不可满足——demo 订单池已按此约束重排;正式版如要多个低级件订单,须改合成规则(如允许订单直接消耗未合成的低级件)。
 8. **[待用户定夺·可不做]** merge-order 通关复用 CollectWinWindow,「再来一局」回收集 demo 而非本模式;如要回本模式需单独排期。
 9. **[用户·人工]** score-element-rm-collect Play 手验:拖拽落子触发消除后,目视确认「得分越高、待选区出元素越多」「无消除时纯方块」,以及 A 档映射体感是否平衡(数值要调可回头改 `ScorePerElement` 等常量)。MCP 无法模拟指针拖拽,逻辑层已被 7 例新单测覆盖。
+10. **[plan 棒或用户·低优]** design-docs/09、10 中对 Collect* 设施的「已转用」标注仍用旧名,需更新为新名(MergeElement / MergeElementVisual / MergeOrderWinWindow / HarvestClearedElements)——collect-rename 棒刻意不动 design-docs(角色边界:dev 不碰设计文档)。

@@ -9,11 +9,11 @@ namespace GameLogic.BlockBlast
     /// </summary>
     public readonly struct Order
     {
-        public readonly CollectElement Type;
+        public readonly MergeElement Type;
         public readonly int Level;
         public readonly int Count;
 
-        public Order(CollectElement type, int level, int count)
+        public Order(MergeElement type, int level, int count)
         {
             Type = type;
             Level = level;
@@ -23,7 +23,7 @@ namespace GameLogic.BlockBlast
         /// <summary>难度量 d = 数量 × 2^(等级-1)（= 折算基础元素数）。</summary>
         public int Difficulty => Count * (1 << (Level - 1));
 
-        public bool IsValid => Type != CollectElement.None && Level >= 1 && Count > 0;
+        public bool IsValid => Type != MergeElement.None && Level >= 1 && Count > 0;
     }
 
     /// <summary>
@@ -41,8 +41,8 @@ namespace GameLogic.BlockBlast
         /// 合成区库存：键 (类型, 等级) → 数量。自动配对使每 (类型,等级) 数量恒 ≤1（满 2 即合），
         /// 故天然紧凑、无需硬上限。计数为 0 的键即时移除。
         /// </summary>
-        public readonly Dictionary<(CollectElement type, int level), int> Inventory =
-            new Dictionary<(CollectElement, int), int>();
+        public readonly Dictionary<(MergeElement type, int level), int> Inventory =
+            new Dictionary<(MergeElement, int), int>();
 
         /// <summary>当前激活订单（长度 = MergeOrderConfig.ActiveOrders）。</summary>
         public Order[] ActiveOrders;
@@ -60,7 +60,7 @@ namespace GameLogic.BlockBlast
         /// 元素预算队列：消除按得分算出的 k 个元素压入此处，补牌（BuildPiece）时 FIFO 抽干填入新候选块。
         /// 无消除→队列不增长→候选块纯方块；得分越高→积压越多→后续候选块携带更多元素。
         /// </summary>
-        public readonly Queue<CollectElement> PendingElements = new Queue<CollectElement>();
+        public readonly Queue<MergeElement> PendingElements = new Queue<MergeElement>();
 
         /// <summary>所需类型轮转游标：多个所需类型时按此取模均摊，避免长期偏科某一类型。</summary>
         private int _needRotor;
@@ -107,20 +107,20 @@ namespace GameLogic.BlockBlast
         // ── 合成区（自动配对升级）─────────────────────────────
 
         /// <summary>查询合成区某 (类型,等级) 持有量。</summary>
-        public int InventoryCount(CollectElement type, int level)
+        public int InventoryCount(MergeElement type, int level)
             => Inventory.TryGetValue((type, level), out var n) ? n : 0;
 
         /// <summary>
         /// 摄入一个 Lv1 元素，随即向上级联自动配对：任一 (类型,等级) 数量≥2 即
         /// 数量-2、上一级+1，直到无法再合并或封顶 MaxLevel。
         /// </summary>
-        public void IngestElement(CollectElement type)
+        public void IngestElement(MergeElement type)
         {
-            if (type == CollectElement.None) return;
+            if (type == MergeElement.None) return;
             AddToInventory(type, 1, 1);
         }
 
-        private void AddToInventory(CollectElement type, int level, int amount)
+        private void AddToInventory(MergeElement type, int level, int amount)
         {
             int cur = InventoryCount(type, level) + amount;
             Inventory[(type, level)] = cur;
@@ -182,9 +182,9 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>激活订单所需的去重元素类型集合（注入类型池来源 = 此并集）。</summary>
-        public List<CollectElement> NeededTypes()
+        public List<MergeElement> NeededTypes()
         {
-            var list = new List<CollectElement>();
+            var list = new List<MergeElement>();
             if (ActiveOrders == null) return list;
             foreach (var o in ActiveOrders)
             {
@@ -246,17 +246,17 @@ namespace GameLogic.BlockBlast
         private sealed class Snapshot
         {
             private int[][] _saveArr;
-            private CollectElement[][] _elementArr;
+            private MergeElement[][] _elementArr;
             private int[] _rowBinary;
             private PendingPiece[] _opera;
             private int _combo;
             private int _energy;
-            private Dictionary<(CollectElement, int), int> _inventory;
+            private Dictionary<(MergeElement, int), int> _inventory;
             private Order[] _orders;
             private int _orderCursor;
             private int _completed;
             private int _totalScore;
-            private CollectElement[] _pendingElements;
+            private MergeElement[] _pendingElements;
             private int _needRotor;
 
             public static Snapshot Capture(BlockGameState s, BinaryBoard board, MergeOrderState m)
@@ -269,7 +269,7 @@ namespace GameLogic.BlockBlast
                     _opera = (PendingPiece[])s.OperaArr.Clone(), // piece 对象落子时不被改写，浅拷贝引用即可退回槽位
                     _combo = s.Combo,
                     _energy = m.Energy,
-                    _inventory = new Dictionary<(CollectElement, int), int>(m.Inventory),
+                    _inventory = new Dictionary<(MergeElement, int), int>(m.Inventory),
                     _orders = (Order[])m.ActiveOrders.Clone(),
                     _orderCursor = m.OrderCursor,
                     _completed = m.CompletedOrders,
@@ -308,11 +308,11 @@ namespace GameLogic.BlockBlast
                 return dst;
             }
 
-            private static CollectElement[][] CloneElementGrid(CollectElement[][] src)
+            private static MergeElement[][] CloneElementGrid(MergeElement[][] src)
             {
                 if (src == null) return null;
-                var dst = new CollectElement[src.Length][];
-                for (int r = 0; r < src.Length; r++) dst[r] = (CollectElement[])src[r].Clone();
+                var dst = new MergeElement[src.Length][];
+                for (int r = 0; r < src.Length; r++) dst[r] = (MergeElement[])src[r].Clone();
                 return dst;
             }
         }

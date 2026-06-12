@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-> 上一任务 score-element-rm-collect 已关单 PASS,交接区归档:`../archive/2026-06-12-score-element-rm-collect/dev.md`。
+> 上一任务 collect-rename 已关单 PASS,交接区归档:`../archive/2026-06-12-collect-rename/dev.md`。

@@ -181,7 +181,7 @@ namespace GameLogic.BlockBlastUI
 
                 // 元素 glyph
                 UGuiFactory.CreateText(_orderLayer, $"orderGlyph_{slot}", cx - 120, cardY - 12, 80, 80,
-                    CollectDemo.Glyph(o.Type), 54, CollectDemo.ColorOf(o.Type));
+                    MergeElementVisual.Glyph(o.Type), 54, MergeElementVisual.ColorOf(o.Type));
                 // 等级 + 数量
                 UGuiFactory.CreateText(_orderLayer, $"orderReq_{slot}", cx - 30, cardY - 12, 160, 60,
                     $"Lv{o.Level} ×{o.Count}", 32, Color.white, TextAnchor.MiddleLeft);
@@ -209,7 +209,7 @@ namespace GameLogic.BlockBlastUI
                 new Color(0, 0, 0, 0.22f));
 
             // 稳定排序：按类型枚举值、再按等级
-            var keys = new List<(CollectElement type, int level)>(_merge.Inventory.Keys);
+            var keys = new List<(MergeElement type, int level)>(_merge.Inventory.Keys);
             keys.Sort((a, b) =>
             {
                 int t = ((int)a.type).CompareTo((int)b.type);
@@ -233,7 +233,7 @@ namespace GameLogic.BlockBlastUI
                 int count = _merge.Inventory[key];
                 float cx = startX + i * tokenW;
                 UGuiFactory.CreateText(_synthLayer, $"synthGlyph_{i}", cx - 22, rowY, 60, 70,
-                    CollectDemo.Glyph(key.type), 40, CollectDemo.ColorOf(key.type));
+                    MergeElementVisual.Glyph(key.type), 40, MergeElementVisual.ColorOf(key.type));
                 UGuiFactory.CreateText(_synthLayer, $"synthInfo_{i}", cx + 30, rowY, 90, 70,
                     $"L{key.level}\n×{count}", 24, Color.white);
             }
@@ -312,9 +312,9 @@ namespace GameLogic.BlockBlastUI
             {
                 for (int c = 0; c < N; c++)
                 {
-                    var el = arr != null ? arr[r][c] : CollectElement.None;
+                    var el = arr != null ? arr[r][c] : MergeElement.None;
                     var existing = _elemCells[r, c];
-                    if (el == CollectElement.None)
+                    if (el == MergeElement.None)
                     {
                         if (existing != null) { Object.Destroy(existing.gameObject); _elemCells[r, c] = null; }
                     }
@@ -322,15 +322,15 @@ namespace GameLogic.BlockBlastUI
                     {
                         if (existing != null)
                         {
-                            existing.text = CollectDemo.Glyph(el);
-                            existing.color = CollectDemo.ColorOf(el);
+                            existing.text = MergeElementVisual.Glyph(el);
+                            existing.color = MergeElementVisual.ColorOf(el);
                         }
                         else
                         {
                             var center = BlockLayout.CellCenterDesign(c, r);
                             var txt = UGuiFactory.CreateText(_elemLayer, $"elem_{r}_{c}", center.x, center.y,
-                                BlockLayout.CellSize, BlockLayout.CellSize, CollectDemo.Glyph(el),
-                                (int)(BlockLayout.CellSize * 0.66f), CollectDemo.ColorOf(el));
+                                BlockLayout.CellSize, BlockLayout.CellSize, MergeElementVisual.Glyph(el),
+                                (int)(BlockLayout.CellSize * 0.66f), MergeElementVisual.ColorOf(el));
                             _elemCells[r, c] = txt;
                         }
                     }
@@ -385,7 +385,7 @@ namespace GameLogic.BlockBlastUI
                         ci.raycastTarget = false;
 
                         if (piece.Elements != null && cellIdx < piece.Elements.Length
-                            && piece.Elements[cellIdx] != CollectElement.None)
+                            && piece.Elements[cellIdx] != MergeElement.None)
                         {
                             var el = piece.Elements[cellIdx];
                             var gt = new GameObject($"sg_{r}_{c}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
@@ -395,9 +395,9 @@ namespace GameLogic.BlockBlastUI
                             grt.offsetMin = Vector2.zero; grt.offsetMax = Vector2.zero;
                             var gtx = gt.GetComponent<Text>();
                             gtx.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                            gtx.text = CollectDemo.Glyph(el);
+                            gtx.text = MergeElementVisual.Glyph(el);
                             gtx.fontSize = (int)(BlockLayout.SlotCell * 0.7f);
-                            gtx.color = CollectDemo.ColorOf(el);
+                            gtx.color = MergeElementVisual.ColorOf(el);
                             gtx.alignment = TextAnchor.MiddleCenter;
                             gtx.horizontalOverflow = HorizontalWrapMode.Overflow;
                             gtx.verticalOverflow = VerticalWrapMode.Overflow;
@@ -483,8 +483,8 @@ namespace GameLogic.BlockBlastUI
             int lines = clear.Rows.Count + clear.Cols.Count;
             if (lines > 0)
             {
-                var cleared = new List<CollectElement>();
-                _state.CollectClearedElements(clear.Rows, clear.Cols, cleared); // 清 overlay + 输出被清元素
+                var cleared = new List<MergeElement>();
+                _state.HarvestClearedElements(clear.Rows, clear.Cols, cleared); // 清 overlay + 输出被清元素
                 int clearedCells = _state.ClearRowsAndCols(clear.Rows, clear.Cols); // 清方块色，得被清格数
                 foreach (var el in cleared) _merge.IngestElement(el);           // 逐个 Lv1 入合成区（自动升级）
                 _merge.RefundEnergy(lines);                                     // 返还体力（受软上限）
@@ -562,7 +562,7 @@ namespace GameLogic.BlockBlastUI
             };
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
-            GameModule.UI.ShowUIAsync<CollectWinWindow>(lines);
+            GameModule.UI.ShowUIAsync<MergeOrderWinWindow>(lines);
         }
 
         private void TriggerGameOver(string title)
