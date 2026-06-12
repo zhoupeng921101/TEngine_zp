@@ -107,7 +107,7 @@ while (round < 3) {
 
   round++
   log(`第 ${round} 轮打回:${verdict.reason || '见 pipeline/state/test.md'}`)
-  devBrief = `打回返修(第 ${round} 轮)。任务:${args.task}\n设计基线:${baseline}\n开工读 pipeline/state/test.md 的可复现清单与 pipeline/state/dev.md 既有交接区;修复后编译自检,更新交接区。${RETURN_NOTE}`
+  devBrief = `打回返修(第 ${round} 轮)。任务:${args.task}\n设计基线:${baseline}\n上一轮 dev 自述:${dev.summary}\n开工读 pipeline/state/test.md 的可复现清单与 pipeline/state/dev.md 既有交接区;修复后编译自检,更新交接区。${RETURN_NOTE}`
 }
 
 if (!verdict || verdict.verdict !== 'PASS') {

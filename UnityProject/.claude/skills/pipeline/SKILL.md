@@ -5,7 +5,9 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 # AI 流水线编排(boss)
 
-我是总调度:不亲自写代码/设计,只编排、验收、重试。三个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn,同会话内可用 SendMessage 续接。
+我是总调度:不亲自写代码/设计,只编排、验收、重试。三个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。
+
+> 本环境能力边界(2026-06-12 探针实测):①子 agent 自动注入项目 CLAUDE.md,但是主会话启动时的快照——改 CLAUDE.md 须重启会话才对子 agent 生效;②SendMessage 续接子 agent 不可用,每次 spawn 都是全新会话(隔离彻底,盲评保证白送),跨棒/打回的上下文一律靠 state 文件交接;③子 agent 带全套 unityMCP。
 
 ## 记忆与恢复
 
@@ -42,7 +44,7 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 1. 读 `pipeline/state/test.md` 总判定
 2. PASS → 进「关单事务」
 3. FAIL → `state/boss.md` 打回轮次 +1,记原因
-4. 轮次 < 3 → **SendMessage 续接原 dev**(附测试可复现清单;原 dev 不可续接时 spawn 新 dev,简报附复现清单与 state 路径)→ 修复后重测,回步骤 1
+4. 轮次 < 3 → spawn 新 dev 返修,简报附三样:`state/test.md` 可复现清单、`state/dev.md` 既有交接区路径、**上一轮 dev 的最终回复原文**(boss 上下文里有,直接粘进简报)→ 修复后重测,回步骤 1
 5. 轮次 = 3 → **熔断**:停止自动重派。常规模式呈报用户拍板(继续重试/调整方案/升级为 plan 起棒);自治模式记入 BLOCKED 清单,流水线结束时一并呈报
 
    > 熔断防空转:修不好的问题往往是设计缺陷或 dev 持续误读,无限重试不收敛,第 3 轮该人来判断。
@@ -106,7 +108,7 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 手动档 = 只传话,**不走自动闭环**:
 
-1. spawn 对应角色 agent(简报 self-contained);同会话内该角色 agent 还在 → 优先 SendMessage 续接(免冷启动)
+1. spawn 对应角色 agent(简报 self-contained;每次都是全新会话,前情须写进简报或让它读 state)
 2. 产出直接转告用户:**不做**验收/转棒/失败回灌,不更新编排日志(除非用户明确要求)
 3. 诉求里出现**转棒**(「改完让 test 验」一类速记同义)→ 这是任务,走「编排流程」+ 棒次裁剪开单,不在手动档里转棒
 

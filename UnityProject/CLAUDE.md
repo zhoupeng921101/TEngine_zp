@@ -13,6 +13,9 @@ TEngine 基于 HybridCLR + YooAsset + UniTask + Luban 构建。
 
   > 绕过流水线 = 无登记、无验收、证据链断档(2026-06-12 有主会话直接改工程被叫停的实例)。
 - 写任何会被后续读取的持久文件前,先读并遵守 `.claude/rules/conventions.md`(一次性临时文件除外)。
+- 把刚写进持久文件的内容转述给用户时,不照搬档案文本,按对话体重新组织(待决项分节,「问题/修法/要你决定」分开,一段一事)。
+
+  > 两个信道优化目标相反:文件要自包含密排,对话要一眼扫到决策点。照搬必费劲(2026-06-12 审计呈报实例)。
 
 ---
 
@@ -56,15 +59,9 @@ TEngine 基于 HybridCLR + YooAsset + UniTask + Luban 构建。
 
 #### 触发时机
 
-| 场景 | 必须查询主题 |
-|------|------------|
-| UI 开发 | ui-lifecycle.md — UIWindow 生命周期、UIWidget 规范 |
-| 资源加载 | resource-api.md — LoadAssetAsync API、释放时机 |
-| 热更代码 | hotfix-workflow.md — 程序集划分、GameApp 入口、热更边界 |
-| 事件系统 | event-system.md — GameEvent 用法、AddUIEvent 规范 |
-| 模块使用 | modules.md — GameModule.XXX API、模块生命周期 |
-| Luban 配置 | luban-config.md — 配置表生成流程、访问方式 |
-| 代码规范 | naming-rules.md — 命名约定、节点前缀、设计模式 |
+主题路由(哪类场景查哪篇文档)以 `.claude/skills/tengine-dev/SKILL.md`「文档路由」为唯一信息源,本文件不枚举。
+
+> 曾在此维护枚举副本,与 SKILL.md 路由表漂移(7 主题 vs 11 行)而无人发现(2026-06-12 审计)。
 
 ---
 
@@ -93,22 +90,7 @@ TEngine 基于 HybridCLR + YooAsset + UniTask + Luban 构建。
 
 > **AI 唯一权威来源：`.claude/skills/tengine-dev/references/`**
 
-| 文档 | 内容 | 层级 |
-|-----|------|------|
-| architecture.md | 项目结构/启动流程 | 核心 |
-| modules.md | 模块 API（Timer/Scene/Audio/Fsm）| 核心 |
-| ui-lifecycle.md | UI 开发（生命周期/层级/属性）| 核心 |
-| event-system.md | 事件系统（两种模式/核心接口）| 核心 |
-| resource-api.md | 资源加载/卸载 | 核心 |
-| hotfix-workflow.md | 热更代码（HybridCLR/程序集划分/热更包）| 核心 |
-| luban-config.md | 配置表 | 核心 |
-| naming-rules.md | 代码规范/命名约定/节点前缀 | 核心 |
-| ui-patterns.md | UI 进阶（Widget 模板/节点绑定）| 进阶 |
-| event-antipatterns.md | 事件避坑（内存泄漏/接口无响应/风暴）| 进阶 |
-| resource-patterns.md | 资源管理模式/生命周期/泄漏根因 | 进阶 |
-| mcp-tools.md | MCP 场景/GameObject/UI Prefab/脚本/Editor/测试 | MCP |
-| mcp-visual.md | MCP 材质/Shader/VFX/动画 | MCP |
-| troubleshooting.md | 问题排查 | 排障 |
+文档清单与分级见 `.claude/skills/tengine-dev/SKILL.md`「文档路由」,本文件不枚举。
 
 ---
 
@@ -122,7 +104,7 @@ TEngine 基于 HybridCLR + YooAsset + UniTask + Luban 构建。
 3. 用户明确指出某文档描述有误
 
 **记录规范**：
-- 文件名：`problem_YYYY-MM-DD.md`（如 `problem_2026-04-21.md`）
+- 文件名：`problem_YYYY-MM-DD.md`（如 `problem_2026-04-21.md`），落点 `.claude/memory/`
 - 必填字段：
   - **问题现象**：错误表现或报错信息
   - **文档位置**：哪篇 reference 文档哪一节
