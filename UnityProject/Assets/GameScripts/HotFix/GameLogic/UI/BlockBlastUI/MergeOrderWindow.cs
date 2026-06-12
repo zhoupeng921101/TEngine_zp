@@ -488,22 +488,26 @@ namespace GameLogic.BlockBlastUI
                 int clearedCells = _state.ClearRowsAndCols(clear.Rows, clear.Cols); // 清方块色，得被清格数
                 foreach (var el in cleared) _merge.IngestElement(el);           // 逐个 Lv1 入合成区（自动升级）
                 _merge.RefundEnergy(lines);                                     // 返还体力（受软上限）
-                _state.Combo += 1;
 
-                // 得分驱动元素生成：该次消除得分 → k 个元素入预算队列，紧随的补牌（RefillPieces）抽干填入新候选块。
-                // clearScore 仅作元素生成内部驱动量，不计入玩家订单得分（TotalScore）。
-                int clearScore = BlockScoring.ClearScore(clearedCells, lines);
-                _merge.EnqueueScoreElements(MergeOrderConfig.ElementsForScore(clearScore));
+                // 连消/多消/全清结算（设计 11 §5.5 固定流水线）：
+                // 连消倍率只乘显示分；元素产出用未乘连消的基础分；多消里程碑直发 Lv2/Lv3；
+                // 全清武装位发 1 Lv3 + 推进女神（不可连续 2 次）。里程碑/全清产物归当前订单所需类型之一。
+                var milestoneType = PickMilestoneType();
+                var settle = ClearSettlement.Settle(_merge, lines, clearedCells, _board.IsEmpty(), milestoneType);
+                _state.Combo = settle.ComboChain >= 2 ? settle.ComboChain : 0; // 镜像到视觉连击（≥2 才显示）
 
                 RenderBoard();
 
-                if (_board.IsEmpty())
+                if (settle.AllClearRewarded)
                     BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, "PERFECT!", 64, new Color32(0xff, 0xe4, 0x4a, 0xFF));
-                else if (_state.Combo >= 2)
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, $"COMBO x{_state.Combo}", 56, new Color32(0xff, 0x77, 0xbb, 0xFF));
+                else if (lines >= MergeOrderConfig.MultiClearMilestoneMinLines)
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, settle.MultiLabel, 56, new Color32(0x55, 0xdd, 0xaa, 0xFF));
+                else if (settle.ComboChain >= 2)
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, $"COMBO x{settle.ComboChain}", 56, new Color32(0xff, 0x77, 0xbb, 0xFF));
             }
             else
             {
+                ClearSettlement.Settle(_merge, 0, 0, false, MergeElement.None); // 链断回 1 + 重新武装全清
                 _state.Combo = 0;
             }
 
@@ -548,6 +552,16 @@ namespace GameLogic.BlockBlastUI
             if (orders == null) return false;
             for (int i = 0; i < orders.Length; i++) if (_merge.CanDeliver(i)) return true;
             return false;
+        }
+
+        /// <summary>
+        /// 多消里程碑/全清直发图案的归属类型：取当前订单所需类型之一（需求拉动，避免产无关图案）。
+        /// 无所需类型时回退 None（ClearSettlement 内再兜底 Diamond）。
+        /// </summary>
+        private MergeElement PickMilestoneType()
+        {
+            var needed = _merge.NeededTypes();
+            return needed.Count > 0 ? needed[0] : MergeElement.None;
         }
 
         private void TriggerWin()

@@ -5,7 +5,31 @@
 
 ## 当前任务
 
-> **无活跃任务**。`collect-rename` 已于 2026-06-12 关单 PASS(详见下方「最近关单」)。
+### core-loop-completion-dev — 按设计 11 开发核心玩法补全(2026-06-12 起单;**自治模式**)
+
+**自治授权**:用户 2026-06-12 以 `/pipeline auto 开发` 显式激活;授权仅本单有效,关单即失效。边界:不 push、不 build、不发布。
+
+**git 基线**:`421a2c12`(block_claude 分支,working tree 干净,可一键退回)。
+
+**棒次**:dev→test(设计已定,plan 棒已在前置手动寻址中完成)。**设计基线** = `design-docs/11-core-loop-completion.html`(§十二全部 8 条决策已于 2026-06-12 经用户确认定稿)+ `pipeline/state/plan.md` 交接区(模块/符号锚点)。
+
+**模型档**:dev=opus(新系统多、耦合状态机核心)、test=opus(需设计新验证)。
+
+**决策日志(自治)**:
+- #0 开跑检查时 working tree 含 3 个未提交文件(设计 11 拍板落档,本会话用户拍板的直接产物),boss 代提交为 `421a2c12` 形成干净基线,未回询。依据:文件归属无歧义且本就该进开发基线。
+- #1 范围自裁:按设计 11 §十一验收清单落地,demo 范围(文档风险节明示「新系统全部可降级到 demo 范围,分批落地」);若 dev 判定单棒过大,按依赖关系分期,不依赖项继续推进,卡点记 BLOCKED。
+
+**pipeline-auto 运行登记**:
+- ~~Run `wf_0755ef10-ed7`(Task `wy14jfro2`)~~:**作废**——boss 把 args 传成 JSON 字符串,脚本收到 task=undefined,plan 棒空跑零改动后 BLOCKED 自停。教训:Workflow args 必须传真 JSON 对象,且键名按脚本头注释(task/baton/baseline=设计稿路径/devModel/testModel)。
+- ~~Run `wf_8c48c9f2-e4c`(Task `wvj874fap`)~~:**作废**——args 改传对象后仍未达脚本(task=undefined 且 baton 回落 full),判定为 Workflow 按名调用不透传 args;plan 棒再次空跑零改动后 BLOCKED 自停。
+- Run `wf_8f44b556-f03`(Task `wm7cywdhy`,2026-06-12 启动):任务参数内联进脚本副本 `pipeline-auto-core-loop-dev.js`(会话 workflows/scripts/ 下),棒次固定 dev→test,绕开 args 透传问题。**结果(2026-06-13):3 轮熔断 BLOCKED**,6 agent/约 60 万 token/47 分钟。
+
+**熔断定性**:阻塞全程是同一环境问题(Unity MCP 桥 instance_count:0,编辑器未向桥注册会话,进程级诊断编辑器与桥均 Responding=True,疑卡内部编译/域重载),**非代码缺陷**。代码侧:dev 首轮交付全量实现+34 新单测,test/dev 后两轮逐文件逐符号静态核验全过、零改动;打回轮次 3(全部环境原因,非设计/实现打回)。
+
+**打回循环实测注记**:打回机制对「环境阻塞」型 FAIL 会空转烧轮次(每轮 dev/test 只能复测桥再上报)——角色们已自发收敛(返修轮零改动、只复核+精化诊断),但 3 轮仍属浪费;后续可在 test FAIL reason 标「环境/代码」二分,环境型直接熔断不打回(改 pipeline-auto 脚本,列遗留)。
+
+**BLOCKED 待清**:运行门(编译 0 error + EditMode 130 例全绿 + Play 手验)未跑,补跑清单在 state/test.md;须 Unity 桥恢复(或编辑器关闭后 boss 走 batchmode)后由 boss 补跑、人工收口关单。
+- **遗留[boss·低优]**:通用版 pipeline-auto 的 args 透传在本环境不可用,后续任务沿用「专用副本内联参数」打法,或修通用脚本让其容忍 string/undefined args(报 BLOCKED 时带诊断)。
 
 ---
 

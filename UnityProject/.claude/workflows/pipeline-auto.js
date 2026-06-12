@@ -55,6 +55,11 @@ const TEST_SCHEMA = {
   required: ['verdict', 'statePath'],
 }
 
+// args 防御:未传 args 或传成 JSON 字符串(而非对象)是已知易错点,显式报错好过深处 TypeError
+if (!args || typeof args !== 'object' || !args.task) {
+  return { status: 'BLOCKED', stage: 'launch', blocked: ['启动参数缺失或格式错:args 须为对象且含 task 字段(收到:' + (typeof args) + ')。正确示例:Workflow({name:"pipeline-auto", args:{task:"...", baton:"dev-test", baseline:"design-docs/xx.html"}})'], decisions: [] }
+}
+
 const decisions = []
 const blocked = []
 

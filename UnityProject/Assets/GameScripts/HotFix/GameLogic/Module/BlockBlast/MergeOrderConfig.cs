@@ -78,6 +78,91 @@ namespace GameLogic.BlockBlast
         /// <summary>每局免费悔棋次数（无广告 / 无内购）。</summary>
         public const int UndoCharges = 3;
 
+        // ── 灵力（单货币）+ 祈愿兑体力（去变现续命）─ 设计 11 §四/§7.1 ─────────
+        // 双货币降为单货币：灵力 = 订单/宝箱/女神奖励 + 养成消耗 + 兑体力。无付费/无广告。
+        /// <summary>每日祈愿兑体力次数上限（纯灵力消耗，非购买）。</summary>
+        public const int WishPerDayLimit = 3;
+        /// <summary>一次祈愿消耗的灵力。</summary>
+        public const int WishSoulCost = 20;
+        /// <summary>一次祈愿补回的体力（回到软上限，不溢出）。</summary>
+        public const int WishEnergyGain = 10;
+
+        // ── 消除锤 ─ 设计 11 §7.2（20→8 已拍板）─────────────────
+        /// <summary>消除锤代价：摧毁待选区一个方块的体力消耗。= 一单回血，应急但肉疼。</summary>
+        public const int HammerCost = 8;
+
+        // ── 连消倍率 ─ 设计 11 §5.3（连续落子链，仅乘显示分）──────
+        // 索引 = 连消链长（1 起）。链长 ≥ 数组末项即取末项（封顶 ×2.0）。链断回链长 1（×1.0）。
+        // 整数千分比避免浮点不可单测：×1.0=1000、×1.2=1200…，调用方 score*permille/1000。
+        /// <summary>连消倍率千分比，索引 0=链长1、1=链长2…末项及以上封顶。</summary>
+        public static readonly int[] ComboMultPermille = { 1000, 1200, 1500, 1800, 2000 };
+
+        /// <summary>连消链长 → 倍率千分比（链长 1 起；超数组长取封顶末项）。</summary>
+        public static int ComboMultPermilleFor(int comboLen)
+        {
+            if (comboLen < 1) comboLen = 1;
+            int idx = comboLen - 1;
+            if (idx >= ComboMultPermille.Length) idx = ComboMultPermille.Length - 1;
+            return ComboMultPermille[idx];
+        }
+
+        // ── 多消里程碑加码 ─ 设计 11 §5.2（单次落子清行列数，直发跳过合成）─
+        // 在「得分驱动基础产出」之上，按单次落子的多消数（lines）额外直发中/高级图案进收集区。
+        // 阈值与产物逐档对齐原稿「3 连击=1 中级…6 连击及以上=1 高级」。
+
+        /// <summary>多消里程碑触发的最小行列数（&lt; 此值无加码）。</summary>
+        public const int MultiClearMilestoneMinLines = 3;
+
+        /// <summary>
+        /// 多消里程碑加码：单次落子清 lines 行列时，额外直发的图案（等级,数量）列表。
+        /// 3消→+1 Lv2；4消→+1 Lv2 +1 Lv1；5消→+1 Lv2 +2 Lv1；6+消→+1 Lv3。lines&lt;3 返回空。
+        /// 返回 (level, count) 元组数组，level 直接进收集区对应等级（不经合成级联，由调用方 AddDirect）。
+        /// </summary>
+        public static (int level, int count)[] MultiClearMilestoneBonus(int lines)
+        {
+            if (lines < MultiClearMilestoneMinLines) return System.Array.Empty<(int, int)>();
+            switch (lines)
+            {
+                case 3:  return new[] { (2, 1) };
+                case 4:  return new[] { (2, 1), (1, 1) };
+                case 5:  return new[] { (2, 1), (1, 2) };
+                default: return new[] { (3, 1) }; // 6+ 直达封顶 Lv3
+            }
+        }
+
+        /// <summary>多消即时弹字。索引 = 行列数（1 起）；超数组取末项。</summary>
+        public static readonly string[] MultiClearLabels =
+            { "Good", "Amazing", "Great", "Wonderful", "Excellent" };
+
+        /// <summary>多消行列数 → 弹字（1 起；超数组取封顶末项 Excellent）。</summary>
+        public static string MultiClearLabelFor(int lines)
+        {
+            if (lines < 1) return string.Empty;
+            int idx = lines - 1;
+            if (idx >= MultiClearLabels.Length) idx = MultiClearLabels.Length - 1;
+            return MultiClearLabels[idx];
+        }
+
+        // ── 全清奖励 ─ 设计 11 §5.4 ─────────────────────────────
+        /// <summary>全清奖励图案等级（高级直发）。</summary>
+        public const int AllClearRewardLevel = 3;
+        /// <summary>全清奖励图案数量。</summary>
+        public const int AllClearRewardCount = 1;
+
+        // ── 女神（全清累计进度）─ 设计 11 §十 ───────────────────
+        /// <summary>好评条满档所需全清次数（显示 N/GoddessRatingGoal）。</summary>
+        public const int GoddessRatingGoal = 10;
+
+        // ── 智能生成 R1–R3 仲裁阈值 ─ 设计 11 §八 ────────────────
+        /// <summary>R2 防卡死：连续未消除落子数阈值（≥ 此值发可消方块）。</summary>
+        public const int NoClearThreshold = 5;
+        /// <summary>R1 清盘后增难：全清后连发的异形块配额。</summary>
+        public const int AntiStreakCount = 3;
+        /// <summary>R2 清盘引导：剩余非空格 ≤ 此值时尝试促全清。</summary>
+        public const int ClearGuideThreshold = 8;
+        /// <summary>R3 高阶引导触发的最小多消数。</summary>
+        public const int MultiGuideMinLines = 3;
+
         // ── 循环订单池（手编锯齿波节奏）─────────────────────────
         // 难度量 d(单) = 数量 × 2^(等级-1) = 折算基础(Lv1)元素数。手工编排成「难单后必出简单单」，
         // 保证每个目标都够得着。NextOrder() 顺序取下一项，到尾循环。
