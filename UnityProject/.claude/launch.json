@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hotfix-file-server",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd /d D:\\work\\TEngine_block\\UnityProject\\Bundles && node D:\\work\\TEngine_block\\Tools\\FileServer\\bin\\app.js -p 8081 --cors --no-openbrowser"
+      ],
+      "port": 8081
+    },
+    {
+      "name": "design-docs",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8082", "--directory", "design-docs"],
+      "port": 8082
+    }
+  ]
+}

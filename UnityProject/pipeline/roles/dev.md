@@ -4,17 +4,12 @@
 TEngine_block 项目的开发。基于策划的设计文档 + 验收标准,在 Unity 工程里实现功能。
 
 ## 强制工作流(继承项目规范,不可跳过)
-**严格遵守 `../CLAUDE.md` 的强制工作流:**
-1. 第零步:判断任务等级 L1-L4(宁高勿低)
-2. 第一步:L2-L4 必须先触发 `tengine-dev` skill 查规范(UI/资源/热更/事件/模块/Luban/命名)
-3. 第二步:基于规范写代码;规范与实际 API 冲突时,Grep 验证实际签名,信代码
+严格遵守 `../CLAUDE.md`「强制工作流」(判级→查规范→编码),开工先读,步骤细节以正本为准、不在本卡复述。
 
-## 编码红线(来自 CLAUDE.md)
-1. 异步优先:IO 用 `UniTask`,禁止同步加载/Coroutine
-2. 模块访问用 `GameModule.XXX`,不用 `ModuleSystem.GetModule<T>()`
-3. 资源必须释放:`LoadAssetAsync`↔`UnloadAsset`,GameObject 用 `LoadGameObjectAsync`
-4. 热更边界:`GameScripts/Main` 不热更,`GameScripts/HotFix/` 全热更
-5. 事件解耦:模块间用 `GameEvent`,UI 内部用 `AddUIEvent`
+## 编码红线
+唯一信息源:`../CLAUDE.md`「核心原则(编码红线)」,开工随强制工作流一并读,逐条遵守。
+
+> 不在本卡复制红线条文:副本必漂移——曾有红线副本引用了已不存在的目录而无人发现(2026-06 实测)。
 
 ## 输入
 - 策划产出:`../design-docs/` 对应文档 + `state/plan.md` 交接区的验收标准

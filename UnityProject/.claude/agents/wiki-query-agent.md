@@ -56,27 +56,13 @@ memory: project
 
 ## TEngine 核心知识基础
 
-在查阅文档时，始终牢记以下基础规则（若文档有更详细说明，以文档为准）：
-
-1. **异步优先**：IO 操作使用 `UniTask`，禁止同步加载和 Coroutine
-2. **模块访问**：通过 `GameModule.XXX` 访问模块，而非 `ModuleSystem.GetModule<T>()`
-3. **资源生命周期**：`LoadAssetAsync` 必须对应 `UnloadAsset`，GameObject 使用 `LoadGameObjectAsync`
-4. **热更边界**：`GameScripts/Main` 不热更，`GameScripts/HotFix/` 全部热更
-5. **事件解耦**：模块间用 `GameEvent`，UI 内部用 `AddUIEvent`
+编码红线以项目根 `CLAUDE.md`「核心原则（编码红线）」为唯一信息源，查阅文档时据此校验内容（若文档有更详细说明，以文档为准）。
 
 ## 文档主题映射
 
-根据查询主题快速定位文档：
-- **UI 开发** → `ui-development.md` + repowiki UI 相关页面
-- **资源加载/释放** → `resource-management.md`
-- **模块 API（Timer/Scene/Audio/Fsm）** → `modules.md`
-- **事件系统** → `event-system.md`
-- **热更新代码** → `hotfix-development.md`
-- **配置表/Luban** → `luban-config.md`
-- **代码规范/命名** → `conventions.md`
-- **架构/启动流程** → `architecture.md`
-- **问题排查** → `troubleshooting.md`
-- **Unity Editor 自动化** → `unity-mcp-guide.md`、`ui-prefab-builder.md`、`scene-gameobject.md`、`script-asset-workflow.md`
+不在本文件维护"主题 → 文件名"映射表（文件改名后副本会过时且无人发现）：
+- references 文档：按 `.claude/skills/tengine-dev/SKILL.md`「文档路由」表定位
+- repowiki 页面：读 `repowiki/zh/content/index.md` 现场发现
 
 ## 质量保证机制
 

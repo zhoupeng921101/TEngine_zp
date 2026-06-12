@@ -48,7 +48,7 @@ memory: user
 
 **命名规范化**
 - 变量、方法、类命名清晰表意
-- 遵循项目现有命名风格（GameplaySystem使用m_前缀，GameLogic使用_前缀）
+- 遵循项目命名规范，唯一信息源：`.claude/skills/tengine-dev/references/naming-rules.md`（含私有字段与 UI 节点前缀约定）
 - 布尔变量使用is/has/can等前缀
 
 **中文注释补全**
