@@ -4,95 +4,170 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>玩法总览 · Block Blast 策划文档</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=2">
 </head>
 <body>
 
-<div class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs"><a href="index.html">总览</a> / 玩法总览</span>
-  </div>
-</div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <nav>
+      <div class="tree-group">总览</div>
+      <a class="tree-link" href="index.html">文档库首页</a>
+      <div class="tree-group">现状分析</div>
+      <a class="tree-link active" href="01-gameplay-overview.html">01 · 玩法总览</a>
+      <a class="tree-link" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
+      <div class="tree-group">切片设计</div>
+      <a class="tree-link" href="09-merge-order-energy.html">09 · 合成订单切片</a>
+      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
+      <div class="tree-group">代码 / 工具</div>
+      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
+      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
+      <details class="tree-fold">
+        <summary>已归档</summary>
+        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
+        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
+        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
+        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
+      </details>
+    </nav>
+    <nav class="page-toc">
+      <div class="toc-title">本页目录</div>
+      <a class="toc-link" href="#loop">一、核心玩法循环</a>
+      <a class="toc-link" href="#score">二、得分规则</a>
+      <a class="toc-link" href="#blocks">三、方块库</a>
+      <a class="toc-link" href="#dda">四、动态难度调度</a>
+      <a class="toc-link" href="#misc">五、其它</a>
+    </nav>
+  </aside>
 
-<div class="wrap">
-  <h1>玩法总览</h1>
-  <p class="subtitle">现状分析 · 一句话：8×8 拖放消除无尽模式，得分靠「憋大招多行列同消」，真正的核心是一套<b>会偷偷调整发牌难易的动态难度系统</b>，让你总觉得「就差一点」。</p>
+  <main class="content">
+    <h1>玩法总览</h1>
+    <p class="subtitle">现状分析 · 一句话:8×8 拖放消除无尽模式,得分靠「憋大招多行列同消」,真正的核心是一套<b>会偷偷调整发牌难易的动态难度系统</b>,让你总觉得「就差一点」。</p>
 
-  <div class="callout note">
-    <b>本文档基于代码现状整理</b>，对应模块：<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。主体为 <b>Classic（无尽）模式</b>；收集玩法已有独立 Demo 切片（见 <a href="08-collect-demo-slice.html">收集 Demo 切片</a>），关卡 / 冒险尚未移植。
-  </div>
-
-  <h2>一、核心玩法循环</h2>
-  <p>经典 <b>8×8 棋盘 + 三块拖放消除</b>（同类：Block Blast / 1010!）。每回合流程：</p>
-  <ol class="steps">
-    <li>手上有 <b>3 个候选方块</b>（<code>OperaArr[3]</code>）。</li>
-    <li>拖拽方块到棋盘空位落子，落点合法才放得下；拖动时有 <b>ghost 预览</b>（<span class="chip good">绿色可放</span> / <span class="chip bad">红色不可放</span>）。</li>
-    <li>落子后检测<b>整行 / 整列填满 → 消除</b>。</li>
-    <li>三块全部用完 → <b>补满下一组 3 块</b>。</li>
-    <li>剩余手牌<b>无任何合法落点 → Game Over</b>。</li>
-  </ol>
-  <p>三窗口流转：主菜单 <code>MainMenuWindow</code> → 游戏 <code>GameWindow</code> → 结算 <code>GameOverWindow</code>。</p>
-
-  <h2>二、得分规则</h2>
-  <table>
-    <tr><th>行为</th><th>得分公式</th><th>说明</th></tr>
-    <tr><td>落子</td><td><code>每格 +1</code></td><td>方块占几格加几分</td></tr>
-    <tr><td>消除</td><td><code>消除格数 × 10 + 行列数² × 30</code></td><td>同时消越多行列，奖励呈<b>平方级</b>暴涨</td></tr>
-  </table>
-  <p>消除收益示例（平方奖励鼓励「憋大招」）：</p>
-  <table>
-    <tr><th>同时消除</th><th>行列数²×30</th><th>体感</th></tr>
-    <tr><td>1 行/列</td><td>+30</td><td>常规</td></tr>
-    <tr><td>2 行/列</td><td>+120</td><td>值得等</td></tr>
-    <tr><td>3 行/列</td><td>+270</td><td>大爽点</td></tr>
-  </table>
-  <div class="callout warn">
-    <b>注意（潜在设计点）：</b> 代码里有 <b>Combo 连击</b>计数（连续落子都有消除则 +1，断了清零），<b>但 Combo 目前没有进入任何得分公式</b>——是一个已埋好但未启用的爽点钩子。
-  </div>
-
-  <h2>三、方块库</h2>
-  <ul>
-    <li>共 <b>71 种形状</b>定义，实际抽取池为 <b>39 种 COMMON</b>。</li>
-    <li>新手<b>首发固定</b> <code>[9, 39, 24]</code>（2×2 方块、L 形、大 L），保证开局好上手。</li>
-    <li><b>早期屏蔽</b>：分数 &lt; 10000 时，剔除特别难放的大形状（<code>EarlyGameBlockedIds</code>），降低前期挫败。</li>
-  </ul>
-
-  <h2>四、最大特色：动态难度调度</h2>
-  <p>这是本作区别于普通方块消除的<b>灵魂</b>——发牌<b>不是纯随机，而是根据玩家表现「做局」</b>（一套橡皮筋式动态难度 DDA）。分数段决定调度策略：</p>
-  <table>
-    <tr><th>分数段</th><th>调度行为</th></tr>
-    <tr><td>&lt; 1000</td><td>纯随机无死亡，保证开局不卡</td></tr>
-    <tr><td>1000 ~ 15000</td><td><b>清屏窗口</b>：系统用贪心算法主动喂「能清空棋盘」的方块，引导清盘；清空后冷却 1~2 回合走普通调度，再开窗口（张弛节奏）</td></tr>
-    <tr><td>≥ 1000 激活</td><td><b>动态权重</b>：8 种算法按权重抽取发牌</td></tr>
-  </table>
-
-  <h3>8 种发牌算法（从「放水」到「做死」）</h3>
-  <table>
-    <tr><th>算法</th><th>倾向</th></tr>
-    <tr><td>Fill / ClearAll / AllCombination</td><td><span class="chip good">放水</span> 好放、好消、助清盘</td></tr>
-    <tr><td>RandomNoDie / EasyDiff</td><td><span class="chip">中性偏易</span></td></tr>
-    <tr><td>Add3（熵增）/ Diff（困难）/ StraightDeathDiff（死亡难题）</td><td><span class="chip bad">做局</span> 故意给难放 / 逼死的方块</td></tr>
-  </table>
-  <p>核心变量 <code>dynamicWeight</code>：玩家放了「难」方块权重下降、放「易」方块权重上升，系统据此在不同 <b>tier（难度档）</b>间切换发牌策略，让玩家长期停在「差点死又没死」的心流区。权重配置走 Luban 表 <code>weightcfg</code>。</p>
-  <div class="callout note">这套系统是本作的灵魂，单独拆成一篇详解（含 8 种算法逐一拆解 + 真实权重数据）：→ <a href="02-dynamic-difficulty.html">动态难度拆解</a>。</div>
-
-  <h2>五、其它</h2>
-  <ul>
-    <li><b>存档</b>：棋盘 + 手牌 + 分数 + 最高分本地持久化，支持断线续玩。</li>
-    <li><b>UI</b>：纯几何 UGUI 代码绘制（无美术 prefab），有分数滚动动画。</li>
-  </ul>
-
-  <div class="related">
-    <h2>相关文档</h2>
-    <div class="related-links">
-      <a href="index.html">← 返回总览</a>
-      <a href="02-dynamic-difficulty.html">动态难度拆解</a>
-      <a href="08-collect-demo-slice.html">收集 Demo 切片</a>
+    <div class="callout note">
+      <b>本文档基于代码现状整理</b>,对应模块:<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。主体为 <b>Classic(无尽)模式</b>;另有「合成订单」自研切片在持续迭代(见 <a href="09-merge-order-energy.html">09</a>/<a href="10-score-element-rm-collect.html">10</a>),关卡 / 冒险未移植(路线已归档)。
     </div>
-  </div>
 
-  <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
+    <h2 id="loop">一、核心玩法循环</h2>
+    <p>经典 <mark>8×8 棋盘 + 三块拖放消除</mark>(同类:Block Blast / 1010!)。一个回合的完整流转与两个出口:</p>
+    <div class="diagram">
+    <svg viewBox="0 0 880 360" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="核心回合循环图">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"/></marker>
+        <marker id="ar-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"/></marker>
+        <marker id="ar-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff7a8a"/></marker>
+      </defs>
+
+      <!-- 主链 -->
+      <g text-anchor="middle">
+        <rect x="20" y="60" width="180" height="78" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="110" y="94" font-size="16" font-weight="700" fill="#f2f4fc">手牌 3 块</text>
+        <text x="110" y="118" font-size="12.5" fill="#aebcf5">OperaArr[3] · 调度发牌</text>
+
+        <rect x="250" y="60" width="180" height="78" rx="12" fill="#1e2230" stroke="#8d96b5"/>
+        <text x="340" y="94" font-size="16" font-weight="700" fill="#f2f4fc">拖放落子</text>
+        <text x="340" y="118" font-size="12.5" fill="#8d96b5">ghost 预览 绿可放/红不可</text>
+
+        <rect x="480" y="60" width="180" height="78" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="570" y="94" font-size="16" font-weight="700" fill="#f2f4fc">行/列消除判定</text>
+        <text x="570" y="118" font-size="12.5" fill="#8fd0b4">整行/整列填满即消</text>
+
+        <rect x="690" y="60" width="170" height="78" rx="12" fill="#1e2230" stroke="#8d96b5"/>
+        <text x="775" y="94" font-size="16" font-weight="700" fill="#f2f4fc">手牌用尽?</text>
+        <text x="775" y="118" font-size="12.5" fill="#8d96b5">3 块全部落下</text>
+      </g>
+
+      <g stroke="#8d96b5" stroke-width="1.6">
+        <line x1="200" y1="99" x2="242" y2="99" marker-end="url(#ar)"/>
+        <line x1="430" y1="99" x2="472" y2="99" marker-end="url(#ar)"/>
+        <line x1="660" y1="99" x2="682" y2="99" marker-end="url(#ar)"/>
+      </g>
+
+      <!-- 回环:补牌 -->
+      <path d="M775 138 V 210 H 110 V 146" fill="none" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#ar-b)"/>
+      <text x="442" y="202" text-anchor="middle" font-size="14" fill="#6c8cff">是 → 补满下一组 3 块(动态难度调度决定给什么,见 §四)</text>
+
+      <!-- 出口:死亡 -->
+      <path d="M340 138 V 290 H 472" fill="none" stroke="#ff7a8a" stroke-width="1.8" marker-end="url(#ar-r)"/>
+      <text x="340" y="265" text-anchor="middle" font-size="13.5" fill="#ff7a8a">剩余手牌无任何合法落点</text>
+      <g text-anchor="middle">
+        <rect x="480" y="252" width="180" height="70" rx="12" fill="#3a1f26" stroke="#ff7a8a"/>
+        <text x="570" y="283" font-size="16" font-weight="700" fill="#ffb3bd">Game Over</text>
+        <text x="570" y="306" font-size="12.5" fill="#d49aa4">GameOverWindow 结算</text>
+      </g>
+
+      <!-- 图例 -->
+      <line x1="270" y1="345" x2="306" y2="345" stroke="#8d96b5" stroke-width="2"/>
+      <text x="314" y="350" font-size="13" fill="#8d96b5">回合推进</text>
+      <line x1="420" y1="345" x2="456" y2="345" stroke="#6c8cff" stroke-width="2"/>
+      <text x="464" y="350" font-size="13" fill="#8d96b5">循环回路</text>
+      <line x1="570" y1="345" x2="606" y2="345" stroke="#ff7a8a" stroke-width="2"/>
+      <text x="614" y="350" font-size="13" fill="#8d96b5">失败出口</text>
+    </svg>
+    </div>
+    <p>窗口流转:主菜单 <code>MainMenuWindow</code> → 游戏 <code>GameWindow</code> → 结算 <code>GameOverWindow</code>。</p>
+
+    <h2 id="score">二、得分规则</h2>
+    <table>
+      <tr><th>行为</th><th>得分公式</th><th>说明</th></tr>
+      <tr><td>落子</td><td><code>每格 +1</code></td><td>方块占几格加几分</td></tr>
+      <tr><td>消除</td><td><code>消除格数 × 10 + 行列数² × 30</code></td><td>同时消越多行列,奖励呈<mark>平方级</mark>暴涨</td></tr>
+    </table>
+    <p>消除收益示例(平方奖励鼓励<b>「憋大招」</b>):</p>
+    <table>
+      <tr><th>同时消除</th><th>行列数²×30</th><th>体感</th></tr>
+      <tr><td>1 行/列</td><td>+30</td><td>常规</td></tr>
+      <tr><td>2 行/列</td><td>+120</td><td>值得等</td></tr>
+      <tr><td>3 行/列</td><td><mark class="g">+270</mark></td><td>大爽点</td></tr>
+    </table>
+    <div class="callout warn">
+      <b>注意(潜在设计点):</b>代码里有 <b>Combo 连击</b>计数(连续落子都有消除则 +1,断了清零),连击弹字已上屏(COMBO×N / PERFECT),<mark class="y">但 Combo 未进入任何得分公式</mark>——是一个已埋好但未启用的数值钩子。
+    </div>
+
+    <h2 id="blocks">三、方块库</h2>
+    <ul>
+      <li>共 <b>71 种形状</b>定义,实际抽取池为 <mark>39 种 COMMON</mark>。</li>
+      <li>新手<b>首发固定</b> <code>[9, 39, 24]</code>(2×2 方块、L 形、大 L),保证开局好上手。</li>
+      <li><b>早期屏蔽</b>:分数 &lt; 10000 时,剔除特别难放的大形状(<code>EarlyGameBlockedIds</code>),降低前期挫败。</li>
+    </ul>
+
+    <h2 id="dda">四、最大特色:动态难度调度</h2>
+    <p>这是本作区别于普通方块消除的<mark>灵魂</mark>——发牌<b>不是纯随机,而是根据玩家表现「做局」</b>(一套橡皮筋式动态难度 DDA)。分数段决定调度策略:</p>
+    <table>
+      <tr><th>分数段</th><th>调度行为</th></tr>
+      <tr><td>&lt; 1000</td><td>纯随机无死亡,保证开局不卡</td></tr>
+      <tr><td>1000 ~ 15000</td><td><b>清屏窗口</b>:系统用贪心算法主动喂「能清空棋盘」的方块,引导清盘;清空后冷却 1~2 回合走普通调度,再开窗口(张弛节奏)</td></tr>
+      <tr><td>≥ 1000 激活</td><td><b>动态权重</b>:8 种算法按权重抽取发牌</td></tr>
+    </table>
+
+    <h3>8 种发牌算法(从「放水」到「做死」)</h3>
+    <table>
+      <tr><th>算法</th><th>倾向</th></tr>
+      <tr><td>Fill / ClearAll / AllCombination</td><td><span class="chip good">放水</span> 好放、好消、助清盘</td></tr>
+      <tr><td>RandomNoDie / EasyDiff</td><td><span class="chip">中性偏易</span></td></tr>
+      <tr><td>Add3(熵增)/ Diff(困难)/ StraightDeathDiff(死亡难题)</td><td><span class="chip bad">做局</span> 故意给难放 / 逼死的方块</td></tr>
+    </table>
+    <p>核心变量 <code>dynamicWeight</code>:玩家放了「难」方块权重下降、放「易」方块权重上升,系统据此在不同 <b>tier(难度档)</b>间切换发牌策略,让玩家长期停在<mark>「差点死又没死」的心流区</mark>。权重配置走 Luban 表 <code>weightcfg</code>。</p>
+    <div class="callout note">这套系统是本作的灵魂,单独拆成一篇详解(含 8 种算法逐一拆解 + 真实权重数据):→ <a href="02-dynamic-difficulty.html">动态难度拆解</a>。</div>
+
+    <h2 id="misc">五、其它</h2>
+    <ul>
+      <li><b>存档</b>:棋盘 + 手牌 + 分数 + 最高分本地持久化,支持断线续玩。</li>
+      <li><b>UI</b>:纯几何 UGUI 代码绘制(无美术 prefab),有分数滚动动画。</li>
+    </ul>
+
+    <div class="related">
+      <h2>相关文档</h2>
+      <div class="related-links">
+        <a href="index.html">← 返回总览</a>
+        <a href="02-dynamic-difficulty.html">动态难度拆解</a>
+        <a href="09-merge-order-energy.html">合成订单切片</a>
+      </div>
+    </div>
+
+    <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
+  </main>
 </div>
 
 </body>

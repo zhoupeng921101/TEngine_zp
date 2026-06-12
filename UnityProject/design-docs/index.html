@@ -4,100 +4,104 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Block Blast 策划文档 · 总览</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=2">
 </head>
 <body>
 
-<div class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs">总览</span>
-  </div>
-</div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <nav>
+      <div class="tree-group">总览</div>
+      <a class="tree-link active" href="index.html">文档库首页</a>
+      <div class="tree-group">现状分析</div>
+      <a class="tree-link" href="01-gameplay-overview.html">01 · 玩法总览</a>
+      <a class="tree-link" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
+      <div class="tree-group">切片设计</div>
+      <a class="tree-link" href="09-merge-order-energy.html">09 · 合成订单切片</a>
+      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
+      <a class="tree-link" href="11-core-loop-completion.html">11 · 核心玩法补全</a>
+      <div class="tree-group">代码 / 工具</div>
+      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
+      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
+      <details class="tree-fold">
+        <summary>已归档</summary>
+        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
+        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
+        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
+        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
+      </details>
+    </nav>
+  </aside>
 
-<div class="wrap">
-  <h1>Block Blast 策划文档库</h1>
-  <p class="subtitle">8×8 拖放方块消除 · 无尽模式 · 动态难度核心。这里收录所有玩法 / 数值 / 系统设计文档，持续更新。</p>
+  <main class="content">
+    <h1>Block Blast 策划文档库</h1>
+    <p class="subtitle">8×8 拖放方块消除 · Classic 无尽 + 「合成订单」自研切片。收录所有玩法 / 数值 / 系统设计文档,持续更新。</p>
 
-  <div class="callout note">
-    <b>怎么用：</b> 每篇文档都可独立查看，底部有「相关文档」互相跳转。带虚线边框、变灰的卡片是<b>规划中（待补充）</b>的文档。
-  </div>
+    <div class="callout note">
+      <b>怎么用:</b>左侧目录树可在文档间跳转;每篇文档的目录树下方还有<b>本页目录</b>,直达章节。
+    </div>
 
-  <h2>📐 现状分析</h2>
-  <div class="cards">
-    <a class="card" href="01-gameplay-overview.html">
-      <span class="tag">现状 · 核心</span>
-      <h3>玩法总览</h3>
-      <p>核心循环、得分规则、方块库、动态难度系统——当前游戏到底是怎么玩的。</p>
-    </a>
-    <a class="card" href="02-dynamic-difficulty.html">
-      <span class="tag">现状 · 数值</span>
-      <h3>动态难度拆解</h3>
-      <p>会读心的发牌系统：dynamicWeight 橡皮筋、8 种算法、136 行权重表真实数据。</p>
-    </a>
-  </div>
+    <h2>现状分析</h2>
+    <div class="cards">
+      <a class="card" href="01-gameplay-overview.html">
+        <span class="tag">现状 · 核心</span>
+        <h3>01 · 玩法总览</h3>
+        <p>核心循环、得分规则、方块库、动态难度系统——当前游戏到底是怎么玩的。</p>
+      </a>
+      <a class="card" href="02-dynamic-difficulty.html">
+        <span class="tag">现状 · 数值</span>
+        <h3>02 · 动态难度拆解</h3>
+        <p>会读心的发牌系统:dynamicWeight 橡皮筋、8 种算法、136 行权重表真实数据。</p>
+      </a>
+    </div>
 
-  <h2>🔍 原版参考</h2>
-  <div class="cards">
-    <a class="card" href="03-reference-gap-roadmap.html">
-      <span class="tag">现状 · 路线图</span>
-      <h3>原版功能差距 &amp; 移植路线图</h3>
-      <p>原版 / Web 参考 / Unity 三方对齐：缺什么、数据现不现成、先做哪个（含优先级建议）。</p>
-    </a>
-  </div>
+    <h2>切片设计(活跃)</h2>
+    <div class="cards">
+      <a class="card" href="09-merge-order-energy.html">
+        <span class="tag">切片 · 核心循环</span>
+        <h3>09 · 元素合成 + 订单 + 体力</h3>
+        <p>三系统叠成自持循环:体力→落子→消除→元素→合成→订单交付→奖励。含数值风险方案与挂接点。<b>注:元素注入规则已被 10 改为得分驱动。</b></p>
+      </a>
+      <a class="card" href="10-score-element-rm-collect.html">
+        <span class="tag">切片 · 玩法调整</span>
+        <h3>10 · 得分驱动元素生成 + 移除收集</h3>
+        <p>消除得分驱动元素数量(映射公式 + 审定点);彻底移除收集玩法并甄别保留共享设施。含 dev 改动清单与验收点。</p>
+      </a>
+      <a class="card" href="11-core-loop-completion.html">
+        <span class="tag">设计 · 核心补全</span>
+        <h3>11 · 核心玩法补全</h3>
+        <p>把四份原始稿(方块/订单/宝箱/女神)的漏洞补成完整自洽设计:并发模型、连消/多消/全清结算、体力、术语统一、图案经济、智能生成仲裁、宝箱、女神。含验收点与待确认清单。</p>
+      </a>
+    </div>
 
-  <h2>🎯 设计提案</h2>
-  <div class="cards">
-    <a class="card" href="04-proposal-combo-juice.html">
-      <span class="tag">提案 · P0 · 体验</span>
-      <h3>Combo 连击 &amp; 打击感</h3>
-      <p>声/光/字/分四件套，激活空转的 Combo 变量。含连击倍率可选数值方案。</p>
-    </a>
-    <a class="card" href="05-proposal-adventure.html">
-      <span class="tag">提案 · P1 · 玩法</span>
-      <h3>Adventure 关卡模式</h3>
-      <p>360/2000 关现成数据 + 星级 + 复用 DDA 做关卡难度。含分期实施路线。</p>
-    </a>
-  </div>
+    <h2>代码 / 工程</h2>
+    <div class="cards">
+      <a class="card" href="07-blockblast-code-architecture.html">
+        <span class="tag">工程 · 代码剖析</span>
+        <h3>07 · BlockBlast 代码架构剖析</h3>
+        <p>离线还原版动态难度系统的 C# 实现:三层分层、调度数据流、位棋盘 + 蒙特卡洛评分器、CPU 热点与可调点。</p>
+      </a>
+      <a class="card" href="06-psd2ugui-componentize.html">
+        <span class="tag">工具 · 已落地</span>
+        <h3>06 · PSD2UGUI 组件化工具</h3>
+        <p>扁平节点 → 组件调色板一键挂 UGUI 组件(控件自动补 targetGraphic),引用在 Inspector 连。已实现并编译验证。</p>
+      </a>
+    </div>
 
-  <h2>🧪 垂直切片 / Demo</h2>
-  <div class="cards">
-    <a class="card" href="08-collect-demo-slice.html">
-      <span class="tag">切片 · 收集 · 已下线</span>
-      <h3>独立收集 Demo 切片（方案 A）</h3>
-      <p>不依赖关卡框架的最小可跑切片：元素生成 + 收集计数 + collect 达标判定 + 简单 UI。<b>玩法已移除</b>（见 10），文档存档供机制还原参考；其「候选块携带元素」基础设施转用于合成订单切片。</p>
-    </a>
-    <a class="card" href="09-merge-order-energy.html">
-      <span class="tag">切片 · 核心循环 · 设计</span>
-      <h3>元素合成 + 订单 + 体力 Demo 切片</h3>
-      <p>在收集切片之上叠三系统组成自持循环：体力→落子→消除→元素→合成→订单交付→奖励。含核心循环图、三个数值风险点方案、与浪漫餐厅取舍、挂接点。<b>注：元素注入规则已被 10 改为得分驱动。</b></p>
-    </a>
-    <a class="card" href="10-score-element-rm-collect.html">
-      <span class="tag">切片 · 玩法调整 · 设计</span>
-      <h3>得分驱动元素生成 + 移除收集 Demo</h3>
-      <p>两件同批改动：把合成订单的元素注入从「固定概率」改为「消除得分驱动数量」（含得分→元素映射方案）；彻底移除收集 Demo 玩法并甄别保留共享元素设施。含映射数值审定点、保留边界清单、dev 改动清单与验收点。</p>
-    </a>
-  </div>
+    <div class="related">
+      <h2>已归档(archive/)</h2>
+      <p style="color:var(--text-dim);font-size:14px;margin:0 0 12px">不再推进或已下线的历史文档,各篇首部标注归档原因。</p>
+      <div class="related-links">
+        <a href="archive/03-reference-gap-roadmap.html">03 · 移植路线图(路线已被自研切片取代)</a>
+        <a href="archive/04-proposal-combo-juice.html">04 · Combo 提案(弹字已落地,余项搁置)</a>
+        <a href="archive/05-proposal-adventure.html">05 · Adventure 提案(未实施)</a>
+        <a href="archive/08-collect-demo-slice.html">08 · 收集切片(玩法已移除)</a>
+      </div>
+    </div>
 
-  <h2>🧱 代码 / 工程</h2>
-  <div class="cards">
-    <a class="card" href="07-blockblast-code-architecture.html">
-      <span class="tag">工程 · 代码剖析</span>
-      <h3>BlockBlast 代码架构剖析</h3>
-      <p>离线还原版动态难度系统的 C# 实现：三层分层、调度数据流、位棋盘 + 蒙特卡洛评分器、CPU 热点与可调点。</p>
-    </a>
-  </div>
-
-  <h2>🛠 工具 / 管线</h2>
-  <div class="cards">
-    <a class="card" href="06-psd2ugui-componentize.html">
-      <span class="tag">工具 · 已落地</span>
-      <h3>PSD2UGUI 组件化工具</h3>
-      <p>扁平节点 → 组件调色板一键挂 UGUI 组件（控件自动补 targetGraphic），引用在 Inspector 连。已实现并编译验证。</p>
-    </a>
-  </div>
-
-  <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
+    <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
+  </main>
 </div>
 
 </body>

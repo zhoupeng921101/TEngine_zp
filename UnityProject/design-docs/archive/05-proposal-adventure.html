@@ -4,18 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>提案 P1：Adventure 关卡模式 · Block Blast 策划文档</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="../assets/style.css?v=2">
 </head>
 <body>
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs"><a href="index.html">总览</a> / 提案 P1 · Adventure 关卡</span>
+    <a class="brand" href="../index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="../index.html">总览</a> / 提案 P1 · Adventure 关卡</span>
   </div>
 </div>
 
 <div class="wrap">
+  <div class="callout warn"><b>已归档(2026-06-12)</b>:Adventure 关卡模式未实施,项目转向「合成订单」自研切片(见 <a href="../09-merge-order-energy.html">09</a>)。本篇的关卡 JSON 数据索引仍可参考。</div>
   <h1>提案 P1：Adventure 关卡模式</h1>
   <p class="subtitle">设计提案 · 待评审 · 在无尽玩法之上加一条「关卡 + 目标 + 星级」的内容线，用现成的 360/2000 关数据撑起长留存。</p>
 
@@ -26,7 +27,7 @@
       <tr><th>状态</th><td>待评审</td></tr>
       <tr><th>预计工作量</th><td>首版（冲分关）约 6~9 人日；收集关另计（P2）</td></tr>
       <tr><th>依赖</th><td>建议 <a href="04-proposal-combo-juice.html">P0 打击感</a> 先行（关卡结算需要消除反馈撑场）</td></tr>
-      <tr><th>关联</th><td><a href="03-reference-gap-roadmap.html">移植路线图</a>（P1 来源）· <a href="02-dynamic-difficulty.html">动态难度</a>（复用）</td></tr>
+      <tr><th>关联</th><td><a href="03-reference-gap-roadmap.html">移植路线图</a>（P1 来源）· <a href="../02-dynamic-difficulty.html">动态难度</a>（复用）</td></tr>
     </table>
   </div>
 
@@ -34,7 +35,7 @@
   <ul>
     <li><b>当前只有 Classic 无尽一种模式</b>，缺「目标感 / 进度感」，新玩家没有短期目标牵引。</li>
     <li><b>关卡数据已是成品</b>：参考工程带 <code>default360.json</code>（360 关）与 <code>default2000.json</code>（2000 关），结构清晰，含预置棋盘、过关条件、难度区间。</li>
-    <li><b>难度系统可复用</b>：关卡数据自带 <code>weightMin/weightMax</code>，能直接驱动现有 <a href="02-dynamic-difficulty.html">dynamicWeight 橡皮筋</a> 做关卡级难度——不必另写一套。</li>
+    <li><b>难度系统可复用</b>：关卡数据自带 <code>weightMin/weightMax</code>，能直接驱动现有 <a href="../02-dynamic-difficulty.html">dynamicWeight 橡皮筋</a> 做关卡级难度——不必另写一套。</li>
     <li><b>结算资源现成</b>：<code>stars_icons</code> 星级图集 Unity 已有；参考工程的 <code>LevelComplete</code> 结算流程可平移。</li>
   </ul>
 
@@ -88,7 +89,7 @@
   <div class="callout good">星级给了「重刷高分」的二次目标——1 星过关的玩家会为 3 星回来。这是关卡模式留存的关键钩子。<code>ratios</code> 建议可配，方便整体调松紧。</div>
 
   <h2>七、难度：复用 DDA + 关卡锁区间（设计亮点）</h2>
-  <p>不新建难度系统。关卡载入时把 <a href="02-dynamic-difficulty.html">dynamicWeight</a> 的活动范围钳制在本关 <code>weightMin~weightMax</code>：</p>
+  <p>不新建难度系统。关卡载入时把 <a href="../02-dynamic-difficulty.html">dynamicWeight</a> 的活动范围钳制在本关 <code>weightMin~weightMax</code>：</p>
   <ul>
     <li>想让某关「轻松爽快」→ 区间设在负值段（橡皮筋只在<b>放水档</b>活动，多发 Fill/清盘块）。</li>
     <li>想让某关「步步惊心」→ 区间设在正值段（锁在<b>做局档</b>，多发困难块）。</li>
@@ -153,9 +154,9 @@
   <div class="related">
     <h2>相关文档</h2>
     <div class="related-links">
-      <a href="index.html">← 返回总览</a>
-      <a href="01-gameplay-overview.html">玩法总览</a>
-      <a href="02-dynamic-difficulty.html">动态难度拆解</a>
+      <a href="../index.html">← 返回总览</a>
+      <a href="../01-gameplay-overview.html">玩法总览</a>
+      <a href="../02-dynamic-difficulty.html">动态难度拆解</a>
       <a href="03-reference-gap-roadmap.html">移植路线图</a>
       <a href="04-proposal-combo-juice.html">提案 P0 · Combo &amp; 打击感</a>
       <a href="08-collect-demo-slice.html">收集 Demo 切片</a>

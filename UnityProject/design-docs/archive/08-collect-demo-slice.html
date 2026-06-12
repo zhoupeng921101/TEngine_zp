@@ -4,18 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>独立收集 Demo 切片（方案 A）· Block Blast 策划文档</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="../assets/style.css?v=2">
 </head>
 <body>
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs"><a href="index.html">总览</a> / 切片 · 收集 Demo</span>
+    <a class="brand" href="../index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="../index.html">总览</a> / 切片 · 收集 Demo</span>
   </div>
 </div>
 
 <div class="wrap">
+  <div class="callout warn"><b>已归档(2026-06-12)</b>:收集玩法已整体移除(见 <a href="../10-score-element-rm-collect.html">10·移除收集</a>),其「候选块携带元素」基础设施转用于合成订单切片。本篇保留作机制还原参考。</div>
   <h1>独立收集 Demo 切片（方案 A）</h1>
   <p class="subtitle">不依赖完整关卡框架的最小可跑垂直切片：在现有 Classic 无尽玩法之上，加「元素生成 + 收集计数 + collect 达标判定 + 简单 UI」，做成单关 demo。一条能跑通的最短路径，验证收集玩法机制，为日后 <a href="05-proposal-adventure.html">Adventure 关卡模式</a> 的 collect 关打底。</p>
 
@@ -25,7 +26,7 @@
       <tr><th>类型</th><td><span class="chip">垂直切片 / Demo</span> 机制验证，非正式关卡内容</td></tr>
       <tr><th>状态</th><td>已落地 · Demo 可跑（<code>CollectDemo</code> / <code>CollectDemoWindow</code> / <code>CollectWinWindow</code>，含 Classic 回归测试）</td></tr>
       <tr><th>方向约束</th><td>离线还原 · 去变现（不含体力 / 道具购买 / 广告复活）</td></tr>
-      <tr><th>挂接对象</th><td><a href="07-blockblast-code-architecture.html">现有 BlockBlast Classic 切片</a>（棋盘 / 算法 / 形状 / 持久化）</td></tr>
+      <tr><th>挂接对象</th><td><a href="../07-blockblast-code-architecture.html">现有 BlockBlast Classic 切片</a>（棋盘 / 算法 / 形状 / 持久化）</td></tr>
       <tr><th>关联</th><td><a href="03-reference-gap-roadmap.html">移植路线图</a>（collect 来源）· <a href="05-proposal-adventure.html">Adventure 关卡</a>（收集关的完整形态）</td></tr>
     </table>
   </div>
@@ -173,10 +174,10 @@
   <div class="related">
     <h2>相关文档</h2>
     <div class="related-links">
-      <a href="index.html">← 返回总览</a>
+      <a href="../index.html">← 返回总览</a>
       <a href="03-reference-gap-roadmap.html">原版功能差距 &amp; 移植路线图</a>
       <a href="05-proposal-adventure.html">提案 P1 · Adventure 关卡模式</a>
-      <a href="07-blockblast-code-architecture.html">BlockBlast 代码架构剖析</a>
+      <a href="../07-blockblast-code-architecture.html">BlockBlast 代码架构剖析</a>
     </div>
   </div>
 

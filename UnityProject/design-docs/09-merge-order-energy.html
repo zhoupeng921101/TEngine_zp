@@ -4,251 +4,406 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>元素合成 + 订单 + 体力 Demo 切片 · Block Blast 策划文档</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=2">
 <style>
-  /* 本篇专用：核心循环流程图（纯 CSS，无美术依赖） */
-  .loop { display:flex; flex-wrap:wrap; align-items:stretch; gap:10px; margin:18px 0; }
-  .loop .node {
-    flex:1 1 120px; min-width:110px; border:1px solid #2c3a4a; border-radius:10px;
-    padding:12px 10px; text-align:center; background:#121a24; font-size:14px; line-height:1.4;
-  }
-  .loop .node b { display:block; font-size:15px; margin-bottom:3px; }
-  .loop .node small { color:#8aa; }
-  .loop .arrow { display:flex; align-items:center; color:#5a7; font-size:20px; font-weight:bold; }
-  .loop .feedback { flex-basis:100%; text-align:center; color:#c98; font-size:13px; margin-top:2px; }
+  /* 本篇专用：合成等级小牌 */
   .lv { display:inline-block; min-width:1.6em; text-align:center; border:1px solid #444; border-radius:4px; padding:0 4px; }
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <div class="topbar-inner">
-    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs"><a href="index.html">总览</a> / 切片 · 合成+订单+体力</span>
-  </div>
-</div>
+<div class="layout">
+  <aside class="sidebar">
+    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <nav>
+      <div class="tree-group">总览</div>
+      <a class="tree-link" href="index.html">文档库首页</a>
+      <div class="tree-group">现状分析</div>
+      <a class="tree-link" href="01-gameplay-overview.html">01 · 玩法总览</a>
+      <a class="tree-link" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
+      <div class="tree-group">切片设计</div>
+      <a class="tree-link active" href="09-merge-order-energy.html">09 · 合成订单切片</a>
+      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
+      <div class="tree-group">代码 / 工具</div>
+      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
+      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
+      <details class="tree-fold">
+        <summary>已归档</summary>
+        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
+        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
+        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
+        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
+      </details>
+    </nav>
+    <nav class="page-toc">
+      <div class="toc-title">本页目录</div>
+      <a class="toc-link" href="#why">一、在 08 之上加什么</a>
+      <a class="toc-link" href="#loop">二、核心循环</a>
+      <a class="toc-link" href="#systems">三、三系统设计</a>
+      <a class="toc-link sub" href="#merge">3.1 合成</a>
+      <a class="toc-link sub" href="#order">3.2 订单</a>
+      <a class="toc-link sub" href="#energy">3.3 体力</a>
+      <a class="toc-link" href="#risk">四、三个数值风险点</a>
+      <a class="toc-link sub" href="#risk1">风险1 · 掉率保底</a>
+      <a class="toc-link sub" href="#risk2">风险2 · 体力匹配</a>
+      <a class="toc-link sub" href="#risk3">风险3 · 悔棋兜底</a>
+      <a class="toc-link" href="#config">五、配置一览</a>
+      <a class="toc-link" href="#tradeoff">六、竞品取舍</a>
+      <a class="toc-link" href="#hook">七、挂接点</a>
+      <a class="toc-link" href="#scope">八、Demo 范围</a>
+      <a class="toc-link" href="#risks">九、风险</a>
+    </nav>
+  </aside>
 
-<div class="wrap">
-  <h1>元素合成 + 订单 + 体力 Demo 切片</h1>
-  <p class="subtitle">在 <a href="08-collect-demo-slice.html">收集 Demo 切片</a>（候选块携带元素 → 消除掉落）之上，叠加三套系统组成一条可自持的核心循环：<b>体力 → 落子 → 消除 → 元素 → 合成 → 订单交付 → 奖励</b>。消除产出的元素不再只是累加进静态计数，而是落入合成区两两合并升级；订单反向拉动玩家去消除指定元素，交付得奖励并刷新下一单。一条技巧驱动的正反馈链。</p>
+  <main class="content">
+    <h1>元素合成 + 订单 + 体力 Demo 切片</h1>
+    <p class="subtitle">在 <a href="archive/08-collect-demo-slice.html">收集 Demo 切片</a>（候选块携带元素 → 消除掉落）之上，叠加三套系统组成一条<mark>可自持的核心循环</mark>：<b>体力 → 落子 → 消除 → 元素 → 合成 → 订单交付 → 奖励</b>。消除产出的元素不再只是累加进静态计数，而是落入合成区两两合并升级；订单反向拉动玩家去消除指定元素，交付得奖励并刷新下一单。一条技巧驱动的正反馈链。</p>
 
-  <div class="callout note">
-    <b>立项信息</b>
-    <table>
-      <tr><th>类型</th><td><span class="chip">垂直切片 / Demo</span> 核心循环验证，非正式关卡内容</td></tr>
-      <tr><th>基线</th><td><a href="08-collect-demo-slice.html">收集 Demo 切片（已落地）</a> + 其实现（<code>BlockGameState</code> 元素层 / <code>CollectDemoWindow</code>）</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>（体力无购买 / 无广告复活 / 无道具内购——项目红线）</td></tr>
-      <tr><th>竞品参照</th><td>浪漫餐厅 / Gossip Harbor 的订单冷却刷新 + 锯齿波难度 + 体力模型（<b>取材不照抄</b>，数值按本作局长重算，见 <a href="#tradeoff">§六</a>）</td></tr>
-      <tr><th>范围优先级</th><td>订单闭环优先（订单 → 交付 → 奖励 → 刷新跑通）；锯齿波难度可做简化实现，完整规则进文档</td></tr>
-    </table>
-  </div>
-
-  <h2 id="why">一、这一切片在 08 之上加什么</h2>
-  <p><a href="08-collect-demo-slice.html">08 收集切片</a>已经跑通了一条链路：<b>候选块携带元素 → 落子转移到 <code>ElementArr</code> → 消行/列时统计被清格元素</b>。它的终点是「累加进静态目标 <code>Collected[type]</code>，凑齐即胜」——一次性的收集关。本切片<b>复用这条产元素链路的全部前半段</b>，把它的终点（静态计数→胜利）替换成一条可循环的经济：</p>
-  <table>
-    <tr><th>环节</th><th>08 收集切片</th><th>本切片（合成+订单+体力）</th></tr>
-    <tr><td>元素产出</td><td>候选块携带（~22% 注入「仍需收集」类型）</td><td><b>沿用</b>，但注入类型改为<b>当前订单所需</b>（需求拉动）+ 保底</td></tr>
-    <tr><td>消除后</td><td><code>Collected[type]++</code> 累加静态计数</td><td>被清元素<b>落入合成区</b>，成为 <span class="lv">Lv1</span> 合成物</td></tr>
-    <tr><td>合成</td><td>无</td><td><b>新增</b>：合成区相同元素两两合并升级（<span class="lv">Lv1</span>×2 → <span class="lv">Lv2</span> …）</td></tr>
-    <tr><td>目标</td><td>静态目标（◆×6、★×5），凑齐即胜</td><td><b>新增</b>：订单要求「指定元素 + 指定等级 + 数量」，交付得奖励、刷新下一单</td></tr>
-    <tr><td>资源约束</td><td>无（无限落子）</td><td><b>新增</b>：落子耗体力、消除返还、订单奖励补充——技巧驱动「会消除 → 玩得久」</td></tr>
-    <tr><td>胜负</td><td>凑齐胜 / 无可落子 GameOver</td><td>完成 N 单胜（demo 终点）/ 棋盘塞满 <b>或</b> 体力耗尽 GameOver</td></tr>
-  </table>
-  <div class="callout good"><b>「收集计数」语义裁决</b>（boss 代决 §3 留给策划）：本切片<b>替换</b>而非并存——08 的静态 <code>Collected[type]</code> 累加胜利在本模式关闭，被清元素改为路由进合成区。08 已实现的「消除→统计被清元素」逻辑（<code>CollectClearedElements</code>）保留并扩展为「输出本次被清元素列表」供合成区摄入。两个模式各自独立门控，互不影响。</div>
-
-  <h2 id="loop">二、核心循环</h2>
-  <div class="loop">
-    <div class="node"><b>体力</b><small>落子前的预算</small></div>
-    <div class="arrow">→</div>
-    <div class="node"><b>落子</b><small>消耗 1 体力/块</small></div>
-    <div class="arrow">→</div>
-    <div class="node"><b>消除</b><small>消行/列<br>返还体力</small></div>
-    <div class="arrow">→</div>
-    <div class="node"><b>元素</b><small>被清格元素<br>落入合成区</small></div>
-    <div class="arrow">→</div>
-    <div class="node"><b>合成</b><small>相同两两<br>合并升级</small></div>
-    <div class="arrow">→</div>
-    <div class="node"><b>订单交付</b><small>满足要求<br>消耗合成物</small></div>
-    <div class="arrow">→</div>
-    <div class="node"><b>奖励</b><small>补体力 + 分<br>刷新下一单</small></div>
-    <div class="feedback">↑ 正反馈链：奖励的体力回填到「落子」预算；订单需求<b>反向拉动</b>注入与消除（只产/只消订单要的元素）。技巧（多消除）→ 体力净正 → 玩得久。</div>
-  </div>
-  <ul>
-    <li><b>两条产出随机性叠加</b>：元素先要被注入候选块（概率），再要那一格被消除（落子技巧）。双重随机 = 高方差，须保底（见 <a href="#risk1">§五·风险1</a>）。</li>
-    <li><b>两个失败条件</b>：棋盘塞满无可落子（硬死亡，沿用 08 的 GameOver）；体力耗尽且无法支付落子（软死亡，「精力耗尽」面板）。</li>
-    <li><b>demo 终点</b>：完成约定单数（默认 5 单）→ 通关面板。生产环境为无限订单流（仅靠失败条件结束），demo 设有限终点便于测试核对。</li>
-  </ul>
-
-  <h2 id="systems">三、三系统设计</h2>
-
-  <h3 id="merge">3.1 合成（Merge）</h3>
-  <p>消除产出的每个元素以 <span class="lv">Lv1</span> 进入<b>合成区</b>；相同（类型 + 等级）两两合并升一级，直到封顶等级。</p>
-  <div class="callout good">
-    <b>合成实现：自动配对库存（非空间拖拽）。</b>合成区按 <code>(类型, 等级)</code> 记数量。新元素到达 → <code>count[T][1]++</code>；只要某 <code>count[T][L] ≥ 2</code> 即 <code>count[T][L] -= 2; count[T][L+1]++</code>，向上级联到无法再合并为止。这是 2048 式自动合成，不引入空间拖拽棋盘。
-    <ul>
-      <li><b>为何不做浪漫餐厅式空间拖拽合成</b>：拖拽合成板是另一套完整交互（格子布局 / 拖放 / 占位），与 demo「订单闭环优先」的范围冲突。自动配对完整满足「相同两两合并升级」规则，开发量小、可单测，把玩家心智留在<b>方块层</b>（落子/消除决策）。空间拖拽合成列为后续增强（见 <a href="#tradeoff">§六</a>）。</li>
-      <li><b>封顶等级</b> <code>MaxLevel = 3</code>（<span class="lv">Lv1</span>→<span class="lv">Lv2</span>→<span class="lv">Lv3</span>）。到顶不再合并，堆积等待订单消耗。</li>
-      <li><b>等级折算基础元素</b>：<span class="lv">Lv1</span>=1，<span class="lv">Lv2</span>=2，<span class="lv">Lv3</span>=4。订单按此折算难度。</li>
-      <li><b>合成区不设硬上限阻塞</b>：自动配对使每类每级数量恒 ≤1（满 2 即合），库存天然紧凑，不会「塞满阻塞」，规避了一个数值风险。</li>
-    </ul>
-  </div>
-
-  <h3 id="order">3.2 订单（Order）</h3>
-  <p>同时展示 <code>ActiveOrders = 2</code> 张订单。每单 = <code>(元素类型, 要求等级, 数量)</code>，例如「◆ <span class="lv">Lv2</span> ×1」「★ <span class="lv">Lv1</span> ×3」。</p>
-  <ul>
-    <li><b>交付（手动）</b>：当合成区满足某单要求（库存有 ≥数量 的对应 <code>(类型,等级)</code>），该单「交付」按钮点亮；点击 → 扣除对应合成物 → 发奖 → 该订单槽刷新下一单。手动交付保留玩家「先交哪单」的取舍，且交付时机清晰可测。</li>
-    <li><b>奖励</b>：<code>体力 +8</code>（可溢出体力上限）+ <code>分数 = 等级 × 数量 × 50</code>（示例）。奖励数值为可调常量。</li>
-    <li><b>锯齿波难度刷新</b>：保证「难单之后必出简单单」，每次会话都有够得着的目标。难度量 <code>d(单) = 数量 × 2^(等级-1)</code>（= 折算基础元素数）。刷新时下一单难度在「低 / 高」之间交替振荡（锯齿波）。
-      <div class="callout note"><b>demo 简化实现</b>：用一张<b>手编循环订单池</b>预先编排好锯齿波节奏（如 易→易→中→易→难→易…），<code>NextOrder()</code> 顺序取下一项。完整的程序化锯齿波（依玩家进度动态算 <code>d</code> 并约束相邻单一高一低）规则写在本节，dev 先实现循环池版本即可满足闭环验收。</div>
-    </li>
-    <li><b>体力瓶作为合成链产物</b>（浪漫餐厅模型，本作改造）：部分订单奖励可发一个「体力瓶」合成物，体力瓶本身可在合成区合并（瓶×2 → 大瓶），「使用」时回大额体力。<b>demo 范围内简化为奖励直接给体力</b>；体力瓶作为可合成奖励物列为文档化的后续项，避免拖累闭环。</li>
-  </ul>
-
-  <h3 id="energy">3.3 体力（Energy）</h3>
-  <p>体力卡<b>落子</b>（本作的核心产出动作，对应浪漫餐厅卡「生成器」）。落子耗、消除返、订单补、自然恢复。</p>
-  <table>
-    <tr><th>项</th><th>取值（demo 可调常量）</th><th>说明</th></tr>
-    <tr><td>起始体力 <code>EnergyStart</code></td><td>20</td><td>开局可支撑约 20 次落子起步</td></tr>
-    <tr><td>软上限 <code>EnergyCap</code></td><td>30</td><td>自然恢复 / 普通获取的封顶；<b>奖励可溢出此上限</b></td></tr>
-    <tr><td>落子消耗 <code>PlaceCost</code></td><td>1 / 块</td><td>从待选区使用一块即扣 1</td></tr>
-    <tr><td>消除返还 <code>ClearRefund</code></td><td>= 本次消除行列数（1/行列）</td><td>消 2 行返 2；技巧驱动「会消除→体力净正」</td></tr>
-    <tr><td>订单奖励 <code>OrderReward.Energy</code></td><td>+8</td><td>主要补给来源，可溢出上限</td></tr>
-    <tr><td>自然恢复 <code>RegenPerTick / IntervalSec</code></td><td>+1 / 120s</td><td>参照浪漫餐厅 2 分钟 1 点；仅回到软上限。<b>demo 可简化</b>（加速或暂不实装，按现实时间跨会话恢复对单局测试意义小）</td></tr>
-    <tr><td>体力耗尽兜底</td><td>软 GameOver「精力耗尽」</td><td>体力 &lt; <code>PlaceCost</code> 且场上有手持块 → 无法落子 → 复用 GameOver 流程（变体标题）</td></tr>
-  </table>
-
-  <h2 id="risk">四、三个数值风险点的明确方案</h2>
-  <p>boss 代决 §6 要求三个风险点在设计中给出明确方案，逐条如下。</p>
-
-  <h3 id="risk1">风险 1 · 元素掉率方差 / 保底</h3>
-  <div class="callout warn"><b>本节注入机制已更新</b>：下述「按 <code>InjectChance</code> 概率注入 + 保底计数器」的固定比例模型，已被 <a href="10-score-element-rm-collect.html">10 · 得分驱动元素生成</a>替换为「消除得分 → 元素数量」的确定性映射；保底计数器随之退役。下文保留作历史设计记录。</div>
-  <p><b>问题</b>：元素经「注入候选块（概率）→ 那格被消除（技巧）」双重随机，某订单所需类型可能长时间不出，订单卡死。</p>
-  <div class="callout good">
-    <b>方案（三管齐下，前两条为主）：</b>
-    <ol>
-      <li><b>需求拉动注入</b>：候选块注入的类型池 = <b>当前激活订单所需的元素类型并集</b>（不再是 08 的「所有仍需收集类型」）。把有限的产出集中到「正被需要」的类型上，直接压低「有用掉落」的方差。</li>
-      <li><b>保底计数器</b>：记「距上次注入订单所需类型已过的落子数」<code>pitySinceNeeded</code>；超阈值 <code>PityThreshold = 8</code> → 下一个候选块<b>强制注入</b>一个订单所需类型（绕过概率）。保证订单永不被随机饿死。</li>
-      <li><b>注入概率上调为可调常量</b>：<code>InjectChance</code> 从 08 的 0.22 提到 <b>0.30</b>（订单要吞吐），作为配平旋钮，dev/test 可改数验证节奏。</li>
-    </ol>
-  </div>
-
-  <h3 id="risk2">风险 2 · 体力上限与单局落子数的匹配</h3>
-  <p><b>问题</b>：体力既要在早期不卡手，又要让玩家感到它是真实约束；上限/回速不能照抄浪漫餐厅（那是跨会话挂机节奏，本作是单局活跃节奏）。</p>
-  <div class="callout good">
-    <b>方案（按本作局长重算，给出预算数学）：</b>
-    <ul>
-      <li><b>预算下界</b>：无任何消除、无订单完成的最坏情况，起始 20 体力 = 20 次落子后软死亡——足够玩家撞出几次消除并完成首单。要求 <code>EnergyStart ≥ 完成首单所需落子数的期望</code>。</li>
-      <li><b>可持续点</b>：一个约 3 块的批次配 1 次单行消除 ≈ 净 -2 体力；每 ~6–8 次落子完成 1 单 → +8 体力 → <b>熟练玩家体力净正</b>，单局实际由「棋盘塞满」而非体力终结——正中 boss「技巧驱动：会消除→玩得久」的定位。</li>
-      <li><b>取舍定档</b>：软上限取 <b>30</b>（demo 局长约数分钟）——高到早期不饿死、低到体力是被感知的资源。公式与各常量全部可调，dev/test 据此重配（核心不变量：<code>EnergyStart ≥ 完成首单的落子数</code>，否则首单前就饿死）。</li>
-    </ul>
-  </div>
-
-  <h3 id="risk3">风险 3 · 落错子的兜底（无广告）</h3>
-  <p><b>问题</b>：落子耗体力且可能把棋盘逼进死局；一次失误代价大，而项目红线禁广告复活。需要一个不依赖变现的解围阀。</p>
-  <div class="callout good">
-    <b>方案 · 限次免费悔棋（推荐）：</b>每局 <code>UndoCharges = 3</code> 次免费悔棋（无广告、无内购，纯次数限制，契合去变现）。
-    <ul>
-      <li><b>悔棋范围</b>：仅撤销<b>最后一次落子</b>（单步）。落子前对受影响状态打快照：棋盘 <code>BinaryBoard</code>、元素层 <code>ElementArr</code>、体力值、合成区库存、订单进度、保底计数器。悔棋 = 整体回滚到该快照 + 把方块退回待选槽 + 退回该次落子扣的体力。</li>
-      <li><b>更轻的备选</b>：仅当该次落子<b>未触发消除</b>（纯失误落子）时允许单步撤销，省去回滚消除/合成/订单的复杂度。若 dev 评估全量单步快照成本高，可先落地此备选版，全量快照列为增强。</li>
-      <li>悔棋次数耗尽后回归正常死局判定（沿用 08 的 GameOver）。</li>
-    </ul>
-  </div>
-
-  <h2 id="config">五、配置一览（可调常量）</h2>
-  <p>全部硬编码在配置类（仿 08 的 <code>CollectDemo</code> 静态类，不接 Luban），改数即调难度。</p>
-  <table>
-    <tr><th>模块</th><th>常量</th><th>默认</th></tr>
-    <tr><td rowspan="3">合成</td><td><code>MaxLevel</code></td><td>3</td></tr>
-    <tr><td><code>LevelBaseCost</code>（Lv1/2/3）</td><td>1 / 2 / 4</td></tr>
-    <tr><td>合成区硬上限</td><td>无（自动配对天然紧凑）</td></tr>
-    <tr><td rowspan="4">订单</td><td><code>ActiveOrders</code></td><td>2</td></tr>
-    <tr><td><code>OrderReward.Energy / Score</code></td><td>+8 / 等级×数量×50</td></tr>
-    <tr><td>难度量 <code>d(单)</code></td><td>数量 × 2^(等级-1)</td></tr>
-    <tr><td><code>DemoGoalOrders</code>（通关单数）</td><td>5</td></tr>
-    <tr><td rowspan="6">体力</td><td><code>EnergyStart</code></td><td>20</td></tr>
-    <tr><td><code>EnergyCap</code>（软，奖励可溢出）</td><td>30</td></tr>
-    <tr><td><code>PlaceCost</code></td><td>1 / 块</td></tr>
-    <tr><td><code>ClearRefund</code></td><td>消除行列数</td></tr>
-    <tr><td><code>RegenPerTick / IntervalSec</code></td><td>+1 / 120s（demo 可简化）</td></tr>
-    <tr><td>耗尽兜底</td><td>软 GameOver</td></tr>
-    <tr><td rowspan="3">掉率/保底</td><td><code>InjectChance</code></td><td>0.30</td></tr>
-    <tr><td>注入类型池</td><td>激活订单所需类型并集</td></tr>
-    <tr><td><code>PityThreshold</code></td><td>8 次落子</td></tr>
-    <tr><td>兜底</td><td><code>UndoCharges</code></td><td>3 / 局</td></tr>
-  </table>
-
-  <h2 id="tradeoff">六、与浪漫餐厅 / Gossip Harbor 的取舍</h2>
-  <table>
-    <tr><th>维度</th><th>浪漫餐厅 / Gossip Harbor</th><th>本切片取舍</th></tr>
-    <tr><td>合成交互</td><td>空间拖拽合成板（格子布局 + 拖放）</td><td><b>砍</b> → 自动配对库存。理由：拖拽合成是另一套完整交互，与「订单闭环优先」冲突；自动配对已满足「两两合并升级」规则。空间拖拽列为后续增强。</td></tr>
-    <tr><td>元素来源</td><td>生成器周期产出</td><td><b>改</b> → 候选块携带 + 消除掉落（本作的方块层就是产出动作），订单需求反向拉动注入</td></tr>
-    <tr><td>体力卡点</td><td>卡「生成器产出」</td><td><b>改</b> → 卡「落子」；且落子不保证消除（产出有方差），棋盘塞满是硬死亡——双失败条件是本作独有</td></tr>
-    <tr><td>体力数值</td><td>上限 100、2 分钟 1 点（跨会话挂机节奏）</td><td><b>重算</b> → 上限 30、单局活跃节奏；自然恢复保留但 demo 可简化，主补给来自订单奖励</td></tr>
-    <tr><td>订单难度</td><td>冷却刷新 + 锯齿波</td><td><b>取材</b> → 锯齿波保留（难单后必出简单单）；demo 用手编循环池实现，完整程序化规则文档化</td></tr>
-    <tr><td>体力瓶</td><td>合成链上的可合并道具，使用回体力</td><td><b>文档化后续</b> → demo 订单奖励先直接给体力；体力瓶作为可合成奖励物列为增强项</td></tr>
-    <tr><td>变现</td><td>体力购买 / 广告 / 道具内购</td><td><b>全砍</b>（项目红线）→ 体力靠恢复+奖励，兜底靠限次免费悔棋，无任何付费/广告入口</td></tr>
-  </table>
-
-  <h2 id="hook">七、与现有模块的挂接点</h2>
-  <p>沿用 08 的<b>加法式 + 独立窗口 + 模式门控</b>策略：新增 <code>MergeOrderMode</code> 门控本切片全部新逻辑；off 时（含 Classic、08 收集模式）行为零变化。</p>
-  <table>
-    <tr><th>现有 / 新增</th><th>挂接方式</th></tr>
-    <tr><td><code>Module/BlockBlast/BlockGameState.cs</code></td><td><b>复用</b>元素层（<code>ElementArr</code> / <code>BuildPiece</code> 注入 / <code>PlacePiece</code> 转移）。<code>InjectElements</code> 的类型池来源由「仍需收集类型」扩展为「订单所需类型并集 + 保底强制注入」（新增门控分支，08 路径不变）。<code>CollectClearedElements</code> 扩展为<b>额外输出本次被清元素列表</b>（供合成区摄入），现有累加 <code>Collected</code> 行为在新模式下不用即可。</td></tr>
-    <tr><td>新增 <code>Module/BlockBlast/MergeOrderConfig.cs</code></td><td>仿 <code>CollectDemo</code> 静态类：合成/订单/体力/掉率/兜底全部可调常量 + 循环订单池 + glyph/纯色（复用 <code>CollectDemo.Glyph/ColorOf</code>）。</td></tr>
-    <tr><td>新增 <code>Module/BlockBlast/MergeOrderState.cs</code></td><td>新系统状态机（组合，不塞进 <code>BlockGameState</code> 以免污染）：合成区库存 <code>Dictionary&lt;(CollectElement,int),int&gt;</code> + 自动配对升级、订单队列 + 交付/刷新/锯齿波、体力值 + 扣/返/补/恢复、保底计数器、悔棋快照栈。纯逻辑、可单测。</td></tr>
-    <tr><td><code>Core/BinaryBoard.cs</code> / <code>Core/BlockShapeMap.cs</code></td><td><b>不改</b>。复用 <code>CanClearRowCols</code> / <code>PutBlock</code> / <code>CanPutAnyOf</code> / <code>IsEmpty</code>。</td></tr>
-    <tr><td>新增 <code>UI/BlockBlastUI/MergeOrderWindow.cs</code></td><td>切片主体窗口，镜像 <code>CollectDemoWindow</code> 的棋盘/拖拽/ghost/落子流程。在 <code>PlaceAndResolve</code> 同构流程中插入：落子扣体力 → 消除返体力 → 被清元素入合成区（自动合并）→ 刷新订单/合成区/体力 UI → 检查订单可交付 → 检查 demo 通关 / 软死亡。新增悔棋按钮。</td></tr>
-    <tr><td>新增 UI：订单卡 ×2、合成区面板、体力条、悔棋按钮</td><td>glyph/纯色零美术；订单卡显示「元素 glyph + Lv + 数量 + 交付按钮（满足点亮）」；合成区显示各类型当前等级 token；体力条显示 <code>当前/上限</code>。</td></tr>
-    <tr><td>复用 <code>UI/BlockBlastUI/CollectWinWindow.cs</code></td><td>demo 通关面板（完成 N 单）复用，传「完成单数/奖励」摘要行。</td></tr>
-    <tr><td>复用 <code>UI/BlockBlastUI/GameOverWindow.cs</code></td><td>棋盘塞满 / 体力耗尽兜底，沿用 08；体力耗尽可传变体标题「精力耗尽」。</td></tr>
-    <tr><td><code>UI/BlockBlastUI/MainMenuWindow.cs</code></td><td>加「合成订单 Demo」入口按钮 → 打开 <code>MergeOrderWindow</code>。</td></tr>
-  </table>
-  <div class="callout note"><b>回归红线</b>：本切片全部新逻辑由 <code>MergeOrderMode</code> 门控。off 时 <code>BlockGameState</code> 的 Classic 落子/消除/补块/存档、以及 08 收集模式行为与现状逐字节一致。Classic + 08 回归测试必须通过。</div>
-
-  <h2 id="scope">八、Demo 范围</h2>
-  <h3>做什么（In Scope）</h3>
-  <ul>
-    <li>体力系统：落子扣、消除返、订单补、自然恢复（可简化）、耗尽软兜底。</li>
-    <li>合成区：消除元素入区 → 自动两两合并升级（封顶 Lv3）+ 显示。</li>
-    <li>订单系统：双订单、手动交付（消耗合成物 + 发奖）、刷新、锯齿波（循环池实现）。</li>
-    <li>掉率保底：需求拉动注入 + 保底计数器 + 可调注入概率。</li>
-    <li>落错兜底：限次免费悔棋（单步快照回滚）。</li>
-    <li>demo 通关（完成 N 单 → 胜利面板）+ 双失败条件。</li>
-    <li>独立窗口 + 主菜单入口 + 模式门控（Classic / 08 零影响）。</li>
-  </ul>
-  <h3>不做什么（Out of Scope）</h3>
-  <table>
-    <tr><th>砍掉</th><th>原因</th></tr>
-    <tr><td>空间拖拽合成棋盘</td><td>另一套完整交互，与订单闭环优先冲突；自动配对已满足合并规则</td></tr>
-    <tr><td>体力瓶可合成道具的完整实装</td><td>奖励先直接给体力；瓶子合成链列为后续增强</td></tr>
-    <tr><td>完整程序化锯齿波（动态算难度约束相邻单）</td><td>demo 用手编循环池；完整规则已文档化</td></tr>
-    <tr><td>自然恢复的真实跨会话计时 / 离线结算</td><td>单局测试意义小；demo 可简化或暂不实装</td></tr>
-    <tr><td>关卡框架 / 存档 / 多关 / Luban 接表</td><td>沿用 08 切片边界，配置硬编码</td></tr>
-    <tr><td>任何变现：体力购买 / 广告复活 / 道具内购</td><td>项目红线（去变现）</td></tr>
-  </table>
-
-  <h2 id="risks">九、风险</h2>
-  <table>
-    <tr><th>风险</th><th>应对</th></tr>
-    <tr><td>双重随机（注入×消除）饿死订单</td><td>需求拉动注入 + 保底计数器 + 可调 InjectChance（<a href="#risk1">§四·1</a>）</td></tr>
-    <tr><td>体力早期饿死 / 后期无感</td><td>预算数学定档（起始≥首单落子数、订单净正）；常量全可调（<a href="#risk2">§四·2</a>）</td></tr>
-    <tr><td>落错子死局且无广告复活</td><td>限次免费悔棋（单步快照，3 次/局）（<a href="#risk3">§四·3</a>）</td></tr>
-    <tr><td>悔棋快照范围广、易漏状态</td><td>集中快照 6 项状态于一处；备选轻量版（仅无消除时撤销）兜底</td></tr>
-    <tr><td>新逻辑污染 Classic / 08</td><td><code>MergeOrderMode</code> 门控 + 独立窗口 + 独立状态类；回归测试硬验收</td></tr>
-    <tr><td>自动合成削弱玩家合成层 agency</td><td>玩家 agency 主要在方块层（落子/消除/先交哪单）；合成自动降低心智负担适配 demo；空间拖拽列为增强</td></tr>
-  </table>
-
-  <div class="related">
-    <h2>相关文档</h2>
-    <div class="related-links">
-      <a href="index.html">← 返回总览</a>
-      <a href="08-collect-demo-slice.html">收集 Demo 切片（本切片基线）</a>
-      <a href="05-proposal-adventure.html">提案 P1 · Adventure 关卡模式</a>
-      <a href="07-blockblast-code-architecture.html">BlockBlast 代码架构剖析</a>
+    <div class="callout note">
+      <b>立项信息</b>
+      <table>
+        <tr><th>类型</th><td><span class="chip">垂直切片 / Demo</span> 核心循环验证，非正式关卡内容</td></tr>
+        <tr><th>基线</th><td><a href="archive/08-collect-demo-slice.html">收集 Demo 切片（已落地）</a> + 其实现（<code>BlockGameState</code> 元素层 / <code>CollectDemoWindow</code>）</td></tr>
+        <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>（体力无购买 / 无广告复活 / 无道具内购——项目红线）</td></tr>
+        <tr><th>竞品参照</th><td>浪漫餐厅 / Gossip Harbor 的订单冷却刷新 + 锯齿波难度 + 体力模型（<b>取材不照抄</b>，数值按本作局长重算，见 <a href="#tradeoff">§六</a>）</td></tr>
+        <tr><th>范围优先级</th><td>订单闭环优先（订单 → 交付 → 奖励 → 刷新跑通）；锯齿波难度可做简化实现，完整规则进文档</td></tr>
+      </table>
     </div>
-  </div>
 
-  <footer>Block Blast · TEngine 项目策划文档 · 合成+订单+体力 Demo 切片 · 由策划维护</footer>
+    <h2 id="why">一、这一切片在 08 之上加什么</h2>
+    <p><a href="archive/08-collect-demo-slice.html">08 收集切片</a>已经跑通了一条链路：<b>候选块携带元素 → 落子转移到 <code>ElementArr</code> → 消行/列时统计被清格元素</b>。它的终点是「累加进静态目标 <code>Collected[type]</code>，凑齐即胜」——一次性的收集关。</p>
+    <p>本切片<b>复用这条产元素链路的全部前半段</b>，把它的终点（静态计数→胜利）替换成一条<mark>可循环的经济</mark>：</p>
+    <table>
+      <tr><th>环节</th><th>08 收集切片</th><th>本切片（合成+订单+体力）</th></tr>
+      <tr><td>元素产出</td><td>候选块携带（~22% 注入「仍需收集」类型）</td><td><b>沿用</b>，但注入类型改为<b>当前订单所需</b>（需求拉动）+ 保底</td></tr>
+      <tr><td>消除后</td><td><code>Collected[type]++</code> 累加静态计数</td><td>被清元素<b>落入合成区</b>，成为 <span class="lv">Lv1</span> 合成物</td></tr>
+      <tr><td>合成</td><td>无</td><td><b>新增</b>：合成区相同元素两两合并升级（<span class="lv">Lv1</span>×2 → <span class="lv">Lv2</span> …）</td></tr>
+      <tr><td>目标</td><td>静态目标（◆×6、★×5），凑齐即胜</td><td><b>新增</b>：订单要求「指定元素 + 指定等级 + 数量」，交付得奖励、刷新下一单</td></tr>
+      <tr><td>资源约束</td><td>无（无限落子）</td><td><b>新增</b>：落子耗体力、消除返还、订单奖励补充——技巧驱动「会消除 → 玩得久」</td></tr>
+      <tr><td>胜负</td><td>凑齐胜 / 无可落子 GameOver</td><td>完成 N 单胜（demo 终点）/ 棋盘塞满 <b>或</b> 体力耗尽 GameOver</td></tr>
+    </table>
+    <div class="callout good"><b>「收集计数」语义裁决</b>（boss 代决 §3 留给策划）：本切片<mark>替换</mark>而非并存——08 的静态 <code>Collected[type]</code> 累加胜利在本模式关闭，被清元素改为路由进合成区。08 已实现的「消除→统计被清元素」逻辑（<code>CollectClearedElements</code>）保留并扩展为「输出本次被清元素列表」供合成区摄入。两个模式各自独立门控，互不影响。</div>
+
+    <h2 id="loop">二、核心循环</h2>
+    <p>七个环节首尾相接成环：奖励的体力回填到「落子」预算（正反馈回路），订单需求<b>反向拉动</b>候选块注入（只产订单要的元素）：</p>
+    <div class="diagram">
+    <svg viewBox="0 0 880 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="合成订单体力核心循环图">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"/></marker>
+        <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"/></marker>
+        <marker id="ar-y" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"/></marker>
+      </defs>
+
+      <!-- 上排：体力 → 落子 → 消除 → 元素 -->
+      <g text-anchor="middle">
+        <rect x="30" y="40" width="180" height="76" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="120" y="74" font-size="16" font-weight="700" fill="#f2f4fc">体力</text>
+        <text x="120" y="98" font-size="12.5" fill="#aebcf5">落子前的预算（§3.3）</text>
+
+        <rect x="245" y="40" width="180" height="76" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="335" y="74" font-size="16" font-weight="700" fill="#f2f4fc">落子</text>
+        <text x="335" y="98" font-size="12.5" fill="#8fd0b4">使用候选块 · 消耗体力</text>
+
+        <rect x="460" y="40" width="180" height="76" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="550" y="74" font-size="16" font-weight="700" fill="#f2f4fc">消除</text>
+        <text x="550" y="98" font-size="12.5" fill="#8fd0b4">消行/列 · 返还体力</text>
+
+        <rect x="675" y="40" width="180" height="76" rx="12" fill="#3a3120" stroke="#ffcf5c"/>
+        <text x="765" y="74" font-size="16" font-weight="700" fill="#f2f4fc">元素</text>
+        <text x="765" y="98" font-size="12.5" fill="#e8c98a">被清格元素入合成区</text>
+      </g>
+      <g stroke="#8d96b5" stroke-width="1.6">
+        <line x1="210" y1="78" x2="237" y2="78" marker-end="url(#ar)"/>
+        <line x1="425" y1="78" x2="452" y2="78" marker-end="url(#ar)"/>
+        <line x1="640" y1="78" x2="667" y2="78" marker-end="url(#ar)"/>
+      </g>
+
+      <!-- 下排：奖励 ← 订单交付 ← 合成 -->
+      <g text-anchor="middle">
+        <rect x="660" y="260" width="180" height="76" rx="12" fill="#3a3120" stroke="#ffcf5c"/>
+        <text x="750" y="294" font-size="16" font-weight="700" fill="#f2f4fc">合成</text>
+        <text x="750" y="318" font-size="12.5" fill="#e8c98a">相同两两合并升级（§3.1）</text>
+
+        <rect x="395" y="260" width="180" height="76" rx="12" fill="#3a3120" stroke="#ffcf5c"/>
+        <text x="485" y="294" font-size="16" font-weight="700" fill="#f2f4fc">订单交付</text>
+        <text x="485" y="318" font-size="12.5" fill="#e8c98a">满足要求 · 消耗合成物（§3.2）</text>
+
+        <rect x="130" y="260" width="180" height="76" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="220" y="294" font-size="16" font-weight="700" fill="#f2f4fc">奖励</text>
+        <text x="220" y="318" font-size="12.5" fill="#aebcf5">补体力 + 分 · 刷新下一单</text>
+      </g>
+
+      <!-- 主链：元素↓合成 → 订单交付 → 奖励 -->
+      <g stroke="#8d96b5" stroke-width="1.6" fill="none">
+        <line x1="790" y1="116" x2="790" y2="252" marker-end="url(#ar)"/>
+        <line x1="652" y1="298" x2="583" y2="298" marker-end="url(#ar)"/>
+        <line x1="387" y1="298" x2="318" y2="298" marker-end="url(#ar)"/>
+      </g>
+
+      <!-- 正反馈回路：奖励 → 体力 -->
+      <path d="M130 298 H105 V124" fill="none" stroke="#5bd6a0" stroke-width="2" marker-end="url(#ar-g)"/>
+      <text x="118" y="200" font-size="13" fill="#5bd6a0">奖励回补体力</text>
+      <text x="118" y="220" font-size="13" fill="#5bd6a0">正反馈 · 玩得久</text>
+
+      <!-- 反向拉动：订单需求 → 元素注入 -->
+      <path d="M485 260 V170 H730 V124" fill="none" stroke="#ffcf5c" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ar-y)"/>
+      <text x="600" y="160" text-anchor="middle" font-size="13" fill="#ffcf5c">订单需求反向拉动注入（§四·风险1）</text>
+
+      <!-- 图例 -->
+      <line x1="60" y1="390" x2="96" y2="390" stroke="#8d96b5" stroke-width="2"/>
+      <text x="104" y="395" font-size="13" fill="#8d96b5">主循环推进</text>
+      <line x1="240" y1="390" x2="276" y2="390" stroke="#5bd6a0" stroke-width="2"/>
+      <text x="284" y="395" font-size="13" fill="#8d96b5">体力回补（正反馈）</text>
+      <line x1="470" y1="390" x2="506" y2="390" stroke="#ffcf5c" stroke-width="2" stroke-dasharray="6 5"/>
+      <text x="514" y="395" font-size="13" fill="#8d96b5">需求反向拉动（虚线）</text>
+      <rect x="60" y="418" width="24" height="14" rx="4" fill="#283256" stroke="#6c8cff"/>
+      <text x="92" y="430" font-size="13" fill="#8d96b5">体力资源层</text>
+      <rect x="240" y="418" width="24" height="14" rx="4" fill="#16382c" stroke="#5bd6a0"/>
+      <text x="272" y="430" font-size="13" fill="#8d96b5">方块技巧层</text>
+      <rect x="470" y="418" width="24" height="14" rx="4" fill="#3a3120" stroke="#ffcf5c"/>
+      <text x="502" y="430" font-size="13" fill="#8d96b5">合成经济层</text>
+    </svg>
+    </div>
+    <p>正反馈链：奖励的体力回填到「落子」预算；订单需求<b>反向拉动</b>注入与消除（只产/只消订单要的元素）。<mark class="g">技巧（多消除）→ 体力净正 → 玩得久</mark>。</p>
+    <ul>
+      <li><b>两条产出随机性叠加</b>：元素先要被注入候选块（概率），再要那一格被消除（落子技巧）。双重随机 = 高方差，须保底（见 <a href="#risk1">§五·风险1</a>）。</li>
+      <li><b>两个失败条件</b>：棋盘塞满无可落子（硬死亡，沿用 08 的 GameOver）；体力耗尽且无法支付落子（软死亡，「精力耗尽」面板）。</li>
+      <li><b>demo 终点</b>：完成约定单数（默认 5 单）→ 通关面板。生产环境为无限订单流（仅靠失败条件结束），demo 设有限终点便于测试核对。</li>
+    </ul>
+
+    <h2 id="systems">三、三系统设计</h2>
+
+    <h3 id="merge">3.1 合成（Merge）</h3>
+    <p>消除产出的每个元素以 <span class="lv">Lv1</span> 进入<b>合成区</b>；相同（类型 + 等级）两两合并升一级，直到封顶等级。</p>
+    <div class="callout good">
+      <b>合成实现：自动配对库存（非空间拖拽）。</b>合成区按 <code>(类型, 等级)</code> 记数量。新元素到达 → <code>count[T][1]++</code>；只要某 <code>count[T][L] ≥ 2</code> 即 <code>count[T][L] -= 2; count[T][L+1]++</code>，向上级联到无法再合并为止。这是 <mark>2048 式自动合成</mark>，不引入空间拖拽棋盘。
+      <ul>
+        <li><b>为何不做浪漫餐厅式空间拖拽合成</b>：拖拽合成板是另一套完整交互（格子布局 / 拖放 / 占位），与 demo「订单闭环优先」的范围冲突。自动配对完整满足「相同两两合并升级」规则，开发量小、可单测，把玩家心智留在<b>方块层</b>（落子/消除决策）。空间拖拽合成列为后续增强（见 <a href="#tradeoff">§六</a>）。</li>
+        <li><b>封顶等级</b> <code>MaxLevel = 3</code>（<span class="lv">Lv1</span>→<span class="lv">Lv2</span>→<span class="lv">Lv3</span>）。到顶不再合并，堆积等待订单消耗。</li>
+        <li><b>等级折算基础元素</b>：<span class="lv">Lv1</span>=1，<span class="lv">Lv2</span>=2，<span class="lv">Lv3</span>=4。订单按此折算难度。</li>
+        <li><b>合成区不设硬上限阻塞</b>：自动配对使每类每级数量恒 ≤1（满 2 即合），库存天然紧凑，不会「塞满阻塞」，规避了一个数值风险。</li>
+      </ul>
+    </div>
+
+    <h3 id="order">3.2 订单（Order）</h3>
+    <p>同时展示 <code>ActiveOrders = 2</code> 张订单。每单 = <code>(元素类型, 要求等级, 数量)</code>，例如「◆ <span class="lv">Lv2</span> ×1」「★ <span class="lv">Lv1</span> ×3」。</p>
+    <ul>
+      <li><b>交付（手动）</b>：当合成区满足某单要求（库存有 ≥数量 的对应 <code>(类型,等级)</code>），该单「交付」按钮点亮；点击 → 扣除对应合成物 → 发奖 → 该订单槽刷新下一单。手动交付保留玩家「先交哪单」的取舍，且交付时机清晰可测。</li>
+      <li><b>奖励</b>：<code>体力 +8</code>（可溢出体力上限）+ <code>分数 = 等级 × 数量 × 50</code>（示例）。奖励数值为可调常量。</li>
+      <li><b>锯齿波难度刷新</b>：保证<mark class="g">「难单之后必出简单单」</mark>，每次会话都有够得着的目标。难度量 <code>d(单) = 数量 × 2^(等级-1)</code>（= 折算基础元素数）。刷新时下一单难度在「低 / 高」之间交替振荡（锯齿波）。
+        <div class="callout note"><b>demo 简化实现</b>：用一张<b>手编循环订单池</b>预先编排好锯齿波节奏（如 易→易→中→易→难→易…），<code>NextOrder()</code> 顺序取下一项。完整的程序化锯齿波（依玩家进度动态算 <code>d</code> 并约束相邻单一高一低）规则写在本节，dev 先实现循环池版本即可满足闭环验收。</div>
+      </li>
+      <li><b>体力瓶作为合成链产物</b>（浪漫餐厅模型，本作改造）：部分订单奖励可发一个「体力瓶」合成物，体力瓶本身可在合成区合并（瓶×2 → 大瓶），「使用」时回大额体力。<b>demo 范围内简化为奖励直接给体力</b>；体力瓶作为可合成奖励物列为文档化的后续项，避免拖累闭环。</li>
+    </ul>
+
+    <h3 id="energy">3.3 体力（Energy）</h3>
+    <p>体力卡<mark>落子</mark>（本作的核心产出动作，对应浪漫餐厅卡「生成器」）。落子耗、消除返、订单补、自然恢复。</p>
+    <table>
+      <tr><th>项</th><th>取值（demo 可调常量）</th><th>说明</th></tr>
+      <tr><td>起始体力 <code>EnergyStart</code></td><td>20</td><td>开局可支撑约 20 次落子起步</td></tr>
+      <tr><td>软上限 <code>EnergyCap</code></td><td>30</td><td>自然恢复 / 普通获取的封顶；<b>奖励可溢出此上限</b></td></tr>
+      <tr><td>落子消耗 <code>PlaceCost</code></td><td>1 / 块</td><td>从待选区使用一块即扣 1</td></tr>
+      <tr><td>消除返还 <code>ClearRefund</code></td><td>= 本次消除行列数（1/行列）</td><td>消 2 行返 2；技巧驱动「会消除→体力净正」</td></tr>
+      <tr><td>订单奖励 <code>OrderReward.Energy</code></td><td>+8</td><td>主要补给来源，可溢出上限</td></tr>
+      <tr><td>自然恢复 <code>RegenPerTick / IntervalSec</code></td><td>+1 / 120s</td><td>参照浪漫餐厅 2 分钟 1 点；仅回到软上限。<b>demo 可简化</b>（加速或暂不实装，按现实时间跨会话恢复对单局测试意义小）</td></tr>
+      <tr><td>体力耗尽兜底</td><td>软 GameOver「精力耗尽」</td><td>体力 &lt; <code>PlaceCost</code> 且场上有手持块 → 无法落子 → 复用 GameOver 流程（变体标题）</td></tr>
+    </table>
+
+    <h2 id="risk">四、三个数值风险点的明确方案</h2>
+    <p>boss 代决 §6 要求三个风险点在设计中给出明确方案，逐条如下。</p>
+
+    <h3 id="risk1">风险 1 · 元素掉率方差 / 保底</h3>
+    <div class="callout warn"><b>本节注入机制已更新</b>：下述「按 <code>InjectChance</code> 概率注入 + 保底计数器」的固定比例模型，已被 <a href="10-score-element-rm-collect.html">10 · 得分驱动元素生成</a>替换为「消除得分 → 元素数量」的确定性映射；保底计数器随之退役。下文保留作历史设计记录。</div>
+    <p><b>问题</b>：元素经「注入候选块（概率）→ 那格被消除（技巧）」双重随机，某订单所需类型可能长时间不出，<mark class="r">订单卡死</mark>。</p>
+    <div class="callout good">
+      <b>方案（三管齐下，前两条为主）：</b>
+      <ol>
+        <li><b>需求拉动注入</b>：候选块注入的类型池 = <b>当前激活订单所需的元素类型并集</b>（不再是 08 的「所有仍需收集类型」）。把有限的产出集中到「正被需要」的类型上，直接压低「有用掉落」的方差。</li>
+        <li><b>保底计数器</b>：记「距上次注入订单所需类型已过的落子数」<code>pitySinceNeeded</code>；超阈值 <code>PityThreshold = 8</code> → 下一个候选块<b>强制注入</b>一个订单所需类型（绕过概率）。保证订单永不被随机饿死。</li>
+        <li><b>注入概率上调为可调常量</b>：<code>InjectChance</code> 从 08 的 0.22 提到 <b>0.30</b>（订单要吞吐），作为配平旋钮，dev/test 可改数验证节奏。</li>
+      </ol>
+    </div>
+
+    <h3 id="risk2">风险 2 · 体力上限与单局落子数的匹配</h3>
+    <p><b>问题</b>：体力既要在早期不卡手，又要让玩家感到它是真实约束；上限/回速不能照抄浪漫餐厅（那是跨会话挂机节奏，本作是<mark class="y">单局活跃节奏</mark>）。</p>
+    <div class="callout good">
+      <b>方案（按本作局长重算，给出预算数学）：</b>
+      <ul>
+        <li><b>预算下界</b>：无任何消除、无订单完成的最坏情况，起始 20 体力 = 20 次落子后软死亡——足够玩家撞出几次消除并完成首单。要求 <code>EnergyStart ≥ 完成首单所需落子数的期望</code>。</li>
+        <li><b>可持续点</b>：一个约 3 块的批次配 1 次单行消除 ≈ 净 -2 体力；每 ~6–8 次落子完成 1 单 → +8 体力 → <mark class="g">熟练玩家体力净正</mark>，单局实际由「棋盘塞满」而非体力终结——正中 boss「技巧驱动：会消除→玩得久」的定位。</li>
+        <li><b>取舍定档</b>：软上限取 <b>30</b>（demo 局长约数分钟）——高到早期不饿死、低到体力是被感知的资源。公式与各常量全部可调，dev/test 据此重配（核心不变量：<code>EnergyStart ≥ 完成首单的落子数</code>，否则首单前就饿死）。</li>
+      </ul>
+    </div>
+
+    <h3 id="risk3">风险 3 · 落错子的兜底（无广告）</h3>
+    <p><b>问题</b>：落子耗体力且可能把棋盘逼进死局；一次失误代价大，而项目红线<mark class="y">禁广告复活</mark>。需要一个不依赖变现的解围阀。</p>
+    <div class="callout good">
+      <b>方案 · 限次免费悔棋（推荐）：</b>每局 <code>UndoCharges = 3</code> 次免费悔棋（无广告、无内购，纯次数限制，契合去变现）。
+      <ul>
+        <li><b>悔棋范围</b>：仅撤销<b>最后一次落子</b>（单步）。落子前对受影响状态打快照：棋盘 <code>BinaryBoard</code>、元素层 <code>ElementArr</code>、体力值、合成区库存、订单进度、保底计数器。悔棋 = 整体回滚到该快照 + 把方块退回待选槽 + 退回该次落子扣的体力。</li>
+        <li><b>更轻的备选</b>：仅当该次落子<b>未触发消除</b>（纯失误落子）时允许单步撤销，省去回滚消除/合成/订单的复杂度。若 dev 评估全量单步快照成本高，可先落地此备选版，全量快照列为增强。</li>
+        <li>悔棋次数耗尽后回归正常死局判定（沿用 08 的 GameOver）。</li>
+      </ul>
+    </div>
+
+    <h2 id="config">五、配置一览（可调常量）</h2>
+    <p>全部硬编码在配置类（仿 08 的 <code>CollectDemo</code> 静态类，不接 Luban），<mark>改数即调难度</mark>。</p>
+    <table>
+      <tr><th>模块</th><th>常量</th><th>默认</th></tr>
+      <tr><td rowspan="3">合成</td><td><code>MaxLevel</code></td><td>3</td></tr>
+      <tr><td><code>LevelBaseCost</code>（Lv1/2/3）</td><td>1 / 2 / 4</td></tr>
+      <tr><td>合成区硬上限</td><td>无（自动配对天然紧凑）</td></tr>
+      <tr><td rowspan="4">订单</td><td><code>ActiveOrders</code></td><td>2</td></tr>
+      <tr><td><code>OrderReward.Energy / Score</code></td><td>+8 / 等级×数量×50</td></tr>
+      <tr><td>难度量 <code>d(单)</code></td><td>数量 × 2^(等级-1)</td></tr>
+      <tr><td><code>DemoGoalOrders</code>（通关单数）</td><td>5</td></tr>
+      <tr><td rowspan="6">体力</td><td><code>EnergyStart</code></td><td>20</td></tr>
+      <tr><td><code>EnergyCap</code>（软，奖励可溢出）</td><td>30</td></tr>
+      <tr><td><code>PlaceCost</code></td><td>1 / 块</td></tr>
+      <tr><td><code>ClearRefund</code></td><td>消除行列数</td></tr>
+      <tr><td><code>RegenPerTick / IntervalSec</code></td><td>+1 / 120s（demo 可简化）</td></tr>
+      <tr><td>耗尽兜底</td><td>软 GameOver</td></tr>
+      <tr><td rowspan="3">掉率/保底</td><td><code>InjectChance</code></td><td>0.30</td></tr>
+      <tr><td>注入类型池</td><td>激活订单所需类型并集</td></tr>
+      <tr><td><code>PityThreshold</code></td><td>8 次落子</td></tr>
+      <tr><td>兜底</td><td><code>UndoCharges</code></td><td>3 / 局</td></tr>
+    </table>
+
+    <h2 id="tradeoff">六、与浪漫餐厅 / Gossip Harbor 的取舍</h2>
+    <table>
+      <tr><th>维度</th><th>浪漫餐厅 / Gossip Harbor</th><th>本切片取舍</th></tr>
+      <tr><td>合成交互</td><td>空间拖拽合成板（格子布局 + 拖放）</td><td><b>砍</b> → 自动配对库存。理由：拖拽合成是另一套完整交互，与「订单闭环优先」冲突；自动配对已满足「两两合并升级」规则。空间拖拽列为后续增强。</td></tr>
+      <tr><td>元素来源</td><td>生成器周期产出</td><td><b>改</b> → 候选块携带 + 消除掉落（本作的方块层就是产出动作），订单需求反向拉动注入</td></tr>
+      <tr><td>体力卡点</td><td>卡「生成器产出」</td><td><b>改</b> → 卡「落子」；且落子不保证消除（产出有方差），棋盘塞满是硬死亡——双失败条件是本作独有</td></tr>
+      <tr><td>体力数值</td><td>上限 100、2 分钟 1 点（跨会话挂机节奏）</td><td><b>重算</b> → 上限 30、单局活跃节奏；自然恢复保留但 demo 可简化，主补给来自订单奖励</td></tr>
+      <tr><td>订单难度</td><td>冷却刷新 + 锯齿波</td><td><b>取材</b> → 锯齿波保留（难单后必出简单单）；demo 用手编循环池实现，完整程序化规则文档化</td></tr>
+      <tr><td>体力瓶</td><td>合成链上的可合并道具，使用回体力</td><td><b>文档化后续</b> → demo 订单奖励先直接给体力；体力瓶作为可合成奖励物列为增强项</td></tr>
+      <tr><td>变现</td><td>体力购买 / 广告 / 道具内购</td><td><b>全砍</b>（项目红线）→ 体力靠恢复+奖励，兜底靠限次免费悔棋，无任何付费/广告入口</td></tr>
+    </table>
+
+    <h2 id="hook">七、与现有模块的挂接点</h2>
+    <p>沿用 08 的<b>加法式 + 独立窗口 + 模式门控</b>策略：新增 <code>MergeOrderMode</code> 门控本切片全部新逻辑；off 时（含 Classic、08 收集模式）<mark>行为零变化</mark>。</p>
+    <div class="diagram">
+    <svg viewBox="0 0 880 400" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="模块挂接关系图">
+      <defs>
+        <marker id="har" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"/></marker>
+      </defs>
+
+      <g text-anchor="middle">
+        <!-- 左列 -->
+        <rect x="40" y="40" width="210" height="64" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="145" y="68" font-size="15" font-weight="700" fill="#f2f4fc">MainMenuWindow</text>
+        <text x="145" y="90" font-size="12" fill="#aebcf5">加「合成订单 Demo」入口</text>
+
+        <rect x="40" y="170" width="210" height="64" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="145" y="198" font-size="15" font-weight="700" fill="#f2f4fc">BlockGameState</text>
+        <text x="145" y="220" font-size="12" fill="#aebcf5">复用元素层 · 门控扩展</text>
+
+        <rect x="40" y="292" width="210" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"/>
+        <text x="145" y="320" font-size="14" font-weight="700" fill="#f2f4fc">BinaryBoard / ShapeMap</text>
+        <text x="145" y="342" font-size="12" fill="#8d96b5">不改 · 仅调用</text>
+
+        <!-- 中列 -->
+        <rect x="340" y="40" width="220" height="80" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="450" y="72" font-size="16" font-weight="700" fill="#f2f4fc">MergeOrderWindow</text>
+        <text x="450" y="98" font-size="12" fill="#8fd0b4">切片主体窗口（新增）</text>
+
+        <rect x="340" y="200" width="200" height="60" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="440" y="226" font-size="14" font-weight="700" fill="#f2f4fc">CollectWinWindow</text>
+        <text x="440" y="246" font-size="12" fill="#aebcf5">demo 通关面板复用</text>
+
+        <rect x="340" y="300" width="200" height="60" rx="12" fill="#283256" stroke="#6c8cff"/>
+        <text x="440" y="326" font-size="14" font-weight="700" fill="#f2f4fc">GameOverWindow</text>
+        <text x="440" y="346" font-size="12" fill="#aebcf5">双失败条件兜底复用</text>
+
+        <!-- 右列 -->
+        <rect x="650" y="40" width="210" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="755" y="68" font-size="15" font-weight="700" fill="#f2f4fc">MergeOrderState</text>
+        <text x="755" y="90" font-size="12" fill="#8fd0b4">纯逻辑状态机（新增）</text>
+
+        <rect x="650" y="160" width="210" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="755" y="188" font-size="15" font-weight="700" fill="#f2f4fc">MergeOrderConfig</text>
+        <text x="755" y="210" font-size="12" fill="#8fd0b4">可调常量 + 订单池（新增）</text>
+      </g>
+
+      <g stroke="#8d96b5" stroke-width="1.6" fill="none">
+        <line x1="250" y1="72" x2="332" y2="72" marker-end="url(#har)"/>
+        <line x1="560" y1="68" x2="642" y2="68" marker-end="url(#har)"/>
+        <path d="M560 96 H600 V192 H642" marker-end="url(#har)"/>
+        <line x1="350" y1="120" x2="220" y2="162" marker-end="url(#har)"/>
+        <line x1="145" y1="234" x2="145" y2="284" marker-end="url(#har)"/>
+        <line x1="440" y1="120" x2="440" y2="192" marker-end="url(#har)"/>
+        <path d="M520 120 V150 H610 V330 H548" marker-end="url(#har)"/>
+      </g>
+
+      <!-- 图例 -->
+      <rect x="60" y="378" width="24" height="14" rx="4" fill="#16382c" stroke="#5bd6a0"/>
+      <text x="92" y="390" font-size="13" fill="#8d96b5">新增</text>
+      <rect x="180" y="378" width="24" height="14" rx="4" fill="#283256" stroke="#6c8cff"/>
+      <text x="212" y="390" font-size="13" fill="#8d96b5">复用 / 门控扩展</text>
+      <rect x="360" y="378" width="24" height="14" rx="4" fill="#1e2230" stroke="#8d96b5"/>
+      <text x="392" y="390" font-size="13" fill="#8d96b5">不改</text>
+    </svg>
+    </div>
+    <table>
+      <tr><th>现有 / 新增</th><th>挂接方式</th></tr>
+      <tr><td><code>Module/BlockBlast/BlockGameState.cs</code></td><td><b>复用</b>元素层（<code>ElementArr</code> / <code>BuildPiece</code> 注入 / <code>PlacePiece</code> 转移）。<code>InjectElements</code> 的类型池来源由「仍需收集类型」扩展为「订单所需类型并集 + 保底强制注入」（新增门控分支，08 路径不变）。<code>CollectClearedElements</code> 扩展为<b>额外输出本次被清元素列表</b>（供合成区摄入），现有累加 <code>Collected</code> 行为在新模式下不用即可。</td></tr>
+      <tr><td>新增 <code>Module/BlockBlast/MergeOrderConfig.cs</code></td><td>仿 <code>CollectDemo</code> 静态类：合成/订单/体力/掉率/兜底全部可调常量 + 循环订单池 + glyph/纯色（复用 <code>CollectDemo.Glyph/ColorOf</code>）。</td></tr>
+      <tr><td>新增 <code>Module/BlockBlast/MergeOrderState.cs</code></td><td>新系统状态机（组合，不塞进 <code>BlockGameState</code> 以免污染）：合成区库存 <code>Dictionary&lt;(CollectElement,int),int&gt;</code> + 自动配对升级、订单队列 + 交付/刷新/锯齿波、体力值 + 扣/返/补/恢复、保底计数器、悔棋快照栈。纯逻辑、可单测。</td></tr>
+      <tr><td><code>Core/BinaryBoard.cs</code> / <code>Core/BlockShapeMap.cs</code></td><td><b>不改</b>。复用 <code>CanClearRowCols</code> / <code>PutBlock</code> / <code>CanPutAnyOf</code> / <code>IsEmpty</code>。</td></tr>
+      <tr><td>新增 <code>UI/BlockBlastUI/MergeOrderWindow.cs</code></td><td>切片主体窗口，镜像 <code>CollectDemoWindow</code> 的棋盘/拖拽/ghost/落子流程。在 <code>PlaceAndResolve</code> 同构流程中插入：落子扣体力 → 消除返体力 → 被清元素入合成区（自动合并）→ 刷新订单/合成区/体力 UI → 检查订单可交付 → 检查 demo 通关 / 软死亡。新增悔棋按钮。</td></tr>
+      <tr><td>新增 UI：订单卡 ×2、合成区面板、体力条、悔棋按钮</td><td>glyph/纯色零美术；订单卡显示「元素 glyph + Lv + 数量 + 交付按钮（满足点亮）」；合成区显示各类型当前等级 token；体力条显示 <code>当前/上限</code>。</td></tr>
+      <tr><td>复用 <code>UI/BlockBlastUI/CollectWinWindow.cs</code></td><td>demo 通关面板（完成 N 单）复用，传「完成单数/奖励」摘要行。</td></tr>
+      <tr><td>复用 <code>UI/BlockBlastUI/GameOverWindow.cs</code></td><td>棋盘塞满 / 体力耗尽兜底，沿用 08；体力耗尽可传变体标题「精力耗尽」。</td></tr>
+      <tr><td><code>UI/BlockBlastUI/MainMenuWindow.cs</code></td><td>加「合成订单 Demo」入口按钮 → 打开 <code>MergeOrderWindow</code>。</td></tr>
+    </table>
+    <div class="callout note"><b>回归红线</b>：本切片全部新逻辑由 <code>MergeOrderMode</code> 门控。off 时 <code>BlockGameState</code> 的 Classic 落子/消除/补块/存档、以及 08 收集模式行为与现状<mark class="y">逐字节一致</mark>。Classic + 08 回归测试必须通过。</div>
+
+    <h2 id="scope">八、Demo 范围</h2>
+    <h3 id="scope-in">做什么（In Scope）</h3>
+    <ul>
+      <li>体力系统：落子扣、消除返、订单补、自然恢复（可简化）、耗尽软兜底。</li>
+      <li>合成区：消除元素入区 → 自动两两合并升级（封顶 Lv3）+ 显示。</li>
+      <li>订单系统：双订单、手动交付（消耗合成物 + 发奖）、刷新、锯齿波（循环池实现）。</li>
+      <li>掉率保底：需求拉动注入 + 保底计数器 + 可调注入概率。</li>
+      <li>落错兜底：限次免费悔棋（单步快照回滚）。</li>
+      <li>demo 通关（完成 N 单 → 胜利面板）+ 双失败条件。</li>
+      <li>独立窗口 + 主菜单入口 + 模式门控（Classic / 08 零影响）。</li>
+    </ul>
+    <h3 id="scope-out">不做什么（Out of Scope）</h3>
+    <table>
+      <tr><th>砍掉</th><th>原因</th></tr>
+      <tr><td>空间拖拽合成棋盘</td><td>另一套完整交互，与订单闭环优先冲突；自动配对已满足合并规则</td></tr>
+      <tr><td>体力瓶可合成道具的完整实装</td><td>奖励先直接给体力；瓶子合成链列为后续增强</td></tr>
+      <tr><td>完整程序化锯齿波（动态算难度约束相邻单）</td><td>demo 用手编循环池；完整规则已文档化</td></tr>
+      <tr><td>自然恢复的真实跨会话计时 / 离线结算</td><td>单局测试意义小；demo 可简化或暂不实装</td></tr>
+      <tr><td>关卡框架 / 存档 / 多关 / Luban 接表</td><td>沿用 08 切片边界，配置硬编码</td></tr>
+      <tr><td>任何变现：体力购买 / 广告复活 / 道具内购</td><td>项目红线（去变现）</td></tr>
+    </table>
+
+    <h2 id="risks">九、风险</h2>
+    <table>
+      <tr><th>风险</th><th>应对</th></tr>
+      <tr><td>双重随机（注入×消除）饿死订单</td><td>需求拉动注入 + 保底计数器 + 可调 InjectChance（<a href="#risk1">§四·1</a>）</td></tr>
+      <tr><td>体力早期饿死 / 后期无感</td><td>预算数学定档（起始≥首单落子数、订单净正）；常量全可调（<a href="#risk2">§四·2</a>）</td></tr>
+      <tr><td>落错子死局且无广告复活</td><td>限次免费悔棋（单步快照，3 次/局）（<a href="#risk3">§四·3</a>）</td></tr>
+      <tr><td>悔棋快照范围广、易漏状态</td><td>集中快照 6 项状态于一处；备选轻量版（仅无消除时撤销）兜底</td></tr>
+      <tr><td>新逻辑污染 Classic / 08</td><td><code>MergeOrderMode</code> 门控 + 独立窗口 + 独立状态类；回归测试硬验收</td></tr>
+      <tr><td>自动合成削弱玩家合成层 agency</td><td>玩家 agency 主要在方块层（落子/消除/先交哪单）；合成自动降低心智负担适配 demo；空间拖拽列为增强</td></tr>
+    </table>
+
+    <div class="related">
+      <h2>相关文档</h2>
+      <div class="related-links">
+        <a href="index.html">← 返回总览</a>
+        <a href="archive/08-collect-demo-slice.html">收集 Demo 切片（本切片基线）</a>
+        <a href="archive/05-proposal-adventure.html">提案 P1 · Adventure 关卡模式</a>
+        <a href="07-blockblast-code-architecture.html">BlockBlast 代码架构剖析</a>
+      </div>
+    </div>
+
+    <footer>Block Blast · TEngine 项目策划文档 · 合成+订单+体力 Demo 切片 · 由策划维护</footer>
+  </main>
 </div>
 
 </body>

@@ -4,18 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>原版功能差距 & 移植路线图 · Block Blast 策划文档</title>
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="../assets/style.css?v=2">
 </head>
 <body>
 
 <div class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <span class="crumbs"><a href="index.html">总览</a> / 原版功能差距 &amp; 移植路线图</span>
+    <a class="brand" href="../index.html"><span class="dot"></span>Block Blast 策划文档</a>
+    <span class="crumbs"><a href="../index.html">总览</a> / 原版功能差距 &amp; 移植路线图</span>
   </div>
 </div>
 
 <div class="wrap">
+  <div class="callout warn"><b>已归档(2026-06-12)</b>:原版移植路线(P0 打击感/P1 关卡/P2 收集关卡化)未再推进,项目转向「合成订单」自研切片(见 <a href="../09-merge-order-energy.html">09</a>/<a href="../10-score-element-rm-collect.html">10</a>)。本篇保留作原版功能对照与关卡数据索引。</div>
   <h1>原版功能差距 &amp; 移植路线图</h1>
   <p class="subtitle">现状盘点 · 把「原版完整设计」「Web 参考工程」「Unity 当前版本」三方对齐，列清楚缺什么、数据现不现成、该先做哪个。</p>
 
@@ -40,7 +41,7 @@
     <tr><td>早期屏蔽列表</td><td>12 个 id / &lt;10000 分</td><td>同</td><td><span class="chip good">一致</span></td></tr>
     <tr><td>权重表 weightcfg</td><td>weightcfg.json</td><td>136 行 .bytes</td><td><span class="chip good">已转 Luban</span></td></tr>
   </table>
-  <p style="color:var(--text-dim);font-size:13px">详见 → <a href="02-dynamic-difficulty.html">动态难度拆解</a>。下面重点是<b>没移植</b>的部分。</p>
+  <p style="color:var(--text-dim);font-size:13px">详见 → <a href="../02-dynamic-difficulty.html">动态难度拆解</a>。下面重点是<b>没移植</b>的部分。</p>
 
   <h2>二、功能差距总表</h2>
   <p>图例：<span class="chip good">有</span> 已实现 ·
@@ -79,7 +80,7 @@
   <div class="callout good"><b>设计杠杆：</b> <code>weightMin/Max</code> 让关卡模式能<b>复用 Classic 的橡皮筋系统</b>做关卡级难度控制——同一套 DDA，关卡里把橡皮筋的活动范围一锁，就能精确编排「这关偏放水 / 那关偏做局」。不用另写难度系统。</div>
 
   <h3>② Combo 连击：补上从「计数」到「爽点」的最后一环</h3>
-  <p>Unity 已有 <code>Combo</code> 计数变量但没用途（见 <a href="01-gameplay-overview.html">玩法总览</a>）。原版设计里它驱动两件事：</p>
+  <p>Unity 已有 <code>Combo</code> 计数变量但没用途（见 <a href="../01-gameplay-overview.html">玩法总览</a>）。原版设计里它驱动两件事：</p>
   <ul>
     <li><b>表现</b>：连击弹字 <code>text_combo</code> / 满屏 <code>text_perfect</code> + 浮动加分</li>
     <li><b>（可选）计分</b>：连击倍率进得分公式 —— 目前 Unity 和 Web 参考都<b>没</b>把 combo 计入分数，是一个可选的数值增强点</li>
@@ -108,9 +109,9 @@
   <div class="related">
     <h2>相关文档</h2>
     <div class="related-links">
-      <a href="index.html">← 返回总览</a>
-      <a href="01-gameplay-overview.html">玩法总览</a>
-      <a href="02-dynamic-difficulty.html">动态难度拆解</a>
+      <a href="../index.html">← 返回总览</a>
+      <a href="../01-gameplay-overview.html">玩法总览</a>
+      <a href="../02-dynamic-difficulty.html">动态难度拆解</a>
     </div>
   </div>
 
