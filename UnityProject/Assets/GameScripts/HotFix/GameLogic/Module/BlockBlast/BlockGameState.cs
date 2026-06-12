@@ -42,6 +42,16 @@ namespace GameLogic.BlockBlast
         /// <summary>各类型已收集数量。</summary>
         public readonly Dictionary<CollectElement, int> Collected = new Dictionary<CollectElement, int>();
 
+        // ─── 合成+订单+体力模式（Merge-Order Demo 切片）─────────────
+        // 红线：所有 merge-order 状态/逻辑由 MergeOrderMode 门控；off 时落子/消除/补块/存档
+        //       与 Classic + 08 收集模式现状逐字节一致（回归硬验收）。
+
+        /// <summary>合成+订单+体力模式开关。off 时所有 merge-order 分支短路，Classic/08 行为零变化。</summary>
+        public bool MergeOrderMode;
+
+        /// <summary>该模式的新系统状态（合成区/订单/体力/保底/悔棋）。仅 MergeOrderMode 时非空。</summary>
+        public MergeOrderState MergeState;
+
         protected override void OnInit()
         {
             SaveArr = MakeEmptyBoard();
@@ -53,6 +63,8 @@ namespace GameLogic.BlockBlast
             ElementArr = null;
             CollectionTargets.Clear();
             Collected.Clear();
+            MergeOrderMode = false;
+            MergeState = null;
         }
 
         private static CollectElement[][] MakeEmptyElementArr()
@@ -112,8 +124,44 @@ namespace GameLogic.BlockBlast
         public PendingPiece BuildPiece(int shapeId)
         {
             var piece = new PendingPiece(shapeId, RandomColor());
-            if (CollectMode) InjectElements(piece, shapeId);
+            if (MergeOrderMode && MergeState != null) InjectElementsForMergeOrder(piece, shapeId);
+            else if (CollectMode) InjectElements(piece, shapeId);
             return piece;
+        }
+
+        /// <summary>
+        /// merge-order 模式：注入类型池 = 当前激活订单所需类型并集（需求拉动），按 InjectChance 概率。
+        /// 保底：连续 PityThreshold 次构建未注入任一所需类型后，下一块强制注入一个（绕过概率）。
+        /// </summary>
+        private void InjectElementsForMergeOrder(PendingPiece piece, int shapeId)
+        {
+            var needed = MergeState.NeededTypes();
+            if (needed.Count == 0) return;
+
+            int cellCount = BlockShapeMap.GetCellCount(shapeId);
+            if (cellCount <= 0) return;
+
+            var elements = new CollectElement[cellCount];
+            bool forced = MergeState.PitySinceNeeded >= MergeOrderConfig.PityThreshold;
+            bool any = false;
+            for (int i = 0; i < cellCount; i++)
+            {
+                if (RandomSource.NextDouble() < MergeOrderConfig.InjectChance)
+                {
+                    elements[i] = needed[RandomSource.Index(needed.Count)];
+                    any = true;
+                }
+            }
+            // 保底强制注入：概率一格都没中时，随机挑一个填充格塞一个所需类型
+            if (forced && !any)
+            {
+                int idx = RandomSource.Index(cellCount);
+                elements[idx] = needed[RandomSource.Index(needed.Count)];
+                any = true;
+            }
+
+            if (any) { piece.Elements = elements; MergeState.PitySinceNeeded = 0; }
+            else { MergeState.PitySinceNeeded++; }
         }
 
         /// <summary>
@@ -250,9 +298,9 @@ namespace GameLogic.BlockBlast
             var shape = BlockShapeMap.Get(piece.ShapeId);
             if (shape != null)
             {
-                // 收集模式：按相同的「填充格行优先顺序」把 piece.Elements[cellIdx] 转移到 ElementArr。
-                // off 时 transferElements=false，下面只多走一个本地计数器，SaveArr 结果逐字节不变。
-                bool transferElements = CollectMode && ElementArr != null && piece.Elements != null;
+                // 收集 / merge-order 模式：按相同的「填充格行优先顺序」把 piece.Elements[cellIdx] 转移到 ElementArr。
+                // off 时 transferElements=false（ElementArr/Elements 均 null），SaveArr 结果逐字节不变。
+                bool transferElements = (CollectMode || MergeOrderMode) && ElementArr != null && piece.Elements != null;
                 int cellIdx = 0;
                 for (int r = 0; r < shape.Height; r++)
                 {
@@ -310,34 +358,38 @@ namespace GameLogic.BlockBlast
         // ─── 收集模式专用方法（全部由 CollectMode 门控）────────────
 
         /// <summary>
-        /// 收集模式：统计被清行/列上的元素 → Collected[type]++ 并清该格 overlay。
-        /// 应在窗口拿到 CanClearRowCols 结果后、与 ClearRowsAndCols 配套调用。
-        /// 与 ClearRowsAndCols 一致：行列交叉格只计一次（行 pass 已清，列 pass 见 None 跳过）。
-        /// 返回本次收集到的元素总数。off 时返回 0、不做任何事。
+        /// 统计被清行/列上的元素并清该格 overlay。应在窗口拿到 CanClearRowCols 结果后、
+        /// 与 ClearRowsAndCols 配套调用。与 ClearRowsAndCols 一致：行列交叉格只计一次
+        /// （行 pass 已清，列 pass 见 None 跳过）。
+        /// 收集模式累加 Collected[type]（静态目标）；merge-order 模式不累加，改由 <paramref name="output"/>
+        /// 输出本次被清元素列表供合成区摄入。两模式均清 overlay。
+        /// 返回本次被清的元素总数。两模式均 off 时返回 0、不做任何事。
         /// </summary>
-        public int CollectClearedElements(IList<int> rows, IList<int> cols)
+        public int CollectClearedElements(IList<int> rows, IList<int> cols, List<CollectElement> output = null)
         {
-            if (!CollectMode || ElementArr == null) return 0;
+            if ((!CollectMode && !MergeOrderMode) || ElementArr == null) return 0;
             int gained = 0;
             for (int i = 0; i < rows.Count; i++)
             {
                 int r = rows[i];
-                for (int c = 0; c < 8; c++) gained += CollectAt(r, c);
+                for (int c = 0; c < 8; c++) gained += CollectAt(r, c, output);
             }
             for (int i = 0; i < cols.Count; i++)
             {
                 int c = cols[i];
-                for (int r = 0; r < 8; r++) gained += CollectAt(r, c);
+                for (int r = 0; r < 8; r++) gained += CollectAt(r, c, output);
             }
             return gained;
         }
 
-        private int CollectAt(int r, int c)
+        private int CollectAt(int r, int c, List<CollectElement> output)
         {
             var el = ElementArr[r][c];
             if (el == CollectElement.None) return 0;
             ElementArr[r][c] = CollectElement.None;
-            Collected[el] = (Collected.TryGetValue(el, out var g) ? g : 0) + 1;
+            if (CollectMode)
+                Collected[el] = (Collected.TryGetValue(el, out var g) ? g : 0) + 1;
+            output?.Add(el);
             return 1;
         }
 
@@ -384,6 +436,36 @@ namespace GameLogic.BlockBlast
             ElementArr = null;
             CollectionTargets.Clear();
             Collected.Clear();
+        }
+
+        /// <summary>
+        /// 重置进入合成+订单+体力 Demo：开启 MergeOrderMode + 空棋盘 + 清元素层 + 新建 MergeState
+        /// （起始体力/空合成区/初始订单/满悔棋次数）+ 补满 3 块。反复进入每次都从初始态开始。
+        /// 注入由 MergeState 的订单所需类型并集拉动，故须在 RefillPieces 之前建好 MergeState。
+        /// </summary>
+        public void ResetForMergeOrder(BinaryBoard board)
+        {
+            MergeOrderMode = true;
+            CollectMode = false;
+            SaveArr = MakeEmptyBoard();
+            ElementArr = MakeEmptyElementArr();
+            OperaArr = new PendingPiece[3];
+            Score = 0;
+            Combo = 0;
+            CollectionTargets.Clear();
+            Collected.Clear();
+            MergeState = new MergeOrderState();
+            MergeState.Reset();
+            if (board != null) board.ConvertFromArr(SaveArr);
+            RefillPieces(board);
+        }
+
+        /// <summary>退出 merge-order Demo：关闭门控 + 释放元素层 + 丢弃 MergeState，回到 Classic 零残留。</summary>
+        public void ExitMergeOrder()
+        {
+            MergeOrderMode = false;
+            ElementArr = null;
+            MergeState = null;
         }
 
         /// <summary>加分。</summary>

@@ -40,9 +40,9 @@ namespace GameLogic.BlockBlastUI
             });
 
             // 收集 Demo 入口
-            var btnCollect = UGuiFactory.CreateButton(content, "BtnCollect", cx, 870, 470, 120, "收集 DEMO", 40,
+            var btnCollect = UGuiFactory.CreateButton(content, "BtnCollect", cx, 840, 470, 110, "收集 DEMO", 38,
                 new Color32(0x33, 0xaa, 0x55, 0xFF), Color.white, out _, out _);
-            UGuiFactory.CreateText(content, "CollectSub", cx, 925, 470, 40, "收集玩法切片 · 凑齐目标过关", 22,
+            UGuiFactory.CreateText(content, "CollectSub", cx, 890, 470, 40, "收集玩法切片 · 凑齐目标过关", 22,
                 new Color32(0xdd, 0xff, 0xee, 0xFF));
             btnCollect.onClick.AddListener(() =>
             {
@@ -50,8 +50,19 @@ namespace GameLogic.BlockBlastUI
                 GameModule.UI.ShowUIAsync<CollectDemoWindow>();
             });
 
+            // 合成订单 Demo 入口
+            var btnMerge = UGuiFactory.CreateButton(content, "BtnMerge", cx, 990, 470, 110, "合成订单 DEMO", 36,
+                new Color32(0xcc, 0x77, 0x33, 0xFF), Color.white, out _, out _);
+            UGuiFactory.CreateText(content, "MergeSub", cx, 1040, 470, 40, "体力·合成·订单切片 · 完成 5 单通关", 22,
+                new Color32(0xff, 0xee, 0xdd, 0xFF));
+            btnMerge.onClick.AddListener(() =>
+            {
+                GameModule.UI.CloseUI<MainMenuWindow>();
+                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+            });
+
             // BEST
-            UGuiFactory.CreateText(content, "Best", cx, 1010, 470, 50, $"BEST  {state.HighScore}", 32,
+            UGuiFactory.CreateText(content, "Best", cx, 1130, 470, 50, $"BEST  {state.HighScore}", 32,
                 new Color32(0xaa, 0xbb, 0xdd, 0xFF));
         }
     }

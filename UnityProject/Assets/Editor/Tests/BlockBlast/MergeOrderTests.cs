@@ -1,0 +1,401 @@
+using System.Collections.Generic;
+using NUnit.Framework;
+using GameLogic.BlockBlast;
+using GameLogic.BlockBlast.Core;
+
+namespace GameLogic.BlockBlast.Tests
+{
+    /// <summary>
+    /// 合成+订单+体力 切片核心逻辑测试：门控 / 体力 / 合成自动配对 / 订单交付刷新 /
+    /// 需求拉动+保底 / 悔棋回滚 / 通关 / off 回归。验收点编号对应 state/plan.md 交接区。
+    /// </summary>
+    [TestFixture]
+    public class MergeOrderTests
+    {
+        private InMemoryPersistenceProvider _provider;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _provider = new InMemoryPersistenceProvider();
+            Persistence.Provider = _provider;
+            RandomSource.SetSeed(20260612);
+            if (BlockGameState.IsValid) BlockGameState.Instance.Release();
+            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            if (BlockGameState.IsValid) BlockGameState.Instance.Release();
+            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
+        }
+
+        // ───────────────────────── #1 门控 & 重置 ─────────────────────────
+
+        [Test]
+        public void Default_MergeOrderModeOff_NoStateNoInject()
+        {
+            var s = BlockGameState.Instance;
+            Assert.IsFalse(s.MergeOrderMode);
+            Assert.IsNull(s.MergeState);
+            Assert.IsNull(s.ElementArr);
+            // off 模式 BuildPiece 不注入
+            Assert.IsNull(s.BuildPiece(13).Elements, "off 模式候选块不应携带元素");
+        }
+
+        [Test]
+        public void ResetForMergeOrder_FreshStateEachEntry()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+            Assert.IsTrue(s.MergeOrderMode);
+            Assert.IsNotNull(m);
+            Assert.IsNotNull(s.ElementArr);
+            Assert.AreEqual(MergeOrderConfig.EnergyStart, m.Energy);
+            Assert.AreEqual(0, m.CompletedOrders);
+            Assert.AreEqual(0, m.Inventory.Count);
+            Assert.AreEqual(MergeOrderConfig.UndoCharges, m.UndoCharges);
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                {
+                    Assert.AreEqual(-1, s.SaveArr[r][c]);
+                    Assert.AreEqual(CollectElement.None, s.ElementArr[r][c]);
+                }
+
+            // 弄脏后再次进入应回到初始态
+            m.Energy = 3;
+            m.CompletedOrders = 4;
+            m.IngestElement(CollectElement.Diamond);
+            s.ResetForMergeOrder(board);
+            var m2 = s.MergeState;
+            Assert.AreEqual(MergeOrderConfig.EnergyStart, m2.Energy);
+            Assert.AreEqual(0, m2.CompletedOrders);
+            Assert.AreEqual(0, m2.Inventory.Count);
+        }
+
+        [Test]
+        public void ExitMergeOrder_ZeroResidue_BackToClassic()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            s.ExitMergeOrder();
+
+            Assert.IsFalse(s.MergeOrderMode);
+            Assert.IsNull(s.MergeState);
+            Assert.IsNull(s.ElementArr);
+            // 回到 Classic 后 BuildPiece 不再注入
+            Assert.IsNull(s.BuildPiece(13).Elements);
+        }
+
+        // ───────────────────────── #2/#3 体力 ─────────────────────────
+
+        [Test]
+        public void Energy_StartSpendAfford()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            Assert.AreEqual(20, m.Energy);
+            Assert.IsTrue(m.CanAffordPlace);
+            m.SpendPlaceCost();
+            Assert.AreEqual(19, m.Energy);
+
+            m.Energy = 0;
+            Assert.IsFalse(m.CanAffordPlace, "体力 0 付不起落子");
+            m.Energy = MergeOrderConfig.PlaceCost;
+            Assert.IsTrue(m.CanAffordPlace);
+        }
+
+        [Test]
+        public void RefundEnergy_ClampedToCap_RewardOverflows()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            // 返还受软上限约束
+            m.Energy = 25;
+            m.RefundEnergy(3);
+            Assert.AreEqual(28, m.Energy);
+            m.RefundEnergy(5);
+            Assert.AreEqual(MergeOrderConfig.EnergyCap, m.Energy, "返还封顶软上限，不溢出");
+
+            // 订单奖励可溢出软上限
+            m.Energy = 28;
+            m.IngestElement(CollectElement.Diamond); // 满足初始订单0：Diamond Lv1 ×1
+            Assert.IsTrue(m.CanDeliver(0));
+            m.Deliver(0);
+            Assert.AreEqual(28 + MergeOrderConfig.OrderRewardEnergy, m.Energy, "奖励体力可溢出软上限");
+        }
+
+        // ───────────────────────── #6 消除元素入合成区 ─────────────────────────
+
+        [Test]
+        public void CollectClearedElements_OutputsList_NoStaticAccumulation()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            s.ElementArr[0][0] = CollectElement.Diamond;
+            s.ElementArr[0][1] = CollectElement.Diamond;
+            s.ElementArr[0][2] = CollectElement.Star;
+
+            var outList = new List<CollectElement>();
+            int gained = s.CollectClearedElements(new[] { 0 }, new int[0], outList);
+
+            Assert.AreEqual(3, gained);
+            Assert.AreEqual(3, outList.Count);
+            int diamonds = 0, stars = 0;
+            foreach (var e in outList)
+            {
+                if (e == CollectElement.Diamond) diamonds++;
+                if (e == CollectElement.Star) stars++;
+            }
+            Assert.AreEqual(2, diamonds);
+            Assert.AreEqual(1, stars);
+            Assert.AreEqual(0, s.Collected.Count, "merge 模式不累加静态收集目标");
+            Assert.AreEqual(CollectElement.None, s.ElementArr[0][0], "overlay 清空");
+        }
+
+        // ───────────────────────── #7 合成区自动两两合并升级 ─────────────────────────
+
+        [Test]
+        public void Ingest_TwoSame_MakesOneLv2()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            m.IngestElement(CollectElement.Diamond);
+            m.IngestElement(CollectElement.Diamond);
+            Assert.AreEqual(0, m.InventoryCount(CollectElement.Diamond, 1));
+            Assert.AreEqual(1, m.InventoryCount(CollectElement.Diamond, 2));
+        }
+
+        [Test]
+        public void Ingest_FourSame_MakesOneLv3()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            for (int i = 0; i < 4; i++) m.IngestElement(CollectElement.Star);
+            Assert.AreEqual(0, m.InventoryCount(CollectElement.Star, 1));
+            Assert.AreEqual(0, m.InventoryCount(CollectElement.Star, 2));
+            Assert.AreEqual(1, m.InventoryCount(CollectElement.Star, 3));
+        }
+
+        [Test]
+        public void Ingest_EightSame_MakesTwoLv3_CapStacks()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            for (int i = 0; i < 8; i++) m.IngestElement(CollectElement.Leaf);
+            Assert.AreEqual(2, m.InventoryCount(CollectElement.Leaf, 3), "封顶 Lv3 不再合并，堆积成 2");
+        }
+
+        // ───────────────────────── #9/#10/#11 订单 ─────────────────────────
+
+        [Test]
+        public void Orders_InitialTwoFromPoolFront()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            Assert.AreEqual(MergeOrderConfig.ActiveOrders, m.ActiveOrders.Length);
+            Assert.AreEqual(MergeOrderConfig.OrderPool[0].Type, m.ActiveOrders[0].Type);
+            Assert.AreEqual(MergeOrderConfig.OrderPool[0].Level, m.ActiveOrders[0].Level);
+            Assert.AreEqual(MergeOrderConfig.OrderPool[1].Type, m.ActiveOrders[1].Type);
+        }
+
+        [Test]
+        public void Deliver_ConsumesInventory_GivesReward_RefreshesSlot()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            // 初始订单1 = Star Lv2 ×1 → 摄入 2 Star 得 1 Lv2
+            Assert.IsFalse(m.CanDeliver(1), "库存不足按钮置灰");
+            m.IngestElement(CollectElement.Star);
+            m.IngestElement(CollectElement.Star);
+            Assert.IsTrue(m.CanDeliver(1));
+
+            int scoreBefore = m.TotalScore;
+            int energyBefore = m.Energy;
+            var nextExpected = MergeOrderConfig.OrderPool[2]; // 交付后该槽刷新为池下一项
+
+            Assert.IsTrue(m.Deliver(1));
+            Assert.AreEqual(0, m.InventoryCount(CollectElement.Star, 2), "交付扣除合成物");
+            Assert.AreEqual(energyBefore + MergeOrderConfig.OrderRewardEnergy, m.Energy);
+            Assert.AreEqual(scoreBefore + 2 * 1 * MergeOrderConfig.OrderScoreFactor, m.TotalScore);
+            Assert.AreEqual(1, m.CompletedOrders);
+            Assert.AreEqual(nextExpected.Type, m.ActiveOrders[1].Type, "槽刷新为下一单");
+            Assert.AreEqual(nextExpected.Level, m.ActiveOrders[1].Level);
+        }
+
+        [Test]
+        public void NextOrder_CyclesPool()
+        {
+            var m = new MergeOrderState();
+            m.Reset(); // 取走 pool[0],[1]，游标=2
+            var pool = MergeOrderConfig.OrderPool;
+            for (int i = 2; i < pool.Length; i++)
+            {
+                var o = m.NextOrder();
+                Assert.AreEqual(pool[i].Type, o.Type);
+            }
+            // 越过尾部应回到 pool[0]
+            var wrapped = m.NextOrder();
+            Assert.AreEqual(pool[0].Type, wrapped.Type);
+            Assert.AreEqual(pool[0].Level, wrapped.Level);
+        }
+
+        // ───────────────────────── #12 需求拉动注入 + 保底 ─────────────────────────
+
+        [Test]
+        public void NeededTypes_UnionOfActiveOrders()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            var needed = m.NeededTypes();
+            Assert.Contains(m.ActiveOrders[0].Type, needed);
+            Assert.Contains(m.ActiveOrders[1].Type, needed);
+        }
+
+        [Test]
+        public void Pity_ForcesInjectionAfterThreshold()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            m.PitySinceNeeded = MergeOrderConfig.PityThreshold; // 达阈值 → 下一块必注入
+            var p = s.BuildPiece(13); // 3x3 实心，9 格
+
+            Assert.IsNotNull(p.Elements, "保底应强制注入");
+            var needed = m.NeededTypes();
+            bool hasNeeded = false;
+            foreach (var e in p.Elements) if (e != CollectElement.None && needed.Contains(e)) hasNeeded = true;
+            Assert.IsTrue(hasNeeded, "强制注入的应是订单所需类型");
+            Assert.AreEqual(0, m.PitySinceNeeded, "注入后保底计数器归零");
+        }
+
+        // ───────────────────────── #13 悔棋（全量单步回滚） ─────────────────────────
+
+        [Test]
+        public void Undo_RollsBackAllState_ReturnsPiece_RefundsEnergy()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            // 构造确定性手牌（2x2 实心，4 格全 Diamond）
+            var piece = new PendingPiece(9, BlockColor.Blue)
+            {
+                Elements = new[]
+                {
+                    CollectElement.Diamond, CollectElement.Diamond,
+                    CollectElement.Diamond, CollectElement.Diamond,
+                }
+            };
+            s.OperaArr[0] = piece;
+            int energyBefore = m.Energy;
+            int chargesBefore = m.UndoCharges;
+            m.PitySinceNeeded = 0; // 钉死快照前的保底计数器（补块注入可能已改动它），使回滚断言确定
+
+            // 落子前快照
+            m.CaptureSnapshot(s, board);
+
+            // 模拟窗口落子流程的全套副作用
+            s.PlacePiece(0, board, 0, 0);
+            m.SpendPlaceCost();
+            m.IngestElement(CollectElement.Diamond);
+            m.PitySinceNeeded = 5;
+            m.CompletedOrders = 2;
+            m.TotalScore = 999;
+
+            Assert.IsFalse(board.IsEmpty());
+            Assert.IsNull(s.OperaArr[0]);
+            Assert.AreEqual(energyBefore - 1, m.Energy);
+
+            // 悔棋
+            Assert.IsTrue(m.CanUndo);
+            Assert.IsTrue(m.Undo(s, board));
+
+            Assert.IsTrue(board.IsEmpty(), "棋盘回滚");
+            Assert.AreEqual(CollectElement.None, s.ElementArr[0][0], "元素层回滚");
+            Assert.AreEqual(-1, s.SaveArr[0][0], "SaveArr 回滚");
+            Assert.IsNotNull(s.OperaArr[0], "方块退回待选槽");
+            Assert.AreEqual(energyBefore, m.Energy, "退回该次扣的体力");
+            Assert.AreEqual(0, m.InventoryCount(CollectElement.Diamond, 1), "合成区回滚");
+            Assert.AreEqual(0, m.PitySinceNeeded, "保底计数器回滚");
+            Assert.AreEqual(0, m.CompletedOrders, "订单进度回滚");
+            Assert.AreEqual(0, m.TotalScore, "得分回滚");
+            Assert.AreEqual(chargesBefore - 1, m.UndoCharges, "消耗一次悔棋次数");
+        }
+
+        [Test]
+        public void Undo_ChargesExhausted_CannotUndo()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+            m.UndoCharges = 0;
+
+            m.CaptureSnapshot(s, board); // 次数 0 → 不压栈
+            Assert.IsFalse(m.CanUndo);
+            Assert.IsFalse(m.Undo(s, board));
+        }
+
+        [Test]
+        public void Deliver_ClearsUndoStack()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            m.CaptureSnapshot(s, board);
+            m.IngestElement(CollectElement.Diamond); // 满足初始订单0
+            Assert.IsTrue(m.CanUndo);
+            m.Deliver(0);
+            Assert.IsFalse(m.CanUndo, "交付为已提交动作，清空悔棋栈");
+        }
+
+        // ───────────────────────── #14 demo 通关 ─────────────────────────
+
+        [Test]
+        public void IsDemoComplete_AtGoalOrders()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            m.CompletedOrders = MergeOrderConfig.DemoGoalOrders - 1;
+            Assert.IsFalse(m.IsDemoComplete());
+            m.CompletedOrders = MergeOrderConfig.DemoGoalOrders;
+            Assert.IsTrue(m.IsDemoComplete());
+        }
+
+        // ───────────────────────── off 回归：08 收集模式不受影响 ─────────────────────────
+
+        [Test]
+        public void CollectMode_StillAccumulatesStaticTargets_MergeOff()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForCollectDemo(board); // 08 收集模式，MergeOrderMode 应保持 off
+            Assert.IsFalse(s.MergeOrderMode);
+
+            s.ElementArr[0][0] = CollectElement.Diamond;
+            s.ElementArr[0][1] = CollectElement.Diamond;
+            int gained = s.CollectClearedElements(new[] { 0 }, new int[0]);
+            Assert.AreEqual(2, gained);
+            Assert.AreEqual(2, s.Collected[CollectElement.Diamond], "收集模式仍累加静态目标");
+        }
+    }
+}

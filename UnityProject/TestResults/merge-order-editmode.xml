@@ -1,0 +1,643 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="96" result="Passed" total="96" passed="96" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.1969224">
+  <test-suite type="TestSuite" id="1000" name="Unity" fullname="Unity" runstate="Runnable" testcasecount="96" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.196922" total="96" passed="96" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1108" name="BlockBlast.Tests.dll" fullname="D:/work/TEngine_block/UnityProject/Library/ScriptAssemblies/BlockBlast.Tests.dll" runstate="Runnable" testcasecount="96" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.190897" total="96" passed="96" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="34312" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1109" name="GameLogic" fullname="GameLogic" runstate="Runnable" testcasecount="96" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.190500" total="96" passed="96" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1110" name="BlockBlast" fullname="GameLogic.BlockBlast" runstate="Runnable" testcasecount="96" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.190318" total="96" passed="96" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1111" name="Tests" fullname="GameLogic.BlockBlast.Tests" runstate="Runnable" testcasecount="96" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.190079" total="96" passed="96" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1113" name="Algorithms" fullname="GameLogic.BlockBlast.Tests.Algorithms" runstate="Runnable" testcasecount="28" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.109431" total="28" passed="28" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1076" name="AlgorithmsTests" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.098594" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1089" name="BoardClearGreedyTrio_NonEmptyBoard_ReturnsThreeIds" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.BoardClearGreedyTrio_NonEmptyBoard_ReturnsThreeIds" methodname="BoardClearGreedyTrio_NonEmptyBoard_ReturnsThreeIds" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1295851346" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.055668" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1088" name="FallbackTrio_AlmostFullBoard_ReturnsAllOnes" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.FallbackTrio_AlmostFullBoard_ReturnsAllOnes" methodname="FallbackTrio_AlmostFullBoard_ReturnsAllOnes" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1215614610" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000901" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-suite type="ParameterizedMethod" id="1087" name="GenerateTrio_AllAlgorithms_ReturnValidTrio" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.030638" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1079" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(Fill)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(Fill)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="191293029" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003509" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1080" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(RandomNoDie)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(RandomNoDie)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1623420236" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000332" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1081" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(Add3)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(Add3)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1112876981" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003724" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1082" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(EasyDiff)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(EasyDiff)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1559406009" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003002" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1083" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(Diff)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(Diff)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="93391575" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.005531" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1084" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(StraightDeathDiff)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(StraightDeathDiff)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1587330148" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.007752" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1085" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(ClearAll)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(ClearAll)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1228536439" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003224" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1086" name="GenerateTrio_AllAlgorithms_ReturnValidTrio(AllCombination)" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.GenerateTrio_AllAlgorithms_ReturnValidTrio(AllCombination)" methodname="GenerateTrio_AllAlgorithms_ReturnValidTrio" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1487945997" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000620" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-case id="1078" name="SampleTrio_HasThreeIds" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.SampleTrio_HasThreeIds" methodname="SampleTrio_HasThreeIds" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1508597206" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000279" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1077" name="UniformRandomShape_ReturnsValidCommonId" fullname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests.UniformRandomShape_ReturnsValidCommonId" methodname="UniformRandomShape_ReturnsValidCommonId" classname="GameLogic.BlockBlast.Tests.Algorithms.AlgorithmsTests" runstate="Runnable" seed="1067843361" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000679" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="TestFixture" id="1090" name="BoardAnalysisTests" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.006537" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1095" name="FillRatio_HalfBoard_Is_0_5" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.FillRatio_HalfBoard_Is_0_5" methodname="FillRatio_HalfBoard_Is_0_5" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="1137493944" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000716" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1096" name="HorizontalLineShape_Width3_IsId5" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.HorizontalLineShape_Width3_IsId5" methodname="HorizontalLineShape_Width3_IsId5" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="1146429098" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000196" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1093" name="LargestEmptyRect_EmptyBoard_Is8x8" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.LargestEmptyRect_EmptyBoard_Is8x8" methodname="LargestEmptyRect_EmptyBoard_Is8x8" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="810588291" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000163" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1094" name="LargestEmptyRect_FullBoard_Is0" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.LargestEmptyRect_FullBoard_Is0" methodname="LargestEmptyRect_FullBoard_Is0" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="1590244625" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000169" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1091" name="RowsMissing_DetectsRowsByGapCount" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.RowsMissing_DetectsRowsByGapCount" methodname="RowsMissing_DetectsRowsByGapCount" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="1033335572" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000834" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1092" name="RowsMissingRange_RespectsRange" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.RowsMissingRange_RespectsRange" methodname="RowsMissingRange_RespectsRange" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="88765548" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000227" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1098" name="ShapesFittingRect_3x3_ExcludesLargerShapes" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.ShapesFittingRect_3x3_ExcludesLargerShapes" methodname="ShapesFittingRect_3x3_ExcludesLargerShapes" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="406703006" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.002385" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1097" name="VerticalLineShape_Height3_IsId4" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests.VerticalLineShape_Height3_IsId4" methodname="VerticalLineShape_Height3_IsId4" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardAnalysisTests" runstate="Runnable" seed="1944904002" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000147" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="TestFixture" id="1099" name="BoardEvaluatorTests" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003397" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1101" name="CountSolutions_EmptyBoard_TripleSingle_RespectsLimit" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.CountSolutions_EmptyBoard_TripleSingle_RespectsLimit" methodname="CountSolutions_EmptyBoard_TripleSingle_RespectsLimit" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="1879655065" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000477" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1105" name="Entropy_CheckerBoard_IsMaximum" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.Entropy_CheckerBoard_IsMaximum" methodname="Entropy_CheckerBoard_IsMaximum" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="257728771" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000168" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1103" name="Entropy_EmptyBoard_IsZero" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.Entropy_EmptyBoard_IsZero" methodname="Entropy_EmptyBoard_IsZero" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="1309167138" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000129" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1104" name="Entropy_FullBoard_IsZero" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.Entropy_FullBoard_IsZero" methodname="Entropy_FullBoard_IsZero" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="740474065" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000148" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1100" name="EnumerateSolutions_EmptyTrio_HasOneEmptySolution" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.EnumerateSolutions_EmptyTrio_HasOneEmptySolution" methodname="EnumerateSolutions_EmptyTrio_HasOneEmptySolution" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="880038060" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000208" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1107" name="FilledCount_CountsBits" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.FilledCount_CountsBits" methodname="FilledCount_CountsBits" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="1115224956" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000129" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1102" name="Simulate_FullsRowAndClears" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.Simulate_FullsRowAndClears" methodname="Simulate_FullsRowAndClears" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="914328620" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000368" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1106" name="TrioCells_SumsCellCounts" fullname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests.TrioCells_SumsCellCounts" methodname="TrioCells_SumsCellCounts" classname="GameLogic.BlockBlast.Tests.Algorithms.BoardEvaluatorTests" runstate="Runnable" seed="2116137673" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000134" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+            </test-suite>
+            <test-suite type="TestFixture" id="1001" name="BlockGameStateTests" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.010615" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1005" name="AddScore_TracksHighScore" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.AddScore_TracksHighScore" methodname="AddScore_TracksHighScore" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="965533580" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001749" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="ClearRowsAndCols_ZeroesCellsAndCounts" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.ClearRowsAndCols_ZeroesCellsAndCounts" methodname="ClearRowsAndCols_ZeroesCellsAndCounts" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="1399863866" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000532" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1002" name="Init_EmptyBoardAndZeroScore" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.Init_EmptyBoardAndZeroScore" methodname="Init_EmptyBoardAndZeroScore" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="144155059" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000409" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="Load_NoSaveExists_ReturnsFalse" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.Load_NoSaveExists_ReturnsFalse" methodname="Load_NoSaveExists_ReturnsFalse" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="958262394" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000590" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="PlacePiece_UpdatesBoardAndClearsSlot" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.PlacePiece_UpdatesBoardAndClearsSlot" methodname="PlacePiece_UpdatesBoardAndClearsSlot" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="1522167282" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.002336" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="RefillPieces_FillsAllSlots" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.RefillPieces_FillsAllSlots" methodname="RefillPieces_FillsAllSlots" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="791221468" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001121" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1008" name="SaveAndLoad_RoundTrips" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.SaveAndLoad_RoundTrips" methodname="SaveAndLoad_RoundTrips" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="1902817064" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001199" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="SetFirstHand_FillsThreeSlots" fullname="GameLogic.BlockBlast.Tests.BlockGameStateTests.SetFirstHand_FillsThreeSlots" methodname="SetFirstHand_FillsThreeSlots" classname="GameLogic.BlockBlast.Tests.BlockGameStateTests" runstate="Runnable" seed="809055209" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000735" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1010" name="CollectDemoTests" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.009539" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1017" name="BuildPiece_DoesNotInjectSatisfiedTypes" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.BuildPiece_DoesNotInjectSatisfiedTypes" methodname="BuildPiece_DoesNotInjectSatisfiedTypes" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="115399158" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003315" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1015" name="CollectClearedElements_CountsAndClears" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.CollectClearedElements_CountsAndClears" methodname="CollectClearedElements_CountsAndClears" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="3369540" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001614" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="Default_CollectModeOff_NoElementArr" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.Default_CollectModeOff_NoElementArr" methodname="Default_CollectModeOff_NoElementArr" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="132636575" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000286" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1018" name="ExitCollectMode_ClearsState" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.ExitCollectMode_ClearsState" methodname="ExitCollectMode_ClearsState" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="1925829884" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000372" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1016" name="IsCollectionComplete_OnlyWhenAllTargetsMet" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.IsCollectionComplete_OnlyWhenAllTargetsMet" methodname="IsCollectionComplete_OnlyWhenAllTargetsMet" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="1362938218" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000526" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="OffMode_PlacePiece_DoesNotTouchElements" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.OffMode_PlacePiece_DoesNotTouchElements" methodname="OffMode_PlacePiece_DoesNotTouchElements" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="2139690107" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000250" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="PlacePiece_TransfersElementsInFillOrder" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.PlacePiece_TransfersElementsInFillOrder" methodname="PlacePiece_TransfersElementsInFillOrder" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="271075653" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000353" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="ResetForCollectDemo_SetsTargetsAndEmptyBoard" fullname="GameLogic.BlockBlast.Tests.CollectDemoTests.ResetForCollectDemo_SetsTargetsAndEmptyBoard" methodname="ResetForCollectDemo_SetsTargetsAndEmptyBoard" classname="GameLogic.BlockBlast.Tests.CollectDemoTests" runstate="Runnable" seed="1532761295" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000903" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestSuite" id="1112" name="Core" fullname="GameLogic.BlockBlast.Tests.Core" runstate="Runnable" testcasecount="22" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.013846" total="22" passed="22" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1052" name="BinaryBoardTests" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" testcasecount="13" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.007031" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1055" name="Boundary_3x3_Reject_OutOfBounds" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.Boundary_3x3_Reject_OutOfBounds" methodname="Boundary_3x3_Reject_OutOfBounds" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1852493741" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000238" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1059" name="CanPut_ReturnsFalse_WhenNoFit" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.CanPut_ReturnsFalse_WhenNoFit" methodname="CanPut_ReturnsFalse_WhenNoFit" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1415575397" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000280" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1065" name="CanPutAnyOf_ReturnsTrueIfAnyFits" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.CanPutAnyOf_ReturnsTrueIfAnyFits" methodname="CanPutAnyOf_ReturnsTrueIfAnyFits" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="346570708" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000309" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1060" name="CheckPutAllBlocks_EmptyBoard" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.CheckPutAllBlocks_EmptyBoard" methodname="CheckPutAllBlocks_EmptyBoard" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1535232987" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000173" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1061" name="CheckPutAllBlocks_OnlyOneCellLeft" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.CheckPutAllBlocks_OnlyOneCellLeft" methodname="CheckPutAllBlocks_OnlyOneCellLeft" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1896498588" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000294" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1063" name="Clone_IsIndependent" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.Clone_IsIndependent" methodname="Clone_IsIndependent" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1065397319" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000243" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1062" name="ConvertFromArrThenToArr_RoundTrips" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.ConvertFromArrThenToArr_RoundTrips" methodname="ConvertFromArrThenToArr_RoundTrips" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1024666374" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000485" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1053" name="EmptyBoard_IsEmpty" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.EmptyBoard_IsEmpty" methodname="EmptyBoard_IsEmpty" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1120768034" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000210" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1057" name="FullColumn_IsDetectedAndCleared" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.FullColumn_IsDetectedAndCleared" methodname="FullColumn_IsDetectedAndCleared" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1468122026" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000223" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1056" name="FullRow_IsDetectedAndCleared" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.FullRow_IsDetectedAndCleared" methodname="FullRow_IsDetectedAndCleared" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="2141352615" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000216" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1064" name="GetCanPutPoss_EmptyBoard_MaxPositions" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.GetCanPutPoss_EmptyBoard_MaxPositions" methodname="GetCanPutPoss_EmptyBoard_MaxPositions" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="1896662480" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000187" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1054" name="PutSingleCell_OccupiesCell" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.PutSingleCell_OccupiesCell" methodname="PutSingleCell_OccupiesCell" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="20054068" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000302" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1058" name="RowAndColumn_BothCleared_Simultaneously" fullname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests.RowAndColumn_BothCleared_Simultaneously" methodname="RowAndColumn_BothCleared_Simultaneously" classname="GameLogic.BlockBlast.Tests.Core.BinaryBoardTests" runstate="Runnable" seed="799017307" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001435" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="TestFixture" id="1066" name="BlockShapeMapTests" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.006119" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1075" name="BlockNumMap_AllShapesCounted" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.BlockNumMap_AllShapesCounted" methodname="BlockNumMap_AllShapesCounted" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="987510638" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000946" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1072" name="CommonShapeIds_DoesNotContain_1x1" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.CommonShapeIds_DoesNotContain_1x1" methodname="CommonShapeIds_DoesNotContain_1x1" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="1539246285" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000210" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1071" name="CommonShapeIds_HasExactly39" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.CommonShapeIds_HasExactly39" methodname="CommonShapeIds_HasExactly39" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="318836106" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000403" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1074" name="EarlyGameBlockedIds_ExpectedSet" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.EarlyGameBlockedIds_ExpectedSet" methodname="EarlyGameBlockedIds_ExpectedSet" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="1827708774" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000485" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1073" name="FirstHand_Is_9_39_24" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.FirstHand_Is_9_39_24" methodname="FirstHand_Is_9_39_24" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="1916675074" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000405" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1070" name="Shape_11_Is_5x1_Horizontal" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.Shape_11_Is_5x1_Horizontal" methodname="Shape_11_Is_5x1_Horizontal" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="1832837790" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000378" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1069" name="Shape_13_Is_3x3_Solid" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.Shape_13_Is_3x3_Solid" methodname="Shape_13_Is_3x3_Solid" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="2058045169" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000194" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1068" name="Shape_9_Is_2x2_Solid" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.Shape_9_Is_2x2_Solid" methodname="Shape_9_Is_2x2_Solid" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="1971662070" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000179" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1067" name="ShapeMap_ContainsExpectedKeys" fullname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests.ShapeMap_ContainsExpectedKeys" methodname="ShapeMap_ContainsExpectedKeys" classname="GameLogic.BlockBlast.Tests.Core.BlockShapeMapTests" runstate="Runnable" seed="875591694" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000216" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+            </test-suite>
+            <test-suite type="TestFixture" id="1019" name="DynamicWeightDiffTests" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.015400" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1022" name="AddWeight_AccumulatesAndClamps" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.AddWeight_AccumulatesAndClamps" methodname="AddWeight_AccumulatesAndClamps" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="320954704" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.003410" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1023" name="AddWeight_Clamps_WithinFactorRange" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.AddWeight_Clamps_WithinFactorRange" methodname="AddWeight_Clamps_WithinFactorRange" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="1958301589" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001057" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1026" name="ForceAlgorithm_OverridesPickedAlgo" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.ForceAlgorithm_OverridesPickedAlgo" methodname="ForceAlgorithm_OverridesPickedAlgo" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="25298525" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.006434" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1020" name="Init_LoadsConfigAndRegistersOverrides" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.Init_LoadsConfigAndRegistersOverrides" methodname="Init_LoadsConfigAndRegistersOverrides" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="1159982326" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000549" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1021" name="OfferTrio_BelowActivation_UsesRandomNoDie" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.OfferTrio_BelowActivation_UsesRandomNoDie" methodname="OfferTrio_BelowActivation_UsesRandomNoDie" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="47827225" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001283" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1024" name="Reset_ZerosWeights" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.Reset_ZerosWeights" methodname="Reset_ZerosWeights" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="1010351570" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000360" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1025" name="SaveAndLoad_RoundTrips" fullname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests.SaveAndLoad_RoundTrips" methodname="SaveAndLoad_RoundTrips" classname="GameLogic.BlockBlast.Tests.DynamicWeightDiffTests" runstate="Runnable" seed="1235047269" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000312" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1027" name="MergeOrderTests" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" testcasecount="19" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.021043" total="19" passed="19" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1033" name="CollectClearedElements_OutputsList_NoStaticAccumulation" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.CollectClearedElements_OutputsList_NoStaticAccumulation" methodname="CollectClearedElements_OutputsList_NoStaticAccumulation" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="431653596" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.002776" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1046" name="CollectMode_StillAccumulatesStaticTargets_MergeOff" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.CollectMode_StillAccumulatesStaticTargets_MergeOff" methodname="CollectMode_StillAccumulatesStaticTargets_MergeOff" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1744838642" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000392" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1028" name="Default_MergeOrderModeOff_NoStateNoInject" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Default_MergeOrderModeOff_NoStateNoInject" methodname="Default_MergeOrderModeOff_NoStateNoInject" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1392858530" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000263" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1044" name="Deliver_ClearsUndoStack" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Deliver_ClearsUndoStack" methodname="Deliver_ClearsUndoStack" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1951003916" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.002783" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1038" name="Deliver_ConsumesInventory_GivesReward_RefreshesSlot" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Deliver_ConsumesInventory_GivesReward_RefreshesSlot" methodname="Deliver_ConsumesInventory_GivesReward_RefreshesSlot" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1985944894" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000462" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1031" name="Energy_StartSpendAfford" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Energy_StartSpendAfford" methodname="Energy_StartSpendAfford" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="2021861981" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000465" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1030" name="ExitMergeOrder_ZeroResidue_BackToClassic" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.ExitMergeOrder_ZeroResidue_BackToClassic" methodname="ExitMergeOrder_ZeroResidue_BackToClassic" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1251615093" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000573" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1036" name="Ingest_EightSame_MakesTwoLv3_CapStacks" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Ingest_EightSame_MakesTwoLv3_CapStacks" methodname="Ingest_EightSame_MakesTwoLv3_CapStacks" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="2081401240" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000613" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1035" name="Ingest_FourSame_MakesOneLv3" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Ingest_FourSame_MakesOneLv3" methodname="Ingest_FourSame_MakesOneLv3" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="600916738" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000477" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1034" name="Ingest_TwoSame_MakesOneLv2" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Ingest_TwoSame_MakesOneLv2" methodname="Ingest_TwoSame_MakesOneLv2" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="792633354" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000429" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1045" name="IsDemoComplete_AtGoalOrders" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.IsDemoComplete_AtGoalOrders" methodname="IsDemoComplete_AtGoalOrders" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1525999239" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000439" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1040" name="NeededTypes_UnionOfActiveOrders" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.NeededTypes_UnionOfActiveOrders" methodname="NeededTypes_UnionOfActiveOrders" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="2054064634" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000726" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1039" name="NextOrder_CyclesPool" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.NextOrder_CyclesPool" methodname="NextOrder_CyclesPool" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="987670759" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000567" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1037" name="Orders_InitialTwoFromPoolFront" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Orders_InitialTwoFromPoolFront" methodname="Orders_InitialTwoFromPoolFront" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1769964428" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000469" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1041" name="Pity_ForcesInjectionAfterThreshold" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Pity_ForcesInjectionAfterThreshold" methodname="Pity_ForcesInjectionAfterThreshold" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="69918374" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000721" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1032" name="RefundEnergy_ClampedToCap_RewardOverflows" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.RefundEnergy_ClampedToCap_RewardOverflows" methodname="RefundEnergy_ClampedToCap_RewardOverflows" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1446439515" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000639" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1029" name="ResetForMergeOrder_FreshStateEachEntry" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.ResetForMergeOrder_FreshStateEachEntry" methodname="ResetForMergeOrder_FreshStateEachEntry" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1838963469" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001282" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1043" name="Undo_ChargesExhausted_CannotUndo" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Undo_ChargesExhausted_CannotUndo" methodname="Undo_ChargesExhausted_CannotUndo" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="224103848" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000552" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1042" name="Undo_RollsBackAllState_ReturnsPiece_RefundsEnergy" fullname="GameLogic.BlockBlast.Tests.MergeOrderTests.Undo_RollsBackAllState_ReturnsPiece_RefundsEnergy" methodname="Undo_RollsBackAllState_ReturnsPiece_RefundsEnergy" classname="GameLogic.BlockBlast.Tests.MergeOrderTests" runstate="Runnable" seed="1544215534" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001533" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1047" name="WeightCfgLubanTests" fullname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests" classname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.008941" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1051" name="DynamicWeightDiff_InitFromLubanTable_Works" fullname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests.DynamicWeightDiff_InitFromLubanTable_Works" methodname="DynamicWeightDiff_InitFromLubanTable_Works" classname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests" runstate="Runnable" seed="1569907050" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.004533" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1050" name="WeightCfg_AllIdsUniqueAndSequential" fullname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests.WeightCfg_AllIdsUniqueAndSequential" methodname="WeightCfg_AllIdsUniqueAndSequential" classname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests" runstate="Runnable" seed="356729326" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.001347" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1048" name="WeightCfg_Has136Tiers" fullname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests.WeightCfg_Has136Tiers" methodname="WeightCfg_Has136Tiers" classname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests" runstate="Runnable" seed="1150813284" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000445" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1049" name="WeightCfg_Row1_MatchesSourceData" fullname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests.WeightCfg_Row1_MatchesSourceData" methodname="WeightCfg_Row1_MatchesSourceData" classname="GameLogic.BlockBlast.Tests.WeightCfgLubanTests" runstate="Runnable" seed="1746878683" result="Passed" start-time="2026-06-12 05:49:30Z" end-time="2026-06-12 05:49:30Z" duration="0.000917" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[<b><color=#2EA3FF>MCP-FOR-UNITY</color></b>: [TestRunnerNoThrottle] Restored Interaction Mode after test run.
+Saving results to: C:/Users/pc/AppData/LocalLow/DefaultCompany/Unity\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
