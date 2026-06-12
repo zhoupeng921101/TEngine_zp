@@ -8,9 +8,9 @@ using GameLogic.BlockBlast.Core;
 namespace GameLogic.BlockBlastUI
 {
     /// <summary>
-    /// 合成+订单+体力 Demo 窗口（独立切片）。镜像 <see cref="CollectDemoWindow"/> 的棋盘/拖拽/ghost/落子流程，
+    /// 合成+订单+体力 Demo 窗口（独立切片）。棋盘/拖拽/ghost/落子流程与 <see cref="GameWindow"/> 同构，
     /// 叠加体力条 / 双订单卡（手动交付）/ 合成区面板 / 悔棋按钮。
-    /// 全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭），不污染 Classic / 08。
+    /// 全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭），不污染 Classic。
     /// </summary>
     [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
     public sealed class MergeOrderWindow : UIWindow
@@ -338,7 +338,7 @@ namespace GameLogic.BlockBlastUI
             }
         }
 
-        // ── 渲染候选槽（与 CollectDemoWindow 同构） ──
+        // ── 渲染候选槽（与 GameWindow 同构） ──
         private void RenderSlots()
         {
             for (int i = 0; i < 3; i++)
@@ -417,7 +417,7 @@ namespace GameLogic.BlockBlastUI
             }
         }
 
-        // ── 拖拽回调（与 CollectDemoWindow 同构） ──
+        // ── 拖拽回调（与 GameWindow 同构） ──
         private void OnPieceBegin(int slotIdx)
         {
             if (_finished) { _draggingShapeId = -1; return; }
@@ -485,10 +485,16 @@ namespace GameLogic.BlockBlastUI
             {
                 var cleared = new List<CollectElement>();
                 _state.CollectClearedElements(clear.Rows, clear.Cols, cleared); // 清 overlay + 输出被清元素
-                _state.ClearRowsAndCols(clear.Rows, clear.Cols);                // 清方块色
+                int clearedCells = _state.ClearRowsAndCols(clear.Rows, clear.Cols); // 清方块色，得被清格数
                 foreach (var el in cleared) _merge.IngestElement(el);           // 逐个 Lv1 入合成区（自动升级）
                 _merge.RefundEnergy(lines);                                     // 返还体力（受软上限）
                 _state.Combo += 1;
+
+                // 得分驱动元素生成：该次消除得分 → k 个元素入预算队列，紧随的补牌（RefillPieces）抽干填入新候选块。
+                // clearScore 仅作元素生成内部驱动量，不计入玩家订单得分（TotalScore）。
+                int clearScore = BlockScoring.ClearScore(clearedCells, lines);
+                _merge.EnqueueScoreElements(MergeOrderConfig.ElementsForScore(clearScore));
+
                 RenderBoard();
 
                 if (_board.IsEmpty())
@@ -571,7 +577,7 @@ namespace GameLogic.BlockBlastUI
             GameModule.UI.ShowUIAsync<GameOverWindow>(0);
         }
 
-        // ── ghost 落点高亮（与 CollectDemoWindow 同构） ──
+        // ── ghost 落点高亮（与 GameWindow 同构） ──
         private void UpdateGhost(Vector2 containerAnchored)
         {
             ClearGhost();

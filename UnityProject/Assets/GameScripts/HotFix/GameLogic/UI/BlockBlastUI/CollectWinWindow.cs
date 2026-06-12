@@ -7,8 +7,8 @@ using GameLogic.BlockBlast;
 namespace GameLogic.BlockBlastUI
 {
     /// <summary>
-    /// 收集 Demo 胜利面板：遮罩 + 卡片（「收集完成！」+ 各目标达成列表）+ 再来一局 / 返回主菜单。
-    /// UserData = List&lt;string&gt;（各目标达成行，由 CollectDemoWindow 快照传入）。弹出即锁输入。
+    /// 合成订单 Demo 胜利面板：遮罩 + 卡片（「通关！」+ 结算行列表）+ 再来一局 / 返回主菜单。
+    /// UserData = List&lt;string&gt;（结算行，由 MergeOrderWindow 快照传入）。弹出即锁输入。
     /// </summary>
     [Window(UILayer.Top, location: "CollectWinWindow", fullScreen: true)]
     public sealed class CollectWinWindow : UIWindow
@@ -28,10 +28,10 @@ namespace GameLogic.BlockBlastUI
             // 卡片
             UGuiFactory.CreateImage(content, "Card", cx, cardCy, 560, 640, new Color32(0x1e, 0x3a, 0x2a, 0xF2));
 
-            UGuiFactory.CreateText(content, "Title", cx, cardCy - 250, 520, 80, "收集完成！", 56,
+            UGuiFactory.CreateText(content, "Title", cx, cardCy - 250, 520, 80, "通关！", 56,
                 new Color32(0x66, 0xee, 0x77, 0xFF));
 
-            // 各目标达成列表
+            // 结算行列表
             float listY = cardCy - 120;
             for (int i = 0; i < lines.Count; i++)
             {
@@ -45,7 +45,7 @@ namespace GameLogic.BlockBlastUI
             again.onClick.AddListener(() =>
             {
                 GameModule.UI.CloseUI<CollectWinWindow>();
-                GameModule.UI.ShowUIAsync<CollectDemoWindow>(); // 重新进入即 ResetForCollectDemo
+                GameModule.UI.ShowUIAsync<MergeOrderWindow>(); // 重新进入即 ResetForMergeOrder
             });
 
             // 返回主菜单

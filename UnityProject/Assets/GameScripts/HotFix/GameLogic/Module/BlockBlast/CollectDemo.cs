@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace GameLogic.BlockBlast
@@ -23,51 +21,9 @@ namespace GameLogic.BlockBlast
         Stone = 200,    // ⬢
     }
 
-    /// <summary>收集目标项：元素类型 + 需要数量。对应原版 RequiredCollection{Key,Value}。</summary>
-    public readonly struct CollectTarget
-    {
-        public readonly CollectElement Element;
-        public readonly int Count;
-        public CollectTarget(CollectElement element, int count)
-        {
-            Element = element;
-            Count = count;
-        }
-    }
-
-    /// <summary>
-    /// 收集 Demo 切片的静态配置 + Key 映射 + 表现（glyph / 纯色）。
-    /// 切片不接 Luban 表，目标硬编码在此，改数即可调难度。
-    /// </summary>
+    /// <summary>收集元素的表现（glyph / 纯色，零美术），供 merge-order 模式渲染。</summary>
     public static class CollectDemo
     {
-        /// <summary>候选块每个填充格注入元素的概率（复刻原版 ~22%）。可调常量。</summary>
-        public const double InjectChance = 0.22;
-
-        /// <summary>分数目标 Key（与收集并存的冲分条件）。收集解析时跳过（切片不做分数目标）。</summary>
-        public const int ScoreKey = 9999;
-
-        /// <summary>
-        /// 静态 demo 收集目标（已去掉 Key 9999）。改这里即可调难度。
-        /// 数值刻意调小，降低纯靠候选块携带「看脸」卡死的概率（见设计文档 §7 风险）。
-        /// </summary>
-        public static readonly CollectTarget[] DemoTargets =
-        {
-            new CollectTarget(CollectElement.Diamond, 6),
-            new CollectTarget(CollectElement.Star, 5),
-        };
-
-        /// <summary>
-        /// Key → 元素映射。9999（分数）与未知 Key → None（解析时跳过）。
-        /// 枚举值即 Key，故已定义的 Key 直接转换。
-        /// </summary>
-        public static CollectElement FromKey(int key)
-        {
-            if (key == ScoreKey) return CollectElement.None;
-            if (Enum.IsDefined(typeof(CollectElement), key)) return (CollectElement)key;
-            return CollectElement.None;
-        }
-
         /// <summary>元素的展示符号（glyph，零美术）。</summary>
         public static string Glyph(CollectElement e)
         {

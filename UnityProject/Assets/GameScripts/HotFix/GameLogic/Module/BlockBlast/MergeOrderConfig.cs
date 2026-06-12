@@ -2,7 +2,7 @@ namespace GameLogic.BlockBlast
 {
     /// <summary>
     /// 合成+订单+体力 Demo 切片的静态配置（仿 08 的 <see cref="CollectDemo"/>，不接 Luban）。
-    /// 合成 / 订单 / 体力 / 掉率 / 兜底全部硬编码可调常量 + 手编循环订单池。
+    /// 合成 / 订单 / 体力 / 得分驱动元素生成 / 兜底全部硬编码可调常量 + 手编循环订单池。
     /// 改数即调难度。默认值取自设计文档 §五配置表。
     /// 表现（glyph / 纯色）直接复用 <see cref="CollectDemo.Glyph"/> / <see cref="CollectDemo.ColorOf"/>。
     /// </summary>
@@ -45,15 +45,34 @@ namespace GameLogic.BlockBlast
         /// <summary>自然恢复间隔秒数（暂不实装，留口子）。</summary>
         public const float RegenIntervalSec = 120f;
 
-        // ── 掉率 / 保底 ────────────────────────────────────────
-        /// <summary>候选块每填充格注入订单所需类型的概率。</summary>
-        public const double InjectChance = 0.30;
+        // ── 得分驱动元素生成 ──────────────────────────────────
+        // 该次消除得分 → 元素数量 k：消得越狠、后续候选块携带的元素越多；无消除→候选块纯方块。
+        // 确定性映射（无随机），逐档可单测。
+
+        /// <summary>每多少分折算 1 个元素。「灵活」旋钮：调小更慷慨、调大更吝啬。</summary>
+        public const int ScorePerElement = 200;
+
+        /// <summary>单次消除产元素数下限（保底）：任何成功消除至少产 1，小消除不空手。</summary>
+        public const int MinElementsPerClear = 1;
+
+        /// <summary>单次消除产元素数上限（封顶）：挡住超高连消刷爆经济。</summary>
+        public const int MaxElementsPerClear = 4;
+
+        /// <summary>预算队列总积压上限（≈一组候选块容量）：超出则不再入队，避免元素积压远超候选格承接。</summary>
+        public const int MaxPendingElements = 12;
 
         /// <summary>
-        /// 保底阈值：连续这么多次候选块构建都未注入订单所需类型后，
-        /// 下一候选块强制注入一个。绕过概率，保证订单永不被随机饿死。
+        /// 该次消除得分 → 元素数量映射：clearScore≤0 产 0（无消除/开局纯方块）；
+        /// 否则 Clamp(CeilDiv(clearScore, ScorePerElement), Min, Max)。单调递增、确定性。
         /// </summary>
-        public const int PityThreshold = 8;
+        public static int ElementsForScore(int clearScore)
+        {
+            if (clearScore <= 0) return 0;
+            int k = (clearScore + ScorePerElement - 1) / ScorePerElement; // CeilDiv（clearScore>0）
+            if (k < MinElementsPerClear) k = MinElementsPerClear;
+            if (k > MaxElementsPerClear) k = MaxElementsPerClear;
+            return k;
+        }
 
         // ── 兜底 ──────────────────────────────────────────────
         /// <summary>每局免费悔棋次数（无广告 / 无内购）。</summary>

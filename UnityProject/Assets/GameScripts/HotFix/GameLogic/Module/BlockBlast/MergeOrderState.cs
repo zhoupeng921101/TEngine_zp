@@ -56,8 +56,14 @@ namespace GameLogic.BlockBlast
         /// <summary>本局累计交付得分（用于通关 / 结算摘要；窗口可镜像到 BlockGameState.Score）。</summary>
         public int TotalScore;
 
-        /// <summary>距上次注入订单所需类型已过的候选块构建数（保底计数器）。</summary>
-        public int PitySinceNeeded;
+        /// <summary>
+        /// 元素预算队列：消除按得分算出的 k 个元素压入此处，补牌（BuildPiece）时 FIFO 抽干填入新候选块。
+        /// 无消除→队列不增长→候选块纯方块；得分越高→积压越多→后续候选块携带更多元素。
+        /// </summary>
+        public readonly Queue<CollectElement> PendingElements = new Queue<CollectElement>();
+
+        /// <summary>所需类型轮转游标：多个所需类型时按此取模均摊，避免长期偏科某一类型。</summary>
+        private int _needRotor;
 
         /// <summary>剩余悔棋次数。</summary>
         public int UndoCharges;
@@ -74,7 +80,8 @@ namespace GameLogic.BlockBlast
             OrderCursor = 0;
             CompletedOrders = 0;
             TotalScore = 0;
-            PitySinceNeeded = 0;
+            PendingElements.Clear(); // 开局队空 → 首手纯方块
+            _needRotor = 0;
             UndoCharges = MergeOrderConfig.UndoCharges;
             _undoStack.Clear();
 
@@ -186,6 +193,22 @@ namespace GameLogic.BlockBlast
             return list;
         }
 
+        /// <summary>
+        /// 把该次消除得分算出的 k 个元素压入预算队列：类型沿用需求拉动——只从 <see cref="NeededTypes"/>
+        /// 按轮转游标均摊取得。受 <see cref="MergeOrderConfig.MaxPendingElements"/> 截断；NeededTypes 空则跳过。
+        /// </summary>
+        public void EnqueueScoreElements(int k)
+        {
+            if (k <= 0) return;
+            var needed = NeededTypes();
+            if (needed.Count == 0) return;
+            for (int i = 0; i < k && PendingElements.Count < MergeOrderConfig.MaxPendingElements; i++)
+            {
+                PendingElements.Enqueue(needed[_needRotor % needed.Count]);
+                _needRotor++;
+            }
+        }
+
         // ── demo 终点 ──────────────────────────────────────────
 
         /// <summary>完成单数达标即通关。</summary>
@@ -194,7 +217,7 @@ namespace GameLogic.BlockBlast
         // ── 悔棋（全量单步快照回滚）────────────────────────────
 
         /// <summary>
-        /// 落子前压入全量快照：棋盘 / 元素层 / 候选槽 / 连击 / 体力 / 合成区 / 订单进度 / 保底计数器。
+        /// 落子前压入全量快照：棋盘 / 元素层 / 候选槽 / 连击 / 体力 / 合成区 / 订单进度 / 元素预算队列 / 轮转游标。
         /// 仅在尚有悔棋次数时压栈。次数本身不进快照（否则悔棋后又满次数 → 无限悔棋）。
         /// </summary>
         public void CaptureSnapshot(BlockGameState s, BinaryBoard board)
@@ -233,7 +256,8 @@ namespace GameLogic.BlockBlast
             private int _orderCursor;
             private int _completed;
             private int _totalScore;
-            private int _pity;
+            private CollectElement[] _pendingElements;
+            private int _needRotor;
 
             public static Snapshot Capture(BlockGameState s, BinaryBoard board, MergeOrderState m)
             {
@@ -250,7 +274,8 @@ namespace GameLogic.BlockBlast
                     _orderCursor = m.OrderCursor,
                     _completed = m.CompletedOrders,
                     _totalScore = m.TotalScore,
-                    _pity = m.PitySinceNeeded,
+                    _pendingElements = m.PendingElements.ToArray(), // 深拷贝队列：悔棋须回滚消除引发的元素入队
+                    _needRotor = m._needRotor,
                 };
                 return snap;
             }
@@ -270,7 +295,9 @@ namespace GameLogic.BlockBlast
                 m.OrderCursor = _orderCursor;
                 m.CompletedOrders = _completed;
                 m.TotalScore = _totalScore;
-                m.PitySinceNeeded = _pity;
+                m.PendingElements.Clear();
+                foreach (var e in _pendingElements) m.PendingElements.Enqueue(e);
+                m._needRotor = _needRotor;
             }
 
             private static int[][] CloneIntGrid(int[][] src)

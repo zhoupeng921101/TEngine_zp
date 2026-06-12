@@ -6,8 +6,9 @@ using GameLogic.BlockBlast.Core;
 namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
-    /// 合成+订单+体力 切片核心逻辑测试：门控 / 体力 / 合成自动配对 / 订单交付刷新 /
-    /// 需求拉动+保底 / 悔棋回滚 / 通关 / off 回归。验收点编号对应 state/plan.md 交接区。
+    /// 合成+订单+体力 切片核心逻辑测试：体力 / 合成自动配对 / 订单交付刷新 /
+    /// 需求拉动 + 得分驱动元素生成（映射·入队·轮转·封顶·抽干）/ 悔棋回滚 / 通关 / off 回归。
+    /// 验收点编号对应 state/plan.md 交接区。
     /// </summary>
     [TestFixture]
     public class MergeOrderTests
@@ -139,7 +140,7 @@ namespace GameLogic.BlockBlast.Tests
         // ───────────────────────── #6 消除元素入合成区 ─────────────────────────
 
         [Test]
-        public void CollectClearedElements_OutputsList_NoStaticAccumulation()
+        public void CollectClearedElements_OutputsList_ClearsOverlay()
         {
             var s = BlockGameState.Instance;
             var board = new BinaryBoard();
@@ -162,8 +163,67 @@ namespace GameLogic.BlockBlast.Tests
             }
             Assert.AreEqual(2, diamonds);
             Assert.AreEqual(1, stars);
-            Assert.AreEqual(0, s.Collected.Count, "merge 模式不累加静态收集目标");
             Assert.AreEqual(CollectElement.None, s.ElementArr[0][0], "overlay 清空");
+        }
+
+        [Test]
+        public void CollectClearedElements_RowColIntersection_CountedOnce()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            // 行 0 放 3 个 Diamond，列 1 放 1 个 Star，其中 (0,1) 属行列交叉
+            s.ElementArr[0][0] = CollectElement.Diamond;
+            s.ElementArr[0][1] = CollectElement.Diamond;
+            s.ElementArr[0][2] = CollectElement.Diamond;
+            s.ElementArr[3][1] = CollectElement.Star;
+
+            int gained = s.CollectClearedElements(new[] { 0 }, new[] { 1 });
+            Assert.AreEqual(4, gained, "3 Diamond + 1 Star，交叉格只计一次");
+            Assert.AreEqual(CollectElement.None, s.ElementArr[0][1]);
+            Assert.AreEqual(CollectElement.None, s.ElementArr[3][1]);
+        }
+
+        // ───────────────────────── 落子元素转移（行优先顺序）─────────────────────────
+
+        [Test]
+        public void PlacePiece_TransfersElementsInFillOrder()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            // 形状 9 = 2x2 实心，4 个填充格，行优先顺序 (0,0)(0,1)(1,0)(1,1)
+            var piece = new PendingPiece(9, BlockColor.Blue)
+            {
+                Elements = new[]
+                {
+                    CollectElement.Diamond,  // (0,0)
+                    CollectElement.None,     // (0,1)
+                    CollectElement.Star,     // (1,0)
+                    CollectElement.Diamond,  // (1,1)
+                }
+            };
+            s.OperaArr[0] = piece;
+            s.PlacePiece(0, board, 0, 0);
+
+            Assert.AreEqual(CollectElement.Diamond, s.ElementArr[0][0]);
+            Assert.AreEqual(CollectElement.None, s.ElementArr[0][1]);
+            Assert.AreEqual(CollectElement.Star, s.ElementArr[1][0]);
+            Assert.AreEqual(CollectElement.Diamond, s.ElementArr[1][1]);
+        }
+
+        [Test]
+        public void OffMode_PlacePiece_DoesNotTouchElements()
+        {
+            var s = BlockGameState.Instance;
+            s.SetFirstHand();
+            var board = new BinaryBoard();
+            // 手动给 piece 塞元素，但 off 模式应被忽略（ElementArr 仍 null）
+            s.OperaArr[0].Elements = new[] { CollectElement.Diamond, CollectElement.Diamond, CollectElement.Diamond, CollectElement.Diamond };
+            s.PlacePiece(0, board, 0, 0);
+            Assert.IsNull(s.ElementArr, "off 模式不应分配/写入元素层");
         }
 
         // ───────────────────────── #7 合成区自动两两合并升级 ─────────────────────────
@@ -253,7 +313,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(pool[0].Level, wrapped.Level);
         }
 
-        // ───────────────────────── #12 需求拉动注入 + 保底 ─────────────────────────
+        // ───────────────────────── #12 需求拉动 + 得分驱动元素生成 ─────────────────────────
 
         [Test]
         public void NeededTypes_UnionOfActiveOrders()
@@ -266,25 +326,108 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void Pity_ForcesInjectionAfterThreshold()
+        public void ElementsForScore_MapsPerTier()
+        {
+            // 负/0 分 → 0；逐档：110→1、200→1、280→2、500→3、780→4；超高连消封顶 4；保底 1
+            Assert.AreEqual(0, MergeOrderConfig.ElementsForScore(-50));
+            Assert.AreEqual(0, MergeOrderConfig.ElementsForScore(0));
+            Assert.AreEqual(1, MergeOrderConfig.ElementsForScore(1), "任何正得分保底 1");
+            Assert.AreEqual(1, MergeOrderConfig.ElementsForScore(110));
+            Assert.AreEqual(1, MergeOrderConfig.ElementsForScore(200));
+            Assert.AreEqual(2, MergeOrderConfig.ElementsForScore(280));
+            Assert.AreEqual(3, MergeOrderConfig.ElementsForScore(500));
+            Assert.AreEqual(4, MergeOrderConfig.ElementsForScore(780));
+            Assert.AreEqual(4, MergeOrderConfig.ElementsForScore(2000), "封顶 MaxElementsPerClear");
+        }
+
+        [Test]
+        public void HigherScore_YieldsMoreElements()
+        {
+            // 四消得分 > 单消得分 → 元素数更多（同 NeededTypes 下）
+            int single = MergeOrderConfig.ElementsForScore(BlockScoring.ClearScore(8, 1));   // 单消 ≈110 → 1
+            int quad = MergeOrderConfig.ElementsForScore(BlockScoring.ClearScore(30, 4));     // 四消 ≈780 → 4
+            Assert.Greater(quad, single, "得分越高产元素越多");
+        }
+
+        [Test]
+        public void EnqueueScoreElements_TypesSubsetOfNeeded_DrainsFifoOnBuild()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+            Assert.AreEqual(0, m.PendingElements.Count, "开局队列空");
+
+            m.EnqueueScoreElements(2);
+            Assert.AreEqual(2, m.PendingElements.Count, "入队 k 个");
+            var needed = m.NeededTypes();
+            foreach (var e in m.PendingElements) Assert.Contains(e, needed, "类型 ⊆ NeededTypes");
+
+            // 补牌按填充格行优先 FIFO 抽干：3x3(13) 9 格候选块取队头 2 个，余格 None
+            var expected = new List<CollectElement>(m.PendingElements);
+            var p = s.BuildPiece(13);
+            Assert.IsNotNull(p.Elements);
+            Assert.AreEqual(expected[0], p.Elements[0]);
+            Assert.AreEqual(expected[1], p.Elements[1]);
+            Assert.AreEqual(CollectElement.None, p.Elements[2], "抽干后余格留空");
+            Assert.AreEqual(0, m.PendingElements.Count, "队列被抽干");
+        }
+
+        [Test]
+        public void NoClear_QueueEmpty_PiecesClean()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            // 开局首手三块全干净（队列初始空）
+            for (int i = 0; i < 3; i++)
+                Assert.IsNull(s.OperaArr[i].Elements, "队空时候选块不应携带元素");
+            // 不消除（不入队）→ 继续 BuildPiece 仍纯方块
+            Assert.IsNull(s.BuildPiece(13).Elements, "队空 → 纯方块");
+        }
+
+        [Test]
+        public void EnqueueScoreElements_RotatesAcrossNeededTypes()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            var needed = m.NeededTypes();
+            Assert.GreaterOrEqual(needed.Count, 2, "初始双订单类型不同（Diamond/Star）");
+
+            m.EnqueueScoreElements(4); // 轮转游标从 0 起 → 覆盖两类、不偏科
+            var list = new List<CollectElement>(m.PendingElements);
+            Assert.IsTrue(list.Contains(needed[0]) && list.Contains(needed[1]), "轮转应覆盖多个所需类型");
+        }
+
+        [Test]
+        public void EnqueueScoreElements_CapsAtMaxPending()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            m.EnqueueScoreElements(100); // 远超上限
+            Assert.AreEqual(MergeOrderConfig.MaxPendingElements, m.PendingElements.Count, "积压封顶不超上限");
+            m.EnqueueScoreElements(5);   // 已满，不再增长
+            Assert.AreEqual(MergeOrderConfig.MaxPendingElements, m.PendingElements.Count);
+        }
+
+        // ───────────────────────── #13 悔棋（全量单步回滚） ─────────────────────────
+
+        [Test]
+        public void Undo_RestoresPendingElementsQueue()
         {
             var s = BlockGameState.Instance;
             var board = new BinaryBoard();
             s.ResetForMergeOrder(board);
             var m = s.MergeState;
 
-            m.PitySinceNeeded = MergeOrderConfig.PityThreshold; // 达阈值 → 下一块必注入
-            var p = s.BuildPiece(13); // 3x3 实心，9 格
-
-            Assert.IsNotNull(p.Elements, "保底应强制注入");
-            var needed = m.NeededTypes();
-            bool hasNeeded = false;
-            foreach (var e in p.Elements) if (e != CollectElement.None && needed.Contains(e)) hasNeeded = true;
-            Assert.IsTrue(hasNeeded, "强制注入的应是订单所需类型");
-            Assert.AreEqual(0, m.PitySinceNeeded, "注入后保底计数器归零");
+            m.CaptureSnapshot(s, board);
+            int before = m.PendingElements.Count; // 0
+            m.EnqueueScoreElements(3);            // 模拟落子引发消除后的入队
+            Assert.AreEqual(before + 3, m.PendingElements.Count);
+            Assert.IsTrue(m.Undo(s, board));
+            Assert.AreEqual(before, m.PendingElements.Count, "悔棋回滚预算队列");
         }
-
-        // ───────────────────────── #13 悔棋（全量单步回滚） ─────────────────────────
 
         [Test]
         public void Undo_RollsBackAllState_ReturnsPiece_RefundsEnergy()
@@ -306,7 +449,6 @@ namespace GameLogic.BlockBlast.Tests
             s.OperaArr[0] = piece;
             int energyBefore = m.Energy;
             int chargesBefore = m.UndoCharges;
-            m.PitySinceNeeded = 0; // 钉死快照前的保底计数器（补块注入可能已改动它），使回滚断言确定
 
             // 落子前快照
             m.CaptureSnapshot(s, board);
@@ -315,7 +457,6 @@ namespace GameLogic.BlockBlast.Tests
             s.PlacePiece(0, board, 0, 0);
             m.SpendPlaceCost();
             m.IngestElement(CollectElement.Diamond);
-            m.PitySinceNeeded = 5;
             m.CompletedOrders = 2;
             m.TotalScore = 999;
 
@@ -333,7 +474,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsNotNull(s.OperaArr[0], "方块退回待选槽");
             Assert.AreEqual(energyBefore, m.Energy, "退回该次扣的体力");
             Assert.AreEqual(0, m.InventoryCount(CollectElement.Diamond, 1), "合成区回滚");
-            Assert.AreEqual(0, m.PitySinceNeeded, "保底计数器回滚");
             Assert.AreEqual(0, m.CompletedOrders, "订单进度回滚");
             Assert.AreEqual(0, m.TotalScore, "得分回滚");
             Assert.AreEqual(chargesBefore - 1, m.UndoCharges, "消耗一次悔棋次数");
@@ -381,21 +521,5 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsTrue(m.IsDemoComplete());
         }
 
-        // ───────────────────────── off 回归：08 收集模式不受影响 ─────────────────────────
-
-        [Test]
-        public void CollectMode_StillAccumulatesStaticTargets_MergeOff()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForCollectDemo(board); // 08 收集模式，MergeOrderMode 应保持 off
-            Assert.IsFalse(s.MergeOrderMode);
-
-            s.ElementArr[0][0] = CollectElement.Diamond;
-            s.ElementArr[0][1] = CollectElement.Diamond;
-            int gained = s.CollectClearedElements(new[] { 0 }, new int[0]);
-            Assert.AreEqual(2, gained);
-            Assert.AreEqual(2, s.Collected[CollectElement.Diamond], "收集模式仍累加静态目标");
-        }
     }
 }

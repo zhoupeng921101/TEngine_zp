@@ -274,7 +274,7 @@ namespace GameLogic.BlockBlastUI
         private void PlaceAndResolve(int slotIdx, BlockShape shape, int col, int row)
         {
             _state.PlacePiece(slotIdx, _board, col, row);
-            int placementScore = CountCells(shape);  // 每格 +1
+            int placementScore = BlockScoring.PlacementScore(CountCells(shape));  // 每格 +1
             _state.AddScore(placementScore);
 
             if (_slotContainers[slotIdx] != null)
@@ -291,7 +291,7 @@ namespace GameLogic.BlockBlastUI
             {
                 int clearedCells = _state.ClearRowsAndCols(clear.Rows, clear.Cols);
                 _state.Combo += 1;
-                int clearScore = clearedCells * 10 + lines * lines * 30;
+                int clearScore = BlockScoring.ClearScore(clearedCells, lines);
                 _state.AddScore(clearScore);
                 RenderBoard();
 
