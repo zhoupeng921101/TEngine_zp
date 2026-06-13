@@ -54,12 +54,14 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 闭环默认全程 plan→dev→test;按任务性质裁剪参与环节。**验收/打回/关单语义不变**,打回只在参与环节内循环(test FAIL → dev,不会打回到未参与的 plan)。
 
-| 任务性质 | 参与环节 | dev 简报锚点 |
+| 任务性质 | 参与环节(baton) | dev 简报锚点 |
 |----------|------|--------------|
-| 新功能/新玩法/需要方案取舍 | plan→dev→test(默认) | plan 产出的设计 |
-| 设计已定,微调实现 | dev→test | 设计基线 + 微调指令 |
-| 纯代码优化/重构(行为不变) | dev→test | 「行为保持」+ 优化目标 |
+| 新功能/新玩法/需要方案取舍 | plan→dev→test(full,默认) | plan 产出的设计 |
+| 设计已定,微调实现 | dev→test(dev-test) | 设计基线 + 微调指令 |
+| 纯代码优化/重构(行为不变) | dev→test(dev-test) | 「行为保持」+ 优化目标 |
+| 代码已就绪,仅补运行验证(如前次环境阻塞、现已恢复) | test(test-only) | 无 dev 在环;基线作验收判据 |
 
+- **test-only 无 dev 在环**:test 验出 FAIL 不会自动返修(没有 dev 接打回),workflow 直接返回 FAIL;boss 据此决定是否转 dev-test 开返修。仅当代码确已就绪、只差运行验证时用(典型:上一轮 test 因环境阻塞跑不了,环境恢复后补跑)。
 - **跳过 plan 必须声明设计基线**:落成具体文件路径(归档设计稿/design-docs/现行实现),写进 `state/boss.md` 任务定义与 dev 简报。不写「按现有设计」这类悬空指代。
 
   > 没有基线锚,dev 会自由发挥出第二份设计,test 也没有验收依据。(state/plan.md 随关单归档,「现有设计」往往已不在原处。)

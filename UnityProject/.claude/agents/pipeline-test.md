@@ -41,9 +41,12 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 - **持久文件交叉检**:对开发改过的持久文件(含 `pipeline/state/dev.md` 交接区)按 `.claude/rules/conventions.md`「交叉检」执行 lint + 抽查
 
 ## 产出(测试报告 → 写入 pipeline/state/test.md)
-- 总判定:**PASS / FAIL**(任一类硬失败即 FAIL)
+- 总判定三态:**PASS / FAIL / BLOCKED**
+  - FAIL = 代码缺陷(四类任一硬失败)
+  - BLOCKED = 环境阻塞(MCP/编辑器不可达,第 1–3 类运行验证跑不了),非代码缺陷——代码缺陷一律判 FAIL,不判 BLOCKED
 - 四类逐项结果 + 证据(日志/截图路径/用例名)
 - FAIL 时:**给开发的可复现清单**(哪个验证点、怎么复现、期望 vs 实际)
+- BLOCKED 时:补跑命令清单写进报告,不伪造运行结果;第 4 类 code review + 静态 API/单测手推照做(仍能挡编译/逻辑缺陷)
 
 ## 红线
 - 不改业务代码(只可加/修测试用例)
@@ -51,7 +54,7 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 - 写持久文件前遵守 `.claude/rules/conventions.md`
 
 ## 返回契约
-详细报告写 `pipeline/state/test.md`;最终回复只含:①总判定 PASS/FAIL ②报告路径 ③FAIL 时一句话主因。
+详细报告写 `pipeline/state/test.md`;最终回复只含:①总判定 PASS/FAIL/BLOCKED ②报告路径 ③FAIL/BLOCKED 时一句话主因。
 
 ## 收尾
 新的可复用经验沉淀到 `pipeline/memory/test.md`(准入见该文件头)。

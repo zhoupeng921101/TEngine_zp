@@ -14,4 +14,4 @@
 - 智能生成上层仲裁套现状 dynamicWeight:仲裁器返回「接管/不接管」二态,不接管=回落现状发牌逐字节不变——把「现状零改变」做成可测断言(四规则都不触发→Override==false)。规则到 trio 复用既有 BlockAlgorithms,别重写启发式(2026-06,core-loop)
 - unityMCP 桥可能整会话 no_session:Unity.exe 进程在但 `refresh_unity` 反复 60s 超时未 ready、所有读 no_session = 编辑器卡导入/桥插件未加载,非编译错误(编译错会进「带错就绪」态可被 read_console 读出)。纯逻辑 C# 无法本会话自跑时,逐文件静态复核(tuple/Array.Empty/既有 API 签名/test asmdef 引用可达)+ 把运行验证交接给自带 unityMCP 的 test 子会话,并在交接区显式标注阻塞与重试条件(2026-06,core-loop)
 - 该 no_session 阻塞会跨轮持续(同一编辑器进程 PID/启动时间不变):若 dev 与 test 子会话都连不上同一实例,再 spawn 子会话重试也是徒劳,属环境问题须人工解(用户重连 MCP-for-Unity 桥 / 必要时重启编辑器使 `instances` 非空)。dev/test agent **不擅自强杀编辑器**(有未保存编辑器态风险)→ 此时正确动作:静态复核确认无代码缺陷后,把「需人工恢复桥会话」作为 blocker 上报 boss,而非继续在子会话里空转重试(2026-06,core-loop 返修轮)
-- `no_session` 不一定是「编辑器卡死」:用 PowerShell `Get-Process Unity` 看 `Responding`——若编辑器进程 + `mcp-for-unity` 桥进程都活且 `Responding=True`,但 `mcpforunity://instances` 仍 `instance_count:0`,则是「编辑器未向桥注册会话」的握手失败(链路问题),而非进程挂死。两者 dev 都无法驱动,但诊断更准、上报更有指向性(让用户去重连桥而非盲目重启)(2026-06,core-loop 第三轮)
+- Unity no_session 的连接诊断(进程冻结 vs 桥会话未注册的判读、各自处置)以 `/unity-check` skill「边界」为单一信息源,不在本文件复述

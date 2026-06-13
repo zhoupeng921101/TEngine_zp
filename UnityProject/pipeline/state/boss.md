@@ -5,32 +5,9 @@
 
 ## 当前任务
 
-### core-loop-completion-dev — 按设计 11 开发核心玩法补全(2026-06-12 起单;**自治模式**)
+### (无活跃任务)
 
-**自治授权**:用户 2026-06-12 以 `/pipeline auto 开发` 显式激活;授权仅本单有效,关单即失效。边界:不 push、不 build、不发布。
-
-**git 基线**:`421a2c12`(block_claude 分支,working tree 干净,可一键退回)。
-
-**参与环节**:dev→test(设计已定,plan 环节已在前置手动寻址中完成)。**设计基线** = `design-docs/11-core-loop-completion.html`(§十二全部 8 条决策已于 2026-06-12 经用户确认定稿)+ `pipeline/state/plan.md` 交接区(模块/符号锚点)。
-
-**模型档**:dev=opus(新系统多、耦合状态机核心)、test=opus(需设计新验证)。
-
-**决策日志(自治)**:
-- #0 开跑检查时 working tree 含 3 个未提交文件(设计 11 拍板落档,本会话用户拍板的直接产物),boss 代提交为 `421a2c12` 形成干净基线,未回询。依据:文件归属无歧义且本就该进开发基线。
-- #1 范围自裁:按设计 11 §十一验收清单落地,demo 范围(文档风险节明示「新系统全部可降级到 demo 范围,分批落地」);若 dev 判定单环节过大,按依赖关系分期,不依赖项继续推进,卡点记 BLOCKED。
-- #2 用户拍板(2026-06-13,任务进行中顺带的规则栈改动):活跃规则文件去私有词汇——「棒→环节」「运行门→运行验证」「空跑→空启动」「盲评→独立评审」全栈统一(约 75 处,归档冻结不动),conventions.md 新增第 5 条命名规则(用公共词汇)。判据:术语(行业公共词)合法,黑话(私造词)禁用。**关单时规则栈巡检须覆盖本改动**。
-
-**pipeline-auto 运行登记**:
-- ~~Run `wf_0755ef10-ed7`(Task `wy14jfro2`)~~:**作废**——boss 把 args 传成 JSON 字符串,脚本收到 task=undefined,plan 环节空启动零改动后 BLOCKED 自停。教训:Workflow args 必须传真 JSON 对象,且键名按脚本头注释(task/baton/baseline=设计稿路径/devModel/testModel)。
-- ~~Run `wf_8c48c9f2-e4c`(Task `wvj874fap`)~~:**作废**——args 改传对象后仍未达脚本(task=undefined 且 baton 回落 full),判定为 Workflow 按名调用不透传 args;plan 环节再次空启动零改动后 BLOCKED 自停。
-- Run `wf_8f44b556-f03`(Task `wm7cywdhy`,2026-06-12 启动):任务参数内联进脚本副本 `pipeline-auto-core-loop-dev.js`(会话 workflows/scripts/ 下),参与环节固定 dev→test,绕开 args 透传问题。**结果(2026-06-13):3 轮熔断 BLOCKED**,6 agent/约 60 万 token/47 分钟。
-
-**熔断定性**:阻塞全程是同一环境问题(Unity MCP 桥 instance_count:0,编辑器未向桥注册会话,进程级诊断编辑器与桥均 Responding=True,疑卡内部编译/域重载),**非代码缺陷**。代码侧:dev 首轮交付全量实现+34 新单测,test/dev 后两轮逐文件逐符号静态核验全过、零改动;打回轮次 3(全部环境原因,非设计/实现打回)。
-
-**打回循环实测注记**:打回机制对「环境阻塞」型 FAIL 会空转烧轮次(每轮 dev/test 只能复测桥再上报)——角色们已自发收敛(返修轮零改动、只复核+精化诊断),但 3 轮仍属浪费;后续可在 test FAIL reason 标「环境/代码」二分,环境型直接熔断不打回——**已落实(2026-06-13)**:test 判定升三态(PASS/FAIL/BLOCKED 环境型),pipeline-auto 收到 BLOCKED 即停、不计打回轮次(stage=environment),SKILL.md 打回循环同步改为六步。
-
-**BLOCKED 待清**:运行验证(编译 0 error + EditMode 130 例全绿 + Play 手验)未跑,补跑清单在 state/test.md;须 Unity 桥恢复(或编辑器关闭后 boss 走 batchmode)后由 boss 补跑、人工收口关单。
-- **遗留[boss·低优]**:通用版 pipeline-auto 的 args 透传在本环境不可用,后续任务沿用「专用副本内联参数」打法,或修通用脚本让其容忍 string/undefined args(报 BLOCKED 时带诊断)。
+core-loop-completion 已于 2026-06-13 关单 PASS(见下「最近关单」);自治授权随关单失效。
 
 ---
 
@@ -78,6 +55,22 @@
 | test-score-element-rm-collect | agent:main:subagent:b0657719-0912-4a5d-8e5a-8014c83b9fd1 | 8935563a-2b12-4328-8772-4f68e3ce1166 | 2026-06-12 |
 
 ## 最近关单
+
+### 2026-06-13 关单:核心玩法补全(core-loop-completion;**自治模式**)
+- **结论:PASS 交付**。参与环节 dev→test(plan 前置手动寻址已完成);设计基线 `design-docs/11-core-loop-completion.html`(§十一验收清单 + §十二 8 条拍板)。被测 commit `0bbb7f01`「核心玩法开发」,git 基线 `421a2c12`。
+- **打回轮次**:代码侧 0。前序因环境阻塞(Unity MCP 桥未向编辑器注册会话,instance_count:0)连续 4 轮判 BLOCKED,均非代码缺陷;环境恢复后一轮 test-only 通过。
+- **运行验证(环境恢复后 test-only 补跑)**:① 编译 0 CS error(read_console 两条 error 为 MCP 桥 disposed 传输日志 + TEngine 框架 `ResourceModuleDriver.Update` 在 Play 模式的运行期 NRE,均非项目改动文件);② EditMode `BlockBlast.Tests` 129/129 全绿(job `9b9f5e8879264d058f9aa951d735a4b1`;129=96 原+33 新,前序「34/130」为差一误记,实有 33 个 `[Test]`);③ Code Review 五条红线全过。Play 拖拽弹字目视留人工(见遗留#11)。
+- **实现范围**:设计 11 §十一(B)新增系统加法式落地——连消/多消/全清结算(`ClearSettlement`)、特殊订单双轨、体力/灵力/祈愿/HammerCost、智能生成 R1–R3 仲裁、宝箱、女神、悔棋全量快照扩展;现状(A)路径零改动,96 原单测兜回归。文件:4 新增 + 2 改(`Module/BlockBlast`)+ 1 改(`MergeOrderWindow`)+ 1 新测(`CoreLoopCompletionTests`,33 例)。
+- **证据**:`archive/2026-06-13-core-loop-completion/`(test.md 四类逐项 + dev.md 改动清单 + plan.md 设计交接)。
+- **模型档**:dev=opus、test=opus(实际收尾为 test-only 一轮)。
+- **自治模式机制实测 + 主线脚本回写(2026-06-13)**:本单暴露通用 pipeline-auto 三处缺口,均已回写主线 `.claude/workflows/pipeline-auto.js`(语法校验通过)+ `.claude/skills/pipeline/SKILL.md` 环节裁剪表:
+  1. **args 透传**:runner 把对象序列化成字符串送达脚本,脚本侧 `JSON.parse` 兜底回对象(此前作废的 3 次启动即栽在此,改后一次成功)。
+  2. **test-only 档**:代码已就绪、仅补运行验证时跳过 plan/dev 直跑 test 一轮;无 dev 在环,验出 FAIL 不自动返修、直接返回 FAIL 交 boss 决定转 dev-test。
+  3. **断连容错**:MCP 桥在 Unity 域重载时拆连接,socket close 致 agent 返回前异常退出(本单实例:test 已跑完 129/129、写完报告后断连,agent 返回 null,工作流一度误判 BLOCKED)。dev/test 套一层重试 + test 改「先写报告再返回结构化结果」,重跑 agent 读已写报告复用。
+- **决策日志补(收尾会话)**:
+  - 用户拍板:对用户呈报语体——默认平实说明文,拟人/口语比喻(死/打死/收口一类)与私造词同属该避免;写入记忆 + conventions.md 第 6 条「语体」+ 收尾自检项。判据同命名规则:对读者是否共享、外人一遍读懂。
+  - boss 代决:环境恢复后用 test-only 收尾(非 dev-test),省 dev 空跑一轮;启动前先 unity-check 自检确认桥在线。
+- **pipeline-auto 运行登记(本次收尾)**:Run `wf_f9e0c4dc-82e`(Task `wqr3w3930`),test-only 一轮 PASS,1 agent / 约 6.7 万 token / 6 分钟。
 
 ### 2026-06-12 关单:Collect* 共享设施正名(collect-rename;**流水线迁移 Claude Code 后首单**)
 - **结论:PASS 交付**。dev→test 两个环节(纯重构裁剪环节),打回轮次 0。
@@ -136,3 +129,5 @@
 8. **[待用户定夺·可不做]** merge-order 通关复用 CollectWinWindow,「再来一局」回收集 demo 而非本模式;如要回本模式需单独排期。
 9. **[用户·人工]** score-element-rm-collect Play 手验:拖拽落子触发消除后,目视确认「得分越高、待选区出元素越多」「无消除时纯方块」,以及 A 档映射体感是否平衡(数值要调可回头改 `ScorePerElement` 等常量)。MCP 无法模拟指针拖拽,逻辑层已被 7 例新单测覆盖。
 10. **[plan 环节或用户·低优]** design-docs/09、10 中对 Collect* 设施的「已转用」标注仍用旧名,需更新为新名(MergeElement / MergeElementVisual / MergeOrderWinWindow / HarvestClearedElements)——collect-rename 环节刻意不动 design-docs(角色边界:dev 不碰设计文档)。
+11. **[用户·人工]** core-loop-completion Play 手验:进 `MergeOrderWindow` 真实拖拽落子,目视确认弹字(COMBO x{n} / MultiLabel / PERFECT)、连消/多消/全清的视觉表现。逻辑层已由 129 全绿单测兜底,MCP 无法模拟指针拖拽,仅核视觉呈现。
+12. **[待查·框架·低优]** TEngine 框架 `ResourceModuleDriver.Update()`(`Assets/TEngine/Runtime/Module/ResourceModule/ResourceModuleDriver.cs:302`,`_resourceModule.UnloadUnusedAssets()`,`_resourceModule` 为 null)在 Play 模式 Update 触发 NRE。疑为直接进 Play、未走启动引导致 Resource 模块未初始化(环境/操作产物),与核心玩法改动无关;若正常启动流程下复现,需单独排查框架初始化时序。
