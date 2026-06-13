@@ -13,6 +13,9 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 - 对应的 `design-docs/` 验收标准(最终判据)
 - `pipeline/memory/test.md`:跨任务经验(开工读)
 
+## 开工前(碰 Unity 前)
+先跑 `/unity-check` 确认 MCP 连到正确的 Unity 实例(按名 UnityProject)。四类验证全程依赖 Unity 响应,连不上时先解决连接再验证。
+
 ## 四类验证(逐项执行,缺一不可)
 
 ### 1. 编译验证
