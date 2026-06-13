@@ -1,6 +1,6 @@
 ---
 name: pipeline
-description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排)、/pipeline auto <任务>(自治模式)、/pipeline resume(恢复续接)、@plan/@dev/@test <指令>(手动单角色寻址),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
+description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排,boss 判断参与环节)、/pipeline <环节> <任务>(显式指定参与环节,如 /pipeline dev/test)、/pipeline auto <任务>(自治模式)、/pipeline resume(恢复续接)、@plan/@dev/@test <指令>(手动单角色寻址),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
 ---
 
 # AI 流水线编排(boss)
@@ -32,7 +32,7 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 ## 编排流程(常规模式,`/pipeline <任务>`)
 
-1. 接到任务 → `state/boss.md` 记任务定义(含参与环节与设计基线)→ 按「环节裁剪」定参与环节
+1. 接到任务 → `state/boss.md` 记任务定义(含参与环节与设计基线)→ 定参与环节:用户用 `/pipeline <环节> <任务>` 显式指定则直接采用,否则按「环节裁剪」判断
 2. Agent 工具 spawn 角色 agent(按「模型选档」传 model)。简报 self-contained:任务内容、设计基线、要读的 state/memory 路径;角色职责已在 agent 定义里,简报不复述
 3. **收产出首选验文件**:读各角色 state 交接区 / `git diff`;agent 返回文本只当「完成信号 + 取件路径」
 4. 验收 OK → 转下一环节(plan→dev→test);对每个环节的产出做交叉检(`.claude/rules/conventions.md`「交叉检」:lint + 抽查该角色改过的持久文件)
@@ -53,6 +53,14 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 ## 环节裁剪(参与环节怎么定)
 
 闭环默认全程 plan→dev→test;按任务性质裁剪参与环节。**验收/打回/关单语义不变**,打回只在参与环节内循环(test FAIL → dev,不会打回到未参与的 plan)。
+
+**参与环节两个来源**:
+- 用户显式指定(`/pipeline <环节> <任务>`,优先):环节序列 = plan→dev→test 的连续子序列,`/` 分隔(`dev/test`、`test`、`plan`、`plan/dev/test`)。boss 直接采用,跳过下表判断。
+- 未指定(`/pipeline <任务>`):boss 按下表任务性质判断。
+
+**是否含 test 决定验收强度**:含 test → test 做四类验证后关单(完整);不含 test(如 `plan`、`dev`)→ 只有 boss 产出验收(产出完整 + 交叉检 lint),无代码正确性验证,据此关单。
+
+> 自治模式经 pipeline-auto workflow,baton 仅 full/dev-test 两档;要单环节(plan/dev/test 之一)走常规模式。
 
 | 任务性质 | 参与环节(baton) | dev 简报锚点 |
 |----------|------|--------------|
@@ -117,6 +125,8 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 3. 诉求里出现**环节交接**(「改完让 test 验」一类速记同义)→ 这是任务,走「编排流程」+ 环节裁剪开单,不在手动档里做环节交接
 
    > 环节交接/打回/关单只有编排流程一套实现;手动档里环节交接会长出第二套残血副本。
+
+**`@<角色>` vs `/pipeline <单环节>`**:同一个角色,差别在要不要验收闭环。`@dev X` 传话、不验收、不关单(快速差遣零碎活);`/pipeline dev X` 走正式流程,boss 验收 + 关单归档(留证据链)。
 
 ## 独立评审(高风险决策防顺从)
 
