@@ -31,7 +31,8 @@ const PLAN_SCHEMA = {
     statePath: { type: 'string', description: '交接区路径' },
     designDoc: { type: 'string', description: '设计稿路径(design-docs/xx.html)' },
     decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍(自治审计用)' },
-    blockers: { type: 'array', items: { type: 'string' }, description: '需用户裁决的方向性问题' },
+    blockers: { type: 'array', items: { type: 'string' }, description: '设计中需用户裁决的方向性问题' },
+    taskFlaw: { type: 'string', description: 'boss 派的任务定义本身有硬伤(需求矛盾/基线指错/与工程现状冲突/范围不可行)且非设计可解时填原因,否则省略——对称 dev.designFlaw' },
   },
   required: ['summary', 'statePath', 'designDoc'],
 }
@@ -87,6 +88,11 @@ if (baton === 'full') {
   )
   if (!plan) return { status: 'BLOCKED', stage: 'plan', blocked: ['plan agent 异常退出'], decisions }
   decisions.push(...(plan.decisions || []))
+  if (plan.taskFlaw) {
+    // 任务定义本身有硬伤(boss 派错):退回用户,设计无从谈起。对称 dev.designFlaw
+    blocked.push(`plan 报告任务定义缺陷(非设计可解):${plan.taskFlaw}`)
+    return { status: 'BLOCKED', stage: 'task-definition', blocked, decisions }
+  }
   if (plan.blockers && plan.blockers.length) {
     // 设计层方向性问题不带病推进:直接停,攒给用户
     blocked.push(...plan.blockers)
