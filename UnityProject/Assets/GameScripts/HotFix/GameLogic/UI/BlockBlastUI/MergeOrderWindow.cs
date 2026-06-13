@@ -41,6 +41,12 @@ namespace GameLogic.BlockBlastUI
         private Image _undoBtnBg;
         private Text _undoBtnLabel;
 
+        // 盲盒（设计 12 §五）：顶部计数 🔮 ×N + 开盒按钮（Count=0 置灰）。
+        private Text _blindBoxText;
+        private Button _openBoxBtn;
+        private Image _openBoxBtnBg;
+        private Text _openBoxBtnLabel;
+
         private int _draggingShapeId = -1;
         private bool _finished;   // 通关或 GameOver 后锁输入
 
@@ -69,6 +75,7 @@ namespace GameLogic.BlockBlastUI
             RefreshOrders();
             RefreshSynthesis();
             RefreshUndo();
+            RefreshBlindBox();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -118,6 +125,14 @@ namespace GameLogic.BlockBlastUI
             UGuiFactory.CreateImage(_content, "GoalBg", 520, 120, 240, 56, new Color(0, 0, 0, 0.25f));
             _goalText = UGuiFactory.CreateText(_content, "Goal", 520, 120, 240, 56, "", 34,
                 new Color32(0xff, 0xdd, 0x88, 0xFF));
+
+            // 盲盒计数 + 开盒按钮（第二信息行，y=170；设计 12 §五）
+            UGuiFactory.CreateImage(_content, "BoxBg", 230, 170, 230, 52, new Color(0, 0, 0, 0.25f));
+            _blindBoxText = UGuiFactory.CreateText(_content, "BlindBox", 230, 170, 230, 52, "", 34,
+                new Color32(0xc8, 0x9a, 0xff, 0xFF)); // 紫
+            _openBoxBtn = UGuiFactory.CreateButton(_content, "OpenBox", 470, 170, 200, 56, "开盒", 30,
+                new Color32(0x7a, 0x4a, 0xb8, 0xFF), Color.white, out _openBoxBtnBg, out _openBoxBtnLabel);
+            _openBoxBtn.onClick.AddListener(OnOpenBoxClicked);
 
             // 悔棋按钮（左上）
             _undoBtn = UGuiFactory.CreateButton(_content, "Undo", 90, 55, 130, 60, "悔棋", 30,
@@ -259,6 +274,41 @@ namespace GameLogic.BlockBlastUI
             RefreshOrders();
             RefreshSynthesis();
             RefreshUndo();
+            RefreshBlindBox();
+        }
+
+        // ── 盲盒计数 + 开盒按钮态（设计 12 §五） ──
+        private void RefreshBlindBox()
+        {
+            // 用 ◈（BMP，LegacyRuntime 字体可渲染）代 🔮（设计 §五写 🔮 或 ◈，盲盒补充平面 emoji 在该字体下渲不出）
+            _blindBoxText.text = $"◈ ×{_merge.BlindBoxCount}";
+            bool can = _merge.CanOpenBlindBox && !_finished;
+            _openBoxBtn.interactable = can;
+            _openBoxBtnBg.color = can ? new Color32(0x7a, 0x4a, 0xb8, 0xFF) : new Color32(0x3a, 0x33, 0x44, 0xFF);
+            _openBoxBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
+        }
+
+        // ── 开盒（设计 12 §五）：扣 1 → 掷奖 → 发放 → 内联弹字 + 刷新计数/合成区/体力 ──
+        private void OnOpenBoxClicked()
+        {
+            if (_finished) return;
+            if (!_merge.OpenBlindBox(out var reward)) return;
+
+            BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 530, OpenResultLabel(reward), 48,
+                new Color32(0xc8, 0x9a, 0xff, 0xFF));
+
+            RefreshSynthesis(); // 图案进了合成区
+            RefreshEnergy();    // 可能加了体力
+            RefreshBlindBox();  // 计数与按钮态
+        }
+
+        /// <summary>开盒结果弹字文案（图案：「开出：◆ Lv3 ×1」；体力：「开出：⚡ +10」）。</summary>
+        private static string OpenResultLabel(BlindBoxReward reward)
+        {
+            if (reward.IsEnergy) return $"开出：⚡ +{reward.EnergyGain}";
+            if (reward.IsPattern)
+                return $"开出：{MergeElementVisual.Glyph(reward.PatternType)} Lv{reward.PatternLevel} ×{reward.PatternCount}";
+            return "开出：—";
         }
 
         private void OnDeliverClicked(int slot)
@@ -269,6 +319,7 @@ namespace GameLogic.BlockBlastUI
             RefreshOrders();
             RefreshSynthesis();
             RefreshUndo(); // 交付清空悔棋栈，按钮须刷新
+            RefreshBlindBox();
 
             if (_merge.IsDemoComplete()) { TriggerWin(); return; }
         }
@@ -504,6 +555,11 @@ namespace GameLogic.BlockBlastUI
                     BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, settle.MultiLabel, 56, new Color32(0x55, 0xdd, 0xaa, 0xFF));
                 else if (settle.ComboChain >= 2)
                     BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, $"COMBO x{settle.ComboChain}", 56, new Color32(0xff, 0x77, 0xbb, 0xFF));
+
+                // 获得盲盒（连消阈值 / 全清解锁）弹「+N ◈」（设计 12 §五）
+                if (settle.BlindBoxGained > 0)
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 590, $"+{settle.BlindBoxGained} ◈", 50,
+                        new Color32(0xc8, 0x9a, 0xff, 0xFF));
             }
             else
             {
@@ -515,6 +571,7 @@ namespace GameLogic.BlockBlastUI
             RefreshOrders();
             RefreshSynthesis();
             RefreshUndo();
+            RefreshBlindBox();
 
             // 通关判定（完成单数达标）
             if (_merge.IsDemoComplete()) { TriggerWin(); return; }

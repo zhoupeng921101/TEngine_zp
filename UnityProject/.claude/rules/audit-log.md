@@ -37,3 +37,16 @@
   4. 健康面:js 与 SKILL.md 同次改动一致、无漂移;断连重试与「test 先写报告后返回」配套(文件是真相→重跑可复用),与 conventions「可推导的不记录」同向
   5. 死规则累计:距首轮约 1 天,窗口仍不足,不判
 - 处置:观察项 1、2 报用户知会,不静默改;无删除候选
+
+## 2026-06-14 第四次审计(增量·tarot-blind-box 关单触发)
+
+- 基线:第三次审计之后。自基线规则栈改动:① CLAUDE.md 增「立场朝结果,不朝当下势头」条款;② `.claude/skills/pipeline/SKILL.md` 增「参与环节两个来源 / 含 test 决定验收强度 / 自治 baton 旁注(:63)/ @角色 vs /pipeline 单环节对比」(①② 同在 commit `4ef8b90e`,2026-06-14);③ `pipeline/memory/plan.md`(+2)、`dev.md`(+1)、`test.md`(+2)经验条。有改动,不短路,查三样。
+- 范围:CLAUDE.md、`.claude/rules/`、各 SKILL.md、`.claude/agents/*.md`、`.claude/workflows/pipeline-auto.js`、`pipeline/memory/*` 文件头。
+- 结论:
+  1. **矛盾(修正候选,报用户拍板)**:SKILL.md §环节裁剪 新增旁注(:63)「自治模式经 pipeline-auto workflow,baton 仅 full/dev-test 两档;要单环节走常规模式」与三处冲突——(i) 同节环节裁剪表 test-only 行(:70)+ test-only 行为条(:72);(ii) `pipeline-auto.js` baton 枚举含 test-only(:14、:71-72 校验、:128-141 专门分支);(iii) 2026-06-13 core-loop-completion 关单实测用 auto test-only(Run `wf_f9e0c4dc`,一轮 PASS),且第三次审计本身记录过 test-only 同时进 js 与 SKILL 表、判为健康。旁注「仅两档」与 test-only 实为 auto 第三档相冲突。候选修法:**(a 推荐)** 旁注改为「baton = full/dev-test/test-only;test-only 仅作环境恢复后补运行验证的续接档,新鲜任务从 full/dev-test 起」——承认 test-only,撤掉会重蹈环境阻塞空跑 dev 一轮的低效(正是第三次审计/core-loop 加它的初衷);**(b)** 真要从 auto 撤 test-only → 同步删 pipeline-auto.js test-only 分支 + 表行 :70 + 条 :72,环境恢复补跑改走常规模式。
+  2. **CLAUDE「立场朝结果」(健康)**:与既有「评估提案先独立成判」(怎么评)、「修问题先亮牌」(补丁vs根治)非重复——本条管「何时主动拉高视角」(触发①难回退方向 ②同类摩擦第二次),且显式 cross-ref 两条。条内自带 2026-06-14 流水线成本触发实例,非死规则。无矛盾。
+  3. **SKILL 其余增量(健康)**:参与环节两个来源 = description 触发的 body 详解(单源在 body);含 test 验收强度、@角色 vs /pipeline 单环节对比 = 既有节澄清补充,非副本。除上 1 外无矛盾。
+  4. **memory 5 条(健康)**:plan(sidebar 同步核对、已建成未接UI数据层验收锚定单测)、dev(run_tests Play Mode 判读 + EditMode 即编译自检)、test(反射驱动 UIWindow 私有成员含 ValueTuple Item* 坑、code-built 窗口命名)——均带 2026-06 先例、平实语体、与既有条无同义重复。准入合格。
+  5. **carry-forward 观察项**:第三次审计 #2(pipeline-auto.js `meta.description` 仍写「返回 PASS/BLOCKED」、未含 test-only 的 FAIL 返回态)仍未补,低优;若取上 1 的 (a) 修法,顺手把 description 补成「PASS/FAIL/BLOCKED」一并对齐。
+  6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:1 个矛盾(修正候选)报用户拍板。**用户取 (a)(2026-06-14)**:已改 SKILL.md:63 旁注为「baton = full/dev-test/test-only;test-only 仅作环境恢复补运行验证的续接档」,并顺手把 `pipeline-auto.js` meta.description 补为 PASS/FAIL/BLOCKED(对齐 carry-forward #5)。其余健康,无删除候选。

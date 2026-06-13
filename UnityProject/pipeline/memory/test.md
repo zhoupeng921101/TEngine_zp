@@ -12,3 +12,5 @@
 - 同一未注册实例跨轮复跑徒劳:首轮已做全量静态核验且代码零改动时,后续轮只需确认阻塞仍在 + 刷新诊断,不重复逐例手推(无新信息)(2026-06)
 - 静态核验单测:逐例手工走断言路径(尤其级联/快照回滚类),配合 grep 实际签名,可在无 Editor 时预判 90% 编译与逻辑错;但 HybridCLR 热更编译 + YooAsset 模拟寻址的真导入仍须 Editor 确认,不可代签 PASS(2026-06)
 - UIWindow 寻址链验证(尤其 prefab/location 改名)绕开拖拽通关:Play 中用 execute_code 反射调 `GameModule.UI.ShowUIAsync<T>(new object[]{userData})`(T 从已加载 GameLogic 程序集按全名取),再 `GameObject.Find("<WinName>")` 确认实例化 + 子节点齐全,即证 location↔prefab 文件名↔m_Name 三处一致、LoadGameObjectAsync 未断;CloseUI<T> 泛型解析则触发对应按钮 onClick.Invoke 验(2026-06,collect-rename)
+- 要驱动 UIWindow 私有字段/方法(注入 state + 调私有刷新/点击 handler)而非仅查 GameObject:UI 模块无同步 getter,从其私有字段 `_uiStack`(List)遍历取类型匹配的托管实例,再反射读写私有字段/Invoke 私有方法;ValueTuple 字典键的元素字段名运行时是 `Item1/Item2` 不是声明的具名(`type/level`),反射取值用 Item* 否则 NRE(2026-06,tarot-blindbox F12/F13 手验)
+- code-built 窗口(UGuiFactory 运行时建节点、无 prefab codegen)的节点名是运行时查找名,naming-rules 的 `m_btn_`/`m_text_` 前缀规则不适用,与全窗既有裸名体例一致即合规——别误判前缀缺失为违规(2026-06,tarot-blindbox)

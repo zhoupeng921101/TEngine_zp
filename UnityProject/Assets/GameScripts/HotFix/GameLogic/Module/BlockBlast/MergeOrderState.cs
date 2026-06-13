@@ -92,6 +92,13 @@ namespace GameLogic.BlockBlast
         /// <summary>女神好感等级（只升不降，从 1 起）。</summary>
         public int GoddessLevel;
 
+        // ── 神秘塔罗盲盒（持有式即时开盒）─ 设计 12 ──────────────
+        /// <summary>
+        /// 盲盒持有计数（设计 12）。连消/全清挑战与特殊订单交付积累，玩家自选时机一键开出。
+        /// 持有式、无倒计时、无硬上限（设计 12 §3.3）。入悔棋快照（单局内回滚正确），不单独磁盘存盘。
+        /// </summary>
+        public int BlindBoxCount;
+
         /// <summary>特殊订单轨（设计 11 §三：0/1 占槽 + 等待队列，剧情&gt;加急&gt;黄金时段）。</summary>
         public readonly SpecialOrderTrack SpecialTrack = new SpecialOrderTrack();
 
@@ -118,6 +125,7 @@ namespace GameLogic.BlockBlast
             WishUsedToday = 0;
             GoddessRating = 0;
             GoddessLevel = 1;
+            BlindBoxCount = 0;
 
             ActiveOrders = new Order[MergeOrderConfig.ActiveOrders];
             for (int i = 0; i < ActiveOrders.Length; i++) ActiveOrders[i] = NextOrder();
@@ -286,9 +294,25 @@ namespace GameLogic.BlockBlast
             TotalScore += o.Level * o.Count * MergeOrderConfig.OrderScoreFactor;
             CompletedOrders += 1;
 
+            // 盲盒附赠（设计 12 §3.5）：须在 OnDelivered() 腾空槽之前读 Kind。
+            // 附赠随交付一起固化，不被悔棋倒回（交付清空悔棋栈，符合「已交付」语义）。
+            AddBlindBox(BlindBoxPerSpecial(SpecialTrack.Occupied.Kind));
+
             SpecialTrack.OnDelivered();
             _undoStack.Clear(); // 已提交动作，悔棋不倒回特殊单交付
             return true;
+        }
+
+        /// <summary>特殊订单各 Kind 交付附赠的盲盒数（设计 12 §3.5）。None/未知 = 0。</summary>
+        private static int BlindBoxPerSpecial(SpecialOrderKind kind)
+        {
+            switch (kind)
+            {
+                case SpecialOrderKind.Express: return TarotBlindBoxConfig.BoxPerExpress;
+                case SpecialOrderKind.Story: return TarotBlindBoxConfig.BoxPerStory;
+                case SpecialOrderKind.GoldenHour: return TarotBlindBoxConfig.BoxPerGolden;
+                default: return 0;
+            }
         }
 
         // ── 灵力 + 祈愿兑体力（设计 11 §四 / §7.1）────────────────
@@ -330,6 +354,40 @@ namespace GameLogic.BlockBlast
                 return true;
             }
             return false;
+        }
+
+        // ── 神秘塔罗盲盒（持有式即时开盒，设计 12）──────────────
+
+        /// <summary>增加盲盒持有计数（连消/全清挑战、特殊订单附赠调用）。负数/0 不增。</summary>
+        public void AddBlindBox(int amount) { if (amount > 0) BlindBoxCount += amount; }
+
+        /// <summary>是否可开盒（持有计数 &gt; 0）。</summary>
+        public bool CanOpenBlindBox => BlindBoxCount > 0;
+
+        /// <summary>
+        /// 开一个盲盒（设计 12 §3.2/§3.3）：扣 1 计数 → 掷奖池恰好 1 项（含 NeededHigh 降级保底）→
+        /// 按 Kind 发放（图案走 <see cref="AddDirect"/> 触发级联合并；体力走 <see cref="RefundEnergy"/> 受 EnergyCap）。
+        /// 掷出的奖励经 <paramref name="reward"/> 返回供 UI 展示。计数为 0 时返回 false 且计数不变（前置 <see cref="CanOpenBlindBox"/>）。
+        /// </summary>
+        public bool OpenBlindBox(out BlindBoxReward reward)
+        {
+            reward = default;
+            if (!CanOpenBlindBox) return false;
+
+            BlindBoxCount -= 1;
+            reward = TarotBlindBoxConfig.RollReward(this);
+
+            if (reward.IsEnergy)
+            {
+                // 体力受软上限约束，不溢出（与消除返还同规则）。
+                Energy = Math.Min(MergeOrderConfig.EnergyCap, Energy + reward.EnergyGain);
+            }
+            else if (reward.IsPattern)
+            {
+                // 图案进收集区，走级联合并（产 Lv1 若该类已有 1 个 → 自动升 Lv2，预期行为）。
+                AddDirect(reward.PatternType, reward.PatternLevel, reward.PatternCount);
+            }
+            return true;
         }
 
         // ── demo 终点 ──────────────────────────────────────────
@@ -387,6 +445,7 @@ namespace GameLogic.BlockBlast
             private int _wishUsedToday;
             private int _goddessRating;
             private int _goddessLevel;
+            private int _blindBoxCount;
             private SpecialOrder _special;
             private SpecialOrder[] _specialWaiting;
 
@@ -413,6 +472,7 @@ namespace GameLogic.BlockBlast
                     _wishUsedToday = m.WishUsedToday,
                     _goddessRating = m.GoddessRating,
                     _goddessLevel = m.GoddessLevel,
+                    _blindBoxCount = m.BlindBoxCount,
                     _special = m.SpecialTrack.Occupied,           // SpecialOrder 为不可变值类型，浅拷贝即可
                     _specialWaiting = m.SpecialTrack.SnapshotWaiting(),
                 };
@@ -443,6 +503,7 @@ namespace GameLogic.BlockBlast
                 m.WishUsedToday = _wishUsedToday;
                 m.GoddessRating = _goddessRating;
                 m.GoddessLevel = _goddessLevel;
+                m.BlindBoxCount = _blindBoxCount;
                 m.SpecialTrack.Occupied = _special;
                 m.SpecialTrack.RestoreWaiting(_specialWaiting);
             }

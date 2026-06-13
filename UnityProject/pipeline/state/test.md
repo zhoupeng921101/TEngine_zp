@@ -4,4 +4,4 @@
 
 ## 当前被测任务:无
 
-上一单 core-loop-completion 已于 2026-06-13 关单 PASS,本环节报告归档至 `pipeline/archive/2026-06-13-core-loop-completion/test.md`。
+上一单 tarot-blind-box 已于 2026-06-14 关单 PASS,本环节报告归档至 `pipeline/archive/2026-06-14-tarot-blind-box/test.md`。

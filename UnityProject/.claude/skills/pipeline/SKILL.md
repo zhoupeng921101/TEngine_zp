@@ -60,7 +60,7 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 **是否含 test 决定验收强度**:含 test → test 做四类验证后关单(完整);不含 test(如 `plan`、`dev`)→ 只有 boss 产出验收(产出完整 + 交叉检 lint),无代码正确性验证,据此关单。
 
-> 自治模式经 pipeline-auto workflow,baton 仅 full/dev-test 两档;要单环节(plan/dev/test 之一)走常规模式。
+> 自治模式经 pipeline-auto workflow,baton = full / dev-test / test-only。test-only 仅作环境恢复后补运行验证的续接档(无 dev 在环、验出 FAIL 不返修直接返回),新鲜任务从 full 或 dev-test 起。要 plan-only / dev-only 这类其余单环节,走常规模式。
 
 | 任务性质 | 参与环节(baton) | dev 简报锚点 |
 |----------|------|--------------|
@@ -94,7 +94,9 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 **授权只能来自用户显式激活(auto 字样或同义明示),boss 不能自己进入。** 激活后:
 
-1. **开跑检查**:working tree 必须干净(git 基线 commit 可一键退回);不干净 → 提示用户先提交,不开跑
+1. **开跑检查 + 自动基线**:开跑须有干净基线 commit(供一键退回)。working tree 干净 → 直接以当前 HEAD 为基线开跑;不干净 → **自动提交**未提交改动为一个基线 commit(message 标明「流水线自治运行基线」),不停下等用户。提交后向用户报告提交内容(文件清单 + commit hash)+ 提示这是本地 checkpoint、未 push、可 `git reset` 一键退回。
+
+   > 该闸 2026-06-14 由用户从「提示用户先提交,不开跑」改为「自动提交」:本地 commit 可逆、不违反自治边界(不 push),省去开跑前的停顿。代价:会把当下所有未提交改动(含与本任务无关的在途工作)一并打进基线 commit——靠「报告提交内容 + 可一键退回」兜底。
 2. **回执并落盘**:任务范围 + git 基线 commit + 自主边界写 `state/boss.md`(授权仅本次任务有效,关单即失效)
 3. 用 Workflow 工具启动 `pipeline-auto`(name 调用,args 含 task/baton/baseline/模型档)后台执行闭环;收到 PASS/BLOCKED 结果后走关单/呈报
 4. **决策规则**:
@@ -108,8 +110,13 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 > 顺序原则:**先落盘后回报**。各步幂等,中断恢复后整段重跑。
 
 1. 核对 `state/test.md` 总判定 = PASS,收拢其遗留/观察项
-2. 更新 `state/boss.md`:任务标记关单,写明结论 + 遗留事项(每条标注谁来做)
-3. 归档:把 `state/plan.md|dev.md|test.md` 整体移入 `pipeline/archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向);`state/boss.md` 中证据路径同步改指归档位置
+2. 收拢遗留事项:已完成的从 `state/boss.md`「遗留事项」划掉,新产生的跨任务待办登记进去(遗留是活的,**不归档**)
+3. 归档(**四件套一起**):
+   - `state/plan.md|dev.md|test.md` 整体移入 `pipeline/archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向)
+   - 当前任务的 boss 编排日志(任务定义/拍板归属/spawn 登记/自治决策日志/打回轮次/授权/运行验证结论)整理成 boss 关单总结,写入 `archive/<日期-任务名>/boss.md`
+   - `state/boss.md`:「当前任务」节重置为「(无活跃任务)」;「最近关单」**只追加一行索引**(日期·任务·结论·archive 路径),不留详情
+
+   > boss state 与各角色 state 同为工作态,关单即归档,主文件只留「当前任务 + 关单索引 + 活遗留」。否则只增不减:实测曾积到 6 段 100+ 行并出现转述副本漂移(2026-06-14 清理,详见 archive 各 boss.md)。
 4. 规则栈巡检:本次任务改过 CLAUDE.md / `.claude/` 规则文件 / agent 定义 → 触发 `/audit` 增量审计;没改过 → 跳过
 5. 回报用户:结果 + 证据位置 + 遗留事项(自治模式另附决策日志与 BLOCKED 清单)
 6. 按 `.claude/rules/conventions.md`「收尾必做」过一遍本次改过的持久文件

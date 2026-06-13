@@ -24,9 +24,12 @@ namespace GameLogic.BlockBlast
         public readonly bool GoddessLeveledUp;
         /// <summary>得分驱动的基础 Lv1 元素产出数（已入预算队列的 k）。</summary>
         public readonly int BaseElementsK;
+        /// <summary>本手获得的盲盒数（全清解锁 + 连消阈值解锁，设计 12 §3.4）。供窗口弹「+1 🔮」提示。</summary>
+        public readonly int BlindBoxGained;
 
         public SettlementResult(int lines, int baseScore, int displayScore, int comboChain,
-            string multiLabel, bool allClearRewarded, bool goddessLeveledUp, int baseElementsK)
+            string multiLabel, bool allClearRewarded, bool goddessLeveledUp, int baseElementsK,
+            int blindBoxGained)
         {
             Lines = lines;
             BaseScore = baseScore;
@@ -36,6 +39,7 @@ namespace GameLogic.BlockBlast
             AllClearRewarded = allClearRewarded;
             GoddessLeveledUp = goddessLeveledUp;
             BaseElementsK = baseElementsK;
+            BlindBoxGained = blindBoxGained;
         }
     }
 
@@ -68,7 +72,7 @@ namespace GameLogic.BlockBlast
             {
                 m.ComboChain = 1;            // 链断回基准
                 m.AllClearArmed = true;      // 一次非全清落子重新武装全清奖
-                return new SettlementResult(0, 0, 0, 1, string.Empty, false, false, 0);
+                return new SettlementResult(0, 0, 0, 1, string.Empty, false, false, 0, 0);
             }
 
             // —— 步 3：基础消除得分（复用 BlockScoring 单一信息源）——
@@ -78,6 +82,16 @@ namespace GameLogic.BlockBlast
             m.ComboChain += 1;
             int permille = MergeOrderConfig.ComboMultPermilleFor(m.ComboChain);
             int displayScore = baseScore * permille / 1000;
+
+            // 盲盒解锁累加器（设计 12 §3.4）：本手获得的盲盒数（连消阈值 + 全清解锁两路）。
+            int blindBoxGained = 0;
+
+            // 连消阈值解锁：用 == 而非 >=，每条连消链跨过阈值那一手发一次（链更长不重复发，链断回 1 后重新计）。
+            if (m.ComboChain == TarotBlindBoxConfig.BoxComboThreshold)
+            {
+                m.AddBlindBox(1);
+                blindBoxGained += 1;
+            }
 
             // —— 步 5：元素产出（用【未乘连消】的 baseScore）——
             int k = MergeOrderConfig.ElementsForScore(baseScore);
@@ -98,6 +112,9 @@ namespace GameLogic.BlockBlast
                     MergeOrderConfig.AllClearRewardCount);
                 // 推进女神好评条 +1（换背景统一归女神升级触发，设计 11 §十·去重）
                 goddessLeveledUp = m.AdvanceGoddess();
+                // 全清解锁盲盒 +1（设计 12 §3.4，复用全清武装位：连续第 2 次全清不发）
+                m.AddBlindBox(1);
+                blindBoxGained += 1;
                 m.AllClearArmed = false; // 本次已发，连续第二次不再发
                 allClearRewarded = true;
             }
@@ -110,7 +127,7 @@ namespace GameLogic.BlockBlast
             return new SettlementResult(
                 lines, baseScore, displayScore, m.ComboChain,
                 MergeOrderConfig.MultiClearLabelFor(lines),
-                allClearRewarded, goddessLeveledUp, k);
+                allClearRewarded, goddessLeveledUp, k, blindBoxGained);
         }
     }
 }

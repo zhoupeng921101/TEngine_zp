@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-上一单 core-loop-completion 已于 2026-06-13 关单,本环节交接归档至 `pipeline/archive/2026-06-13-core-loop-completion/dev.md`。
+上一单 tarot-blind-box 已于 2026-06-14 关单 PASS,本环节改动交接归档至 `pipeline/archive/2026-06-14-tarot-blind-box/dev.md`。

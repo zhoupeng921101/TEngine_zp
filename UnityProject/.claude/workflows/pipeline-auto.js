@@ -1,6 +1,6 @@
 export const meta = {
   name: 'pipeline-auto',
-  description: 'TEngine_block 流水线自治模式:plan→dev→test 闭环,3 轮打回熔断,返回 PASS/BLOCKED',
+  description: 'TEngine_block 流水线自治模式:plan→dev→test 闭环,3 轮打回熔断,返回 PASS/FAIL/BLOCKED(FAIL 仅 test-only 档:无 dev 在环不返修)',
   whenToUse: '仅当用户显式激活自治模式(/pipeline auto)时由 boss 启动;常规编排走 pipeline skill,不走本脚本',
   phases: [
     { title: '策划' },
