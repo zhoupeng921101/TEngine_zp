@@ -27,7 +27,7 @@
 
 **熔断定性**:阻塞全程是同一环境问题(Unity MCP 桥 instance_count:0,编辑器未向桥注册会话,进程级诊断编辑器与桥均 Responding=True,疑卡内部编译/域重载),**非代码缺陷**。代码侧:dev 首轮交付全量实现+34 新单测,test/dev 后两轮逐文件逐符号静态核验全过、零改动;打回轮次 3(全部环境原因,非设计/实现打回)。
 
-**打回循环实测注记**:打回机制对「环境阻塞」型 FAIL 会空转烧轮次(每轮 dev/test 只能复测桥再上报)——角色们已自发收敛(返修轮零改动、只复核+精化诊断),但 3 轮仍属浪费;后续可在 test FAIL reason 标「环境/代码」二分,环境型直接熔断不打回(改 pipeline-auto 脚本,列遗留)。
+**打回循环实测注记**:打回机制对「环境阻塞」型 FAIL 会空转烧轮次(每轮 dev/test 只能复测桥再上报)——角色们已自发收敛(返修轮零改动、只复核+精化诊断),但 3 轮仍属浪费;后续可在 test FAIL reason 标「环境/代码」二分,环境型直接熔断不打回——**已落实(2026-06-13)**:test 判定升三态(PASS/FAIL/BLOCKED 环境型),pipeline-auto 收到 BLOCKED 即停、不计打回轮次(stage=environment),SKILL.md 打回循环同步改为六步。
 
 **BLOCKED 待清**:运行验证(编译 0 error + EditMode 130 例全绿 + Play 手验)未跑,补跑清单在 state/test.md;须 Unity 桥恢复(或编辑器关闭后 boss 走 batchmode)后由 boss 补跑、人工收口关单。
 - **遗留[boss·低优]**:通用版 pipeline-auto 的 args 透传在本环境不可用,后续任务沿用「专用副本内联参数」打法,或修通用脚本让其容忍 string/undefined args(报 BLOCKED 时带诊断)。

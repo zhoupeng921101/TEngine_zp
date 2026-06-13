@@ -47,9 +47,9 @@ const DEV_SCHEMA = {
 const TEST_SCHEMA = {
   type: 'object',
   properties: {
-    verdict: { type: 'string', enum: ['PASS', 'FAIL'], description: '总判定' },
+    verdict: { type: 'string', enum: ['PASS', 'FAIL', 'BLOCKED'], description: '总判定。BLOCKED=环境阻塞(Unity MCP/编辑器不可达等)致运行验证跑不了,非代码缺陷——代码缺陷一律 FAIL' },
     statePath: { type: 'string', description: '报告路径' },
-    reason: { type: 'string', description: 'FAIL 主因一句话' },
+    reason: { type: 'string', description: 'FAIL/BLOCKED 主因一句话' },
     decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍' },
   },
   required: ['verdict', 'statePath'],
@@ -103,11 +103,16 @@ while (round < 3) {
 
   phase('测试')
   verdict = await agent(
-    `被测任务:${args.task}\n开工读 pipeline/state/test.md、pipeline/memory/test.md 与 pipeline/state/dev.md 交接区;按角色卡四类验证执行,报告写 pipeline/state/test.md。验收判据:${baseline}。${RETURN_NOTE}`,
+    `被测任务:${args.task}\n开工读 pipeline/state/test.md、pipeline/memory/test.md 与 pipeline/state/dev.md 交接区;按角色卡四类验证执行,报告写 pipeline/state/test.md。验收判据:${baseline}。判定三态:代码缺陷=FAIL;环境阻塞(MCP/编辑器不可达,运行验证跑不了)=BLOCKED,勿判 FAIL。${RETURN_NOTE}`,
     testOpts
   )
   if (!verdict) return { status: 'BLOCKED', stage: 'test', blocked: blocked.concat(['test agent 异常退出']), decisions, round }
   decisions.push(...(verdict.decisions || []))
+  if (verdict.verdict === 'BLOCKED') {
+    // 环境型阻塞:dev 无可修,打回只会空转烧轮次(2026-06-13 core-loop 3 轮实测)——直接结束呈报,不计打回
+    blocked.push(`环境阻塞(非代码缺陷):${verdict.reason || '见 pipeline/state/test.md'}`)
+    return { status: 'BLOCKED', stage: 'environment', blocked, decisions, round }
+  }
   if (verdict.verdict === 'PASS') break
 
   round++
