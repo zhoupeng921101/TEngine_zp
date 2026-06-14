@@ -22,7 +22,7 @@ export const meta = {
 // 打回每轮 spawn 新 dev(workflow 内无续接),上下文靠 state 文件交接——文件是真相。
 // 自主决策由各角色在返回值 decisions 里上报,boss 收尾统一写 state/boss.md 决策日志。
 
-const RETURN_NOTE = '详细产出写对应 state 文件;结构化返回只填摘要字段,不长篇复述。自主拍板的取舍填 decisions;拿不准/疑似方向问题填 blockers。'
+const RETURN_NOTE = '详细产出写对应 state 文件;结构化返回只填摘要字段,不长篇复述。能在安全默认上推进的取舍(含有默认可走的范围开关)填 decisions 并按默认推进;只有非裁决不可推进的方向问题(无默认 / 默认会抵触 spec·GDD / 不可逆)填 blockers——blockers 非空会中止本环节、攒给用户。'
 
 const PLAN_SCHEMA = {
   type: 'object',
@@ -31,7 +31,7 @@ const PLAN_SCHEMA = {
     statePath: { type: 'string', description: '交接区路径' },
     designDoc: { type: 'string', description: '设计稿路径(design-docs/xx.html)' },
     decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍(自治审计用)' },
-    blockers: { type: 'array', items: { type: 'string' }, description: '设计中需用户裁决的方向性问题' },
+    blockers: { type: 'array', items: { type: 'string' }, description: '必须用户裁决才能推进的方向问题(无安全默认 / 默认会抵触 spec·GDD / 不可逆);有默认可走的范围开关走 decisions 默认推进,不进此处——blockers 非空会令流水线在 plan 环节中止' },
     taskFlaw: { type: 'string', description: 'boss 派的任务定义本身有硬伤(需求矛盾/基线指错/与工程现状冲突/范围不可行)且非设计可解时填原因,否则省略——对称 dev.designFlaw' },
   },
   required: ['summary', 'statePath', 'designDoc'],

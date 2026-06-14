@@ -4,4 +4,4 @@
 
 ## 当前被测任务:无
 
-上一单 item-system 已于 2026-06-14 关单 PASS,归档 `pipeline/archive/2026-06-14-item-system/test.md`。
+上一单 reward-display 通用奖励展示·归一层已于 2026-06-14 关单 PASS,归档 `pipeline/archive/2026-06-14-reward-display/test.md`。

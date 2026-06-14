@@ -27,6 +27,7 @@
       <div class="tree-group">系统底层</div>
       <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
       <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
+      <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
       <div class="tree-group">代码 / 工具</div>
       <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
       <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
@@ -107,6 +108,11 @@
         <span class="tag">系统 · 配置化道具</span>
         <h3>16 · 道具底层系统</h3>
         <p>用 Luban 道具表登记每件道具的名/描述/图标/品质(1–6)/类型/使用效果/叠放;运行期按 Id 查。实现礼包开启(随机按 rate 权重抽、自选返回候选列表),产出经 UseEffect 落既有系统(货币→数值/MergeOrderState、图案→MergeElement);提供基础背包容器(叠加上限 999→999+、不可叠占格、容量 100)。加法式不重构既有系统。新建独立表(不扩展模板 TbItem)。含 schema 字段表、品质/类型枚举、礼包权重逐档、礼包开启时序图、dev 改动清单与 24 条验收点。限时/邮件补偿/UI 跳转字段进表逻辑 stub。xlsx 系统底层批次第二刀。</p>
+      </a>
+      <a class="card" href="17-reward-display.html">
+        <span class="tag">系统 · 奖励展示归一</span>
+        <h3>17 · 通用奖励展示</h3>
+        <p>把三种异构奖励产出(道具 GrantPayload / 盲盒 ChestReward / 数值裸 num+数量)归一成统一展示结构 RewardView(图标资源名 + 名称文本 id + 数量文本 + 品质色 + 类型角标),让任何 UI(开箱三选一、礼包开启、订单交付)用同一套渲染。加法式纯逻辑 helper + POCO,只读不写既有产出/发奖路径。定一份权威 6 档品质色收编旧 4 档。含各源转换、归一时序图、dev 改动清单与 18 条纯逻辑验收点。真实 Sprite 加载/UI 投放本轮不做(只给图标资源名 + Widget 骨架)。xlsx 系统底层批次第三刀。</p>
       </a>
     </div>
 
