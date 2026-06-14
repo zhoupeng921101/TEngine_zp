@@ -8,14 +8,15 @@
 
 ### (无活跃任务)
 
-player-info 已于 2026-06-14 关单 PASS;自治授权随关单失效。
+settings 已于 2026-06-14 关单 PASS;自治授权随关单失效。
 
-**待开队列(放手默认按依赖序)**:通用邮件 → 通用设置 → 兑换码 → 排行榜 → TOAST → 音乐(原始 spec 在 `C:\Users\pc\Downloads\` 对应 xlsx)。下一个增量 = 通用邮件系统(1002,体量较大约 1.5MB)或 通用设置系统(1005,较轻);依赖序待 boss 取 spec 后定。另有非队列项:reward-display 表现层(#20)、player-info UI 表现层(#22)均阻塞于美术,不作自动下一个。恢复:读本文件 + 各 state 交接区(见 SKILL 恢复协议)。
+**待开队列(放手默认按依赖序)**:兑换码 → 排行榜 → TOAST → 音乐 → 通用邮件(体量最大,放后)。原始 spec 在 `C:\Users\pc\Downloads\` 对应 xlsx。另有非队列项:reward-display 表现层(#20)、player-info UI 表现层(#22)、settings UI 表现层(#24)均阻塞于美术,不作自动下一个。恢复:读本文件 + 各 state 交接区(见 SKILL 恢复协议)。
 
 ## 最近关单(索引;详情见各 `archive/<任务>/boss.md`)
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-14 | settings 通用设置系统·数据逻辑层(音频开关+持久化复用框架键/信息 getter;表现层转 #24) | PASS(自治·放手默认;full,0 打回;EditMode 294) | `archive/2026-06-14-settings-system/` |
 | 2026-06-14 | player-info 玩家信息系统·数据逻辑层(档案/头像表/名字/改名/解锁三态;表现层转 #22) | PASS(自治·放手默认;full,0 打回;EditMode 279;plan 空停根治首次实战无空停) | `archive/2026-06-14-player-info/` |
 | 2026-06-14 | reward-display 通用奖励展示·归一层(奖励→RewardView 归一;表现层转 #20) | PASS(自治·放手默认;full+dev-test,0 打回;EditMode 251) | `archive/2026-06-14-reward-display/` |
 | 2026-06-14 | item-system 道具底层(道具/礼包/背包;Luban 3 表) | PASS(自治·放手默认;full+dev-test,0 打回;EditMode 234) | `archive/2026-06-14-item-system/` |
@@ -53,3 +54,4 @@ player-info 已于 2026-06-14 关单 PASS;自治授权随关单失效。
 21. **[独立正名任务·低优]** reward-display 新建 6 档权威品质色 `RewardDisplay.QualityColor`(白/绿/蓝/紫/橙/红,对齐道具 EItemQuality);旧 4 档 `NumericDisplay.QualityColor`(白/蓝/紫/红,色序不一致)本轮冻结不删——它仍被 NumericDisplay 自用。收编:让 NumericDisplay 也走 RewardDisplay.QualityColor、删旧 4 档,须先核 UI 引用再删(对称 #10 collect-rename design-docs 旧名更新,均「先核引用后改」)。
 22. **[后续轮·player-info UI 表现层;阻塞于美术 + 具体 UI 流程]** player-info 本轮只交付数据逻辑层。6 个 UI 未投放:玩家信息界面、改名界面、头像/框三态网格(当前佩戴/已解锁/未解锁)、等级+经验槽、等级奖励预览 tips、主界面左上角入口(MainMenuWindow 已留 TODO 钩子)。均基于本层服务驱动,届时接真实窗口容器 + Play 手验交互。
 23. **[后续轮·player-info 数据层接线待补]** 钩子/接缝已就绪、待对应系统或调用方接入:① 解锁条件 type 2「活动发放」(`AvatarUnlockService.GrantUnlock` 钩子就绪,无活动系统不判);② 钻石可花费余额(`PlayerRenameService` 经 `trySpendDiamond` 接缝,生产默认 no-op,待数值系统实装钻石余额接真实扣减——与 item-system #19 钻石现状同源);③ 屏蔽字真实词表(`ProfanityFilter` 词表可注入,当前空表不拦,真实词表是后续数据);④ 多语言文本表(头像「解锁文字」存 textId,真实查表延后,与 numeric/reward NameTextId 同);⑤ 玩家经验真实来源接入 + 等级奖励内容(`PlayerExpService` 容器 + `PlayerLevelConfig` 曲线就绪,未接真实经验来源,等级奖励为占位接口)。均数据层不返工。
+24. **[后续轮·settings UI 表现层 + 接线待补;阻塞于美术 + 未建系统]** settings 本轮只交付数据逻辑层(音频设置 `GameLogic.Settings` + 信息 getter)。① UI 表现层:设置界面窗口 + 各按钮(音乐音效开关/联系客服/新手说明/版本号/用户协议·隐私/用户ID/兑换码入口)未投放,阻塞于美术(设置图标),基于本层服务驱动;② 接线待补:联系客服界面(spec 标待定)/ 协议·隐私真实 URL(当前占位常量,UI 接时 Application.OpenURL)/ 兑换码入口(依赖未建兑换码系统)/ 新手关跳转(依赖教学关)/ 提示文案多语言真实查表(存 textId 占位 190001-4)。音频开关本身已实装并经框架键持久化(`Setting.MusicMuted/SoundMuted`),真实音频实听走 Play 手验。

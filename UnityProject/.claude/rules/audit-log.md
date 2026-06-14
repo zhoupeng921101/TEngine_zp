@@ -76,3 +76,15 @@
   5. **carry-forward**:第五次审计观察项 1(decisions/blockers 判据落 plan 角色卡 / RETURN_NOTE / schema 描述 3 触点,漂移监视)——本次未触这三处,仍一致,继续监视。
   6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
 - 处置:无删除候选(纯合规化词面替换)。carry-forward 观察项续留。
+
+## 2026-06-14 第七次审计(增量·settings 关单触发)
+
+- 基线:第六次审计之后,commit `5251634a`。自基线规则栈改动:仅 `pipeline/memory/{plan,dev,test}.md` 各加 1-2 条经验(settings 轮沉淀:plan「设计设置/持久化前先 grep 框架是否已有该关注点约定」、dev「GameLogic.Settings 类型名与引擎内置重名 CS0104」+「复用框架 Setting.MusicMuted/SoundMuted 键 on↔muted 取反」、test「EditMode 域重载致桥会话瞬态注销 vs 真实 BLOCKED 的判读」)。无 CLAUDE.md/rules/SKILL/agent 改动。有改动(memory 条),不短路,查三样。
+- 范围:同上六项。
+- 结论:
+  1. **memory 经验条(准入合格)**:3 处新增均带 2026-06 先例、跨任务可复用、与既有条无同义重复(plan 的「grep 框架既有约定」对比既有「grep 实现文件符号」是不同层——框架关注点 vs 项目符号;dev 两条是 settings 专有坑;test 的瞬态注销与既有「no_session 整会话不可达=BLOCKED」显式区分 瞬态可恢复 vs 真实阻塞,非重复)。无死规则、无矛盾。
+  2. **语体交叉检(已就地修)**:本轮 agent 在持久文件再次写入比喻/私造词——memory/dev.md「撞」×2、state/plan.md「第五刀」、state/dev.md「撞」,boss 关单人工通读捕获,改平实(重名/同名/第五个增量)后归档。
+  3. **lint 正则的精度取舍(评估后不改,记健康)**:conventions 收尾/交叉检 lint 正则(`打死|挂了|收口|死在|尾巴上`)未含规则6 prose 所列的「撞/串」。评估:**不应补**——「撞」会误命中合法物理术语「碰撞/碰撞体/碰撞检测」(本项目 Unity 域高频),补进正则将产生假阳性。正则刻意保守(高精度低召回),规则6 已显式声明「grep 非穷尽、须人工通读判语体」,人工通读是真正兜底且本轮 boss 交叉检已生效(捕获全部 4 处)。故正则保持现状,非缺陷。
+  4. **carry-forward**:第五次观察项 1(decisions/blockers 判据 3 触点漂移监视)本轮未触,仍一致,续留。
+  5. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:无删除候选,无修正候选(lint 正则评估后判健康、不改)。observation:agent 持久文件再污染是常态,backstop = boss 关单人工通读(非 lint),已按 conventions 交叉检执行。

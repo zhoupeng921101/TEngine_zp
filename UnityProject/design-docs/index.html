@@ -29,6 +29,7 @@
       <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
       <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
       <a class="tree-link" href="18-player-info.html">18 · 玩家信息系统</a>
+      <a class="tree-link" href="19-settings-system.html">19 · 通用设置系统</a>
       <div class="tree-group">代码 / 工具</div>
       <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
       <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
@@ -119,6 +120,11 @@
         <span class="tag">系统 · 玩家信息</span>
         <h3>18 · 玩家信息系统(数据逻辑层)</h3>
         <p>玩家个人信息系统的数据逻辑层:玩家信息数据模型(id/名字/等级/经验/当前头像·框/已解锁集合)跨会话持久化,加名字生成器(Player+6随机字符)、改名逻辑(首免/配置价/钻石扣费尝试/屏蔽字匹配)、头像框解锁判定(等级条件→三态:佩戴/已解锁/未解锁)、id 复制剪贴板工具。新建 Luban 头像&框表(id/类型/图片/解锁文字/解锁条件)。玩家等级是独立第三进度线(不复用守护者经验);持久化并入既有 MergeMetaSave。加法式不重构既有系统。含 schema 字段表、等级曲线逐档代入、改名时序图、dev 改动清单与 30 条验收点。UI 窗口/三态网格/经验槽→表现层延后(需美术)。xlsx 系统底层批次第四刀。</p>
+      </a>
+      <a class="card" href="19-settings-system.html">
+        <span class="tag">系统 · 通用设置</span>
+        <h3>19 · 通用设置系统(数据逻辑层)</h3>
+        <p>常规游戏设置界面的数据逻辑层:音频设置(音乐开/关 + 音效开/关,默认全开)数据模型 + 本地持久化,加两个信息 getter(版本号 Application.version / 用户 ID 复用玩家信息 PlayerInfo.Id)。关键是复用框架既有设置约定——直写 TEngine.Constant.Setting.MusicMuted/SoundMuted 键(经 Utility.PlayerPrefs),muted↔on 取反映射,故启动流程 ProcedureLaunch.InitSoundSettings 零改动即「下次登录用本地配置」;切换经可注入 sink 推给 GameModule.Audio.MusicEnable/SoundEnable,经 ISettingsStore 接缝隔离 PlayerPrefs 使往返可单测。加法式不另造存储栈、不改框架代码。含键映射逐档代入表、切换时序图、dev 改动清单与 17 条验收点。设置界面 UI/各跳转按钮(客服/协议网址/兑换码/新手关/快捷登录)→表现层延后(需美术 icon),离线去变现:快捷登录不做、协议隐私存占位 URL、客服 stub。xlsx 系统底层批次第五刀。</p>
       </a>
     </div>
 
