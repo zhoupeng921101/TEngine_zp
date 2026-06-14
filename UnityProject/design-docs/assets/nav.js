@@ -56,6 +56,8 @@
         desc: '本工程第一个美术驱动的 UI 窗口:把效果图 setting.png 换皮成可运行的 SettingsWindow,兑现设计 19 设置系统的表现层(遗留 #24)。核心是打通「切图 → 每屏一个 SpriteAtlas v2 → prefab 摆节点(m_ 前缀)→ FindChildComponent 绑定 → [Window] 加载 → SetSubSprite 取子图 → 热更」整条链路,作为后续所有界面换皮的模板。含切图导入落点 / 图集建法 / YooAsset 收集器寻址(SetSubSprite 跑通的前提) / 1080×1920 节点树逐节点命名 + 子图映射 / 窗口脚本生命周期 / 每个按钮的实做vs占位分流表。基础设施决定:新建 GameContext 运行期上下文单例统一持有 SettingsService 等无主数据(影响后续 player-info/item/mail/rank)。数据层只调用不重写。验收拆「逻辑可单测」与「需 Play/人眼对位」两档。' },
     ]},
     { side: '代码 / 工具', card: '代码 / 工程', docs: [
+      { href: '24-ui-atlas-packer.html', side: '24 · 散切图打表工具', tag: '工具 · Editor 打表', title: '24 · 散切图打表工具(Editor)',
+        desc: '把一个散切图目录(AssetRaw/UIRaw/Atlas/<screen>/)一键合成一张 Multiple 模式精灵表 PNG,替代手工合表。读源 PNG → Texture2D.PackTextures 自动排布 → EncodeToPNG 写出 Sheet_<目录名>.png → TextureImporter 设 Sprite/Multiple/FullRect + 逐子图 SpriteMetaData(name=源文件名 / pivot 居中 / border 从源 TextureImporter.spriteBorder 继承 + 工具内可选覆盖 / rect 由排布定)→ SimulateBuild 重建模拟清单使 SetSubSprite 寻址生效。服务后续约 20 屏 UI 换皮打表(设计 23 范式的生产工具)。子图名=Sprite Editor 子精灵名=源文件名,故 LoadSubAssetsAsync<Sprite> 按文件名可取。不覆盖已存在文件、产出干净 N 子图(无早期自动切残留名表)。验收拆「工具行为 EditMode 可验(读回产出表断言 21 子图 + rect/pivot/border 对照现有 Sheet_settings.png)」与「运行期寻址 Play 验(count=21 + 按名取得到)」两档。' },
       { href: '07-blockblast-code-architecture.html', side: '07 · 代码架构剖析', tag: '工程 · 代码剖析', title: '07 · BlockBlast 代码架构剖析',
         desc: '离线还原版动态难度系统的 C# 实现:三层分层、调度数据流、位棋盘 + 蒙特卡洛评分器、CPU 热点与可调点。' },
       { href: '06-psd2ugui-componentize.html', side: '06 · PSD2UGUI 工具', tag: '工具 · 已落地', title: '06 · PSD2UGUI 组件化工具',

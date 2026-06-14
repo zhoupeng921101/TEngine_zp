@@ -1,0 +1,19 @@
+{
+    "name": "UIAtlasPacker.Editor",
+    "rootNamespace": "UIAtlasPackerTool",
+    "references": [
+        "YooAsset",
+        "Unity.2D.Sprite.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -6,18 +6,33 @@
 
 ## 当前任务
 
-**ui-atlas-packer · Editor 散切图打表工具(2026-06-15 开单)**
-- 范围:Editor 菜单工具,输入 `AssetRaw/UIRaw/Atlas/<screen>/` 散切图目录,输出一张 Multiple 模式精灵表 PNG(子图名=源文件名、自动排布并切 rect、pivot 居中、Sprite/Multiple/FullRect),落 `AssetRaw/UIRaw/Atlas/` 并设好 TextureImporter。服务后续约 20 屏 UI 换皮打表,替代手工合表。来源=遗留 #28。
-- 参与环节:plan→dev→test(full;新工具、有设计取舍)。设计基线=本轮 plan 产出。
-- 用户拍板(2026-06-15):① border 从源 PNG 的 `TextureImporter.spriteBorder` 继承 + 工具内可选覆盖;② 输出命名 `Sheet_<目录名>.png`、不覆盖已存在(`setting/` → `Sheet_setting.png`,与现有手工 `Sheet_settings.png` 并排比对、非破坏)。
-- 验收锚:对 `setting/`(21 源 PNG)跑工具 → `Sheet_setting.png` 含 21 命名子图、`SetSubSprite`/`LoadSubAssetsAsync<Sprite>` count=21,各子图 rect/pivot/border 与现有 `Sheet_settings.png` 对应子图一致(base_plate/base_plate2/base_plate3/box1/box2/button border=24,其余 15 个=0)。现有 `Sheet_settings.png` 的 `Sheet_settings_0..25` 是早期自动切残留、不在真实 sprites 列表(实际 count=21),工具产出不带此类残留。
+(无活跃单项;自治运行进行中,下一项见「自治运行」节执行顺序。最近关单:ui-atlas-packer 打表工具 PASS,见「最近关单」表 + `archive/2026-06-15-ui-atlas-packer/`。)
 
 > 背景方向(2026-06-14 用户拍板·xlsx 批次):剩余服务器/在线功能与本作离线·去变现方向不合,选「继续建底层,留服务器接缝」;兑换码/邮件/排行榜已落地关单。通用底层批基本到顶,转入 UI 换皮主线(遗留 #30),本工具是其前置。
+
+## 自治运行(2026-06-15 用户激活:「你自主决策,直到完成全部 UI」)
+
+- **授权范围**:塔罗成套美术(user-memory tarot-art-set)其余约 18 屏 UI 全部完成(遗留 #30)。当前 ui-atlas-packer 是其前置工具(#28)。
+- **git 基线**:`ded668bf`(设置窗关单 = 自治起跑基线;本地未 push,可 `git reset` 一键退回)。
+- **自主边界**:不 push / 不 build / 不发布。默认全自主推进,每次拍板记下方决策日志;抵触 GDD 方向 / 3 轮熔断 / 无安全默认 → 记 BLOCKED 跳过、继续不依赖项、结束呈报。
+- **范式**(每屏复用):精灵表寻址(打表工具产出)+ GameContext 持有无主数据层 + FindChildComponent/m_ 前缀绑定 + [Window]。有数据层屏走 dev-test,缺数据层新功能走 full(建离线底层 + 服务器接缝,对齐去变现·离线方向)。
+- **执行顺序**:① 打表工具 ✅关单 + 孤儿 #29 已清 → **当前 ② 换皮有数据层屏**(个人信息#22 / 游戏结束 / 恭喜通关 / 排行榜表现层#27)→ ③ tarot_mode 主 HUD(评估 hint/swap/delete 新机制)→ ④ 缺数据层新功能屏(占卜流程 / 牌组库 / 成就 / 每日任务 / 皮肤 / 关卡开始)→ ⑤ 收尾呈报。
+- **运行验证约定(本轮确立)**:子会话 Unity 桥不稳定 → 每屏 EditMode/Play 验证由 boss 主会话桥(`UnityProject@02a6dcaa`,稳定)直跑兜底;dev/test 子会话桥不可用时按静态分析改、boss 跑测锚定。
+
+### 自治决策日志
+- D1:打表工具优先于第二屏(test 建议;一次性投入摊薄 18 屏手工成本)。
+- D2:缺数据层新功能屏建「离线可用底层 + 服务器接缝」,对齐既定去变现·离线方向,不接真实付费/服务器。
+
+### 自治 BLOCKED 清单(结束呈报)
+- BLK1(抵触方向·待裁决):商店(商店.png)为真实货币内购(£ 标价宝石包),抵触本作去变现·离线·无服务器方向。不自动建付费 UI;可选替代=软通货商店(花游戏内赚的宝石买皮肤/道具,与离线方向相容)。待用户裁决。
+- BLK2(环境·已恢复 2026-06-15):此前 dev/test 子会话报 Unity 桥未注册 + Fantasy 包编译错阻断域重载。boss 主会话实测:桥已连(active_instance `UnityProject@02a6dcaa`)、工程编译通过(EditMode 377 跑起、BlockBlast 零回归)、Fantasy 编译错已不复现(环境透明恢复)。运行验证已可做,自治线恢复。注:**子会话的 Unity 桥可能仍不稳定(打表工具 dev/test 曾 no_session),boss 主会话桥稳定 → 验证由 boss 直跑兜底**。
+- ui-atlas-packer 打回(轮次 1·test FAIL=测试夹具缺陷,非工具缺陷):boss 用 execute_code 对真实 `setting/` 直跑 `Pack` 实证**工具正确**——产出 `Sheet_setting.png`、readback 21 命名子图、border 6×24+15×0、无残留名(验收锚 R2+S2 达成,sheet=Multiple、P 组寻址结构就绪)。但 11 例 EditMode 单测 8 例 NRE:根因在**测试夹具**——临时目录 `File.Copy`/`CopyAsset`+`AssetDatabase.Refresh` 在单测方法内不同步生效,`AssetImporter.GetAtPath` 返 null(`CreateFixtureFrom` 行 77→78 NRE),Pack 没跑到。spawn dev 返修测试夹具(工具勿动)。`Sheet_setting.png` 已由 boss 探针产出在磁盘(正确、保留=设置屏后续可用)。
 
 ## 最近关单(索引;详情见各 `archive/<任务>/boss.md`)
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-15 | ui-atlas-packer 散切图打表工具(Editor 菜单工具:切图目录→Multiple 精灵表 PNG `Sheet_<dir>`,子图名=源文件名/PackTextures 排布/pivot 居中/border 从源继承+_border_override.json 覆盖;现代 API ISpriteEditorDataProvider;Editor-only 不热更。塔罗 UI 换皮范式的生产工具,遗留 #28) | PASS(自治;full,1 打回[测试夹具资源时序 NRE,工具本身正确];boss 主会话桥直验 EditMode 378/378[BlockBlast 366+UIAtlasPacker 12]+ execute_code 实证工具产出 21 子图 6×24/15×0) | `archive/2026-06-15-ui-atlas-packer/` |
 | 2026-06-15 | ui-settings-window 设置窗美术换皮(首个美术驱动 UI 窗口;切图寻址范式=每屏一张 Multiple 精灵表 PNG + SetSubSprite[用户拍板 SpriteAtlas v2 经实测+test 复核技术不可行,等价替代];GameContext 运行期上下文统一持有无主数据层[方案 B];兑现 #24 settings 表现层) | PASS(常规·用户在场;full,0 打回;EditMode 366/366 + GameContextTests 7 真验 + Play V2 寻址独立复验通[Sheet_settings 21 子图、26/26 节点贴图、对位 setting.png]) | `archive/2026-06-15-ui-settings-window/` |
 | 2026-06-14 | rank 排行榜系统·数据逻辑层 + 服务器接缝(多榜配置 id 聚合/查榜+分数降序同分 AchievedTicks 升序顺序名次/入榜要求+CountMax+ShowMax/结算时机四档[Always/OpenDays/FixedTime/Weekly周循环]+幂等/每日点赞跨天/红点;发奖三种统一经邮件 21 IMailService.Send,排名层不碰 MergeOrderState/16;IRankSource 离线本地榜+远程 stub 零网络;持久化复用 Provider 键 Rank.Progress;表现层+真实全服榜转 #27) | PASS(自治·放手默认;full,0 打回;EditMode 359/359 + Rank 24 + Luban C3 GREEN) | `archive/2026-06-14-rank-system/` |
 | 2026-06-14 | mail 通用邮件系统·数据逻辑层 + 服务器/运营接缝(收件箱/领取单+一键/删除/自动清理/红点;IMailService.Send 对外 API + IMailSource 运营 stub;发奖复用 16、持久化复用 Provider;表现层+真实服务器转 #26) | PASS(自治·放手默认;分两段:plan 撞用量上限→基线 367c080d,dev-test 续接 0 打回;BlockBlast 335/335 + Mail 24/24 + Luban 直读) | `archive/2026-06-14-mail-system/` |
