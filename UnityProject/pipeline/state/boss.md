@@ -8,13 +8,14 @@
 
 无活跃任务。
 
-**xlsx 系统底层批次方向决策(2026-06-14 用户拍板)**:剩余队列本质是服务器/在线功能,与本作离线·去变现·无服务器方向不合;用户选「**继续建底层,留服务器接缝**」——当可复用通用底层做,逻辑层可测、服务器侧抽接缝 + TODO,离线版 inert。兑换码、邮件已按此落地(关单)。
-**队列剩余**:排行榜(`1007排行榜底层-----.xlsx`)——结算发奖接本批已建的邮件服务 `IMailService.Send`(spec mail 字段=邮件id)+ 排名数据源抽服务器接缝(离线本地榜)。TOAST(1008,纯 UI/阻塞于美术)与 音乐(1009,与 settings 音频重合)离线近空。
+**xlsx 系统底层批次方向决策(2026-06-14 用户拍板)**:剩余队列本质是服务器/在线功能,与本作离线·去变现·无服务器方向不合;用户选「**继续建底层,留服务器接缝**」——当可复用通用底层做,逻辑层可测、服务器侧抽接缝 + TODO,离线版 inert。兑换码、邮件、排行榜已按此落地(关单)。
+**队列**:本批通用底层基本到顶——排行榜已关单;余 TOAST(1008,纯 UI/阻塞于美术)与 音乐(1009,与 settings 音频重合)离线近空,无实质离线底层可建。下一步方向待用户定(表现层/接真实服务器/新方向)。
 
 ## 最近关单(索引;详情见各 `archive/<任务>/boss.md`)
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-14 | rank 排行榜系统·数据逻辑层 + 服务器接缝(多榜配置 id 聚合/查榜+分数降序同分 AchievedTicks 升序顺序名次/入榜要求+CountMax+ShowMax/结算时机四档[Always/OpenDays/FixedTime/Weekly周循环]+幂等/每日点赞跨天/红点;发奖三种统一经邮件 21 IMailService.Send,排名层不碰 MergeOrderState/16;IRankSource 离线本地榜+远程 stub 零网络;持久化复用 Provider 键 Rank.Progress;表现层+真实全服榜转 #27) | PASS(自治·放手默认;full,0 打回;EditMode 359/359 + Rank 24 + Luban C3 GREEN) | `archive/2026-06-14-rank-system/` |
 | 2026-06-14 | mail 通用邮件系统·数据逻辑层 + 服务器/运营接缝(收件箱/领取单+一键/删除/自动清理/红点;IMailService.Send 对外 API + IMailSource 运营 stub;发奖复用 16、持久化复用 Provider;表现层+真实服务器转 #26) | PASS(自治·放手默认;分两段:plan 撞用量上限→基线 367c080d,dev-test 续接 0 打回;BlockBlast 335/335 + Mail 24/24 + Luban 直读) | `archive/2026-06-14-mail-system/` |
 | 2026-06-14 | redeem-code 通用兑换码系统·数据逻辑层 + 服务器接缝(IRedeemValidator 可注入/本地 Luban 校验+远程 stub;发奖复用 16;去重复用 Persistence;表现层+真实服务器转 #25) | PASS(自治·放手默认;full,0 打回;BlockBlast 311/311 + Redeem 17/17 + Luban 直读) | `archive/2026-06-14-redeem-code-system/` |
 | 2026-06-14 | settings 通用设置系统·数据逻辑层(音频开关+持久化复用框架键/信息 getter;表现层转 #24) | PASS(自治·放手默认;full,0 打回;EditMode 294) | `archive/2026-06-14-settings-system/` |
@@ -58,3 +59,4 @@
 24. **[后续轮·settings UI 表现层 + 接线待补;阻塞于美术 + 未建系统]** settings 本轮只交付数据逻辑层(音频设置 `GameLogic.Settings` + 信息 getter)。① UI 表现层:设置界面窗口 + 各按钮(音乐音效开关/联系客服/新手说明/版本号/用户协议·隐私/用户ID/兑换码入口)未投放,阻塞于美术(设置图标),基于本层服务驱动;② 接线待补:联系客服界面(spec 标待定)/ 协议·隐私真实 URL(当前占位常量,UI 接时 Application.OpenURL)/ 兑换码入口(兑换码系统已建,2026-06-14;入口按钮接 `GameLogic.Redeem` 服务即可,见 #25)/ 新手关跳转(依赖教学关)/ 提示文案多语言真实查表(存 textId 占位 190001-4)。音频开关本身已实装并经框架键持久化(`Setting.MusicMuted/SoundMuted`),真实音频实听走 Play 手验。
 25. **[后续轮·redeem-code 表现层 + 真实服务器;阻塞于美术 + 无网络模块]** redeem-code 本轮交付数据逻辑层 + 服务器接缝(`GameLogic.Redeem`:`IRedeemValidator` 可注入,本地 `LocalConfigRedeemValidator` 查 Luban 表 + 远程 `RemoteRedeemValidator` stub 返 SourceUnavailable 零网络调用;发奖复用 16 `ItemGrant.GrantOnAcquire`;去重复用 `Persistence.Provider` 键 `Redeem.Redeemed`)。未做:① 真实服务器校验——工程无网络模块,`RemoteRedeemValidator` 待网络模块就绪后实现,服务层零改动切注入;② UI 表现层(需美术):兑换码输入界面 + 结果弹窗 + 真实 Sprite;③ 设置界面兑换码入口按钮接线(`SettingsLinks.OpenRedeemCode()` TODO 已指向本服务,#24)。结果文案 textId 占位 110601–110606,真实多语言查表延后(同 num/item/reward/settings)。逻辑层不返工。
 26. **[后续轮·mail 表现层 + 真实服务器;阻塞于美术 + 无网络模块]** mail 本轮交付数据逻辑层 + 两道接缝(`GameLogic.Mail`:收件箱模型 + `MailboxService` 收件/列表/已读/领取单+一键/删除已读/自动清理超N+过期/红点;`IMailService.Send` 对外发件 API 真做;`IMailSource`/`InertMailSource` 运营推送 stub;发奖复用 16 `GiftOpener`→`ItemGrant`、持久化复用 `Persistence.Provider` 键 `Mail.Inbox`)。未做:① UI 表现层(需美术)——邮件界面/详情/无邮件态/全部删除确认/红点显示/icon/真实 Sprite/主界面入口接线;② 真实服务器后台发删/定时邮件 + 区服多选——无网络模块,`IMailSource` 待网络模块就绪后实现(离线视单一本地区服);③ 多语言文案真实查表(textId 占位 110701-110725)。排行榜结算(#队列下一项)届时接 `IMailService.Send` 发奖。逻辑层不返工。
+27. **[后续轮·rank 表现层 + 真实服务器/全服榜;阻塞于美术 + 无网络模块]** rank 本轮交付数据逻辑层 + 两道接缝(`GameLogic.Rank`:配置按 id 聚合多榜 `RankConfigMgr` + 名次档 `RankDef.TierForRank`;`RankService` 查榜/分数降序+同分 AchievedTicks 升序+顺序名次/入榜要求+CountMax+ShowMax/我的名次;结算编排 `IsSettleDue` 四档[Always/OpenDays/FixedTime/Weekly 周循环]+`CheckAndSettle` 纯方法幂等防重不起定时器;每日 `ClaimDaily`/点赞 `ClaimPraise` 跨天重置;红点 `HasClaimable`;发奖三种统一经邮件 21 `IMailService.Send` 挂奖励库 id,排名层不碰 MergeOrderState/ItemGrant/GiftOpener;持久化复用 `Persistence.Provider` 键 `Rank.Progress`,只存本机进度,他人成绩不进盘)。未做:① UI 表现层(需美术)——排行榜界面/榜单列表/我的名次条/点赞按钮/奖励预览/头像 + icon 红点显示 + 主界面入口接线;② 真实全服榜 + 真实他人数据——无网络模块,`RemoteRankSource` 返空 stub 零网络,待网络模块就绪后实现、服务层零改动切注入(陪榜成绩当前由配置/注入基准分,非随机 NPC);③ 各玩法接入——`rank_method` 玩法类型整数枚举占位,各玩法届时经 `SubmitScore` 提交成绩;④ 结算自动触发时机——`CheckAndSettle` 触发交调用方(登录/tick 由表现层接),本轮不起后台定时器;⑤ 文案 textId 占位真实多语言查表延后(同 num/item/reward/settings/redeem/mail),含 `RankService.GetMyBest` 暂借 `RankText.SettleSender` 当占位玩家名 textId(O6 范畴,真实查表时归位)。逻辑层不返工。

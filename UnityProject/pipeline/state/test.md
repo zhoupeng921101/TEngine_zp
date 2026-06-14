@@ -4,4 +4,4 @@
 
 ## 当前被测任务:无
 
-上一单 mail 通用邮件系统·数据逻辑层 + 服务器/运营接缝已于 2026-06-14 关单 PASS,归档 `pipeline/archive/2026-06-14-mail-system/test.md`。
+上一单 rank 排行榜系统·数据逻辑层 + 服务器接缝已于 2026-06-14 关单 PASS,归档 `pipeline/archive/2026-06-14-rank-system/test.md`。

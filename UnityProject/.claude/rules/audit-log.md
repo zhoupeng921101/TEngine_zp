@@ -40,3 +40,17 @@
 - 效果:历史段(22KB)真正移出每窗口注入,活跃 audit-log 注入降到数 KB(此前仅拆分未减,见触发)。预期下个窗口注入清单不再含 audit-log-2026-06——`.claude/rules-archive/` 不在 `.claude/rules/` 下;claudeMd 项目指令注入只覆盖 `.claude/rules/`、不递归整个 `.claude/`(证据:`.claude/skills`、`.claude/agents` 从不作为项目指令注入)。
 - 反向冲突检查(conventions 准入第6条):旧表述「`.claude/rules/*.md`」与实测递归注入冲突,已同次全栈订正,无孤儿;与「注入信道分层」段方向一致(那段定原则,本段修执行偏差)。
 - 处置:订正+加法,无删除候选。本段作下次增量审计基线。
+
+## 2026-06-14 第十次审计(增量·rank 关单触发)
+
+- 基线:第九次审计(commit `f51bd660`)+ 其后两段登记(注入信道分层 `5bc3c7aa`、历史归档移出注入范围 `f191b67a`)。自基线规则栈改动:① 上两段已登记的注入信道/审计条款改动 + audit-log 历史移出 `.claude/rules/`;② `pipeline/memory/dev.md` +2 条(跨系统调用链触及 `ConfigSystem` 须给被调系统 `ConfigMgr.InitForTest` 注入,防 YooAsset「Default package is null」;周循环结算 ISO 周判据);③ `pipeline/memory/plan.md` +2 条(新系统发奖借既有下发系统对外 API、不直接接 ItemGrant;一表控所有 X 用 row_id 唯一主键 + 语义 id 聚合)。有改动,不短路,查三样 + 信道匹配。
+- 范围:CLAUDE.md、`.claude/rules/`、各 SKILL.md、`.claude/agents/*.md`、`.claude/workflows/pipeline-auto.js`、`pipeline/memory/*` 文件头。
+- 结论:
+  1. **信道匹配(#4 首次触发,健康)**:本轮注入集有增减——`.claude/rules/archive/audit-log-2026-06.md` 移出为 `.claude/rules-archive/audit-log-2026-06.md`(出递归注入范围)。核:活跃 audit-log(审计基线,每轮相关)留注入内正确;历史归档(低频追溯)移出正确;新设 `.claude/rules-archive/` 不在 `.claude/rules/` 下、不被注入,归位正确。并订正旧表述「`.claude/rules/*.md`」(暗示仅顶层)→「递归含子目录」,与实测一致。
+  2. **重复(无)**:plan「借既有下发系统 API 发奖」对比既有「grep 框架既有约定复用」是不同层(发奖编排 vs 框架键复用);「row_id 聚合一表多档」对比既有「单行全局配置表」「TbItem 模板新建」非同义(多行聚合 vs 单行旋钮 vs 模板取舍)。dev「跨系统 InitForTest 注入」是新坑(EditMode 跨系统 YooAsset);「ISO 周结算判据」是新算法点。均无同义副本。
+  3. **矛盾(无)**:memory 全加法;注入信道两段登记的反向冲突检查已记(旧「*.md」表述同次全栈订正,无孤儿)。
+  4. **死规则(无)**:memory 4 条均带 2026-06 rank 实例;信道匹配 #4 首次实战即用上(本轮触发)。
+  5. **健康面**:① rank 是放手默认 full 又一轮零打回零空停(plan 范围开关全走 decisions、零 blocker;17 条 decisions 全安全默认);② 核磁盘交付物闸第二次实战通过(本轮 verdict 与磁盘一致,git status 非空 + 6 .cs/测试/Luban/设计稿全在),与 mail 轮的假 PASS 拦截形成正反两例;③ 批次内系统逐层叠(num→item→reward→mail→rank)印证 plan 新 memory「越往后越只是编排、几乎不新造底层」——rank 零新底层,全复用 21 邮件 + 16 发奖 + Provider;④ dev/test 持久文件语体干净(test 关单 grep 0 命中 + boss 复核 memory diff 无比喻/指代/diff 叙事)。
+  6. **carry-forward**:第五次观察项(decisions/blockers 判据 3 触点漂移)、第八次观察项 2(语体指引 conventions/plan 两处)本轮均未触,仍一致,续留。
+  7. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:无删除候选;本轮含一次主动订正(`.claude/rules/*.md`→递归,已在 `f191b67a` 完成)。本段作下次增量审计基线。

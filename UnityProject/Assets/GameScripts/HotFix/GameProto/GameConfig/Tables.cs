@@ -243,6 +243,27 @@ public partial class Tables
             m_TbMailGlobal.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// rank board table (multi-tier per id)
+    /// </summary>
+    private rank.TbRank m_TbRank;
+    public rank.TbRank TbRank 
+    {
+        get
+        {
+            if (m_TbRank == null)
+            {
+                m_TbRank = new rank.TbRank(defaultLoader("rank_tbrank"));
+                m_TbRank.ResolveRef(this);
+            }
+            return m_TbRank;
+        }
+        set
+        {
+            m_TbRank = value;
+            m_TbRank.ResolveRef(this);
+        }
+    }
 
     #endregion
 
