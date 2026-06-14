@@ -53,6 +53,10 @@ namespace GameLogic.BlockBlastUI
             // BEST
             UGuiFactory.CreateText(content, "Best", cx, 1020, 470, 50, $"BEST  {state.HighScore}", 32,
                 new Color32(0xaa, 0xbb, 0xdd, 0xFF));
+
+            // TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow。
+            // 数据逻辑层（设计 18）已就绪：PlayerInfo / PlayerRenameService / AvatarUnlockService /
+            // PlayerLevelConfig / AvatarConfigMgr / ClipboardUtil；UI 表现层延后（需美术，O1）。
         }
     }
 }

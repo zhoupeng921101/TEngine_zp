@@ -63,3 +63,16 @@
   5. **carry-forward(无)**:第三/四次审计的 meta.description 观察项已于第四次处置闭环;无悬留。
   6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
 - 处置:无删除候选(本次为加法/收窄,且替换旧条同次完成)。观察项 1(3 触点漂移监视)留下次审计复核,不静默改。
+
+## 2026-06-14 第六次审计(增量·player-info 关单触发)
+
+- 基线:第五次审计之后,commit `88c4cc47`(语体清理)。自基线规则栈改动:register-sweep(通读 + 对抗复核 + grep 兜查)在活跃持久文件查出拟人/口语比喻 + 私造词,改平实词——`.claude/agents/pipeline-plan.md`(砍掉→不做)、`.claude/skills/unity-check/SKILL.md`(强杀→强制关闭)、`.claude/skills/pipeline/SKILL.md`(开跑→启动、该闸→这道启动前检查)、`.claude/workflows/pipeline-auto.js`(空转烧轮次→空转、白费轮次)。触发动因:用户 2026-06-14 点名「下一刀是不是黑话」,顺查整个规则栈语体。有改动,不短路,查三样。
+- 范围:CLAUDE.md、`.claude/rules/`、各 SKILL.md、`.claude/agents/*.md`、`.claude/workflows/pipeline-auto.js`、`pipeline/memory/*` 文件头。
+- 结论:
+  1. **重复(无)**:本次是纯词面替换(比喻→平实),无新增规则内容,不产生新副本。
+  2. **矛盾(无)**:词面改动不动语义(砍掉→不做、强杀→强制关闭、开跑→启动 等),且方向与 conventions 规则6「平实语体」一致——是合规化而非冲突。被替换的旧词非任何条款依赖的术语。
+  3. **死规则(无)**:未新增规则。
+  4. **健康面**:① player-info 轮(commit 待本次关单)是 plan 空停根治(31e5e37b)首次实战——plan 把全部范围开关放进 decisions、未塞 blockers,流水线一路 plan→dev→test 无空停,根治有效;② register-sweep 暴露固定词 lint 的局限(它漏标 memory/dev.md「丢掉」、未覆盖 .js),印证 conventions 规则6「grep 非穷尽、须人工通读」——本次靠 通读 agent + 直接 grep 兜查 双道补齐;③ 冻结归档与 conventions/语体记忆里「作为反面示例引用」的比喻词正确未动。
+  5. **carry-forward**:第五次审计观察项 1(decisions/blockers 判据落 plan 角色卡 / RETURN_NOTE / schema 描述 3 触点,漂移监视)——本次未触这三处,仍一致,继续监视。
+  6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:无删除候选(纯合规化词面替换)。carry-forward 观察项续留。

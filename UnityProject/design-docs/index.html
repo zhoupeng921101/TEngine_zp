@@ -28,6 +28,7 @@
       <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
       <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
       <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
+      <a class="tree-link" href="18-player-info.html">18 · 玩家信息系统</a>
       <div class="tree-group">代码 / 工具</div>
       <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
       <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
@@ -113,6 +114,11 @@
         <span class="tag">系统 · 奖励展示归一</span>
         <h3>17 · 通用奖励展示</h3>
         <p>把三种异构奖励产出(道具 GrantPayload / 盲盒 ChestReward / 数值裸 num+数量)归一成统一展示结构 RewardView(图标资源名 + 名称文本 id + 数量文本 + 品质色 + 类型角标),让任何 UI(开箱三选一、礼包开启、订单交付)用同一套渲染。加法式纯逻辑 helper + POCO,只读不写既有产出/发奖路径。定一份权威 6 档品质色收编旧 4 档。含各源转换、归一时序图、dev 改动清单与 18 条纯逻辑验收点。真实 Sprite 加载/UI 投放本轮不做(只给图标资源名 + Widget 骨架)。xlsx 系统底层批次第三刀。</p>
+      </a>
+      <a class="card" href="18-player-info.html">
+        <span class="tag">系统 · 玩家信息</span>
+        <h3>18 · 玩家信息系统(数据逻辑层)</h3>
+        <p>玩家个人信息系统的数据逻辑层:玩家信息数据模型(id/名字/等级/经验/当前头像·框/已解锁集合)跨会话持久化,加名字生成器(Player+6随机字符)、改名逻辑(首免/配置价/钻石扣费尝试/屏蔽字匹配)、头像框解锁判定(等级条件→三态:佩戴/已解锁/未解锁)、id 复制剪贴板工具。新建 Luban 头像&框表(id/类型/图片/解锁文字/解锁条件)。玩家等级是独立第三进度线(不复用守护者经验);持久化并入既有 MergeMetaSave。加法式不重构既有系统。含 schema 字段表、等级曲线逐档代入、改名时序图、dev 改动清单与 30 条验收点。UI 窗口/三态网格/经验槽→表现层延后(需美术)。xlsx 系统底层批次第四刀。</p>
       </a>
     </div>
 

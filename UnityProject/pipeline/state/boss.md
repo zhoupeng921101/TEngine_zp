@@ -8,14 +8,15 @@
 
 ### (无活跃任务)
 
-reward-display 归一层已于 2026-06-14 关单 PASS;自治授权随关单失效。
+player-info 已于 2026-06-14 关单 PASS;自治授权随关单失效。
 
-**待开队列(放手默认按依赖序)**:玩家信息系统 → 邮件/兑换码/排行榜 → TOAST/音乐(原始 spec 在 `C:\Users\pc\Downloads\` 对应 xlsx)。下一刀 = 玩家信息系统(下个 xlsx,按依赖序)。另有非队列项:reward-display **表现层**(遗留 #20)阻塞于美术,不作自动下一刀。恢复:读本文件 + 各 state 交接区(见 SKILL 恢复协议)。
+**待开队列(放手默认按依赖序)**:通用邮件 → 通用设置 → 兑换码 → 排行榜 → TOAST → 音乐(原始 spec 在 `C:\Users\pc\Downloads\` 对应 xlsx)。下一个增量 = 通用邮件系统(1002,体量较大约 1.5MB)或 通用设置系统(1005,较轻);依赖序待 boss 取 spec 后定。另有非队列项:reward-display 表现层(#20)、player-info UI 表现层(#22)均阻塞于美术,不作自动下一个。恢复:读本文件 + 各 state 交接区(见 SKILL 恢复协议)。
 
 ## 最近关单(索引;详情见各 `archive/<任务>/boss.md`)
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-14 | player-info 玩家信息系统·数据逻辑层(档案/头像表/名字/改名/解锁三态;表现层转 #22) | PASS(自治·放手默认;full,0 打回;EditMode 279;plan 空停根治首次实战无空停) | `archive/2026-06-14-player-info/` |
 | 2026-06-14 | reward-display 通用奖励展示·归一层(奖励→RewardView 归一;表现层转 #20) | PASS(自治·放手默认;full+dev-test,0 打回;EditMode 251) | `archive/2026-06-14-reward-display/` |
 | 2026-06-14 | item-system 道具底层(道具/礼包/背包;Luban 3 表) | PASS(自治·放手默认;full+dev-test,0 打回;EditMode 234) | `archive/2026-06-14-item-system/` |
 | 2026-06-14 | numeric-system 数值底层(配置化数值/Luban 货币表) | PASS(自治·放手默认;首个 Luban 表;full+dev-test,0 打回;EditMode 209) | `archive/2026-06-14-numeric-system/` |
@@ -50,3 +51,5 @@ reward-display 归一层已于 2026-06-14 关单 PASS;自治授权随关单失�
 19. **[后续轮·接 GrantOnAcquire 调用方时]** item-system 的 `ItemGrant.GrantOnAcquire`(Automatic 分流 + 礼包递归,深度上限 5)无单测兜底(本轮经 Play 反射直调验证逻辑正确);且源 `itemdef.xlsx` 30006 automatic=0 与测试夹具 automatic=1 不一致(automatic 非验收项、无 test 调 GrantOnAcquire,故不影响本轮)。待礼包「获取即开」接到真实调用方时:补 GrantOnAcquire 单测 + 统一 30006 automatic 语义。
 20. **[后续轮·reward-display 表现层;阻塞于美术 + 具体 UI 流程]** reward-display 本轮只交付归一层(奖励→RewardView)。源 spec 1003 的两种**可见展示**未做:① 弹框类网格布局(超过一排从左上往下排、不足一排居中);② 基础类飞图标到锚点(奖励类型→对应 UI 锚点:货币→资源栏、道具/图案→探险位等)。二者基于 RewardView 驱动,但 grid-calc 与 anchor-map 的契约依赖尚不存在的真实弹窗容器 / HUD 锚点 Transform + 无美术(图标 Sprite),此刻盲建为投机性工作。待有美术 + 具体奖励 UI 流程触达时:对真实容器实现 grid 布局与飞行组件,逻辑层(布局计算 溢出顶左/不足居中、奖励类型→锚点映射)补 EditMode 单测,补间/指针视觉走 Play 手验。设计 §七 O1/O4/O8(真实 Sprite/多语言文本表/单件恒显 x1 重载)同属「接 UI 时做」,归一层不返工,低优,在 17-reward-display.html §七 备查。
 21. **[独立正名任务·低优]** reward-display 新建 6 档权威品质色 `RewardDisplay.QualityColor`(白/绿/蓝/紫/橙/红,对齐道具 EItemQuality);旧 4 档 `NumericDisplay.QualityColor`(白/蓝/紫/红,色序不一致)本轮冻结不删——它仍被 NumericDisplay 自用。收编:让 NumericDisplay 也走 RewardDisplay.QualityColor、删旧 4 档,须先核 UI 引用再删(对称 #10 collect-rename design-docs 旧名更新,均「先核引用后改」)。
+22. **[后续轮·player-info UI 表现层;阻塞于美术 + 具体 UI 流程]** player-info 本轮只交付数据逻辑层。6 个 UI 未投放:玩家信息界面、改名界面、头像/框三态网格(当前佩戴/已解锁/未解锁)、等级+经验槽、等级奖励预览 tips、主界面左上角入口(MainMenuWindow 已留 TODO 钩子)。均基于本层服务驱动,届时接真实窗口容器 + Play 手验交互。
+23. **[后续轮·player-info 数据层接线待补]** 钩子/接缝已就绪、待对应系统或调用方接入:① 解锁条件 type 2「活动发放」(`AvatarUnlockService.GrantUnlock` 钩子就绪,无活动系统不判);② 钻石可花费余额(`PlayerRenameService` 经 `trySpendDiamond` 接缝,生产默认 no-op,待数值系统实装钻石余额接真实扣减——与 item-system #19 钻石现状同源);③ 屏蔽字真实词表(`ProfanityFilter` 词表可注入,当前空表不拦,真实词表是后续数据);④ 多语言文本表(头像「解锁文字」存 textId,真实查表延后,与 numeric/reward NameTextId 同);⑤ 玩家经验真实来源接入 + 等级奖励内容(`PlayerExpService` 容器 + `PlayerLevelConfig` 曲线就绪,未接真实经验来源,等级奖励为占位接口)。均数据层不返工。

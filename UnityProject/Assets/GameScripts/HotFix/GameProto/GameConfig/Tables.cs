@@ -138,6 +138,27 @@ public partial class Tables
             m_TbGiftSelect.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 头像与头像框表
+    /// </summary>
+    private avatar.TbAvatar m_TbAvatar;
+    public avatar.TbAvatar TbAvatar 
+    {
+        get
+        {
+            if (m_TbAvatar == null)
+            {
+                m_TbAvatar = new avatar.TbAvatar(defaultLoader("avatar_tbavatar"));
+                m_TbAvatar.ResolveRef(this);
+            }
+            return m_TbAvatar;
+        }
+        set
+        {
+            m_TbAvatar = value;
+            m_TbAvatar.ResolveRef(this);
+        }
+    }
 
     #endregion
 

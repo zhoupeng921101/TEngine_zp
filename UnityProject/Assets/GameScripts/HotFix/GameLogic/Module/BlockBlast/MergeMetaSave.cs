@@ -32,5 +32,16 @@ namespace GameLogic.BlockBlast
         // ── 每日字段（配跨天重置 §3.6）──────────────────────────
         public int wishUsedToday;            // 今日已用祈愿次数
         public string lastWishResetDate;     // 上次祈愿重置日期 yyyy-MM-dd（本地日期）
+
+        // ── 玩家信息字段（设计 18 §3.8 做法 a 平铺；既有字段一行不改，CurrentVersion 不升）──
+        // 旧档缺这些字段 → JsonUtility 给缺省（""/0/null）；保底夹值在 PlayerInfo.ImportFromMeta（§3.8 注）。
+        public string playerId;              // 玩家本地唯一 id
+        public string playerName;            // 当前昵称
+        public int playerRenameCount;        // 已改名次数
+        public int playerExp;                // 玩家账号经验（独立第三进度线，不复用 exp/守护者）
+        public int curAvatarId;              // 当前佩戴头像 id
+        public int curFrameId;               // 当前佩戴头像框 id
+        public int[] unlockedAvatarIds;      // 已解锁头像 id 集合（JsonUtility 序列化 int[]）
+        public int[] unlockedFrameIds;       // 已解锁头像框 id 集合
     }
 }
