@@ -6,30 +6,17 @@
 
 ## 当前任务
 
-### item-system — 道具底层(配置化道具/礼包/背包;2026-06-14 起单;**自治模式·放手默认**)
+### (无活跃任务)
 
-**参与环节**:plan→dev→test 全程(baton=full,新系统 + 多 Luban 表)。**git 基线 commit 待自动提交补**。设计基线由 plan 产出(design-docs/16)。
+item-system 已于 2026-06-14 关单 PASS;自治授权随关单失效。
 
-**来由**:xlsx 批次第二刀(放手默认自动接,依赖序:数值底层已完成→道具底层)。原始 spec `C:\Users\pc\Downloads\1002道具底层.xlsx`(全表已提取进 workflow task)。
-
-**本轮范围**:Luban 道具表(Id/Name/Desc/Icon/Quality[1-6]/Type/UseEffect/参数/Stacking/Automatic 等)+ 随机礼包表 + 自选礼包表 + 品质/类型枚举 + 运行期道具注册表(按 id 查)+ 礼包开启逻辑(随机按权重/自选)+ 基础背包容器(计数,叠加上限 999→999+)。UseEffect=1 货币复用刚建的数值系统、=2 图案复用 MergeElement。
-
-**明确不在本轮(spec 自身依赖未建系统)**:限时道具(Term/TermTime/到期补偿 Compensate→Reward 表/CompensateEmail→邮件)→ 邮件/奖励系统未建,本轮 stub 或省;背包溢出→邮件补发(邮件未建)→ 本轮仅容量上限、不发邮件;获取跳转 JumpList(UI 导航)→ 省;icon 真实 Sprite/特效 Light(无美术)→ 资源名占位。
-
-**硬约束**:Luban 定表导表(不硬编码;导表环境见 dev memory:DOTNET_ROLL_FORWARD=Major / c,s 组写法);加法式不破坏核心循环 + 已建系统;现有 EditMode 209 例零回归。
-
-**自主边界(放手默认)**:默认全自主,岔路按默认走记决策日志;唯一停下 = 与 spec 抵触、任务定义硬伤、或 Luban 管线不可用。不 push/build/发布。
-
-**模型档**:plan=opus、dev=opus(多 Luban 表 + 礼包逻辑 + 背包,耦合数值系统)、test=opus(配置加载 + 礼包权重 + 背包边界验证)。
-
-**队列(本轮后接,放手默认按依赖序)**:奖励展示 → 玩家信息 → 邮件/兑换码/排行榜 → TOAST/音乐。
-
-**自治运行登记**:Workflow `pipeline-auto`,runId 待补。
+**待开队列(放手默认按依赖序)**:奖励展示 → 玩家信息 → 邮件/兑换码/排行榜 → TOAST/音乐(原始 spec 在 `C:\Users\pc\Downloads\` 对应 xlsx)。下一刀 = 通用奖励展示(1003,依赖数值+道具,均已建)。用户请求压缩上下文,在本轮间边界暂停;`/compact` 后说「go/继续」即按放手默认起奖励展示(恢复:读本文件 + 各 state 交接区,见 SKILL 恢复协议)。
 
 ## 最近关单(索引;详情见各 `archive/<任务>/boss.md`)
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-14 | item-system 道具底层(道具/礼包/背包;Luban 3 表) | PASS(自治·放手默认;full+dev-test,0 打回;EditMode 234) | `archive/2026-06-14-item-system/` |
 | 2026-06-14 | numeric-system 数值底层(配置化数值/Luban 货币表) | PASS(自治·放手默认;首个 Luban 表;full+dev-test,0 打回;EditMode 209) | `archive/2026-06-14-numeric-system/` |
 | 2026-06-14 | save-system MergeOrderState 跨会话存档 | PASS(自治·放手默认;核心 full + 时机层 dev-test,各 0 打回;解决遗留 #14) | `archive/2026-06-14-save-system/` |
 | 2026-06-14 | piety-temple-repair 虔诚币+神庙修复主线 | PASS(自治·放手默认;full 一轮过,0 打回) | `archive/2026-06-14-piety-temple-repair/` |
@@ -59,3 +46,4 @@
 16. **[用户·人工]** piety-temple-repair Play 手验:神庙按钮叠层开 TempleWindow 不丢局、12 厅四态渲染、点修复扣币+发奖+升级弹字+顶部刷新、关窗回底层刷虔诚币。逻辑层已由 19 例单测 + 一次真实 UI 路径手验覆盖,仅核拖拽落子等指针交互的视觉呈现。
 17. **[用户·人工·真机]** save-system 真机切后台落盘:`UpdateDriver` 应用暂停事件→FlushSaveIfDirty 的真实触发须真机/真切后台验(MCP 不能挂起编辑器)。逻辑等价路径(pause==true 落盘 / false 不写 / 全清跨会话保真)已用生产 PlayerPrefs 路径跑通,仅核真机暂停回调确触发。
 18. **[出包/CI·环境]** Luban 重导表(改任何配置表后)本机须带环境变量 `DOTNET_ROLL_FORWARD=Major`(本机无 .NET 7.0 runtime,Luban.dll 目标 .NET7,前滚到已装高版本运行),或装 .NET 7.0 runtime。CI 复跑导表脚本须配此环境。详见 `pipeline/memory/dev.md` Luban 条 + numeric-system 归档。
+19. **[后续轮·接 GrantOnAcquire 调用方时]** item-system 的 `ItemGrant.GrantOnAcquire`(Automatic 分流 + 礼包递归,深度上限 5)无单测兜底(本轮经 Play 反射直调验证逻辑正确);且源 `itemdef.xlsx` 30006 automatic=0 与测试夹具 automatic=1 不一致(automatic 非验收项、无 test 调 GrantOnAcquire,故不影响本轮)。待礼包「获取即开」接到真实调用方时:补 GrantOnAcquire 单测 + 统一 30006 automatic 语义。

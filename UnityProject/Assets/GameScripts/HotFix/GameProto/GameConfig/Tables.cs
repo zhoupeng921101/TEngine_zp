@@ -75,6 +75,69 @@ public partial class Tables
             m_TbNum.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 道具定义表
+    /// </summary>
+    private item.TbItemDef m_TbItemDef;
+    public item.TbItemDef TbItemDef 
+    {
+        get
+        {
+            if (m_TbItemDef == null)
+            {
+                m_TbItemDef = new item.TbItemDef(defaultLoader("item_tbitemdef"));
+                m_TbItemDef.ResolveRef(this);
+            }
+            return m_TbItemDef;
+        }
+        set
+        {
+            m_TbItemDef = value;
+            m_TbItemDef.ResolveRef(this);
+        }
+    }
+    /// <summary>
+    /// 随机礼包池表
+    /// </summary>
+    private item.TbGiftRandom m_TbGiftRandom;
+    public item.TbGiftRandom TbGiftRandom 
+    {
+        get
+        {
+            if (m_TbGiftRandom == null)
+            {
+                m_TbGiftRandom = new item.TbGiftRandom(defaultLoader("item_tbgiftrandom"));
+                m_TbGiftRandom.ResolveRef(this);
+            }
+            return m_TbGiftRandom;
+        }
+        set
+        {
+            m_TbGiftRandom = value;
+            m_TbGiftRandom.ResolveRef(this);
+        }
+    }
+    /// <summary>
+    /// 自选礼包池表
+    /// </summary>
+    private item.TbGiftSelect m_TbGiftSelect;
+    public item.TbGiftSelect TbGiftSelect 
+    {
+        get
+        {
+            if (m_TbGiftSelect == null)
+            {
+                m_TbGiftSelect = new item.TbGiftSelect(defaultLoader("item_tbgiftselect"));
+                m_TbGiftSelect.ResolveRef(this);
+            }
+            return m_TbGiftSelect;
+        }
+        set
+        {
+            m_TbGiftSelect = value;
+            m_TbGiftSelect.ResolveRef(this);
+        }
+    }
 
     #endregion
 

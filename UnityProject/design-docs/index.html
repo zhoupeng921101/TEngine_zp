@@ -26,6 +26,7 @@
       <a class="tree-link" href="14-save-system.html">14 · 跨会话存档</a>
       <div class="tree-group">系统底层</div>
       <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
+      <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
       <div class="tree-group">代码 / 工具</div>
       <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
       <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
@@ -101,6 +102,11 @@
         <span class="tag">系统 · 配置化数值</span>
         <h3>15 · 数值底层系统</h3>
         <p>把散在 MergeOrderState 的 ad-hoc 货币(灵力/虔诚币/经验/体力)统一收进 Luban 配置化货币注册表:按 num_id 查名称文本/图标/类型/品质;再提供全局显示格式化(0–999 / 999.9K / 999.9M,一位小数截断)与可复用数值显示 helper。加法式只建框架+配置+格式化+查询,不重构现有货币字段。含 schema 字段表、num_type 枚举与样例、边界逐档代入、dev 改动清单与 18 条验收点。xlsx 系统底层批次第一刀。</p>
+      </a>
+      <a class="card" href="16-item-system.html">
+        <span class="tag">系统 · 配置化道具</span>
+        <h3>16 · 道具底层系统</h3>
+        <p>用 Luban 道具表登记每件道具的名/描述/图标/品质(1–6)/类型/使用效果/叠放;运行期按 Id 查。实现礼包开启(随机按 rate 权重抽、自选返回候选列表),产出经 UseEffect 落既有系统(货币→数值/MergeOrderState、图案→MergeElement);提供基础背包容器(叠加上限 999→999+、不可叠占格、容量 100)。加法式不重构既有系统。新建独立表(不扩展模板 TbItem)。含 schema 字段表、品质/类型枚举、礼包权重逐档、礼包开启时序图、dev 改动清单与 24 条验收点。限时/邮件补偿/UI 跳转字段进表逻辑 stub。xlsx 系统底层批次第二刀。</p>
       </a>
     </div>
 
