@@ -109,7 +109,9 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 > 顺序原则:**先落盘后回报**。各步幂等,中断恢复后整段重跑。
 
-1. 核对 `state/test.md` 总判定 = PASS,收拢其遗留/观察项
+1. **核对判定 + 核磁盘交付物**:`state/test.md` 总判定 = PASS,收拢其遗留/观察项;**并核验 verdict 声称的产出在磁盘真实存在**——`git status` 非空,且关键产出(设计稿 / 代码 / 测试 / 配置文件)按路径 `ls` 确在。verdict 与磁盘不一致 = workflow 可能返回脱离真实执行的结果,**按未完成处理:不归档、不提交**,定位缺口后续接(dev-test)或重跑,不据假 verdict 关单
+
+   > workflow 的 PASS 可能脱离真实执行:2026-06-14 mail 轮先返「PASS 333/333」假结果(磁盘零文件),数分钟后第二条通知更正为 BLOCKED(plan 撞会话用量上限、dev/test 未跑)。关单若信首条 verdict 会给不存在的系统记 PASS。磁盘核验是唯一可靠判据——state 交接区文本同样可能脱离执行,只有文件实际存在才算交付。
 2. 收拢遗留事项:已完成的从 `state/boss.md`「遗留事项」划掉,新产生的跨任务待办登记进去(遗留是活的,**不归档**)
 3. 归档(**四件套一起**):
    - `state/plan.md|dev.md|test.md` 整体移入 `pipeline/archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向)
