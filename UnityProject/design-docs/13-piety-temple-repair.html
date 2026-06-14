@@ -18,58 +18,7 @@
 <body>
 
 <div class="layout">
-  <aside class="sidebar">
-    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <nav>
-      <div class="tree-group">总览</div>
-      <a class="tree-link" href="index.html">文档库首页</a>
-      <div class="tree-group">现状分析</div>
-      <a class="tree-link" href="01-gameplay-overview.html">01 · 玩法总览</a>
-      <a class="tree-link" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
-      <div class="tree-group">切片设计</div>
-      <a class="tree-link" href="09-merge-order-energy.html">09 · 合成订单切片</a>
-      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
-      <a class="tree-link" href="11-core-loop-completion.html">11 · 核心玩法补全</a>
-      <a class="tree-link" href="12-tarot-blind-box.html">12 · 神秘塔罗盲盒</a>
-      <a class="tree-link active" href="13-piety-temple-repair.html">13 · 虔诚币 + 神庙修复</a>
-      <a class="tree-link" href="14-save-system.html">14 · 跨会话存档</a>
-      <div class="tree-group">系统底层</div>
-      <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
-      <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
-      <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
-      <a class="tree-link" href="18-player-info.html">18 · 玩家信息系统</a>
-      <a class="tree-link" href="19-settings-system.html">19 · 通用设置系统</a>
-      <div class="tree-group">代码 / 工具</div>
-      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
-      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
-      <details class="tree-fold">
-        <summary>已归档</summary>
-        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
-        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
-        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
-        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
-      </details>
-    </nav>
-    <nav class="page-toc">
-      <div class="toc-title">本页目录</div>
-      <a class="toc-link" href="#intro">立项信息</a>
-      <a class="toc-link" href="#what">一、改什么与为什么</a>
-      <a class="toc-link" href="#model">二、系统模型</a>
-      <a class="toc-link sub" href="#three-layer">2.1 三层主线链路</a>
-      <a class="toc-link sub" href="#vs-soul">2.2 虔诚币 与 灵力 的分工</a>
-      <a class="toc-link" href="#numbers">三、数值正文</a>
-      <a class="toc-link sub" href="#piety-reward">3.1 虔诚币产出(订单奖励)</a>
-      <a class="toc-link sub" href="#temple-cost">3.2 12 神庙造价与解锁顺序</a>
-      <a class="toc-link sub" href="#temple-reward">3.3 修复发奖(经验/体力/装饰)</a>
-      <a class="toc-link sub" href="#level-curve">3.4 经验 → 守护者等级曲线</a>
-      <a class="toc-link sub" href="#levelup">3.5 升级解锁与边界</a>
-      <a class="toc-link" href="#hook">四、挂接点 / dev 改动清单</a>
-      <a class="toc-link" href="#ui">五、UI 方案(神庙面板)</a>
-      <a class="toc-link" href="#accept">六、验收点</a>
-      <a class="toc-link" href="#open">七、待拍板清单</a>
-      <a class="toc-link" href="#risk">八、风险表</a>
-    </nav>
-  </aside>
+  <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
   <h1>虔诚币 + 神庙修复</h1>
@@ -357,5 +306,6 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
   </main>
 </div>
 
+<script src="assets/nav.js?v=1"></script>
 </body>
 </html>

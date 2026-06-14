@@ -88,3 +88,28 @@
   4. **carry-forward**:第五次观察项 1(decisions/blockers 判据 3 触点漂移监视)本轮未触,仍一致,续留。
   5. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
 - 处置:无删除候选,无修正候选(lint 正则评估后判健康、不改)。observation:agent 持久文件再污染是常态,backstop = boss 关单人工通读(非 lint),已按 conventions 交叉检执行。
+
+## 2026-06-14 规则栈改动登记(design-docs 导航单源化,主会话直接改)
+
+- 触发:用户提出「每加一篇文档都要改全库各页侧边栏」的维护痛点,主会话评估后确认是 O(N) 副本问题(侧边栏文档树被复制进每篇活跃文档),拍板方案 B(连首页卡片一并单源)+ 主会话直接改。非 /audit 全量,仅登记本次规则栈改动作为下次增量审计基线。
+- 改动内容:
+  1. **新增** `design-docs/assets/nav.js`:文档清单单一信息源(GROUPS 数据数组),运行时渲染①各页侧边栏文档树(按 location 自动 active)②index 首页卡片③本页目录(扫描正文带 id 的 h2/h3 自动生成 + IntersectionObserver 滚动高亮;立项信息框 `#intro` 置顶)。
+  2. **改 14 篇活跃标准文档 + index.html**:侧边栏改为空容器 `<aside class="sidebar" id="sidebar"></aside>`,index 卡片区换成 `<div id="cards-root"></div>`,各页 `</body>` 前引 `nav.js?v=1`。单栏页 `11-core-loop-completion.html` 与 `archive/*` 不在范围(本就无侧边栏)。
+  3. **改规则栈** `.claude/agents/pipeline-plan.md` 三处(产出:23 / 文档表现版式:30 / 归档连带事务:43):删去「全库各篇文档树同步增删该行」「各篇 sidebar 文档树同步」「index 撤卡片/收一行入口」等 O(N) 手工指令,改为「只改 nav.js GROUPS 一项」「本页目录由 nav.js 自动生成、标题须带 id」。
+- 反向冲突检查(conventions 准入第6条):pipeline-plan.md 旧的逐篇同步指令与新结构(各篇已无手写树)矛盾,已在同一次改动里替换,无孤儿条款残留。
+- 矛盾/死规则:无。新指令有具体触发实例——本轮重构期间一条 redeem-code 流水线新增 `20-redeem-code-system.html`,即按新模式(空 #sidebar + nav.js + GROUPS 加一项)落地,全库 21 页侧边栏 + index 16 卡片自动同步,O(N)→O(1) 根治经实地验证。
+- 验证:浏览器预览确认 index(21 侧边栏/16 卡片/5 区块/4 归档链接)、doc 18 与 doc 20(21 侧边栏/active 正/本页目录含立项信息置顶)渲染正确,零控制台错误;滚动高亮配线就绪,但预览环境不保持程序化滚动,未能实地流测(标准 IntersectionObserver 模式)。
+- 处置:根治非补丁,无删除候选。本段作下次增量审计基线。
+
+## 2026-06-14 第八次审计(增量·redeem-code 关单触发)
+
+- 基线:第七次审计(commit `5251634a`)+ nav 迁移登记段。自基线规则栈改动:① `pipeline/memory/dev.md` +2 条(Luban string 主键 + 子表 auto_id 外键聚合;跨命名空间复用 Normalize 防「输对码却 NotFound」);② `pipeline/memory/plan.md` —— 旧两条(逐篇 grep sidebar 核对 / 批量插行防 BOM)替换为 nav.js 数据驱动单源条 + 新增「设计稿正文平实说明文·避『钉死/焊死/绑死』X死比喻」语体条;③ `.claude/agents/pipeline-plan.md`(nav 迁移三处,已在 nav 登记段记录,本次不重审)。有改动,不短路,查三样。
+- 范围:CLAUDE.md、`.claude/rules/`、各 SKILL.md、`.claude/agents/*.md`、`.claude/workflows/pipeline-auto.js`、`pipeline/memory/*` 文件头。
+- 结论:
+  1. **矛盾(无)**:memory/plan.md 旧的「逐篇 sidebar 同步 / 批量插行防 BOM」两条与 nav.js 单源新结构(各页已无手写树)矛盾,已在同次编辑替换为 nav 数据驱动条,无孤儿。与 nav 登记段改的 pipeline-plan.md 三处方向一致(均「只改 GROUPS 一行」)。
+  2. **重复(无硬重复,记观察)**:plan.md 新增「X死」语体条与 conventions 规则6「平实语体」同域。判健康非删除候选——规则6 是权威规则陈述(性格/不变量层),plan 条是角色专属操作程序(具体 grep 词表 `钉死|焊死|绑死` + 加 20 实测实例 + 短路/爆栈例外),属准入第2「跨层补充」非同层副本;且 conventions 收尾 lint 正则刻意保守不含这些词(第七次审计已判定,防碰撞类假阳性),plan 条按域扩词表是有效补充。观察点:语体操作指引现落 conventions 规则6 + plan memory 两处,下次审计复核是否漂移。
+  3. **死规则(无)**:memory 全部新增条带 2026-06 redeem-code/加20 具体实例。
+  4. **健康面**:① redeem-code 是 plan 空停根治(31e5e37b)+ 放手默认在「服务器底层 + 接缝」决策下的又一轮零空停 full(plan 八项范围开关全走 decisions、零 blocker);② dev/test agent 本轮持久文件语体干净(boss 关单 grep 0 命中,test.md:49 自己也跑了 conventions lint),比 settings 轮(撞×3 + 第五刀)改善;③ 唯一语体命中是 state/plan.md「第六刀」(boss 交叉检捕获,归档前已改「第六个增量」)。
+  5. **carry-forward**:第五次观察项(decisions/blockers 判据 3 触点漂移监视)本轮未触,仍一致,续留;新增观察项 2(语体操作指引 conventions/plan 两处)并入监视。
+  6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:无删除候选,无修正候选。观察项 2 报用户知会,不静默改。

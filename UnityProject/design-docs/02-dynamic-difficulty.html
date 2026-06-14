@@ -9,51 +9,7 @@
 <body>
 
 <div class="layout">
-  <aside class="sidebar">
-    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <nav>
-      <div class="tree-group">总览</div>
-      <a class="tree-link" href="index.html">文档库首页</a>
-      <div class="tree-group">现状分析</div>
-      <a class="tree-link" href="01-gameplay-overview.html">01 · 玩法总览</a>
-      <a class="tree-link active" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
-      <div class="tree-group">切片设计</div>
-      <a class="tree-link" href="09-merge-order-energy.html">09 · 合成订单切片</a>
-      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
-      <a class="tree-link" href="11-core-loop-completion.html">11 · 核心玩法补全</a>
-      <a class="tree-link" href="12-tarot-blind-box.html">12 · 神秘塔罗盲盒</a>
-      <a class="tree-link" href="13-piety-temple-repair.html">13 · 虔诚币 + 神庙修复</a>
-      <a class="tree-link" href="14-save-system.html">14 · 跨会话存档</a>
-      <div class="tree-group">系统底层</div>
-      <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
-      <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
-      <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
-      <a class="tree-link" href="18-player-info.html">18 · 玩家信息系统</a>
-      <a class="tree-link" href="19-settings-system.html">19 · 通用设置系统</a>
-      <div class="tree-group">代码 / 工具</div>
-      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
-      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
-      <details class="tree-fold">
-        <summary>已归档</summary>
-        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
-        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
-        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
-        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
-      </details>
-    </nav>
-    <nav class="page-toc">
-      <div class="toc-title">本页目录</div>
-      <a class="toc-link" href="#dispatch">一、调度总链路</a>
-      <a class="toc-link" href="#weight">二、dynamicWeight 橡皮筋</a>
-      <a class="toc-link sub" href="#weight-factors">调权因子表</a>
-      <a class="toc-link sub" href="#weight-loop">闭环怎么转起来</a>
-      <a class="toc-link" href="#algos">三、8 种发牌算法</a>
-      <a class="toc-link" href="#config">四、配置表结构</a>
-      <a class="toc-link sub" href="#config-segments">8 个分数段</a>
-      <a class="toc-link sub" href="#config-odds">第 1 段 odds 表</a>
-      <a class="toc-link" href="#review">五、点评 &amp; 可调参数</a>
-    </nav>
-  </aside>
+  <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
     <h1>动态难度拆解</h1>
@@ -362,5 +318,6 @@
   </main>
 </div>
 
+<script src="assets/nav.js?v=1"></script>
 </body>
 </html>

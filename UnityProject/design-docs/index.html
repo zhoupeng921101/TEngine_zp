@@ -9,39 +9,7 @@
 <body>
 
 <div class="layout">
-  <aside class="sidebar">
-    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <nav>
-      <div class="tree-group">总览</div>
-      <a class="tree-link active" href="index.html">文档库首页</a>
-      <div class="tree-group">现状分析</div>
-      <a class="tree-link" href="01-gameplay-overview.html">01 · 玩法总览</a>
-      <a class="tree-link" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
-      <div class="tree-group">切片设计</div>
-      <a class="tree-link" href="09-merge-order-energy.html">09 · 合成订单切片</a>
-      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
-      <a class="tree-link" href="11-core-loop-completion.html">11 · 核心玩法补全</a>
-      <a class="tree-link" href="12-tarot-blind-box.html">12 · 神秘塔罗盲盒</a>
-      <a class="tree-link" href="13-piety-temple-repair.html">13 · 虔诚币 + 神庙修复</a>
-      <a class="tree-link" href="14-save-system.html">14 · 跨会话存档</a>
-      <div class="tree-group">系统底层</div>
-      <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
-      <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
-      <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
-      <a class="tree-link" href="18-player-info.html">18 · 玩家信息系统</a>
-      <a class="tree-link" href="19-settings-system.html">19 · 通用设置系统</a>
-      <div class="tree-group">代码 / 工具</div>
-      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
-      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
-      <details class="tree-fold">
-        <summary>已归档</summary>
-        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
-        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
-        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
-        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
-      </details>
-    </nav>
-  </aside>
+  <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
     <h1>Block Blast 策划文档库</h1>
@@ -51,111 +19,12 @@
       <b>怎么用:</b>左侧目录树可在文档间跳转;每篇文档的目录树下方还有<b>本页目录</b>,直达章节。
     </div>
 
-    <h2>现状分析</h2>
-    <div class="cards">
-      <a class="card" href="01-gameplay-overview.html">
-        <span class="tag">现状 · 核心</span>
-        <h3>01 · 玩法总览</h3>
-        <p>核心循环、得分规则、方块库、动态难度系统——当前游戏到底是怎么玩的。</p>
-      </a>
-      <a class="card" href="02-dynamic-difficulty.html">
-        <span class="tag">现状 · 数值</span>
-        <h3>02 · 动态难度拆解</h3>
-        <p>会读心的发牌系统:dynamicWeight 橡皮筋、8 种算法、136 行权重表真实数据。</p>
-      </a>
-    </div>
-
-    <h2>切片设计(活跃)</h2>
-    <div class="cards">
-      <a class="card" href="09-merge-order-energy.html">
-        <span class="tag">切片 · 核心循环</span>
-        <h3>09 · 元素合成 + 订单 + 体力</h3>
-        <p>三系统叠成自持循环:体力→落子→消除→元素→合成→订单交付→奖励。含数值风险方案与挂接点。<b>注:元素注入规则已被 10 改为得分驱动。</b></p>
-      </a>
-      <a class="card" href="10-score-element-rm-collect.html">
-        <span class="tag">切片 · 玩法调整</span>
-        <h3>10 · 得分驱动元素生成 + 移除收集</h3>
-        <p>消除得分驱动元素数量(映射公式 + 审定点);彻底移除收集玩法并甄别保留共享设施。含 dev 改动清单与验收点。</p>
-      </a>
-      <a class="card" href="11-core-loop-completion.html">
-        <span class="tag">设计 · 核心补全</span>
-        <h3>11 · 核心玩法补全</h3>
-        <p>把四份原始稿(方块/订单/宝箱/女神)的漏洞补成完整自洽设计:并发模型、连消/多消/全清结算、体力、术语统一、图案经济、智能生成仲裁、宝箱、女神。含验收点与已拍板决策记录(2026-06-12 用户确认)。</p>
-      </a>
-      <a class="card" href="12-tarot-blind-box.html">
-        <span class="tag">设计 · 新玩法</span>
-        <h3>12 · 神秘塔罗盲盒</h3>
-        <p>持有式即时开盒系统:连消/全消挑战与特殊订单交付攒盲盒,自选时机开出 Lv1–Lv3 图案 / 体力 / 订单缺口高阶物。含奖池权重、保底、解锁阈值逐档代入、dev 改动清单与 10 条验收点。接入现有 MergeOrderState / ClearSettlement。</p>
-      </a>
-      <a class="card" href="13-piety-temple-repair.html">
-        <span class="tag">设计 · 长期主线</span>
-        <h3>13 · 虔诚币 + 神庙修复</h3>
-        <p>长期主线成长链:订单交付产虔诚币 → 攒够修复 12 神庙大厅 → 修复产经验抬升守护者等级 → 升级解锁剧情章节(只做解锁标记)。加法式第二货币,不动现有灵力经济。含造价/等级曲线逐档代入、dev 改动清单与 12 条验收点。</p>
-      </a>
-      <a class="card" href="14-save-system.html">
-        <span class="tag">系统 · 持久化</span>
-        <h3>14 · 跨会话磁盘存档</h3>
-        <p>把 MergeOrderState 元层进度(虔诚币/神庙/经验·守护者等级/灵力/盲盒/女神/订单完成数/今日祈愿)从单局尺度升为跨会话:启动加载、元变更后落盘、退出兜底。复用现有 Persistence 接缝;序列化层同步可单测、磁盘 IO 走 UniTask 异步外壳。含 version 迁移、缺字段保底、跨天重置、与悔棋快照分层、dev 改动清单与 14 条验收点。兑现设计 13 §七 O3。</p>
-      </a>
-    </div>
-
-    <h2>系统底层(xlsx 批次)</h2>
-    <div class="cards">
-      <a class="card" href="15-numeric-system.html">
-        <span class="tag">系统 · 配置化数值</span>
-        <h3>15 · 数值底层系统</h3>
-        <p>把散在 MergeOrderState 的 ad-hoc 货币(灵力/虔诚币/经验/体力)统一收进 Luban 配置化货币注册表:按 num_id 查名称文本/图标/类型/品质;再提供全局显示格式化(0–999 / 999.9K / 999.9M,一位小数截断)与可复用数值显示 helper。加法式只建框架+配置+格式化+查询,不重构现有货币字段。含 schema 字段表、num_type 枚举与样例、边界逐档代入、dev 改动清单与 18 条验收点。xlsx 系统底层批次第一刀。</p>
-      </a>
-      <a class="card" href="16-item-system.html">
-        <span class="tag">系统 · 配置化道具</span>
-        <h3>16 · 道具底层系统</h3>
-        <p>用 Luban 道具表登记每件道具的名/描述/图标/品质(1–6)/类型/使用效果/叠放;运行期按 Id 查。实现礼包开启(随机按 rate 权重抽、自选返回候选列表),产出经 UseEffect 落既有系统(货币→数值/MergeOrderState、图案→MergeElement);提供基础背包容器(叠加上限 999→999+、不可叠占格、容量 100)。加法式不重构既有系统。新建独立表(不扩展模板 TbItem)。含 schema 字段表、品质/类型枚举、礼包权重逐档、礼包开启时序图、dev 改动清单与 24 条验收点。限时/邮件补偿/UI 跳转字段进表逻辑 stub。xlsx 系统底层批次第二刀。</p>
-      </a>
-      <a class="card" href="17-reward-display.html">
-        <span class="tag">系统 · 奖励展示归一</span>
-        <h3>17 · 通用奖励展示</h3>
-        <p>把三种异构奖励产出(道具 GrantPayload / 盲盒 ChestReward / 数值裸 num+数量)归一成统一展示结构 RewardView(图标资源名 + 名称文本 id + 数量文本 + 品质色 + 类型角标),让任何 UI(开箱三选一、礼包开启、订单交付)用同一套渲染。加法式纯逻辑 helper + POCO,只读不写既有产出/发奖路径。定一份权威 6 档品质色收编旧 4 档。含各源转换、归一时序图、dev 改动清单与 18 条纯逻辑验收点。真实 Sprite 加载/UI 投放本轮不做(只给图标资源名 + Widget 骨架)。xlsx 系统底层批次第三刀。</p>
-      </a>
-      <a class="card" href="18-player-info.html">
-        <span class="tag">系统 · 玩家信息</span>
-        <h3>18 · 玩家信息系统(数据逻辑层)</h3>
-        <p>玩家个人信息系统的数据逻辑层:玩家信息数据模型(id/名字/等级/经验/当前头像·框/已解锁集合)跨会话持久化,加名字生成器(Player+6随机字符)、改名逻辑(首免/配置价/钻石扣费尝试/屏蔽字匹配)、头像框解锁判定(等级条件→三态:佩戴/已解锁/未解锁)、id 复制剪贴板工具。新建 Luban 头像&框表(id/类型/图片/解锁文字/解锁条件)。玩家等级是独立第三进度线(不复用守护者经验);持久化并入既有 MergeMetaSave。加法式不重构既有系统。含 schema 字段表、等级曲线逐档代入、改名时序图、dev 改动清单与 30 条验收点。UI 窗口/三态网格/经验槽→表现层延后(需美术)。xlsx 系统底层批次第四刀。</p>
-      </a>
-      <a class="card" href="19-settings-system.html">
-        <span class="tag">系统 · 通用设置</span>
-        <h3>19 · 通用设置系统(数据逻辑层)</h3>
-        <p>常规游戏设置界面的数据逻辑层:音频设置(音乐开/关 + 音效开/关,默认全开)数据模型 + 本地持久化,加两个信息 getter(版本号 Application.version / 用户 ID 复用玩家信息 PlayerInfo.Id)。关键是复用框架既有设置约定——直写 TEngine.Constant.Setting.MusicMuted/SoundMuted 键(经 Utility.PlayerPrefs),muted↔on 取反映射,故启动流程 ProcedureLaunch.InitSoundSettings 零改动即「下次登录用本地配置」;切换经可注入 sink 推给 GameModule.Audio.MusicEnable/SoundEnable,经 ISettingsStore 接缝隔离 PlayerPrefs 使往返可单测。加法式不另造存储栈、不改框架代码。含键映射逐档代入表、切换时序图、dev 改动清单与 17 条验收点。设置界面 UI/各跳转按钮(客服/协议网址/兑换码/新手关/快捷登录)→表现层延后(需美术 icon),离线去变现:快捷登录不做、协议隐私存占位 URL、客服 stub。xlsx 系统底层批次第五刀。</p>
-      </a>
-    </div>
-
-    <h2>代码 / 工程</h2>
-    <div class="cards">
-      <a class="card" href="07-blockblast-code-architecture.html">
-        <span class="tag">工程 · 代码剖析</span>
-        <h3>07 · BlockBlast 代码架构剖析</h3>
-        <p>离线还原版动态难度系统的 C# 实现:三层分层、调度数据流、位棋盘 + 蒙特卡洛评分器、CPU 热点与可调点。</p>
-      </a>
-      <a class="card" href="06-psd2ugui-componentize.html">
-        <span class="tag">工具 · 已落地</span>
-        <h3>06 · PSD2UGUI 组件化工具</h3>
-        <p>扁平节点 → 组件调色板一键挂 UGUI 组件(控件自动补 targetGraphic),引用在 Inspector 连。已实现并编译验证。</p>
-      </a>
-    </div>
-
-    <div class="related">
-      <h2>已归档(archive/)</h2>
-      <p style="color:var(--text-dim);font-size:14px;margin:0 0 12px">不再推进或已下线的历史文档,各篇首部标注归档原因。</p>
-      <div class="related-links">
-        <a href="archive/03-reference-gap-roadmap.html">03 · 移植路线图(路线已被自研切片取代)</a>
-        <a href="archive/04-proposal-combo-juice.html">04 · Combo 提案(弹字已落地,余项搁置)</a>
-        <a href="archive/05-proposal-adventure.html">05 · Adventure 提案(未实施)</a>
-        <a href="archive/08-collect-demo-slice.html">08 · 收集切片(玩法已移除)</a>
-      </div>
-    </div>
+    <div id="cards-root"></div>
 
     <footer>Block Blast · TEngine 项目策划文档 · 由策划维护</footer>
   </main>
 </div>
 
+<script src="assets/nav.js?v=1"></script>
 </body>
 </html>

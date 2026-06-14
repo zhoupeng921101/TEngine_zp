@@ -13,57 +13,7 @@
 <body>
 
 <div class="layout">
-  <aside class="sidebar">
-    <a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a>
-    <nav>
-      <div class="tree-group">总览</div>
-      <a class="tree-link" href="index.html">文档库首页</a>
-      <div class="tree-group">现状分析</div>
-      <a class="tree-link" href="01-gameplay-overview.html">01 · 玩法总览</a>
-      <a class="tree-link" href="02-dynamic-difficulty.html">02 · 动态难度拆解</a>
-      <div class="tree-group">切片设计</div>
-      <a class="tree-link active" href="09-merge-order-energy.html">09 · 合成订单切片</a>
-      <a class="tree-link" href="10-score-element-rm-collect.html">10 · 得分驱动元素</a>
-      <a class="tree-link" href="11-core-loop-completion.html">11 · 核心玩法补全</a>
-      <a class="tree-link" href="12-tarot-blind-box.html">12 · 神秘塔罗盲盒</a>
-      <a class="tree-link" href="13-piety-temple-repair.html">13 · 虔诚币 + 神庙修复</a>
-      <a class="tree-link" href="14-save-system.html">14 · 跨会话存档</a>
-      <div class="tree-group">系统底层</div>
-      <a class="tree-link" href="15-numeric-system.html">15 · 数值底层系统</a>
-      <a class="tree-link" href="16-item-system.html">16 · 道具底层系统</a>
-      <a class="tree-link" href="17-reward-display.html">17 · 通用奖励展示</a>
-      <a class="tree-link" href="18-player-info.html">18 · 玩家信息系统</a>
-      <a class="tree-link" href="19-settings-system.html">19 · 通用设置系统</a>
-      <div class="tree-group">代码 / 工具</div>
-      <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
-      <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
-      <details class="tree-fold">
-        <summary>已归档</summary>
-        <a class="tree-link" href="archive/03-reference-gap-roadmap.html">03 · 移植路线图</a>
-        <a class="tree-link" href="archive/04-proposal-combo-juice.html">04 · Combo 提案</a>
-        <a class="tree-link" href="archive/05-proposal-adventure.html">05 · Adventure 提案</a>
-        <a class="tree-link" href="archive/08-collect-demo-slice.html">08 · 收集切片</a>
-      </details>
-    </nav>
-    <nav class="page-toc">
-      <div class="toc-title">本页目录</div>
-      <a class="toc-link" href="#why">一、在 08 之上加什么</a>
-      <a class="toc-link" href="#loop">二、核心循环</a>
-      <a class="toc-link" href="#systems">三、三系统设计</a>
-      <a class="toc-link sub" href="#merge">3.1 合成</a>
-      <a class="toc-link sub" href="#order">3.2 订单</a>
-      <a class="toc-link sub" href="#energy">3.3 体力</a>
-      <a class="toc-link" href="#risk">四、三个数值风险点</a>
-      <a class="toc-link sub" href="#risk1">风险1 · 掉率保底</a>
-      <a class="toc-link sub" href="#risk2">风险2 · 体力匹配</a>
-      <a class="toc-link sub" href="#risk3">风险3 · 悔棋兜底</a>
-      <a class="toc-link" href="#config">五、配置一览</a>
-      <a class="toc-link" href="#tradeoff">六、竞品取舍</a>
-      <a class="toc-link" href="#hook">七、挂接点</a>
-      <a class="toc-link" href="#scope">八、Demo 范围</a>
-      <a class="toc-link" href="#risks">九、风险</a>
-    </nav>
-  </aside>
+  <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
     <h1>元素合成 + 订单 + 体力 Demo 切片</h1>
@@ -416,5 +366,6 @@
   </main>
 </div>
 
+<script src="assets/nav.js?v=1"></script>
 </body>
 </html>
