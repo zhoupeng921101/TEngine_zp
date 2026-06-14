@@ -50,3 +50,16 @@
   5. **carry-forward 观察项**:第三次审计 #2(pipeline-auto.js `meta.description` 仍写「返回 PASS/BLOCKED」、未含 test-only 的 FAIL 返回态)仍未补,低优;若取上 1 的 (a) 修法,顺手把 description 补成「PASS/FAIL/BLOCKED」一并对齐。
   6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
 - 处置:1 个矛盾(修正候选)报用户拍板。**用户取 (a)(2026-06-14)**:已改 SKILL.md:63 旁注为「baton = full/dev-test/test-only;test-only 仅作环境恢复补运行验证的续接档」,并顺手把 `pipeline-auto.js` meta.description 补为 PASS/FAIL/BLOCKED(对齐 carry-forward #5)。其余健康,无删除候选。
+
+## 2026-06-14 第五次审计(增量·reward-display 关单触发)
+
+- 基线:第四次审计之后,commit `31e5e37b`(reward-display 归一层关单)。自基线规则栈改动:plan 空停根治——① `.claude/agents/pipeline-plan.md` 红线「自治模式下拿不准的列入返回的 blockers」替换为 decisions/blockers 分流判据(有安全默认的范围开关→decisions 默认推进;无默认/默认抵触 spec·GDD/不可逆→blockers 停机)+ 理由旁注;② `.claude/workflows/pipeline-auto.js` PLAN_SCHEMA.blockers 描述 + RETURN_NOTE 同步收窄。触发动因:同类摩擦第三次(numeric-system O3 / item-system O2 / reward-display 4 开关均把有默认的范围开关塞进 blockers 致自治流水线在 plan 空停一轮),按 CLAUDE.md「修问题先亮牌」2 次以上复发须源头根治,本轮关单会话同步改完。有改动,不短路,查三样。
+- 范围:CLAUDE.md、`.claude/rules/`、各 SKILL.md、`.claude/agents/*.md`、`.claude/workflows/pipeline-auto.js`、`pipeline/memory/*` 文件头。
+- 结论:
+  1. **重复(无,记观察·漂移点)**:decisions/blockers 判据现落 3 处——pipeline-plan.md 红线(行为权威源 + 旁注)、pipeline-auto.js RETURN_NOTE(注入每个 agent prompt 的精简一句)、PLAN_SCHEMA.blockers 描述(结构化输出层字段说明)。三者是同一判据的精简复述、措辞一致不冲突;后两处由结构化输出层与 spawn prompt 直接消费、无法压成指向角色卡的指针(schema 描述/RETURN_NOTE 是机制必需的就地文本),故 3 触点是结构性的,与既有 baton 枚举跨 js+SKILL(第三次审计判健康「路由层引用机制层」)同类。列观察:三处改一处须同步另两处,下次审计复核是否漂移。非问题副本。
+  2. **矛盾(无)**:新判据替换掉旧的过宽指令「拿不准的列入 blockers」(同次编辑替换,无孤儿)。与 plan 角色卡:27「设计稿章节骨架·待拍板清单(范围开关集中列出交 boss/用户)」互补不冲突——后者是设计稿文档信道(boss 关单读,如 17-reward-display §七 列 O1-O8),新判据管结构化返回信道(decisions[] 默认推进 vs blockers[] 停机),两信道并行;blockers[] 字段未被废弃(仍停机,只收窄准入)。无条款被涵盖/过时。
+  3. **死规则(无)**:新判据有 3 个具体触发实例(numeric/item/reward plan 空停),非死规则。
+  4. **健康面**:pipeline-plan.md 与 pipeline-auto.js 同次改动措辞一致、无漂移;旁注「2026-06 三次」脱离对话成立(绝对日期 + 具体实例),非 diff 叙事;lint 0 命中。本轮关单交付(reward-display 仅归一层、表现层转遗留 #20)属任务范围处置,记主 boss.md,非规则栈事项。
+  5. **carry-forward(无)**:第三/四次审计的 meta.description 观察项已于第四次处置闭环;无悬留。
+  6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:无删除候选(本次为加法/收窄,且替换旧条同次完成)。观察项 1(3 触点漂移监视)留下次审计复核,不静默改。
