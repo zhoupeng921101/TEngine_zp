@@ -341,6 +341,11 @@ namespace GameLogic.BlockBlast
             Combo = 0;
             MergeState = new MergeOrderState();
             MergeState.Reset();
+            // 跨会话磁盘存档(设计 14 §3.4):Reset 先跑建好局内瞬态 + 元层缺省,再用存档覆盖元层。
+            // 两者字段不重叠(§3.1),ImportMeta 只动元字段、不触局内瞬态与悔棋栈。无存档 / 加载失败 → 保持
+            // Reset 缺省,等价首次游玩(旧路径零回归)。加载走同步 Provider 读(非阻塞,不触红线,见 MergeMetaPersistence.Load)。
+            var meta = MergeMetaPersistence.Load();
+            if (meta != null) MergeState.ImportMeta(meta);
             if (board != null) board.ConvertFromArr(SaveArr);
             RefillPieces(board);
         }

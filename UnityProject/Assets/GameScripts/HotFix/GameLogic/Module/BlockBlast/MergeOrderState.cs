@@ -530,6 +530,106 @@ namespace GameLogic.BlockBlast
             return true;
         }
 
+        // ── 跨会话磁盘存档:导出/导入元层(设计 14 §3.3-§3.6)─────────
+        // ExportMeta/ImportMeta 是纯方法:无 IO、无 UniTask,可在纯 C# 单测里同步调用。
+        // 磁盘外壳(SaveAsync/LoadAsync)在 MergeMetaPersistence,本类不 using UniTask、不碰磁盘。
+        // 与悔棋快照 Snapshot 是两条独立轨:ImportMeta 不触 _undoStack,只覆盖元字段。
+
+        /// <summary>
+        /// 落盘脏位:元变更后由窗口侧 <see cref="RequestSave"/> 标脏,合并一串连带变更成一次落盘(§3.4)。
+        /// 不进悔棋快照(脏位是落盘调度状态,非玩法状态)、不进 Export/Import(纯调度,不持久)。
+        /// </summary>
+        private bool _saveDirty;
+
+        /// <summary>标脏:有意义元变更后由窗口侧调用,延迟到合适节点合并落盘(§3.4)。不立即写盘。</summary>
+        public void RequestSave() => _saveDirty = true;
+
+        /// <summary>当前是否有未落盘的元变更(窗口侧据此决定是否 SaveAsync)。</summary>
+        public bool IsSaveDirty => _saveDirty;
+
+        /// <summary>清脏(落盘成功后由窗口侧调用)。</summary>
+        public void ClearSaveDirty() => _saveDirty = false;
+
+        /// <summary>
+        /// 导出元层进度到 DTO(设计 14 §3.1 进盘 13 项 + version + 当前祈愿重置日期)。纯方法、无 IO。
+        /// version 置 <see cref="MergeMetaPersistence.CurrentVersion"/>;lastWishResetDate 取 <paramref name="today"/>
+        /// (默认本地日期),保证落盘的日期与「今日祈愿」语义一致(§3.6)。
+        /// </summary>
+        public MergeMetaSave ExportMeta(string today = null)
+        {
+            return new MergeMetaSave
+            {
+                version = MergeMetaPersistence.CurrentVersion,
+                soul = Soul,
+                piety = Piety,
+                exp = Exp,
+                unlockedChapter = UnlockedChapter,
+                nextRepairIndex = NextRepairIndex,
+                templeRepaired = (bool[])TempleRepaired?.Clone(),   // 深拷贝:DTO 不与现场共享引用
+                templeDecorated = (bool[])TempleDecorated?.Clone(),
+                blindBoxCount = BlindBoxCount,
+                goddessRating = GoddessRating,
+                goddessLevel = GoddessLevel,
+                completedOrders = CompletedOrders,
+                totalScore = TotalScore,                            // O2:进盘当累计总分
+                wishUsedToday = WishUsedToday,
+                lastWishResetDate = today ?? MergeMetaPersistence.Today(),
+            };
+        }
+
+        /// <summary>
+        /// 用 DTO 覆盖元层进度(设计 14 §3.5 逐字段保底 + §3.6 跨天重置)。纯方法、无 IO、不触 _undoStack。
+        /// 仅覆盖元字段(§3.1 进盘 13 项),不动局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)——调用前须先 <see cref="Reset"/>
+        /// 建好局内瞬态(两者字段不重叠,§3.4)。<paramref name="dto"/> 为 null 直接返回(保持 Reset 缺省,等价首次)。
+        ///
+        /// 逐字段保底:即使 version 匹配,本地文件仍可能被篡改/截断,故对任意输入夹值到合法不变量
+        /// (神庙数组长 12、女神等级≥1、NextRepairIndex∈[0,HallCount]),不把脏数据带进玩法。
+        ///
+        /// 跨天重置(§3.6):以 <paramref name="today"/>(默认本地日期)判定。LoadAsync 已对从盘读出的 DTO 跑过一次
+        /// ApplyDailyReset;此处对 DTO 再判一次,使「直接构造 DTO 调 ImportMeta」(单测路径)也得到正确的跨天语义。
+        /// </summary>
+        public void ImportMeta(MergeMetaSave dto, string today = null)
+        {
+            if (dto == null) return;
+            today ??= MergeMetaPersistence.Today();
+
+            // 跨天重置:对 DTO 就地判定,保证单测「直接构造 DTO」路径也走跨天逻辑(LoadAsync 路径已判过,幂等无害)。
+            MergeMetaPersistence.ApplyDailyReset(dto, today);
+
+            Soul = dto.soul;
+            Piety = dto.piety;
+            Exp = dto.exp;
+            UnlockedChapter = dto.unlockedChapter;
+            CompletedOrders = dto.completedOrders;
+            TotalScore = dto.totalScore;
+            BlindBoxCount = dto.blindBoxCount;
+            GoddessRating = dto.goddessRating;
+
+            // 女神等级从 1 起:<1(缺省 0 / 篡改)夹到 1(§3.5)。
+            GoddessLevel = dto.goddessLevel < 1 ? 1 : dto.goddessLevel;
+
+            // 神庙数组:null 或长度≠HallCount(旧档 / 篡改)重建为全 false(§3.5)。
+            TempleRepaired = NormalizeTempleArray(dto.templeRepaired);
+            TempleDecorated = NormalizeTempleArray(dto.templeDecorated);
+
+            // NextRepairIndex 夹到 [0, HallCount](§3.5),不越界访问神庙数组。
+            int idx = dto.nextRepairIndex;
+            if (idx < 0) idx = 0;
+            else if (idx > TempleConfig.HallCount) idx = TempleConfig.HallCount;
+            NextRepairIndex = idx;
+
+            // 祈愿:DTO 已经 ApplyDailyReset 夹过(跨天则 0),直接用。
+            WishUsedToday = dto.wishUsedToday;
+        }
+
+        /// <summary>神庙 bool 数组保底:null 或长度≠HallCount 时重建为全 false;否则原样(深拷贝避免共享引用)。</summary>
+        private static bool[] NormalizeTempleArray(bool[] src)
+        {
+            if (src == null || src.Length != TempleConfig.HallCount)
+                return new bool[TempleConfig.HallCount];
+            return (bool[])src.Clone();
+        }
+
         // ── demo 终点 ──────────────────────────────────────────
 
         /// <summary>完成单数达标即通关。</summary>

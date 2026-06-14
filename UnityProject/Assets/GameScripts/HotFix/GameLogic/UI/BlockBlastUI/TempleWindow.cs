@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
@@ -218,6 +219,14 @@ namespace GameLogic.BlockBlastUI
 
             RefreshHeader();
             RefreshTempleList();
+
+            // 跨会话存档（设计 14 §3.4）：修复改虔诚币/经验/章节/神庙数组等元层 → 标脏 + 异步落盘。
+            // 与 MergeOrderWindow 共享同一 MergeState 引用,落盘的是同一份元层进度。
+            if (_merge == null) return;
+            _merge.RequestSave();
+            var dto = _merge.ExportMeta();
+            _merge.ClearSaveDirty();
+            MergeMetaPersistence.SaveAsync(dto).Forget(); // Forget 即发即忘,异步写不阻塞主线程
         }
     }
 }

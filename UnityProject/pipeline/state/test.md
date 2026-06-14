@@ -4,4 +4,4 @@
 
 ## 当前被测任务:无
 
-上一单 piety-temple-repair 已于 2026-06-14 关单 PASS,本环节报告归档至 `pipeline/archive/2026-06-14-piety-temple-repair/test.md`。
+上一单 save-system 已于 2026-06-14 关单 PASS,本环节报告归档至 `pipeline/archive/2026-06-14-save-system/test.md`。

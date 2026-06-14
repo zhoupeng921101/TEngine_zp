@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
@@ -80,6 +81,21 @@ namespace GameLogic.BlockBlastUI
             RefreshUndo();
             RefreshBlindBox();
             RefreshPiety();
+
+            // 跨会话存档兜底（设计 14 §3.4 ③）：移动端切后台/杀进程不经 OnDestroy,会丢末次元变更。
+            // UIWindow 非 MonoBehaviour,Unity 的 OnApplicationPause/Quit 魔法方法不会在本类触发;
+            // 经 TEngine 驱动器(UpdateDriver,真 MonoBehaviour)转播的应用暂停事件订阅,效果等价且确会触发。
+            // 退出/销毁路径另由 OnDestroy 的 FlushSaveIfDirty 兜底,两路覆盖切后台与正常关窗。
+            Utility.Unity.AddOnApplicationPauseListener(OnAppPause);
+        }
+
+        /// <summary>
+        /// 应用暂停/恢复回调（设计 14 §3.4 ③ 的「OnApplicationPause(true) 落盘」等价实现）。
+        /// pause=true 表示进入后台(移动端切后台/锁屏/被系统挂起),此时脏则强制落盘,保证不丢末次元变更。
+        /// </summary>
+        private void OnAppPause(bool pause)
+        {
+            if (pause) FlushSaveIfDirty();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -326,6 +342,8 @@ namespace GameLogic.BlockBlastUI
             RefreshSynthesis(); // 图案进了合成区
             RefreshEnergy();    // 可能加了体力
             RefreshBlindBox();  // 计数与按钮态
+
+            MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：开盒改盲盒计数/灵力/体力元层 → 标脏 + 落盘
         }
 
         /// <summary>开盒结果弹字文案（图案：「开出：◆ Lv3 ×1」；体力：「开出：⚡ +10」）。</summary>
@@ -348,7 +366,30 @@ namespace GameLogic.BlockBlastUI
             RefreshBlindBox();
             RefreshPiety(); // 交付发虔诚币（设计 13 §3.1）
 
+            MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：交付改元层 → 标脏 + 落盘
+
             if (_merge.IsDemoComplete()) { TriggerWin(); return; }
+        }
+
+        /// <summary>
+        /// 跨会话存档落盘（设计 14 §3.4）：元变更后标脏并异步落盘合并写入。
+        /// 调度策略取「每次元动作结束即异步落盘」（O5 默认，元动作频率低，够用）。
+        /// SaveAsync 内部经 Provider 写入、失败吞掉不阻断玩法；落盘后清脏。
+        /// </summary>
+        private void MarkAndFlushSave()
+        {
+            if (_merge == null) return;
+            _merge.RequestSave();
+            FlushSaveIfDirty();
+        }
+
+        /// <summary>脏位为真则异步落盘并清脏（退出/暂停/元动作共用）。Forget 即发即忘,异步写不阻塞主线程。</summary>
+        private void FlushSaveIfDirty()
+        {
+            if (_merge == null || !_merge.IsSaveDirty) return;
+            var dto = _merge.ExportMeta();
+            _merge.ClearSaveDirty();
+            MergeMetaPersistence.SaveAsync(dto).Forget();
         }
 
         // ── 渲染棋盘（方块色） ──
@@ -556,6 +597,9 @@ namespace GameLogic.BlockBlastUI
             }
             RenderBoard();
 
+            // 本手结算是否改了元层(全清推女神 / 全清或连消阈值发盲盒);为真则落子后须标脏落盘(设计 14 §3.4)。
+            bool metaChangedBySettle = false;
+
             // 消除 + 返体力 + 元素入合成区
             var clear = _board.CanClearRowCols(true);
             int lines = clear.Rows.Count + clear.Cols.Count;
@@ -573,6 +617,11 @@ namespace GameLogic.BlockBlastUI
                 var milestoneType = PickMilestoneType();
                 var settle = ClearSettlement.Settle(_merge, lines, clearedCells, _board.IsEmpty(), milestoneType);
                 _state.Combo = settle.ComboChain >= 2 ? settle.ComboChain : 0; // 镜像到视觉连击（≥2 才显示）
+
+                // 元层判定（设计 14 §3.4）：全清推女神(AdvanceGoddess) / 全清或连消阈值发盲盒(AddBlindBox)
+                // 都改了进盘字段(goddessLevel/goddessRating/blindBoxCount)。AllClearRewarded 隐含女神+盲盒,
+                // GoddessLeveledUp 与 BlindBoxGained 并列保险:无后续交付/开盒/修复时,这一手的女神/盲盒进度也须落盘。
+                metaChangedBySettle = settle.AllClearRewarded || settle.GoddessLeveledUp || settle.BlindBoxGained > 0;
 
                 RenderBoard();
 
@@ -599,6 +648,11 @@ namespace GameLogic.BlockBlastUI
             RefreshSynthesis();
             RefreshUndo();
             RefreshBlindBox();
+            RefreshPiety(); // 女神升档可能改长期主线展示态(保险刷新)
+
+            // 跨会话存档（设计 14 §3.4）：本手结算改了元层(女神升档 / 盲盒)且无后续交付/开盒/修复接力落盘时,
+            // 在此标脏 + 落盘,使该次女神/盲盒进度可靠落盘。TriggerWin/GameOver 退出前的 FlushSaveIfDirty 在此之后即为无操作。
+            if (metaChangedBySettle) MarkAndFlushSave();
 
             // 通关判定（完成单数达标）
             if (_merge.IsDemoComplete()) { TriggerWin(); return; }
@@ -658,6 +712,7 @@ namespace GameLogic.BlockBlastUI
                 $"完成订单  {_merge.CompletedOrders} 单",
                 $"累计得分  {_merge.TotalScore}",
             };
+            FlushSaveIfDirty(); // 通关前兜底落盘（设计 14 §3.4 ③）：须在 ExitMergeOrder 丢弃 MergeState 前
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
             GameModule.UI.ShowUIAsync<MergeOrderWinWindow>(lines);
@@ -670,6 +725,7 @@ namespace GameLogic.BlockBlastUI
             ClearGhost();
             // 把 demo 累计得分映射给结算窗显示；不写 HighScore（不污染 Classic 最高分）
             _state.Score = _merge.TotalScore;
+            FlushSaveIfDirty(); // GameOver 前兜底落盘（设计 14 §3.4 ③）：须在 ExitMergeOrder 丢弃 MergeState 前
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
             GameModule.UI.ShowUIAsync<GameOverWindow>(0);
@@ -731,6 +787,11 @@ namespace GameLogic.BlockBlastUI
 
         protected override void OnDestroy()
         {
+            // 解除应用暂停事件订阅，避免销毁后的窗口仍被回调（驱动器是常驻 MonoBehaviour，不解订阅会泄漏引用）。
+            Utility.Unity.RemoveOnApplicationPauseListener(OnAppPause);
+            // 跨会话存档兜底（设计 14 §3.4 ③）：离开前脏则强制落盘,保证「随手退出」不丢末次元变更。
+            // 须在 ExitMergeOrder 丢弃 MergeState 之前落盘。
+            FlushSaveIfDirty();
             // 安全兜底：离开必定关闭门控，确保后续 Classic / 08 行为零残留。
             if (_state != null) _state.ExitMergeOrder();
         }

@@ -16,3 +16,5 @@
 - code-built 窗口(UGuiFactory 运行时建节点、无 prefab codegen)的节点名是运行时查找名,naming-rules 的 `m_btn_`/`m_text_` 前缀规则不适用,与全窗既有裸名体例一致即合规——别误判前缀缺失为违规(2026-06,tarot-blindbox)
 - execute_code 反射收集程序集类型别用裸 `asms.SelectMany(a=>a.GetTypes())`:某程序集中途抛 ReflectionTypeLoadException 会让整段枚举半途终止,导致同一会话两次调用一会找得到 GameLogic.GameModule、一会找不到(采样不稳)。改用 per-assembly try/catch、catch `ReflectionTypeLoadException` 取其 `.Types` 非空项、其他异常 `continue` 的稳健收集器(2026-06,temple 手验)
 - 主菜单冷启动直接 ShowUIAsync 开游戏内窗口常 NRE(MergeState/UI 栈未就绪):正路是先点真实入口按钮(如 MainMenuWindow 的 BtnMerge)进对局,等 `GameObject.Find("MergeOrderWindow")` 出现后再注入 state + 点窗内入口按钮开子窗——全程走真实 UI 路径,比反射硬开模块内部稳且更接近用户操作(2026-06,temple 手验)
+- 持久化/存档类功能:单测锚 InMemory Provider,Play 模式手验须补走**生产真实 Provider 路径**——execute_code 反射读 `Persistence.Provider` 确认类型是 PlayerPrefsProvider(非 InMemory),再 SaveAsync→读 PlayerPrefs raw→Reset→Load→ImportMeta 跑跨会话往返,验真实存储栈而非测试替身(2026-06,save-system)
+- execute_code 不能写顶层 `using`(代码被包进方法体,using 触发 "Identifier expected"):全程用全限定名(`System.Reflection.BindingFlags`/`UnityEngine.PlayerPrefs`);反射取基类静态成员(如 SimpleSingleton<T>.Instance)须带 `FlattenHierarchy` flag,否则 GetProperty 返 null 致 NRE(2026-06,save-system)

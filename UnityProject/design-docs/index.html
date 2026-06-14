@@ -23,6 +23,7 @@
       <a class="tree-link" href="11-core-loop-completion.html">11 · 核心玩法补全</a>
       <a class="tree-link" href="12-tarot-blind-box.html">12 · 神秘塔罗盲盒</a>
       <a class="tree-link" href="13-piety-temple-repair.html">13 · 虔诚币 + 神庙修复</a>
+      <a class="tree-link" href="14-save-system.html">14 · 跨会话存档</a>
       <div class="tree-group">代码 / 工具</div>
       <a class="tree-link" href="07-blockblast-code-architecture.html">07 · 代码架构剖析</a>
       <a class="tree-link" href="06-psd2ugui-componentize.html">06 · PSD2UGUI 工具</a>
@@ -84,6 +85,11 @@
         <span class="tag">设计 · 长期主线</span>
         <h3>13 · 虔诚币 + 神庙修复</h3>
         <p>长期主线成长链:订单交付产虔诚币 → 攒够修复 12 神庙大厅 → 修复产经验抬升守护者等级 → 升级解锁剧情章节(只做解锁标记)。加法式第二货币,不动现有灵力经济。含造价/等级曲线逐档代入、dev 改动清单与 12 条验收点。</p>
+      </a>
+      <a class="card" href="14-save-system.html">
+        <span class="tag">系统 · 持久化</span>
+        <h3>14 · 跨会话磁盘存档</h3>
+        <p>把 MergeOrderState 元层进度(虔诚币/神庙/经验·守护者等级/灵力/盲盒/女神/订单完成数/今日祈愿)从单局尺度升为跨会话:启动加载、元变更后落盘、退出兜底。复用现有 Persistence 接缝;序列化层同步可单测、磁盘 IO 走 UniTask 异步外壳。含 version 迁移、缺字段保底、跨天重置、与悔棋快照分层、dev 改动清单与 14 条验收点。兑现设计 13 §七 O3。</p>
       </a>
     </div>
 
