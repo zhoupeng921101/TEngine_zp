@@ -201,6 +201,48 @@ public partial class Tables
             m_TbRedeemReward.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 通用邮件模板表
+    /// </summary>
+    private mail.TbMail m_TbMail;
+    public mail.TbMail TbMail 
+    {
+        get
+        {
+            if (m_TbMail == null)
+            {
+                m_TbMail = new mail.TbMail(defaultLoader("mail_tbmail"));
+                m_TbMail.ResolveRef(this);
+            }
+            return m_TbMail;
+        }
+        set
+        {
+            m_TbMail = value;
+            m_TbMail.ResolveRef(this);
+        }
+    }
+    /// <summary>
+    /// 邮件全局配置表(单行)
+    /// </summary>
+    private mail.TbMailGlobal m_TbMailGlobal;
+    public mail.TbMailGlobal TbMailGlobal 
+    {
+        get
+        {
+            if (m_TbMailGlobal == null)
+            {
+                m_TbMailGlobal = new mail.TbMailGlobal(defaultLoader("mail_tbmailglobal"));
+                m_TbMailGlobal.ResolveRef(this);
+            }
+            return m_TbMailGlobal;
+        }
+        set
+        {
+            m_TbMailGlobal = value;
+            m_TbMailGlobal.ResolveRef(this);
+        }
+    }
 
     #endregion
 

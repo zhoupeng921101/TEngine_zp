@@ -6,35 +6,16 @@
 
 ## 当前任务
 
-### mail 通用邮件系统·数据逻辑层 + 服务器/运营接缝(自治·放手默认)
+无活跃任务。
 
-**来源**:`C:\Users\pc\Downloads\1002通用邮件系统.xlsx`。**baton** full,opus 三档。git 基线 `f51bd660`(redeem-code 关单,本轮起点工作树干净)。
-
-**方向决策(2026-06-14 用户拍板,本批次共用)**:剩余队列(兑换码/排行榜/邮件)本质是服务器/在线功能,与本作离线·去变现·无服务器方向不合;用户选「**继续建底层,留服务器接缝**」——当可复用通用底层做,逻辑层可测、服务器侧抽接缝 + TODO,离线版 inert。兑换码已落地(关单)。**增量排序(boss 放手默认授权内调整)**:邮件先于排行榜——排行榜结算奖励经邮件发放(spec mail 字段=邮件id),且邮件 spec 明写「为其他功能留邮件调用接口,用于奖励发放」,故先建邮件底层,排行榜届时接真实本地邮件服务而非再 stub。
-
-**spec 摘要(boss 提取自 xlsx)**:系统发信息与奖励,后台全服/私人/附件邮件(运营侧)。
-- 邮件规则:保留期默认一月到期自动消失;未领取数 > N(默认 100)按时间删最早、新邮件插尾,总上限 N;N 与保留时间入全局配置。
-- 邮件格式:发件人 + 发件时间 + 标题 + 内容 + 奖励包(可选)。
-- 邮件配置表(表 sheet):id | 标题(多语言 textId)| 内容(多语言 textId)| 有效期(天)| Reward表id(奖励随机库表 id,接 16 道具系统 gift 表)。5 条 demo 行。
-- 状态:已读/未读 × 奖励(无/已领/未领);红点 = 未读 OR 有奖励未领。
-- 操作:一键领取(发所有未领奖→弹奖励展示→全标已读)/ 单封领取 / 删除已读(已读且奖励已领或无奖励)/ 列表排序(已读>未读,再时间)。
-- 开启:1 级即开。道具/跑马灯需求无;红点有;运营/服务器需求 = 后台发删定时邮件 + 留对外调用接口(服务器侧,标待定/后面做)。美术:UI 见界面,原画/特效/动画无,icon = 主界面邮件图标。
-
-**boss 自治授权 + 预先拍板(放手默认)**:
-- **中心定位**:交付**数据逻辑层 + 服务器/运营接缝**。① 邮件 Luban 配置表 + 全局配置(maxCount/retainDays 可配,默认 100/30);② 邮件数据模型(发件人/时间/标题/内容/奖励附件/已读/已领取);③ 收件箱服务 MailboxService:**收件(对外 API `IMailService.Send`,供排行榜结算/活动回收/系统奖励调用——即 spec 的「留邮件调用接口」)** / 列表(已读>未读+时间) / 标记已读 / 领取(单封 + 一键,复用 16 `ItemGrant.GrantOnAcquire` + 17 `RewardView` 归一,领后弹奖励展示) / 删除已读 / 自动清理(>N 删最早 + 过期删除,注入时钟) / 红点 getter(未读 OR 有奖励未领);④ 持久化复用 `Persistence.Provider`(专用键 `Mail.Inbox`,序列化收件箱,反序列化脏数据产合法空集合不抛);⑤ 服务器/运营接缝 `IMailSource`(后台发/定时/区服多选)= stub + TODO,离线不实现,区服离线视单一本地区服。
-- **奖励发放**复用 16/17,不另造;奖励附件经 Reward表id → gift 表 → `ItemGrant`。
-- **时钟注入** NowProvider(默认系统时钟),有效期/保留/过期清理用注入 today,可单测(同 save/redeem)。
-- **UI 表现层延后**(需美术):邮件界面(列表/详情/无邮件/全部删除提示)+ 红点显示 + icon = 留服务 + 红点状态 getter,UI 投放转遗留;多语言文案存 textId 占位。
-- 验收强度:EditMode 覆盖 收件 / 排序 / 标记已读 / 领取(单+一键)/ 删除已读 / 自动清理(超 N + 过期)/ 红点计算 / 持久化往返 / 奖励复用;Luban 直读;编译 0 error、零回归;Code Review 5 红线。
-- 命名空间 `GameLogic.Mail`(同 Redeem/Settings 体例),配置桥接 `MailConfigMgr` 归 `GameLogic.Config`。
-- 仅遇与 GDD/spec 方向抵触才停问用户(本方向已拍板);有安全默认的范围开关 plan 走 decisions 默认推进。
-
-**队列剩余**(续接同一决策):排行榜(`1007排行榜底层-----.xlsx`,接本轮邮件服务做结算发奖)。TOAST(1008,纯 UI/阻塞于美术)与 音乐(1009,与 settings 音频重合)离线近空。
+**xlsx 系统底层批次方向决策(2026-06-14 用户拍板)**:剩余队列本质是服务器/在线功能,与本作离线·去变现·无服务器方向不合;用户选「**继续建底层,留服务器接缝**」——当可复用通用底层做,逻辑层可测、服务器侧抽接缝 + TODO,离线版 inert。兑换码、邮件已按此落地(关单)。
+**队列剩余**:排行榜(`1007排行榜底层-----.xlsx`)——结算发奖接本批已建的邮件服务 `IMailService.Send`(spec mail 字段=邮件id)+ 排名数据源抽服务器接缝(离线本地榜)。TOAST(1008,纯 UI/阻塞于美术)与 音乐(1009,与 settings 音频重合)离线近空。
 
 ## 最近关单(索引;详情见各 `archive/<任务>/boss.md`)
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-14 | mail 通用邮件系统·数据逻辑层 + 服务器/运营接缝(收件箱/领取单+一键/删除/自动清理/红点;IMailService.Send 对外 API + IMailSource 运营 stub;发奖复用 16、持久化复用 Provider;表现层+真实服务器转 #26) | PASS(自治·放手默认;分两段:plan 撞用量上限→基线 367c080d,dev-test 续接 0 打回;BlockBlast 335/335 + Mail 24/24 + Luban 直读) | `archive/2026-06-14-mail-system/` |
 | 2026-06-14 | redeem-code 通用兑换码系统·数据逻辑层 + 服务器接缝(IRedeemValidator 可注入/本地 Luban 校验+远程 stub;发奖复用 16;去重复用 Persistence;表现层+真实服务器转 #25) | PASS(自治·放手默认;full,0 打回;BlockBlast 311/311 + Redeem 17/17 + Luban 直读) | `archive/2026-06-14-redeem-code-system/` |
 | 2026-06-14 | settings 通用设置系统·数据逻辑层(音频开关+持久化复用框架键/信息 getter;表现层转 #24) | PASS(自治·放手默认;full,0 打回;EditMode 294) | `archive/2026-06-14-settings-system/` |
 | 2026-06-14 | player-info 玩家信息系统·数据逻辑层(档案/头像表/名字/改名/解锁三态;表现层转 #22) | PASS(自治·放手默认;full,0 打回;EditMode 279;plan 空停根治首次实战无空停) | `archive/2026-06-14-player-info/` |
@@ -76,3 +57,4 @@
 23. **[后续轮·player-info 数据层接线待补]** 钩子/接缝已就绪、待对应系统或调用方接入:① 解锁条件 type 2「活动发放」(`AvatarUnlockService.GrantUnlock` 钩子就绪,无活动系统不判);② 钻石可花费余额(`PlayerRenameService` 经 `trySpendDiamond` 接缝,生产默认 no-op,待数值系统实装钻石余额接真实扣减——与 item-system #19 钻石现状同源);③ 屏蔽字真实词表(`ProfanityFilter` 词表可注入,当前空表不拦,真实词表是后续数据);④ 多语言文本表(头像「解锁文字」存 textId,真实查表延后,与 numeric/reward NameTextId 同);⑤ 玩家经验真实来源接入 + 等级奖励内容(`PlayerExpService` 容器 + `PlayerLevelConfig` 曲线就绪,未接真实经验来源,等级奖励为占位接口)。均数据层不返工。
 24. **[后续轮·settings UI 表现层 + 接线待补;阻塞于美术 + 未建系统]** settings 本轮只交付数据逻辑层(音频设置 `GameLogic.Settings` + 信息 getter)。① UI 表现层:设置界面窗口 + 各按钮(音乐音效开关/联系客服/新手说明/版本号/用户协议·隐私/用户ID/兑换码入口)未投放,阻塞于美术(设置图标),基于本层服务驱动;② 接线待补:联系客服界面(spec 标待定)/ 协议·隐私真实 URL(当前占位常量,UI 接时 Application.OpenURL)/ 兑换码入口(兑换码系统已建,2026-06-14;入口按钮接 `GameLogic.Redeem` 服务即可,见 #25)/ 新手关跳转(依赖教学关)/ 提示文案多语言真实查表(存 textId 占位 190001-4)。音频开关本身已实装并经框架键持久化(`Setting.MusicMuted/SoundMuted`),真实音频实听走 Play 手验。
 25. **[后续轮·redeem-code 表现层 + 真实服务器;阻塞于美术 + 无网络模块]** redeem-code 本轮交付数据逻辑层 + 服务器接缝(`GameLogic.Redeem`:`IRedeemValidator` 可注入,本地 `LocalConfigRedeemValidator` 查 Luban 表 + 远程 `RemoteRedeemValidator` stub 返 SourceUnavailable 零网络调用;发奖复用 16 `ItemGrant.GrantOnAcquire`;去重复用 `Persistence.Provider` 键 `Redeem.Redeemed`)。未做:① 真实服务器校验——工程无网络模块,`RemoteRedeemValidator` 待网络模块就绪后实现,服务层零改动切注入;② UI 表现层(需美术):兑换码输入界面 + 结果弹窗 + 真实 Sprite;③ 设置界面兑换码入口按钮接线(`SettingsLinks.OpenRedeemCode()` TODO 已指向本服务,#24)。结果文案 textId 占位 110601–110606,真实多语言查表延后(同 num/item/reward/settings)。逻辑层不返工。
+26. **[后续轮·mail 表现层 + 真实服务器;阻塞于美术 + 无网络模块]** mail 本轮交付数据逻辑层 + 两道接缝(`GameLogic.Mail`:收件箱模型 + `MailboxService` 收件/列表/已读/领取单+一键/删除已读/自动清理超N+过期/红点;`IMailService.Send` 对外发件 API 真做;`IMailSource`/`InertMailSource` 运营推送 stub;发奖复用 16 `GiftOpener`→`ItemGrant`、持久化复用 `Persistence.Provider` 键 `Mail.Inbox`)。未做:① UI 表现层(需美术)——邮件界面/详情/无邮件态/全部删除确认/红点显示/icon/真实 Sprite/主界面入口接线;② 真实服务器后台发删/定时邮件 + 区服多选——无网络模块,`IMailSource` 待网络模块就绪后实现(离线视单一本地区服);③ 多语言文案真实查表(textId 占位 110701-110725)。排行榜结算(#队列下一项)届时接 `IMailService.Send` 发奖。逻辑层不返工。

@@ -125,4 +125,13 @@
 
 ## 2026-06-14 第九次审计(增量·mail 关单时一并查)
 
-> 注:mail 轮因撞用量上限分两段执行(plan 基线 commit `367c080d`,dev/test 续接中)。本段在 mail 最终关单时补全审计;此处先登记上方「核磁盘闸」改动,待 dev/test 关单触发完整三样检(若届时 memory 又有增量)。
+- 基线:上方「核磁盘闸」登记段 + 第八次审计(commit `f51bd660`)。自基线规则栈改动:① `.claude/skills/pipeline/SKILL.md` 关单第 1 步加核磁盘闸(已在上方登记段记录,本次不重审);② `pipeline/memory/dev.md` +2 条(单行全局配置表用普通 map 表 + id 固定 1 兜底;`GameLogic.Mail` 与 Luban 行类 `GameConfig.Mail` 同名消歧 + JsonUtility 嵌套元素须 `[Serializable]`、派生态用 getter 属性不进盘);③ `pipeline/memory/test.md` +2 条(配置源 xlsx 在 repo 兄弟目录 `<repo>/Configs/` 不在 UnityProject 内;Luban C3 直读取 GREEN 时即构成 xlsx→bytes 一致性最强交叉核验,不必手解 xlsx)。mail 分两段执行(plan 撞用量上限→基线 `367c080d`,dev-test 续接 PASS)。有改动,不短路,查三样。
+- 范围:CLAUDE.md、`.claude/rules/`、各 SKILL.md、`.claude/agents/*.md`、`.claude/workflows/pipeline-auto.js`、`pipeline/memory/*` 文件头。
+- 结论:
+  1. **重复(无)**:dev「单行配置表」「同名消歧+JsonUtility」均新技术点;后者显式引「同 item-system 行类命名条」为互补(加 JsonUtility 序列化细节)非副本。test「xlsx 兄弟目录路径」「C3 GREEN 核验」与既有 test 条(EditMode 域重载/反射私有成员)非同域,无重复。
+  2. **矛盾(无)**:memory 全为加法;核磁盘闸与既有「收产出首选验文件」「进度只能推导」方向一致(登记段已记反向冲突检查)。
+  3. **死规则(无)**:memory 4 条 + 核磁盘闸均带 2026-06 mail 具体实例(核磁盘闸实例 = 本轮首条假 PASS)。
+  4. **健康面**:① 核磁盘闸首次实战即拦下真问题——mail plan 段工作流先返假 PASS(333/333、磁盘零文件),旧流程会误关单不存在的系统,新闸 git status + ls 核盘拦下;② 首次「撞会话用量上限分段执行」成功恢复(plan 产出提交基线 → 用量恢复后 dev-test 续接,未浪费已落地 plan);③ dev/test 持久文件语体干净(boss 关单 grep 0 命中、test 自跑 conventions lint),延续 redeem 轮的改善;④ memory test 条「xlsx 在兄弟目录」修了一个真实绊点(boss 本轮也曾在 UnityProject 内找 mail.xlsx 扑空)。
+  5. **carry-forward**:第五次观察项(decisions/blockers 3 触点)、第八次观察项 2(语体指引 conventions/plan 两处)本轮均未触,仍一致,续留。
+  6. 死规则累计:距首轮约 2 天,窗口仍不足,不判。
+- 处置:无删除候选,无修正候选。本段 + 上方登记段共作下次增量审计基线。
