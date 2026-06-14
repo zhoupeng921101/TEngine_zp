@@ -317,10 +317,10 @@ namespace GameLogic.BlockBlastUI
             _openBoxBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
         }
 
-        // ── 虔诚币计数（设计 13 §五） ──
+        // ── 虔诚币计数（设计 13 §五）。数字走数值系统格式化:大数自动 K/M（设计 15 §3.5 示范接入 O3）──
         private void RefreshPiety()
         {
-            _pietyText.text = $"✦ {_merge.Piety}";
+            _pietyText.text = $"✦ {NumericDisplay.Format(_merge.Piety)}";
         }
 
         // ── 「神庙」按钮：叠层打开 TempleWindow（不关本窗、不丢局），关闭后刷新虔诚币 ──

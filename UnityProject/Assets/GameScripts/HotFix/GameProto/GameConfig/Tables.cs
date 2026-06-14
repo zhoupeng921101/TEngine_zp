@@ -54,6 +54,27 @@ public partial class Tables
             m_TbWeightCfg.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 数值底层货币表
+    /// </summary>
+    private num.TbNum m_TbNum;
+    public num.TbNum TbNum 
+    {
+        get
+        {
+            if (m_TbNum == null)
+            {
+                m_TbNum = new num.TbNum(defaultLoader("num_tbnum"));
+                m_TbNum.ResolveRef(this);
+            }
+            return m_TbNum;
+        }
+        set
+        {
+            m_TbNum = value;
+            m_TbNum.ResolveRef(this);
+        }
+    }
 
     #endregion
 
