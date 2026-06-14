@@ -1,7 +1,7 @@
 # 规则审计日志
 
 > `/audit` 每次执行后追加一段:日期、规则栈基线(git rev 或文件清单时间)、结论。增量短路以最近一段基线为准。
-> 本文件在自动注入信道(`.claude/rules/*.md` 每窗口常驻),故只留**最近审计段**作增量基线;更早历史段归档到 `archive/audit-log-2026-06.md`、按需 Read。本文件再超 ~200 行就把旧段移入该归档(conventions 规则4)。
+> 本文件在自动注入信道(`.claude/rules/` 下所有 .md 递归注入、每窗口常驻),故只留**最近审计段**作增量基线;更早历史段归档到 `.claude/rules-archive/audit-log-2026-06.md`(在递归注入范围外)、按需 Read。本文件再超 ~200 行就把旧段移入该归档(conventions 规则4)。
 
 ## 2026-06-14 规则栈改动登记(关单加「核磁盘交付物」闸,主会话直接改·用户拍板)
 
@@ -32,3 +32,11 @@
 - 反向冲突检查(conventions 准入第6条):与规则4「日志超 ~200 行归档到同目录 archive/」一致(本次即执行该归档);「注入信道」视角是对规则4 的补充——规则4 管「何时归档」,新视角管「对注入路径文件为何更急」,非矛盾,未使既有条款过时。
 - 待核实(下个上下文窗口):确认活跃 audit-log 注入变小、且 `archive/` 子目录未被递归注入;若 archive 仍被注入(harness 递归扫 `.claude/rules/**`),把归档移出 `.claude/rules/`(如 `pipeline/`)。
 - 处置:用户拍板「按你建议的做」。本段 + 上方核磁盘闸登记 + 第九次审计共作下次增量审计基线。
+
+## 2026-06-14 规则栈改动登记(历史归档移出注入范围,主会话直接改)
+
+- 触发:上方「注入信道分层」段的待核实项已核——新窗口注入清单里 `.claude/rules/archive/audit-log-2026-06.md` 仍在,证明 harness 对 `.claude/rules/` 是**递归**注入(子目录一并扫)。上一步把历史挪进 `rules/archive/` 子目录没有真正减注入,只是把一个被注入的文件拆成两个。
+- 改动:① `git mv .claude/rules/archive/audit-log-2026-06.md` → `.claude/rules-archive/audit-log-2026-06.md`(与 `rules/` 同级、在递归注入范围外),空掉的 `.claude/rules/archive/` 一并删除;② 把 conventions(内容分层注入信道旁注 / 准入 #5 核信道 / 审计 #4 信道匹配)与本文件 line 4 里「`.claude/rules/*.md`」(暗示仅顶层)订正为「`.claude/rules/` 下所有 .md 递归」,示例归档路径改 `.claude/rules-archive/`;③ 归档文件内部相对指针 `../audit-log.md` 改 `../rules/audit-log.md`。
+- 效果:历史段(22KB)真正移出每窗口注入,活跃 audit-log 注入降到数 KB(此前仅拆分未减,见触发)。预期下个窗口注入清单不再含 audit-log-2026-06——`.claude/rules-archive/` 不在 `.claude/rules/` 下;claudeMd 项目指令注入只覆盖 `.claude/rules/`、不递归整个 `.claude/`(证据:`.claude/skills`、`.claude/agents` 从不作为项目指令注入)。
+- 反向冲突检查(conventions 准入第6条):旧表述「`.claude/rules/*.md`」与实测递归注入冲突,已同次全栈订正,无孤儿;与「注入信道分层」段方向一致(那段定原则,本段修执行偏差)。
+- 处置:订正+加法,无删除候选。本段作下次增量审计基线。
