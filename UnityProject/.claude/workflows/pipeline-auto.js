@@ -160,7 +160,7 @@ while (round < 3) {
   if (!verdict) return { status: 'BLOCKED', stage: 'test', blocked: blocked.concat(['test agent 两次异常退出(疑似 MCP 桥断连);验证可能已完成,人工查 pipeline/state/test.md 确认']), decisions, round }
   decisions.push(...(verdict.decisions || []))
   if (verdict.verdict === 'BLOCKED') {
-    // 环境型阻塞:dev 无可修,打回只会空转烧轮次(2026-06-13 core-loop 3 轮实测)——直接结束呈报,不计打回
+    // 环境型阻塞:dev 无可修,打回只会空转、白费轮次(2026-06-13 core-loop 3 轮实测)——直接结束呈报,不计打回
     blocked.push(`环境阻塞(非代码缺陷):${verdict.reason || '见 pipeline/state/test.md'}`)
     return { status: 'BLOCKED', stage: 'environment', blocked, decisions, round }
   }

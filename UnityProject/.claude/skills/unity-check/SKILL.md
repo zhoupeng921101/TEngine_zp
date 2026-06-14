@@ -33,6 +33,6 @@ description: UnityMCP 连接自检。碰 Unity 前确认 MCP 连到正确实例;
 - **进程冻结**:`Get-Process Unity` 见 `Responding=False` → 编辑器无响应,人工重启。
 - **桥会话未注册**(更常见):进程与 `mcp-for-unity` 桥都活、`Responding=True`,但 `mcpforunity://instances` 为空(`instance_count:0`)= 编辑器未向桥注册会话、握手未完成,而非进程冻结;若此时 `Unity.ILPP.Runner` 在场,是停在内部编译/域重载、到不了 `ready_for_tools`。处置:人工在 Unity 端重连桥,而非盲目重启。
 
-两种子 agent 都无法安全自解(不强杀用户编辑器,有未保存态风险),只能定位 + 上报。
+两种子 agent 都无法安全自解(不强制关闭用户编辑器,有未保存态风险),只能定位 + 上报。
 
 > 开多个 Unity 实例时 active_instance 是 server 进程级全局共享的——绑错会让所有 agent 一起连不上。根治在环境侧:只留一个 UnityProject 实例、杀掉僵尸实例,自检就几乎不进第 3 步。
