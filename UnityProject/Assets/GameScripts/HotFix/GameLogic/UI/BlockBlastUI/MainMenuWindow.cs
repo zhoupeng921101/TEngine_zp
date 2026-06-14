@@ -54,6 +54,14 @@ namespace GameLogic.BlockBlastUI
             UGuiFactory.CreateText(content, "Best", cx, 1020, 470, 50, $"BEST  {state.HighScore}", 32,
                 new Color32(0xaa, 0xbb, 0xdd, 0xFF));
 
+            // 设置入口（设计 23 §八 B5：本轮入口落主菜单；玩法 HUD 齿轮入口后续轮次）
+            var btnSettings = UGuiFactory.CreateButton(content, "BtnSettings", cx, 1140, 360, 96, "设置", 36,
+                new Color32(0x77, 0x88, 0x99, 0xFF), Color.white, out _, out _);
+            btnSettings.onClick.AddListener(() =>
+            {
+                GameModule.UI.ShowUIAsync<GameLogic.UI.SettingsWindow>();
+            });
+
             // TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow。
             // 数据逻辑层（设计 18）已就绪：PlayerInfo / PlayerRenameService / AvatarUnlockService /
             // PlayerLevelConfig / AvatarConfigMgr / ClipboardUtil；UI 表现层延后（需美术，O1）。

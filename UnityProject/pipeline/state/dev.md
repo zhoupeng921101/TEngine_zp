@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-上一单 rank 排行榜系统·数据逻辑层 + 服务器接缝已于 2026-06-14 关单 PASS,归档 `pipeline/archive/2026-06-14-rank-system/dev.md`。
+(上一任务 ui-settings-window 设置窗美术换皮已于 2026-06-15 关单,归档:`pipeline/archive/2026-06-15-ui-settings-window/`)

@@ -35,6 +35,19 @@ public partial class GameApp
     
     private static void StartGameLogic()
     {
+        // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
+        // 接 AudioSink，把设置开关推到真实音频模块（设计 23 §五；落点在热更入口而非
+        // 非热更区 ProcedureLaunch——后者引用不到热更区 GameContext，热更边界所致）。
+        var settings = GameContext.Instance.Settings;
+        settings.AudioSink = (musicOn, soundOn) =>
+        {
+            GameModule.Audio.MusicEnable = musicOn;
+            GameModule.Audio.SoundEnable = soundOn;
+        };
+        // 把已加载的态立即应用一次（Apply 为私有，经 SetMusic/SetSound 同值重设触发，等价且不改语义）。
+        settings.SetMusic(settings.Audio.MusicOn);
+        settings.SetSound(settings.Audio.SoundOn);
+
         // Block Blast：预热动态权重表（ConfigSystem 懒加载，失败则退化随机），打开主菜单
         try
         {

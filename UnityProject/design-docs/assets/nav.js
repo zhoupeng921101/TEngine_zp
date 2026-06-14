@@ -51,6 +51,10 @@
       { href: '22-rank-system.html', side: '22 · 排行榜底层系统', tag: '系统 · 排行榜底层', title: '22 · 排行榜底层系统(数据逻辑层 + 服务器接缝)',
         desc: '命名空间 GameLogic.Rank 的排名数据逻辑层:一张配置表控制所有榜(spec「统一用一个表格控制所有排行榜」),同 id 多行聚合成 RankDef(榜级字段)+ 名次奖励档 RankRewardTier。RankService 提供查榜(取前 N、查自己名次)、排序与并列(分数降序 + 同分按入榜时间升序,顺序名次)、结算编排(valid_type 四档:0无结算/1开服X天/2指定时间/3周循环星期X,IsSettleDue 注入时钟判到点 + 幂等防重复结)、每日/点赞奖跨天领取、红点 getter。两道接缝:① 排名数据源 IRankSource——离线 LocalRankSource(本机成绩 + 配置陪榜,可跑可测排序出名次)/ 远程 RemoteRankSource(stub 返空不连网,未来上后端实现一次服务层零改动);② 结算发奖不另造,直接调邮件系统 21 IMailService.Send(spec mail 字段=邮件id,结算奖励写进邮件待领),奖励内容复用 16 礼包随机库 id。排名层不碰 MergeOrderState/ItemGrant。持久化复用 Persistence.Provider 键 Rank.Progress(只存本机最佳分/上次结算/已结标记/每日点赞领取日期,他人成绩不进盘)。新建 Luban 排行榜表。加法式不改框架、不另造发奖/存储栈,邮件 21 零改动。含 schema 字段表、分层结构图、结算时序图、结算时机四档逐档代入、dev 改动清单与 26 条验收点。排行榜界面/列表/点赞按钮/头像/icon 与真实全服榜→表现层+远程实现延后。xlsx 系统底层批次第八刀。' },
     ]},
+    { side: '表现层 / 换皮', card: '表现层(美术换皮)', docs: [
+      { href: '23-settings-window-art.html', side: '23 · 设置窗美术换皮', tag: '表现层 · 首个美术 UI', title: '23 · 设置窗美术换皮',
+        desc: '本工程第一个美术驱动的 UI 窗口:把效果图 setting.png 换皮成可运行的 SettingsWindow,兑现设计 19 设置系统的表现层(遗留 #24)。核心是打通「切图 → 每屏一个 SpriteAtlas v2 → prefab 摆节点(m_ 前缀)→ FindChildComponent 绑定 → [Window] 加载 → SetSubSprite 取子图 → 热更」整条链路,作为后续所有界面换皮的模板。含切图导入落点 / 图集建法 / YooAsset 收集器寻址(SetSubSprite 跑通的前提) / 1080×1920 节点树逐节点命名 + 子图映射 / 窗口脚本生命周期 / 每个按钮的实做vs占位分流表。基础设施决定:新建 GameContext 运行期上下文单例统一持有 SettingsService 等无主数据(影响后续 player-info/item/mail/rank)。数据层只调用不重写。验收拆「逻辑可单测」与「需 Play/人眼对位」两档。' },
+    ]},
     { side: '代码 / 工具', card: '代码 / 工程', docs: [
       { href: '07-blockblast-code-architecture.html', side: '07 · 代码架构剖析', tag: '工程 · 代码剖析', title: '07 · BlockBlast 代码架构剖析',
         desc: '离线还原版动态难度系统的 C# 实现:三层分层、调度数据流、位棋盘 + 蒙特卡洛评分器、CPU 热点与可调点。' },
