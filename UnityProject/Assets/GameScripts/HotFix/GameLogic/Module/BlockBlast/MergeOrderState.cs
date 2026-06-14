@@ -27,6 +27,39 @@ namespace GameLogic.BlockBlast
     }
 
     /// <summary>
+    /// 一次神庙修复的结果详情（设计 13），供 UI 弹字展示。修复失败时 Success=false、其余字段为 0/默认。
+    /// </summary>
+    public readonly struct TempleRepairResult
+    {
+        /// <summary>是否成功修复（三前置全满足）。</summary>
+        public readonly bool Success;
+        /// <summary>本次修复的厅序号。</summary>
+        public readonly int HallIndex;
+        /// <summary>扣除的虔诚币（= 该厅造价）。</summary>
+        public readonly int PietySpent;
+        /// <summary>获得的经验（= 该厅造价）。</summary>
+        public readonly int ExpGained;
+        /// <summary>实际增加的体力（受软上限约束后的净增量，修复 + 升级累加）。</summary>
+        public readonly int EnergyGained;
+        /// <summary>本次修复跨越的守护者等级数（0 表示未升级）。</summary>
+        public readonly int LevelsGained;
+        /// <summary>修复后的守护者等级。</summary>
+        public readonly int NewLevel;
+
+        public TempleRepairResult(bool success, int hallIndex, int pietySpent, int expGained,
+            int energyGained, int levelsGained, int newLevel)
+        {
+            Success = success;
+            HallIndex = hallIndex;
+            PietySpent = pietySpent;
+            ExpGained = expGained;
+            EnergyGained = energyGained;
+            LevelsGained = levelsGained;
+            NewLevel = newLevel;
+        }
+    }
+
+    /// <summary>
     /// 合成+订单+体力 切片的新系统状态机（组合，独立于 BlockGameState 以免污染 Classic）。
     /// 纯逻辑、可单测：合成区自动配对升级、订单队列交付/刷新、体力扣/返/补、保底计数器、悔棋快照栈。
     /// 棋盘 / 元素层 / 候选槽仍住在 BlockGameState；悔棋整体回滚由 <see cref="CaptureSnapshot"/> /
@@ -102,6 +135,38 @@ namespace GameLogic.BlockBlast
         /// <summary>特殊订单轨（设计 11 §三：0/1 占槽 + 等待队列，剧情&gt;加急&gt;黄金时段）。</summary>
         public readonly SpecialOrderTrack SpecialTrack = new SpecialOrderTrack();
 
+        // ── 长期主线：虔诚币 + 神庙修复 + 经验·守护者等级（设计 13）──
+        /// <summary>
+        /// 虔诚币（长期主线货币，设计 13）。唯一来源 = 订单交付的主要奖励；唯一出口 = 修复神庙大厅。
+        /// 只增不减地累积（<see cref="AddPiety"/> 仅接受正数），仅在 <see cref="RepairTemple"/> 处扣减。
+        /// 入悔棋快照（单局内回滚正确），不单独磁盘存盘——与 灵力/盲盒计数 同口径。
+        /// </summary>
+        public int Piety;
+
+        /// <summary>累积经验（设计 13）。唯一来源 = 修复神庙；守护者等级是其纯函数。只增不减。</summary>
+        public int Exp;
+
+        /// <summary>已解锁剧情章节数（设计 13）。每升一级 +1，本轮只做计数标记，无剧情内容/UI。</summary>
+        public int UnlockedChapter;
+
+        /// <summary>
+        /// 下一座待修神庙的序号（0-indexed）。顺序解锁：第 i 厅「可修」⟺ 前 i 厅全部已修，即 i==NextRepairIndex。
+        /// 修完一厅 +1；达 <see cref="TempleConfig.HallCount"/> 表示全部修完（主线完成）。
+        /// </summary>
+        public int NextRepairIndex;
+
+        /// <summary>各神庙是否已修复（长度 = TempleConfig.HallCount）。</summary>
+        public bool[] TempleRepaired;
+
+        /// <summary>各神庙是否已获装饰摆件（修复成功即置 true，本轮只 bool 标记、无美术）。</summary>
+        public bool[] TempleDecorated;
+
+        /// <summary>守护者等级（派生：经验的纯函数，不单独存值以免两份状态漂移，设计 13 §3.4）。</summary>
+        public int GuardianLevel => TempleConfig.GuardianLevelFor(Exp);
+
+        /// <summary>全 12 厅是否修复完毕（主线长期通关标记）。</summary>
+        public bool IsTempleAllRepaired => NextRepairIndex >= TempleConfig.HallCount;
+
         // 悔棋快照栈：每次落子前压入一份全量状态；Undo 弹出并回滚。
         // 只在 UndoCharges>0 时压栈，避免次数耗尽后无意义增长。
         private readonly Stack<Snapshot> _undoStack = new Stack<Snapshot>();
@@ -126,6 +191,14 @@ namespace GameLogic.BlockBlast
             GoddessRating = 0;
             GoddessLevel = 1;
             BlindBoxCount = 0;
+
+            // 长期主线（设计 13）：开局虔诚币/经验/章节归零，12 厅全部未修、未装饰，从第 0 厅开始。
+            Piety = 0;
+            Exp = 0;
+            UnlockedChapter = 0;
+            NextRepairIndex = 0;
+            TempleRepaired = new bool[TempleConfig.HallCount];
+            TempleDecorated = new bool[TempleConfig.HallCount];
 
             ActiveOrders = new Order[MergeOrderConfig.ActiveOrders];
             for (int i = 0; i < ActiveOrders.Length; i++) ActiveOrders[i] = NextOrder();
@@ -230,6 +303,9 @@ namespace GameLogic.BlockBlast
             TotalScore += o.Level * o.Count * MergeOrderConfig.OrderScoreFactor;
             CompletedOrders += 1;
 
+            // 长期主线（设计 13 §3.1）：虔诚币 = 订单难度 × 旋钮。纯追加，不动上方旧发奖。
+            AddPiety(o.Difficulty * TempleConfig.PietyPerDifficulty);
+
             ActiveOrders[slot] = NextOrder();
 
             _undoStack.Clear();
@@ -297,6 +373,9 @@ namespace GameLogic.BlockBlast
             // 盲盒附赠（设计 12 §3.5）：须在 OnDelivered() 腾空槽之前读 Kind。
             // 附赠随交付一起固化，不被悔棋倒回（交付清空悔棋栈，符合「已交付」语义）。
             AddBlindBox(BlindBoxPerSpecial(SpecialTrack.Occupied.Kind));
+
+            // 长期主线（设计 13 §3.1）：特殊订单虔诚币 = 难度 × 旋钮 × 特殊溢价倍率。纯追加。
+            AddPiety(o.Difficulty * TempleConfig.PietyPerDifficulty * TempleConfig.SpecialPietyMult);
 
             SpecialTrack.OnDelivered();
             _undoStack.Clear(); // 已提交动作，悔棋不倒回特殊单交付
@@ -390,6 +469,67 @@ namespace GameLogic.BlockBlast
             return true;
         }
 
+        // ── 长期主线：虔诚币 + 神庙修复 + 经验·等级（设计 13）──────
+
+        /// <summary>增加虔诚币（订单交付的主要奖励）。负数/0 不增，仿 <see cref="AddSoul"/>。</summary>
+        public void AddPiety(int amount) { if (amount > 0) Piety += amount; }
+
+        /// <summary>
+        /// 第 index 厅是否可修（设计 13 §3.2 三前置全满足）：
+        /// ①index==NextRepairIndex（顺序解锁，不可跳修）；②该厅未修；③虔诚币 ≥ 造价。
+        /// 任一不满足返回 false。
+        /// </summary>
+        public bool CanRepairTemple(int index)
+        {
+            if (index < 0 || index >= TempleConfig.HallCount) return false;
+            if (index != NextRepairIndex) return false;          // 顺序：只能修下一座
+            if (TempleRepaired == null || TempleRepaired[index]) return false; // 已修不可回修
+            return Piety >= TempleConfig.Cost(index);            // 币足
+        }
+
+        /// <summary>
+        /// 修复第 index 厅（设计 13 §3.2/§3.3）：三前置全满足才执行——
+        /// 扣虔诚币 → 标记已修 + 装饰 → 推进 NextRepairIndex → 发奖（经验 = 造价、体力受软上限）→
+        /// 经验抬等级时逐级（含跨多级）施加升级奖励（每级 +1 章节 + 一份升级体力，体力累加受软上限）。
+        /// 修复是已提交的经济动作：成功后清空悔棋栈（悔棋不倒回已修的厅/已扣的币，与交付同语义）。
+        /// 不满足前置时返回 false 且状态全不变（币不扣、不标记）。result 返回奖励详情供 UI 弹字。
+        /// </summary>
+        public bool RepairTemple(int index, out TempleRepairResult result)
+        {
+            result = default;
+            if (!CanRepairTemple(index)) return false;
+
+            int cost = TempleConfig.Cost(index);
+            int energyBefore = Energy;
+            int levelBefore = GuardianLevel;
+
+            // 扣币 + 标记 + 推进
+            Piety -= cost;
+            TempleRepaired[index] = true;
+            TempleDecorated[index] = true;
+            NextRepairIndex = index + 1;
+
+            // 经验（= 造价，1:1，造价越高经验越「大量」）→ 抬等级
+            Exp += cost;
+            RefundEnergy(TempleConfig.TempleRepairEnergy); // 修复回血，受软上限不溢出
+
+            // 升级：经验跨了几级就发几份升级奖励（章节解锁计数 + 升级体力）。
+            int levelAfter = GuardianLevel;
+            int levelsGained = levelAfter - levelBefore;
+            if (levelsGained > 0)
+            {
+                UnlockedChapter += levelsGained;
+                // 升级体力一次性按跨级累加，受软上限（与现状 RefundEnergy 同规则）。
+                RefundEnergy(levelsGained * TempleConfig.LevelUpEnergy);
+            }
+
+            int energyGained = Energy - energyBefore;
+            result = new TempleRepairResult(true, index, cost, cost, energyGained, levelsGained, levelAfter);
+
+            _undoStack.Clear(); // 已提交动作，悔棋不倒回已修厅/已扣币
+            return true;
+        }
+
         // ── demo 终点 ──────────────────────────────────────────
 
         /// <summary>完成单数达标即通关。</summary>
@@ -448,6 +588,13 @@ namespace GameLogic.BlockBlast
             private int _blindBoxCount;
             private SpecialOrder _special;
             private SpecialOrder[] _specialWaiting;
+            // 长期主线（设计 13）：随 灵力/盲盒 同体例入快照，悔棋须回滚。
+            private int _piety;
+            private int _exp;
+            private int _unlockedChapter;
+            private int _nextRepairIndex;
+            private bool[] _templeRepaired;
+            private bool[] _templeDecorated;
 
             public static Snapshot Capture(BlockGameState s, BinaryBoard board, MergeOrderState m)
             {
@@ -475,6 +622,12 @@ namespace GameLogic.BlockBlast
                     _blindBoxCount = m.BlindBoxCount,
                     _special = m.SpecialTrack.Occupied,           // SpecialOrder 为不可变值类型，浅拷贝即可
                     _specialWaiting = m.SpecialTrack.SnapshotWaiting(),
+                    _piety = m.Piety,
+                    _exp = m.Exp,
+                    _unlockedChapter = m.UnlockedChapter,
+                    _nextRepairIndex = m.NextRepairIndex,
+                    _templeRepaired = (bool[])m.TempleRepaired?.Clone(),   // 数组深拷贝，避免与现场共享
+                    _templeDecorated = (bool[])m.TempleDecorated?.Clone(),
                 };
                 return snap;
             }
@@ -506,6 +659,12 @@ namespace GameLogic.BlockBlast
                 m.BlindBoxCount = _blindBoxCount;
                 m.SpecialTrack.Occupied = _special;
                 m.SpecialTrack.RestoreWaiting(_specialWaiting);
+                m.Piety = _piety;
+                m.Exp = _exp;
+                m.UnlockedChapter = _unlockedChapter;
+                m.NextRepairIndex = _nextRepairIndex;
+                m.TempleRepaired = (bool[])_templeRepaired?.Clone();   // 深拷贝复原，避免快照与现场共享
+                m.TempleDecorated = (bool[])_templeDecorated?.Clone();
             }
 
             private static int[][] CloneIntGrid(int[][] src)

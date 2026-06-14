@@ -47,6 +47,9 @@ namespace GameLogic.BlockBlastUI
         private Image _openBoxBtnBg;
         private Text _openBoxBtnLabel;
 
+        // 长期主线（设计 13 §五）：顶部虔诚币计数 ✦ ×N + 「神庙」按钮（开 TempleWindow 叠层）。
+        private Text _pietyText;
+
         private int _draggingShapeId = -1;
         private bool _finished;   // 通关或 GameOver 后锁输入
 
@@ -76,6 +79,7 @@ namespace GameLogic.BlockBlastUI
             RefreshSynthesis();
             RefreshUndo();
             RefreshBlindBox();
+            RefreshPiety();
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -127,12 +131,20 @@ namespace GameLogic.BlockBlastUI
                 new Color32(0xff, 0xdd, 0x88, 0xFF));
 
             // 盲盒计数 + 开盒按钮（第二信息行，y=170；设计 12 §五）
-            UGuiFactory.CreateImage(_content, "BoxBg", 230, 170, 230, 52, new Color(0, 0, 0, 0.25f));
-            _blindBoxText = UGuiFactory.CreateText(_content, "BlindBox", 230, 170, 230, 52, "", 34,
+            UGuiFactory.CreateImage(_content, "BoxBg", 175, 170, 190, 52, new Color(0, 0, 0, 0.25f));
+            _blindBoxText = UGuiFactory.CreateText(_content, "BlindBox", 175, 170, 190, 52, "", 32,
                 new Color32(0xc8, 0x9a, 0xff, 0xFF)); // 紫
-            _openBoxBtn = UGuiFactory.CreateButton(_content, "OpenBox", 470, 170, 200, 56, "开盒", 30,
+            _openBoxBtn = UGuiFactory.CreateButton(_content, "OpenBox", 350, 170, 150, 56, "开盒", 28,
                 new Color32(0x7a, 0x4a, 0xb8, 0xFF), Color.white, out _openBoxBtnBg, out _openBoxBtnLabel);
             _openBoxBtn.onClick.AddListener(OnOpenBoxClicked);
+
+            // 长期主线（设计 13 §五）：虔诚币计数 + 「神庙」按钮（第二信息行右侧，y=170）
+            UGuiFactory.CreateImage(_content, "PietyBg", 520, 170, 150, 52, new Color(0, 0, 0, 0.25f));
+            _pietyText = UGuiFactory.CreateText(_content, "Piety", 520, 170, 150, 52, "", 32,
+                new Color32(0xff, 0xcf, 0x5c, 0xFF)); // 金
+            var templeBtn = UGuiFactory.CreateButton(_content, "Temple", 660, 170, 140, 56, "神庙", 28,
+                new Color32(0xb8, 0x8a, 0x3a, 0xFF), Color.white, out _, out _);
+            templeBtn.onClick.AddListener(OnTempleClicked);
 
             // 悔棋按钮（左上）
             _undoBtn = UGuiFactory.CreateButton(_content, "Undo", 90, 55, 130, 60, "悔棋", 30,
@@ -275,6 +287,7 @@ namespace GameLogic.BlockBlastUI
             RefreshSynthesis();
             RefreshUndo();
             RefreshBlindBox();
+            RefreshPiety(); // 悔棋回滚虔诚币（设计 13 §六 T11）
         }
 
         // ── 盲盒计数 + 开盒按钮态（设计 12 §五） ──
@@ -286,6 +299,19 @@ namespace GameLogic.BlockBlastUI
             _openBoxBtn.interactable = can;
             _openBoxBtnBg.color = can ? new Color32(0x7a, 0x4a, 0xb8, 0xFF) : new Color32(0x3a, 0x33, 0x44, 0xFF);
             _openBoxBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
+        }
+
+        // ── 虔诚币计数（设计 13 §五） ──
+        private void RefreshPiety()
+        {
+            _pietyText.text = $"✦ {_merge.Piety}";
+        }
+
+        // ── 「神庙」按钮：叠层打开 TempleWindow（不关本窗、不丢局），关闭后刷新虔诚币 ──
+        private void OnTempleClicked()
+        {
+            if (_finished) return;
+            GameModule.UI.ShowUIAsync<TempleWindow>((System.Action)RefreshPiety);
         }
 
         // ── 开盒（设计 12 §五）：扣 1 → 掷奖 → 发放 → 内联弹字 + 刷新计数/合成区/体力 ──
@@ -320,6 +346,7 @@ namespace GameLogic.BlockBlastUI
             RefreshSynthesis();
             RefreshUndo(); // 交付清空悔棋栈，按钮须刷新
             RefreshBlindBox();
+            RefreshPiety(); // 交付发虔诚币（设计 13 §3.1）
 
             if (_merge.IsDemoComplete()) { TriggerWin(); return; }
         }
