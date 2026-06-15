@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-(上一任务 ui-player-info-window 个人信息窗已于 2026-06-15 关单,归档:`pipeline/archive/2026-06-15-ui-player-info-window/`)
+(上一任务 ui-settlement-windows 结算窗 reskin 已于 2026-06-15 关单,归档:`pipeline/archive/2026-06-15-ui-settlement-windows/`)

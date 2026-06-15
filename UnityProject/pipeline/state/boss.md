@@ -6,10 +6,11 @@
 
 ## 当前任务
 
-**ui-settlement-windows 结算窗 reskin(2026-06-15 开单,自治·纯 UI 补完)** — 游戏结束 + 恭喜通关
-- 范围:reskin 既有 GameOverWindow(游戏结束)+ MergeOrderWinWindow(恭喜通关)的静态壳——木板背景/标题/按钮换 `Sheet_settings` 切图,分数可用 digits 位图数字(`digits_white/yellow`,工程已有);保留结算逻辑不动。无专属切图、复用共享。
-- 美术:效果图 `…\效果图\游戏结束.png` / `恭喜通关.png`;复用 Sheet_settings(木板/按钮)+ digits 数字图集。
-- 参与环节:full(plan→dev→test);验收 boss 桥直跑。
+**ui-tarot-hud tarot_mode 主玩法 HUD reskin(2026-06-15 开单,自治·纯 UI 补完)** — centerpiece,风险最高、最谨慎
+- 范围:reskin 主玩法窗的**静态 HUD 外壳**(顶栏资源条/分数面板/背景/动作按钮视觉),用 `塔罗模式` 16 张切图(首个用打表工具的真实换皮屏)。**保留棋盘/落子/消除动态逻辑不动**;新机制(更换/删除/提示 三按钮)= 视觉占位 + stub 钩子(真机制属新功能、本范围外)。
+- **plan 先定**:tarot_mode 对应哪个在跑玩法窗(GameWindow Classic / MergeOrderWindow 塔罗玩法 799 行)?顶栏 3 资源条各是什么(体力/虔诚/钻石?)?静态壳换皮的精确边界(只换视觉、不碰玩法逻辑)。
+- 美术:效果图 `…\效果图\tarot_mode.png`;切图 `…\塔罗模式\`(16)→ 导入 `AssetRaw/UIRaw/Atlas/tarot_mode/`(ASCII)→ 打表工具产 `Sheet_tarot_mode`。
+- 参与环节:full;**验收硬约束=不破坏 Classic / 合成订单玩法**(boss 桥跑回归 + Play 截图对位)。
 
 > 背景方向(2026-06-14 用户拍板·xlsx 批次):剩余服务器/在线功能与本作离线·去变现方向不合,选「继续建底层,留服务器接缝」;兑换码/邮件/排行榜已落地关单。通用底层批基本到顶,转入 UI 换皮主线(遗留 #30),本工具是其前置。
 
@@ -19,7 +20,7 @@
 - **git 基线**:`ded668bf`(设置窗关单 = 自治起跑基线;本地未 push,可 `git reset` 一键退回)。
 - **自主边界**:不 push / 不 build / 不发布。默认全自主推进,每次拍板记下方决策日志;抵触 GDD 方向 / 3 轮熔断 / 无安全默认 → 记 BLOCKED 跳过、继续不依赖项、结束呈报。
 - **范式**(每屏复用):精灵表寻址(打表工具产出)+ GameContext 持有无主数据层 + FindChildComponent/m_ 前缀绑定 + [Window]。有数据层屏走 dev-test,缺数据层新功能走 full(建离线底层 + 服务器接缝,对齐去变现·离线方向)。
-- **执行顺序(用户裁决=纯 UI 补完;2026-06-15 按美术可复用度再修订)**:① 打表工具 ✅ → ② 个人信息窗 ✅(#22)→ **当前 ③ 结算窗(游戏结束+恭喜通关,复用木板+按钮+digits 数字)** → ④ 主菜单(LOGO+按钮,各窗入口)→ ⑤ tarot_mode HUD(有专属切图 16 张,真视觉 win,但触及玩法窗、含新机制占位,风险最高、最谨慎)→ ⑥ 排行榜表现层(#27;**art 受限**——无榜行/徽章切图,只能最小结构,或待美术切图后再做)→ ⑦ 收尾呈报。新系统屏(占卜/牌组/皮肤/成就/每日任务/关卡开始)+ 商店不在本范围(BLK1/BLK3)。
+- **执行顺序(用户裁决=纯 UI 补完;2026-06-15 按美术可复用度再修订)**:① 打表工具 ✅ → ② 个人信息窗 ✅(#22)→ ③ 结算窗 ✅(游戏结束+恭喜通关)→ **当前 ④ tarot_mode HUD**(塔罗模式 16 切图,首用打表工具,新机制占位,触及玩法窗、最谨慎守 Classic)→ ⑤ 排行榜表现层(#27;**art 受限**,只能最小结构或待切图)→ ⑥ 收尾呈报。**主菜单移出**(塔罗素材 20 效果图无主菜单屏、无切图,无设计参照)。新系统屏(占卜/牌组/皮肤/成就/每日任务/关卡开始)+ 商店仍 BLK1/BLK3 不在范围。新系统屏(占卜/牌组/皮肤/成就/每日任务/关卡开始)+ 商店不在本范围(BLK1/BLK3)。
 - **运行验证约定(本轮确立)**:子会话 Unity 桥不稳定 → 每屏 EditMode/Play 验证由 boss 主会话桥(`UnityProject@02a6dcaa`,稳定)直跑兜底;dev/test 子会话桥不可用时按静态分析改、boss 跑测锚定。
 
 ### 自治决策日志
@@ -40,6 +41,7 @@
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-15 | ui-settlement-windows 结算窗 reskin(游戏结束 GameOverWindow + 恭喜通关 MergeOrderWinWindow;路 A 轻量换皮——UGuiFactory 纯色 Image 链 SetSubSprite("Sheet_settings") 换木质,结算逻辑/UserData/回调零改;装饰图标省略[无数据源无切图];纯 UI 补完)| PASS 回归档(自治;full,0 打回;boss 桥直验 EditMode 405[BlockBlast 393 含 15 例结算回归 R1-R4 零回归 + UIAtlasPacker 12];V 组 Play 对位=人工手验)| `archive/2026-06-15-ui-settlement-windows/` |
 | 2026-06-15 | ui-player-info-window 个人信息窗·表现层(新建 PlayerInfoWindow 弹窗;复用设置窗范式+Sheet_settings 精灵表[无专属切图];GameContext 扩持 PlayerInfo;改名委托 PlayerRenameService;生日 UI 占位不入存档;兑现 #22)| PASS 逻辑档(自治;full,0 打回;boss 桥直验 EditMode 390/390[+12 player];V 组 Play 对位/指针=人工手验;头像框/铅笔/下拉箭头占位待美术) | `archive/2026-06-15-ui-player-info-window/` |
 | 2026-06-15 | ui-atlas-packer 散切图打表工具(Editor 菜单工具:切图目录→Multiple 精灵表 PNG `Sheet_<dir>`,子图名=源文件名/PackTextures 排布/pivot 居中/border 从源继承+_border_override.json 覆盖;现代 API ISpriteEditorDataProvider;Editor-only 不热更。塔罗 UI 换皮范式的生产工具,遗留 #28) | PASS(自治;full,1 打回[测试夹具资源时序 NRE,工具本身正确];boss 主会话桥直验 EditMode 378/378[BlockBlast 366+UIAtlasPacker 12]+ execute_code 实证工具产出 21 子图 6×24/15×0) | `archive/2026-06-15-ui-atlas-packer/` |
 | 2026-06-15 | ui-settings-window 设置窗美术换皮(首个美术驱动 UI 窗口;切图寻址范式=每屏一张 Multiple 精灵表 PNG + SetSubSprite[用户拍板 SpriteAtlas v2 经实测+test 复核技术不可行,等价替代];GameContext 运行期上下文统一持有无主数据层[方案 B];兑现 #24 settings 表现层) | PASS(常规·用户在场;full,0 打回;EditMode 366/366 + GameContextTests 7 真验 + Play V2 寻址独立复验通[Sheet_settings 21 子图、26/26 节点贴图、对位 setting.png]) | `archive/2026-06-15-ui-settings-window/` |
