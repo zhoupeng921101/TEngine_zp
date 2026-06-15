@@ -5,6 +5,7 @@ using TEngine;
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
 using GameLogic.Config;
+using GameLogic.UI;   // SettingsWindow（齿轮入口，设计 23）所在命名空间
 
 namespace GameLogic.BlockBlastUI
 {
@@ -15,6 +16,15 @@ namespace GameLogic.BlockBlastUI
     [Window(UILayer.UI, location: "GameWindow", fullScreen: true)]
     public sealed class GameWindow : UIWindow
     {
+        // ── 塔罗木质换皮（设计 27）。仅 BuildStaticUI 的静态视觉壳贴 Sheet_tarot_mode 子图，玩法逻辑不动。──
+        // 子图取自 Sheet_tarot_mode.png（Multiple 精灵表，13 子图，打表工具产；SetSubSprite 寻址，引用计数自管）。
+        // 子图名 → 区块映射（读 tarot_mode.png 效果图 + 产出表子图尺寸核实，覆盖设计稿 §4.3 按名推断）：
+        //   背景 chessboard（975×975 木纹大图）；棋盘外框 chess（九宫格 border12）；
+        //   头像占位 mask；资源条底 resourcebar2（九宫格）+ 图标 gemstone/gemstone2/potion；齿轮 icon_setting；
+        //   动作按钮底 Rectangle（九宫格）+ 删除图标 hammer（更换/提示无精准图标 → 文本为主）。
+        //   未用：blue/temple（备选，本轮未铺）。源切图 image/tarot_mode/advertisement 超大/不投放，未进打表目录。
+        private const string Atlas = "Sheet_tarot_mode";
+
         private const int N = BlockLayout.BoardSize;
 
         private BlockGameState _state;
@@ -87,22 +97,28 @@ namespace GameLogic.BlockBlastUI
         {
             _content = UGuiFactory.CreateContentPanel(rectTransform);
 
-            // 背景
-            UGuiFactory.CreateImage(_content, "Bg", BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
-                BlockLayout.DesignWidth, BlockLayout.DesignHeight, BlockLayout.BgColor);
+            // 背景：木纹底图（color 设白让木纹原色透出，同设计 26 经验）
+            var bg = UGuiFactory.CreateImage(_content, "Bg", BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
+                BlockLayout.DesignWidth, BlockLayout.DesignHeight, Color.white);
+            bg.SetSubSprite(Atlas, "chessboard");
 
-            // 棋盘外框 + 格子背景
+            // 棋盘外框（木质九宫格框，贴图 color 设白）：位置/尺寸沿用 BlockLayout 既有值，绝不动（动了落子对位偏）
             float boardCx = BlockLayout.BoardOriginX + BlockLayout.BoardPixels / 2f;
             float boardCy = BlockLayout.BoardOriginY + BlockLayout.BoardPixels / 2f;
-            UGuiFactory.CreateImage(_content, "BoardOuter", boardCx, boardCy,
-                BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16, BlockLayout.BoardOuterColor);
+            var boardOuter = UGuiFactory.CreateImage(_content, "BoardOuter", boardCx, boardCy,
+                BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16, Color.white);
+            boardOuter.SetSubSprite(Atlas, "chess");
+
+            // 格子背景：方案 A（设计 27 §5.2）——格底保纯色（外框+背景已出木质风，64 格逐贴开销/视觉杂）。
+            // 微调为偏暖的半透深棕，叠在木纹背景上更贴效果图浅格观感。位置/尺寸沿用既有 BlockLayout 值，绝不动。
+            var cellBg = new Color32(0x3a, 0x24, 0x14, 0x55);
             for (int r = 0; r < N; r++)
             {
                 for (int c = 0; c < N; c++)
                 {
                     var center = BlockLayout.CellCenterDesign(c, r);
                     UGuiFactory.CreateImage(_content, $"cellbg_{r}_{c}", center.x, center.y,
-                        BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, BlockLayout.BoardCellBgColor);
+                        BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, cellBg);
                 }
             }
 
@@ -113,22 +129,94 @@ namespace GameLogic.BlockBlastUI
             _slotLayer = UGuiFactory.CreateNode(_content, "SlotLayer");
             UGuiFactory.PlaceByDesignCenter(_slotLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
 
-            // 顶部：BEST + 分数
-            UGuiFactory.CreateText(_content, "BestLabel", 90, 120, 160, 30, "BEST", 20,
-                new Color32(0x77, 0x88, 0xcc, 0xFF), TextAnchor.MiddleLeft);
-            _bestText = UGuiFactory.CreateText(_content, "Best", 120, 155, 220, 40, _initialHigh.ToString(), 32,
-                new Color32(0xbb, 0xcc, 0xff, 0xFF), TextAnchor.MiddleLeft);
-            _scoreText = UGuiFactory.CreateText(_content, "Score", BlockLayout.DesignWidth / 2f, 200, 400, 90, "0", 84,
+            BuildTopBar();
+
+            // 大分数（沿用 Text，对位效果图大白字；位置下移到顶栏下方）。OnUpdate 滚动逻辑不动。
+            _scoreText = UGuiFactory.CreateText(_content, "Score", BlockLayout.DesignWidth / 2f, 215, 500, 110, "0", 96,
                 Color.white, TextAnchor.MiddleCenter);
 
-            // 退出按钮
-            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 60, 110, 70, 70, "×", 48,
-                new Color(0, 0, 0, 0), Color.white, out _, out _);
+            // 最高分（文本逻辑不动：读 _initialHigh，UpdateBest 滚动变色）。挪到分数下方小字，不占顶栏。
+            _bestText = UGuiFactory.CreateText(_content, "Best", BlockLayout.DesignWidth / 2f, 280, 300, 36,
+                "BEST " + _initialHigh, 26, new Color32(0xf0, 0xe0, 0xc0, 0xFF), TextAnchor.MiddleCenter);
+
+            BuildActionButtons();
+        }
+
+        /// <summary>
+        /// 静态顶栏（设计 27 §5.3，纯视觉壳 + 占位/接线）：头像占位 + 3 资源条占位 + 齿轮(真接设置窗) + 退出钮(回调不动)。
+        /// 顶栏数据层无资源字段（D1）→ 资源条占位；头像无 PlayerInfo（D2）→ 占位图。不往数据层加任何状态。
+        /// </summary>
+        private void BuildTopBar()
+        {
+            // ① 头像（占位图，无数据源 D2）
+            var avatar = UGuiFactory.CreateImage(_content, "Avatar", 64, 64, 84, 84, Color.white);
+            avatar.SetSubSprite(Atlas, "mask");
+
+            // ② 3 资源条（视觉占位 D1）：条底 + 图标 + 数字 + 加号。第 1 条接 HighScore（有真数据），其余占位。
+            string[] resIcons = { "gemstone", "gemstone2", "potion" };
+            for (int i = 0; i < 3; i++)
+            {
+                float cx = 230 + i * 150;
+                var bar = UGuiFactory.CreateImage(_content, $"ResBar_{i}", cx, 64, 140, 52, Color.white);
+                bar.SetSubSprite(Atlas, "resourcebar2");
+
+                var ic = UGuiFactory.CreateImage(_content, $"ResIcon_{i}", cx - 48, 64, 40, 40, Color.white);
+                ic.SetSubSprite(Atlas, resIcons[i]);
+
+                // 数字：第 1 条接 HighScore（真数据，只读），其余静态占位。不写回数据层。
+                string num = i == 0 ? _initialHigh.ToString() : "0";
+                UGuiFactory.CreateText(_content, $"ResNum_{i}", cx + 6, 64, 80, 36, num, 26,
+                    new Color32(0x5a, 0x2e, 0x10, 0xFF), TextAnchor.MiddleLeft);
+
+                // 加号 → 占位（去变现，不接购买；点击仅 Log 待建）
+                var plus = UGuiFactory.CreateButton(_content, $"ResPlus_{i}", cx + 56, 64, 30, 30,
+                    "+", 26, new Color(0, 0, 0, 0), new Color32(0x3a, 0x8a, 0x3a, 0xFF), out _, out _);
+                plus.onClick.AddListener(() =>
+                    Log.Info("[GameWindow] 资源条加号：待建（无资源系统，设计 27 §十 D1，去变现不接购买）"));
+            }
+
+            // ③ 齿轮 → 真接设置窗（设计 23 已建）：叠层弹出，不关本窗、不丢局（R4）
+            var gear = UGuiFactory.CreateButton(_content, "Gear", BlockLayout.DesignWidth - 64, 64, 72, 72,
+                "", 0, Color.white, Color.white, out var gearBg, out _);
+            gearBg.SetSubSprite(Atlas, "icon_setting");
+            gear.onClick.AddListener(() => GameModule.UI.ShowUIAsync<SettingsWindow>());
+
+            // ④ 退出钮（保留，回调一字不改 — R4：CloseUI<GameWindow> + ShowUIAsync<MainMenuWindow>）。挪到齿轮左侧。
+            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 150, 64, 64, 64, "×", 44,
+                new Color(0, 0, 0, 0), new Color32(0x6a, 0x40, 0x20, 0xFF), out _, out _);
             exit.onClick.AddListener(() =>
             {
                 GameModule.UI.CloseUI<GameWindow>();
                 GameModule.UI.ShowUIAsync<MainMenuWindow>();
             });
+        }
+
+        /// <summary>
+        /// 底部 3 动作按钮（设计 27 §六，视觉占位 + stub）：更换 / 删除 / 提示。
+        /// 这是 3 个新玩法机制，Classic + 数据层均无 → 仅摆视觉 + 点击 Log 待建，绝不实现机制（违纯 UI 补完+零回归）。
+        /// </summary>
+        private void BuildActionButtons()
+        {
+            // Y=1288：候选槽 hit 区（SlotY 1100 + SlotZoneHeight 250 → 底 1225）下方留 ~18px 间隙，不挡拖拽落子区。
+            string[] actions = { "更换", "删除", "提示" };
+            string[] actionIcons = { null, "hammer", null };   // 删除有锤子图标；更换/提示无精准图标 → 纯文本
+            for (int i = 0; i < 3; i++)
+            {
+                float cx = 145 + i * 230;
+                var btn = UGuiFactory.CreateButton(_content, $"Action_{i}", cx, 1288, 200, 86,
+                    actions[i], 32, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var btnBg, out _);
+                btnBg.SetSubSprite(Atlas, "Rectangle");
+
+                if (actionIcons[i] != null)
+                {
+                    var ic = UGuiFactory.CreateImage(_content, $"ActionIcon_{i}", cx, 1268, 42, 42, Color.white);
+                    ic.SetSubSprite(Atlas, actionIcons[i]);
+                }
+
+                int captured = i;
+                btn.onClick.AddListener(() =>
+                    Log.Info($"[GameWindow] 动作按钮「{actions[captured]}」：待建（新玩法机制，设计 27 §六 D5）"));
+            }
         }
 
         private void InitGhostPool()
