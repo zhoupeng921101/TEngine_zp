@@ -1,6 +1,8 @@
 using Cysharp.Threading.Tasks;
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Player;
+using GameLogic.Mail;
+using GameLogic.Rank;
 using GameLogic.Settings;
 
 namespace GameLogic
@@ -12,8 +14,8 @@ namespace GameLogic
     /// 玩法态随开局 Reset，通用服务随会话长存。
     /// </summary>
     /// <remarks>
-    /// 持有 <see cref="SettingsService"/>（设计 23）+ <see cref="PlayerInfo"/>（设计 25 兑现）；
-    /// item / mail / rank 后续逐个挂入，接口预留薄而通用，不投机性预建成员。
+    /// 持有 <see cref="SettingsService"/>（设计 23）+ <see cref="PlayerInfo"/>（设计 25 兑现）+ <see cref="RankService"/>（设计 28 兑现末项）；
+    /// item / mail 后续逐个挂入，接口预留薄而通用，不投机性预建成员。
     /// 启动接线（AudioSink + 首次 Load）在热更入口 <c>GameApp.StartGameLogic()</c> 完成
     /// （非热更区 ProcedureLaunch 引用不到本类，热更边界所致，设计 23 §五接线落点）。
     /// </remarks>
@@ -25,6 +27,9 @@ namespace GameLogic
         /// <summary>玩家个人信息（昵称 / 头像 / 等级 / 解锁集，设计 18 数据层）。</summary>
         public PlayerInfo Player { get; private set; }
 
+        /// <summary>排行榜服务（查榜 / 我的名次 / 每日 + 点赞领取 / 结算编排，设计 22 数据层）。</summary>
+        public RankService Rank { get; private set; }
+
         protected override void OnInit()
         {
             // 生产用框架键存储（PlayerPrefs），启动即从已保存的开关态加载。
@@ -35,6 +40,33 @@ namespace GameLogic
             // MergeMetaPersistence.Load 经 Persistence.Provider 同步读（PlayerPrefs 非阻塞内存级读，
             // 不触「禁阻塞 IO」红线，与 BlockGameState.Load 同口径），故不需异步外壳、无与异步加载的时序问题。
             LoadPlayer();
+
+            // 排行榜服务（设计 22 数据层，设计 28 §四装配）。
+            InitRank();
+        }
+
+        /// <summary>
+        /// 装配排行榜服务（生产接缝：本地源 + 生产持久化 + 邮件服务 + 默认配置源，设计 28 §四）。
+        /// 本机成绩来自 <see cref="RankService.GetMyBest"/>（自身进度），陪榜由配置 / 注入基准分（无随机 NPC，设计 22 §3.6）；
+        /// 本轮 filler=null，离线榜可能只本机一条（陪榜待运营内容，设计 28 §十一 BLK1）。
+        /// </summary>
+        /// <remarks>
+        /// selfProvider 存在「服务引用源、源引用服务」的循环，用「先声明 svc、闭包捕获、后赋值」打破
+        /// （同设计 22 测试 SK1 / 持久化往返用例写法）。邮件服务取真实生产实例
+        /// <c>new MailboxService(new MailPersistence())</c>（设计 21 数据层的发奖出口，设计 28 §四 B1 路②）：
+        /// 排名层点赞 / 结算奖经它真实下发进收件箱存档；邮件表现层（遗留 #26）落地后此处零改动复用
+        /// 同一持久化键 <c>Mail.Inbox</c>，奖即在邮件窗可见（MailboxService 类头已声明此接法）。
+        /// </remarks>
+        private void InitRank()
+        {
+            var persist = new RankPersistence();                       // 键 Rank.Progress，复用 Persistence.Provider
+            var mail = new MailboxService(new MailPersistence());      // 真实发奖出口（键 Mail.Inbox，设计 21）
+            RankService svc = null;
+            var source = new LocalRankSource(
+                id => svc.GetMyBest(id),                               // 本机成绩（闭包捕获后赋值的 svc）
+                _ => null);                                            // 陪榜：本轮无（待运营内容，设计 28 §十一 BLK1）
+            svc = new RankService(source, persist, mail);             // cfg 默认包 RankConfigMgr（运行期走 ConfigSystem）
+            Rank = svc;
         }
 
         /// <summary>
@@ -96,6 +128,17 @@ namespace GameLogic
             Player = (dto != null)
                 ? PlayerInfo.ImportFromMeta(dto, rng, avatarValid)
                 : PlayerInfo.CreateDefault(rng);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口：用指定接缝重建 <see cref="Rank"/>（仿 <see cref="InitSettingsWithStore"/> / <see cref="InitPlayerFromMeta"/>）。
+        /// EditMode 经它灌入 <see cref="InMemoryRankPersistence"/> + fake <see cref="IMailService"/>（如 RecordingMailService）
+        /// + fake 配置源（或先 <c>RankConfigMgr.InitForTest</c> 后用默认源），断言 <see cref="GetBoard"/> 数据贯通，
+        /// 不污染真实 PlayerPrefs / 不连网（设计 28 §四 / §九 H2/H3）。
+        /// </summary>
+        public void InitRankWithDeps(IRankSource source, IRankPersistence persist, IMailService mail, IRankConfigSource cfg = null)
+        {
+            Rank = new RankService(source, persist, mail, cfg);
         }
     }
 }

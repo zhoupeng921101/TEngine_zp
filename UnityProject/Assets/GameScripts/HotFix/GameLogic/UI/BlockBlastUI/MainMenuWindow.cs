@@ -69,6 +69,14 @@ namespace GameLogic.BlockBlastUI
             {
                 GameModule.UI.ShowUIAsync<GameLogic.UI.PlayerInfoWindow>();
             });
+
+            // 排行榜入口（设计 28 §八：本轮入口落主菜单，照 BtnPlayerInfo 做法；玩法 HUD / 结算窗入口后续轮）
+            var btnRank = UGuiFactory.CreateButton(content, "BtnRank", cx, 1360, 360, 96, "排行榜", 36,
+                new Color32(0x88, 0x99, 0x77, 0xFF), Color.white, out _, out _);
+            btnRank.onClick.AddListener(() =>
+            {
+                GameModule.UI.ShowUIAsync<GameLogic.UI.RankWindow>();
+            });
         }
     }
 }

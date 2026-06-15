@@ -6,10 +6,9 @@
 
 ## 当前任务
 
-**ui-rank-window 排行榜表现层(2026-06-15 开单,自治·纯 UI 补完·末屏)** — 兑现遗留 #27
-- 范围:新建 RankWindow 显示榜单(我的名次条/榜单列表/点赞/奖励预览),数据层 rank(#27 RankService 离线本地榜+stub)已就绪。**art 受限**:塔罗素材无排行榜专属切图、无榜行/徽章/头像切图 → 复用 Sheet_settings 木板+按钮 + 占位榜行;视觉是结构占位、非高保真。
-- 美术:效果图 `…\效果图\排行榜.png`;复用 Sheet_settings + 占位(榜行/徽章/头像待美术补切图)。
-- 参与环节:full;验收 boss 桥直跑。**纯 UI 补完范围最后一屏,完后收尾呈报。**
+**无活跃单项。塔罗 UI「纯 UI 补完」自治线全部关单(2026-06-15)。**
+
+本轮自治产出 6 单(均 PASS + 已 commit,见「最近关单」表):打表工具 → 个人信息窗 → 结算窗(游戏结束+通关)→ tarot_mode HUD → 排行榜窗(设置窗在自治激活前已关单)。EditMode 427/427 全绿。**待用户裁决/后续**:商店付费(BLK1)、新系统屏占卜/牌组/皮肤/成就/每日任务/关卡开始(BLK3,需 GDD/产品规格)、各屏 Play 视觉手验、缺图占位待美术补切图、若干产品定义项(生日/结算图标/HUD 资源条与三机制)。详见收尾呈报 + 各 archive/<屏>/boss.md。
 
 > 背景方向(2026-06-14 用户拍板·xlsx 批次):剩余服务器/在线功能与本作离线·去变现方向不合,选「继续建底层,留服务器接缝」;兑换码/邮件/排行榜已落地关单。通用底层批基本到顶,转入 UI 换皮主线(遗留 #30),本工具是其前置。
 
@@ -19,7 +18,7 @@
 - **git 基线**:`ded668bf`(设置窗关单 = 自治起跑基线;本地未 push,可 `git reset` 一键退回)。
 - **自主边界**:不 push / 不 build / 不发布。默认全自主推进,每次拍板记下方决策日志;抵触 GDD 方向 / 3 轮熔断 / 无安全默认 → 记 BLOCKED 跳过、继续不依赖项、结束呈报。
 - **范式**(每屏复用):精灵表寻址(打表工具产出)+ GameContext 持有无主数据层 + FindChildComponent/m_ 前缀绑定 + [Window]。有数据层屏走 dev-test,缺数据层新功能走 full(建离线底层 + 服务器接缝,对齐去变现·离线方向)。
-- **执行顺序(用户裁决=纯 UI 补完;2026-06-15 按美术可复用度再修订)**:① 打表工具 ✅ → ② 个人信息窗 ✅(#22)→ ③ 结算窗 ✅(游戏结束+恭喜通关)→ ④ tarot_mode HUD ✅(Classic GameWindow 再主题,首用打表工具)→ **当前 ⑤ 排行榜表现层(#27,art 受限,末屏)** → ⑥ 收尾呈报。**主菜单移出**(塔罗素材 20 效果图无主菜单屏、无切图,无设计参照)。新系统屏(占卜/牌组/皮肤/成就/每日任务/关卡开始)+ 商店仍 BLK1/BLK3 不在范围。
+- **执行顺序(用户裁决=纯 UI 补完;2026-06-15 按美术可复用度再修订)**:① 打表工具 ✅ → ② 个人信息窗 ✅(#22)→ ③ 结算窗 ✅(游戏结束+恭喜通关)→ ④ tarot_mode HUD ✅(Classic GameWindow 再主题,首用打表工具)→ ⑤ 排行榜表现层 ✅(#27,art 受限)→ **⑥ 收尾呈报(纯 UI 补完范围全部关单,已向用户呈报)**。**主菜单移出**(塔罗素材 20 效果图无主菜单屏、无切图,无设计参照)。新系统屏(占卜/牌组/皮肤/成就/每日任务/关卡开始)+ 商店仍 BLK1/BLK3 不在范围。
 - **运行验证约定(本轮确立)**:子会话 Unity 桥不稳定 → 每屏 EditMode/Play 验证由 boss 主会话桥(`UnityProject@02a6dcaa`,稳定)直跑兜底;dev/test 子会话桥不可用时按静态分析改、boss 跑测锚定。
 
 ### 自治决策日志
@@ -40,6 +39,7 @@
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-15 | ui-rank-window 排行榜窗·表现层(新建 RankWindow;GameContext 扩持 RankService;榜单列表/我的名次条接真实数据[代码生成行];点赞默认省略;复用 Sheet_settings+占位榜行/徽章/头像[art 受限];兑现 #27)| PASS 逻辑档(自治;full,0 打回;boss 桥直验 EditMode 427[+8 rank];真实全服榜[无网络]/点赞奖进邮箱[mail UI 未做]BLOCKED 呈报;V 组 Play=人工手验) | `archive/2026-06-15-ui-rank-window/` |
 | 2026-06-15 | ui-tarot-hud tarot_mode 主玩法 HUD reskin(=Classic GameWindow 再主题;路 A 只换 BuildStaticUI 静态壳+新增顶栏/动作按钮;首用打表工具产 Sheet_tarot_mode[13 子图];资源条占位/更换删除提示 stub[无数据源无机制];玩法逻辑/坐标/数据层零碰;纯 UI 补完)| PASS 回归档(自治;full,0 打回;boss 桥直验 EditMode 419[BlockBlast 407 含 14 例换皮回归 R1-R5 零回归];V 组 Play 对位+整局实玩=人工手验;运行期寻址 importer 同 Sheet_settings 等价) | `archive/2026-06-15-ui-tarot-hud/` |
 | 2026-06-15 | ui-settlement-windows 结算窗 reskin(游戏结束 GameOverWindow + 恭喜通关 MergeOrderWinWindow;路 A 轻量换皮——UGuiFactory 纯色 Image 链 SetSubSprite("Sheet_settings") 换木质,结算逻辑/UserData/回调零改;装饰图标省略[无数据源无切图];纯 UI 补完)| PASS 回归档(自治;full,0 打回;boss 桥直验 EditMode 405[BlockBlast 393 含 15 例结算回归 R1-R4 零回归 + UIAtlasPacker 12];V 组 Play 对位=人工手验)| `archive/2026-06-15-ui-settlement-windows/` |
 | 2026-06-15 | ui-player-info-window 个人信息窗·表现层(新建 PlayerInfoWindow 弹窗;复用设置窗范式+Sheet_settings 精灵表[无专属切图];GameContext 扩持 PlayerInfo;改名委托 PlayerRenameService;生日 UI 占位不入存档;兑现 #22)| PASS 逻辑档(自治;full,0 打回;boss 桥直验 EditMode 390/390[+12 player];V 组 Play 对位/指针=人工手验;头像框/铅笔/下拉箭头占位待美术) | `archive/2026-06-15-ui-player-info-window/` |

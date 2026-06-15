@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-(上一任务 ui-tarot-hud tarot_mode HUD reskin 已于 2026-06-15 关单,归档:`pipeline/archive/2026-06-15-ui-tarot-hud/`)
+(塔罗 UI 纯 UI 补完自治线已全部关单。最近:ui-rank-window 排行榜窗,归档 `pipeline/archive/2026-06-15-ui-rank-window/`)
