@@ -1,4 +1,5 @@
 #if FANTASY_UNITY
+using Fantasy.Network;
 using UnityEngine;
 
 namespace FantasyClient
@@ -9,8 +10,19 @@ namespace FantasyClient
     /// </summary>
     public static class FantasyNetworkConfig
     {
+#if FANTASY_WEBGL
+        // WebGL（浏览器）只能用 WebSocket，连示例服务器的 WebSocket Gate(20001)。
+        /// <summary>服务器 Gate 地址，格式 IP:Port（WebSocket 会自动拼成 ws://IP:Port）。</summary>
+        public static string ServerAddress = "127.0.0.1:20001";
+        /// <summary>连接协议。WebGL 平台固定 WebSocket。</summary>
+        public static readonly NetworkProtocolType Protocol = NetworkProtocolType.WebSocket;
+#else
+        // 原生/编辑器默认走 KCP，连示例服务器的 KCP Gate(20000)。
         /// <summary>服务器 Gate 地址，格式 IP:Port。示例服务器为 KCP 127.0.0.1:20000。</summary>
         public static string ServerAddress = "127.0.0.1:20000";
+        /// <summary>连接协议。</summary>
+        public static readonly NetworkProtocolType Protocol = NetworkProtocolType.KCP;
+#endif
 
         /// <summary>连接成功后是否自动登录。</summary>
         public static bool AutoLogin = true;

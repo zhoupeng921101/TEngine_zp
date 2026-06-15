@@ -77,10 +77,10 @@ namespace FantasyClient
 
         private static void Connect()
         {
-            Log.Info($"[Fantasy] 连接服务器 {_address} (KCP) ...");
+            Log.Info($"[Fantasy] 连接服务器 {_address} ({FantasyNetworkConfig.Protocol}) ...");
             Session = Scene.Connect(
                 _address,
-                NetworkProtocolType.KCP,
+                FantasyNetworkConfig.Protocol,
                 OnConnectComplete,
                 OnConnectFail,
                 OnConnectDisconnect,
