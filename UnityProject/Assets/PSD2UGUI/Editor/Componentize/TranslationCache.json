@@ -23,6 +23,14 @@
         {
             "zh": "好评如潮_38",
             "en": "GreatReviews38"
+        },
+        {
+            "zh": "主界面",
+            "en": "MainInterface"
+        },
+        {
+            "zh": "每日占卜",
+            "en": "DailyDivination"
         }
     ]
 }
