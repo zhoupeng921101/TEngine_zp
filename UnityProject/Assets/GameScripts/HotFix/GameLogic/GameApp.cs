@@ -35,6 +35,11 @@ public partial class GameApp
     
     private static void StartGameLogic()
     {
+#if FANTASY_UNITY
+        // 启动 Fantasy 客户端网络：初始化运行时 -> 连接服务器 Gate -> 自动登录。
+        // 地址/账号取自 FantasyClient.FantasyNetworkConfig；业务可订阅 FantasyNetwork.OnLoggedIn 进主流程。
+        FantasyClient.FantasyNetwork.Boot();
+#endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
         // 接 AudioSink，把设置开关推到真实音频模块（设计 23 §五；落点在热更入口而非
         // 非热更区 ProcedureLaunch——后者引用不到热更区 GameContext，热更边界所致）。
