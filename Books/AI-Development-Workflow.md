@@ -485,6 +485,206 @@ openspec instructions <artifact-id> --change "my-feature"
 
 ---
 
+## opsx:explore 探索模式
+
+### 什么是探索模式？
+
+`/opsx:explore` 是 openspec 工作流中的**思考伙伴模式**，用于在需求不明确、问题复杂、或需要调查现有代码时，先进行深度探索再决定行动方向。它不是直接生成代码，而是帮你理清思路、发现问题、评估方案。
+
+### 核心定位
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│              openspec 工作流四阶段                             │
+├──────────────────────────────────────────────────────────────┤
+│  1. /opsx:explore  →  探索思考，梳理需求和约束               │
+│  2. /opsx:propose  →  创建提案，生成设计文档和任务清单         │
+│  3. /opsx:apply    →  实施开发，逐个完成任务                  │
+│  4. /opsx:archive  →  归档变更，更新主规范                    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+> **关键区别**：`explore` 是**只读探索**，不修改任何文件；`propose` 是**写入提案**，创建变更目录和 artifacts。
+
+### 何时使用 explore？
+
+| 场景 | 说明 | 示例 |
+|------|------|------|
+| **需求模糊** | 只有一个想法，不确定具体要做什么 | "我想优化 UI 加载性能" |
+| **问题调查** | 出现 Bug 或异常，需要先定位根因 | "战斗 UI 偶尔崩溃" |
+| **方案对比** | 有多种实现路径，需要评估利弊 | "用 FSM 还是状态模式管理角色状态？" |
+| **代码理解** | 需要深入理解某模块再决定如何修改 | "资源模块的引用计数是怎么工作的？" |
+| **重构评估** | 想重构但不确定影响范围 | "把事件系统从 int 改为接口事件" |
+| **架构决策** | 涉及多模块协作，需要全局视角 | "设计跨模块的战斗系统架构" |
+
+### explore 的工作方式
+
+```mermaid
+flowchart TD
+    Start([/opsx:explore]) --> Input{输入类型}
+
+    Input -->|问题/疑问| Investigate[调查问题]
+    Input -->|想法/需求| Brainstorm[头脑风暴]
+    Input -->|代码理解| Analyze[代码分析]
+
+    Investigate --> SearchCode[搜索相关代码]
+    SearchCode --> ReadImpl[读取实现细节]
+    ReadImpl --> IdentifyRoot[识别根因/关键点]
+
+    Brainstorm --> ListOptions[列出可行方案]
+    ListOptions --> CompareTradeoffs[对比利弊]
+
+    Analyze --> TraceFlow[追踪调用链]
+    TraceFlow --> MapDeps[映射依赖关系]
+
+    IdentifyRoot --> Synthesize[综合分析]
+    CompareTradeoffs --> Synthesize
+    MapDeps --> Synthesize
+
+    Synthesize --> Output[输出探索结论]
+    Output --> Decision{下一步?}
+
+    Decision -->|需求已明确| Propose[/opsx:propose]
+    Decision -->|还需深入| Start
+    Decision -->|直接修复| DirectFix[直接编写修复代码]
+
+    style Start fill:#e1f0ff
+    style Propose fill:#e1ffe1
+    style DirectFix fill:#fff4e1
+```
+
+### explore 与 tengine-dev 的协作
+
+在探索过程中，Claude 会自动触发 `tengine-dev` skill 获取框架规范，确保探索结论符合 TEngine 架构约束：
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant M as 主 Agent
+    participant E as /opsx:explore
+    participant S as tengine-dev skill
+    participant Code as 项目代码
+
+    U->>M: "我想优化 UI 加载性能，但不确定瓶颈在哪"
+    M->>E: 进入探索模式
+
+    E->>S: 查询资源加载规范 + UI 生命周期规范
+    S-->>E: 返回 TEngine 规范摘要
+
+    E->>Code: 搜索 UIWindow 子类中的资源加载模式
+    E->>Code: 检查 SetSprite vs LoadAssetAsync<Sprite> 使用情况
+    E->>Code: 分析 OnCreate/OnRefresh 中的 await 调用
+
+    Note over E: 综合分析：<br/>1. 3个UIWindow用了LoadAssetAsync<Sprite>（应改SetSprite）<br/>2. OnCreate中有串行await（应改并行）<br/>3. 缺少CancellationToken取消支持
+
+    E-->>M: 输出探索结论 + 优化建议
+    M-->>U: 展示分析结果和方案选项
+
+    U->>M: "方案1不错，创建提案"
+    M->>M: /opsx:propose "optimize-ui-loading"
+```
+
+### 使用示例
+
+#### 示例 1：Bug 调查
+
+```
+用户：/opsx:explore
+      "战斗界面偶尔出现 NullReferenceException，
+       堆栈指向 BattleMainUI.OnRefresh"
+
+Claude 探索过程：
+1. 读取 BattleMainUI.cs → 发现 OnRefresh 访问 _playerData
+2. 搜索 _playerData 赋值位置 → 仅在 OnCreate 中赋值
+3. 分析生命周期 → OnCreate 只执行一次，OnRefresh 每次都执行
+4. 查找事件流 → GameEvent.Send(OnPlayerDataChanged) 可能在 OnCreate 之前触发
+5. 结论：_playerData 可能在首次 OnRefresh 时尚未初始化
+
+输出：
+- 根因：_playerData 在 OnCreate 中赋值，但 ShowUI 可能在资源加载完成前触发 OnRefresh
+- 建议修复：在 OnRefresh 中添加 null 检查，或在 OnCreate 中初始化默认值
+- 下一步：/opsx:propose "fix-battle-ui-null-ref"
+```
+
+#### 示例 2：架构评估
+
+```
+用户：/opsx:explore
+      "我想用接口事件替换所有 int 事件常量，
+       需要评估工作量和风险"
+
+Claude 探索过程：
+1. 搜索所有 GameEvent.Send(int, ...) 调用 → 找到 23 处
+2. 搜索所有 AddUIEvent(int, ...) 调用 → 找到 15 处
+3. 搜索现有 [EventInterface] 接口 → 找到 3 个已迁移
+4. 读取 event-system.md 规范 → 确认接口事件模式
+5. 分析依赖 → 识别出 5 个模块需要同步修改
+
+输出：
+- 现状：23 处 int 事件发送 + 15 处 UI 监听，3 个接口已迁移
+- 方案A：渐进式迁移（按模块分批，低风险，2-3天）
+- 方案B：一次性迁移（需全面测试，高风险，1天）
+- 建议：方案A，先迁移事件定义最集中的 IBattleEvent
+- 下一步：/opsx:propose "migrate-to-interface-events"
+```
+
+#### 示例 3：性能瓶颈定位
+
+```
+用户：/opsx:explore
+      "背包界面打开要 2 秒，太慢了"
+
+Claude 探索过程：
+1. 读取 BagUI.cs → OnCreate 中串行 await 5 次 LoadAssetAsync
+2. 检查资源大小 → 5 个 Sprite 均小于 100KB
+3. 分析 SetSprite 使用 → 未使用，手动 LoadAssetAsync<Sprite>
+4. 对比规范 → SetSprite 有缓存池，LoadAssetAsync<Sprite> 没有
+5. 结论：串行加载 + 未使用缓存池是主要瓶颈
+
+输出：
+- 瓶颈1：5 个串行 await → 改 UniTask.WhenAll 并行加载
+- 瓶颈2：LoadAssetAsync<Sprite> → 改 SetSprite（自带缓存池）
+- 预期提升：2s → ~400ms（5x 并行 + 缓存命中）
+- 下一步：/opsx:propose "optimize-bag-ui-loading"
+```
+
+### explore 最佳实践
+
+1. **先探索再提案**：任何涉及 3 个以上文件或不确定影响的任务，先用 explore
+2. **带着问题探索**：给 explore 明确的疑问，而非泛泛的"帮我看看"
+3. **探索结论驱动决策**：explore 的输出应直接决定是否 propose、如何 propose
+4. **探索可迭代**：如果首次探索不够深入，可以继续追问，无需退出
+5. **探索不修改代码**：explore 是只读的，不会修改任何文件（这是与 apply 的核心区别）
+
+### explore → propose → apply 完整流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as Claude Code
+
+    Note over U,C: 阶段1：探索（只读）
+    U->>C: /opsx:explore "需求描述"
+    C->>C: 搜索代码 + 读取实现 + 查询规范
+    C-->>U: 输出探索结论（问题/方案/影响分析）
+
+    Note over U,C: 阶段2：提案（写入文档）
+    U->>C: /opsx:propose "change-name"
+    C->>C: 生成 proposal.md + design.md + specs/ + tasks.md
+    C-->>U: 展示提案，等待审查
+
+    Note over U,C: 阶段3：实施（写入代码）
+    U->>C: /opsx:apply
+    C->>C: 逐个完成 tasks.md 中的任务
+    C-->>U: 所有任务完成
+
+    Note over U,C: 阶段4：归档
+    U->>C: /opsx:archive
+    C-->>U: 变更已归档，规范已更新
+```
+
+---
+
 ## tengine-dev Skills
 
 ### 什么是 tengine-dev？
