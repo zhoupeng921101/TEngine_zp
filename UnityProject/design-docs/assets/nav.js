@@ -54,6 +54,8 @@
     { side: '表现层 / 换皮', card: '表现层(美术换皮)', docs: [
       { href: '23-settings-window-art.html', side: '23 · 设置窗美术换皮', tag: '表现层 · 首个美术 UI', title: '23 · 设置窗美术换皮',
         desc: '本工程第一个美术驱动的 UI 窗口:把效果图 setting.png 换皮成可运行的 SettingsWindow,兑现设计 19 设置系统的表现层(遗留 #24)。核心是打通「切图 → 每屏一个 SpriteAtlas v2 → prefab 摆节点(m_ 前缀)→ FindChildComponent 绑定 → [Window] 加载 → SetSubSprite 取子图 → 热更」整条链路,作为后续所有界面换皮的模板。含切图导入落点 / 图集建法 / YooAsset 收集器寻址(SetSubSprite 跑通的前提) / 1080×1920 节点树逐节点命名 + 子图映射 / 窗口脚本生命周期 / 每个按钮的实做vs占位分流表。基础设施决定:新建 GameContext 运行期上下文单例统一持有 SettingsService 等无主数据(影响后续 player-info/item/mail/rank)。数据层只调用不重写。验收拆「逻辑可单测」与「需 Play/人眼对位」两档。' },
+      { href: '25-player-info-window-art.html', side: '25 · 个人信息窗美术换皮', tag: '表现层 · 玩家信息 UI', title: '25 · 个人信息窗美术换皮',
+        desc: '塔罗 UI 换皮自治线第二屏:把效果图 个人信息.png 换皮成可运行的 PlayerInfoWindow,兑现设计 18 玩家信息系统的表现层(遗留 #22)。纯 UI 补完——数据逻辑层(设计 18)已交付,本屏只调用 + 接线,全套基础设施复用设计 23 设置窗范式([Window(Top,false)] 弹窗 + 半透明遮罩 + GameContext 持有数据服务 + FindChildComponent + m_ 前缀 + SetSubSprite,不重造)。本屏无专属切图,复用 Sheet_settings 精灵表拼面板/标题板/确定钮/关闭钮;缺的圆头像框/编辑铅笔/下拉箭头占位 + TODO。把 GameContext 从只持有 Settings 扩成也持有 PlayerInfo(兑现设计 23 §五 player-info 挂入预告)。改名贯通数据层 PlayerRenameService.TryRename(RenameResult 四拒因分支提示)。关键决策:效果图的「生日 + 3 下拉」数据层无字段→UI 占位不入存档(决策 D2);头像三态网格/等级槽/id 复制属设计 18 完整界面元素、效果图本屏未画→后续屏。含效果图拆解 + 节点树逐节点命名 + GameContext 扩持有方案 + 控件分流表 + 验收拆「EditMode 可单测」与「需 Play/人眼对位」两档。' },
     ]},
     { side: '代码 / 工具', card: '代码 / 工程', docs: [
       { href: '24-ui-atlas-packer.html', side: '24 · 散切图打表工具', tag: '工具 · Editor 打表', title: '24 · 散切图打表工具(Editor)',

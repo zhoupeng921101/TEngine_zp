@@ -62,9 +62,13 @@ namespace GameLogic.BlockBlastUI
                 GameModule.UI.ShowUIAsync<GameLogic.UI.SettingsWindow>();
             });
 
-            // TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow。
-            // 数据逻辑层（设计 18）已就绪：PlayerInfo / PlayerRenameService / AvatarUnlockService /
-            // PlayerLevelConfig / AvatarConfigMgr / ClipboardUtil；UI 表现层延后（需美术，O1）。
+            // 个人信息入口（设计 25 §八 D6：本轮入口落主菜单，照 BtnSettings 做法；玩法 HUD 顶栏头像入口后续轮）
+            var btnPlayerInfo = UGuiFactory.CreateButton(content, "BtnPlayerInfo", cx, 1250, 360, 96, "个人信息", 36,
+                new Color32(0x99, 0x77, 0x88, 0xFF), Color.white, out _, out _);
+            btnPlayerInfo.onClick.AddListener(() =>
+            {
+                GameModule.UI.ShowUIAsync<GameLogic.UI.PlayerInfoWindow>();
+            });
         }
     }
 }

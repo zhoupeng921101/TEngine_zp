@@ -6,7 +6,10 @@
 
 ## 当前任务
 
-(无活跃单项;自治运行进行中,下一项见「自治运行」节执行顺序。最近关单:ui-atlas-packer 打表工具 PASS,见「最近关单」表 + `archive/2026-06-15-ui-atlas-packer/`。)
+**ui-settlement-windows 结算窗 reskin(2026-06-15 开单,自治·纯 UI 补完)** — 游戏结束 + 恭喜通关
+- 范围:reskin 既有 GameOverWindow(游戏结束)+ MergeOrderWinWindow(恭喜通关)的静态壳——木板背景/标题/按钮换 `Sheet_settings` 切图,分数可用 digits 位图数字(`digits_white/yellow`,工程已有);保留结算逻辑不动。无专属切图、复用共享。
+- 美术:效果图 `…\效果图\游戏结束.png` / `恭喜通关.png`;复用 Sheet_settings(木板/按钮)+ digits 数字图集。
+- 参与环节:full(plan→dev→test);验收 boss 桥直跑。
 
 > 背景方向(2026-06-14 用户拍板·xlsx 批次):剩余服务器/在线功能与本作离线·去变现方向不合,选「继续建底层,留服务器接缝」;兑换码/邮件/排行榜已落地关单。通用底层批基本到顶,转入 UI 换皮主线(遗留 #30),本工具是其前置。
 
@@ -16,15 +19,20 @@
 - **git 基线**:`ded668bf`(设置窗关单 = 自治起跑基线;本地未 push,可 `git reset` 一键退回)。
 - **自主边界**:不 push / 不 build / 不发布。默认全自主推进,每次拍板记下方决策日志;抵触 GDD 方向 / 3 轮熔断 / 无安全默认 → 记 BLOCKED 跳过、继续不依赖项、结束呈报。
 - **范式**(每屏复用):精灵表寻址(打表工具产出)+ GameContext 持有无主数据层 + FindChildComponent/m_ 前缀绑定 + [Window]。有数据层屏走 dev-test,缺数据层新功能走 full(建离线底层 + 服务器接缝,对齐去变现·离线方向)。
-- **执行顺序**:① 打表工具 ✅关单 + 孤儿 #29 已清 → **当前 ② 换皮有数据层屏**(个人信息#22 / 游戏结束 / 恭喜通关 / 排行榜表现层#27)→ ③ tarot_mode 主 HUD(评估 hint/swap/delete 新机制)→ ④ 缺数据层新功能屏(占卜流程 / 牌组库 / 成就 / 每日任务 / 皮肤 / 关卡开始)→ ⑤ 收尾呈报。
+- **执行顺序(用户裁决=纯 UI 补完;2026-06-15 按美术可复用度再修订)**:① 打表工具 ✅ → ② 个人信息窗 ✅(#22)→ **当前 ③ 结算窗(游戏结束+恭喜通关,复用木板+按钮+digits 数字)** → ④ 主菜单(LOGO+按钮,各窗入口)→ ⑤ tarot_mode HUD(有专属切图 16 张,真视觉 win,但触及玩法窗、含新机制占位,风险最高、最谨慎)→ ⑥ 排行榜表现层(#27;**art 受限**——无榜行/徽章切图,只能最小结构,或待美术切图后再做)→ ⑦ 收尾呈报。新系统屏(占卜/牌组/皮肤/成就/每日任务/关卡开始)+ 商店不在本范围(BLK1/BLK3)。
 - **运行验证约定(本轮确立)**:子会话 Unity 桥不稳定 → 每屏 EditMode/Play 验证由 boss 主会话桥(`UnityProject@02a6dcaa`,稳定)直跑兜底;dev/test 子会话桥不可用时按静态分析改、boss 跑测锚定。
 
 ### 自治决策日志
 - D1:打表工具优先于第二屏(test 建议;一次性投入摊薄 18 屏手工成本)。
 - D2:缺数据层新功能屏建「离线可用底层 + 服务器接缝」,对齐既定去变现·离线方向,不接真实付费/服务器。
+- D3(2026-06-15·美术盘点):塔罗素材 20 效果图 vs 12 切图文件夹**错配**。① 7 屏无专属切图:个人信息/关卡开始/恭喜通关/成就/排行榜/每日任务/游戏结束;② 错配方向——有数据层的屏(个人信息#22/游戏结束/通关/排行榜#27)恰**无**切图(须复用共享木板/按钮切图),有切图的屏(塔罗模式/占卜/占卜解读/占卜选择/选择主题/选择具体方向/卡组/牌组库/皮肤_棋子/皮肤_背景)多**缺**数据层、且 tarot_mode 含新机制(swap/delete/hint)。结论:「全部 UI」实为「建约 6 套新游戏系统(规则+内容,属 GDD/产品决策)+ 为 7 屏无切图屏改用复用美术 + 商店付费冲突」,远超纯换皮。已就范围向用户呈报(见下 BLK3)。
 
 ### 自治 BLOCKED 清单(结束呈报)
 - BLK1(抵触方向·待裁决):商店(商店.png)为真实货币内购(£ 标价宝石包),抵触本作去变现·离线·无服务器方向。不自动建付费 UI;可选替代=软通货商店(花游戏内赚的宝石买皮肤/道具,与离线方向相容)。待用户裁决。
+- BLK3(范围·**用户已裁决 2026-06-15 = 只做纯 UI 补完**):有切图但无数据层的新游戏系统屏——占卜流程(选主题→选具体方向→占卜→解读)/牌组库·卡组(塔罗卡收集)/皮肤(棋子·背景)/成就/每日任务/关卡开始。这批要建整套游戏规则+内容(GDD/产品决策),本轮**暂不做**,待用户后续给规格再单独开。不自治盲造。
+
+### 自治决策日志(续)
+- D4(2026-06-15·用户裁决):「全部 UI」范围收窄为**纯 UI 补完**——只 reskin 有现成逻辑的屏(个人信息#22/排行榜表现层#27/游戏结束/恭喜通关/主菜单/tarot_mode HUD[新机制占位]),无切图屏复用 `设置/` 共享木板+按钮切图。新系统屏(BLK3 那批)暂不做。商店(BLK1)仍待裁。
 - BLK2(环境·已恢复 2026-06-15):此前 dev/test 子会话报 Unity 桥未注册 + Fantasy 包编译错阻断域重载。boss 主会话实测:桥已连(active_instance `UnityProject@02a6dcaa`)、工程编译通过(EditMode 377 跑起、BlockBlast 零回归)、Fantasy 编译错已不复现(环境透明恢复)。运行验证已可做,自治线恢复。注:**子会话的 Unity 桥可能仍不稳定(打表工具 dev/test 曾 no_session),boss 主会话桥稳定 → 验证由 boss 直跑兜底**。
 - ui-atlas-packer 打回(轮次 1·test FAIL=测试夹具缺陷,非工具缺陷):boss 用 execute_code 对真实 `setting/` 直跑 `Pack` 实证**工具正确**——产出 `Sheet_setting.png`、readback 21 命名子图、border 6×24+15×0、无残留名(验收锚 R2+S2 达成,sheet=Multiple、P 组寻址结构就绪)。但 11 例 EditMode 单测 8 例 NRE:根因在**测试夹具**——临时目录 `File.Copy`/`CopyAsset`+`AssetDatabase.Refresh` 在单测方法内不同步生效,`AssetImporter.GetAtPath` 返 null(`CreateFixtureFrom` 行 77→78 NRE),Pack 没跑到。spawn dev 返修测试夹具(工具勿动)。`Sheet_setting.png` 已由 boss 探针产出在磁盘(正确、保留=设置屏后续可用)。
 
@@ -32,6 +40,7 @@
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-15 | ui-player-info-window 个人信息窗·表现层(新建 PlayerInfoWindow 弹窗;复用设置窗范式+Sheet_settings 精灵表[无专属切图];GameContext 扩持 PlayerInfo;改名委托 PlayerRenameService;生日 UI 占位不入存档;兑现 #22)| PASS 逻辑档(自治;full,0 打回;boss 桥直验 EditMode 390/390[+12 player];V 组 Play 对位/指针=人工手验;头像框/铅笔/下拉箭头占位待美术) | `archive/2026-06-15-ui-player-info-window/` |
 | 2026-06-15 | ui-atlas-packer 散切图打表工具(Editor 菜单工具:切图目录→Multiple 精灵表 PNG `Sheet_<dir>`,子图名=源文件名/PackTextures 排布/pivot 居中/border 从源继承+_border_override.json 覆盖;现代 API ISpriteEditorDataProvider;Editor-only 不热更。塔罗 UI 换皮范式的生产工具,遗留 #28) | PASS(自治;full,1 打回[测试夹具资源时序 NRE,工具本身正确];boss 主会话桥直验 EditMode 378/378[BlockBlast 366+UIAtlasPacker 12]+ execute_code 实证工具产出 21 子图 6×24/15×0) | `archive/2026-06-15-ui-atlas-packer/` |
 | 2026-06-15 | ui-settings-window 设置窗美术换皮(首个美术驱动 UI 窗口;切图寻址范式=每屏一张 Multiple 精灵表 PNG + SetSubSprite[用户拍板 SpriteAtlas v2 经实测+test 复核技术不可行,等价替代];GameContext 运行期上下文统一持有无主数据层[方案 B];兑现 #24 settings 表现层) | PASS(常规·用户在场;full,0 打回;EditMode 366/366 + GameContextTests 7 真验 + Play V2 寻址独立复验通[Sheet_settings 21 子图、26/26 节点贴图、对位 setting.png]) | `archive/2026-06-15-ui-settings-window/` |
 | 2026-06-14 | rank 排行榜系统·数据逻辑层 + 服务器接缝(多榜配置 id 聚合/查榜+分数降序同分 AchievedTicks 升序顺序名次/入榜要求+CountMax+ShowMax/结算时机四档[Always/OpenDays/FixedTime/Weekly周循环]+幂等/每日点赞跨天/红点;发奖三种统一经邮件 21 IMailService.Send,排名层不碰 MergeOrderState/16;IRankSource 离线本地榜+远程 stub 零网络;持久化复用 Provider 键 Rank.Progress;表现层+真实全服榜转 #27) | PASS(自治·放手默认;full,0 打回;EditMode 359/359 + Rank 24 + Luban C3 GREEN) | `archive/2026-06-14-rank-system/` |

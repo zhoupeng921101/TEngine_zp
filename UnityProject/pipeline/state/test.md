@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-(上一任务 ui-atlas-packer 打表工具已于 2026-06-15 关单 PASS,归档:`pipeline/archive/2026-06-15-ui-atlas-packer/`)
+(塔罗 UI 自治线各屏的运行验证由 boss 主会话桥直跑兜底,见各 archive/<屏>/boss.md。上一屏 ui-player-info-window 已关单 PASS。)

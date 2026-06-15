@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-(上一任务 ui-atlas-packer 打表工具已于 2026-06-15 关单,归档:`pipeline/archive/2026-06-15-ui-atlas-packer/`)
+(上一任务 ui-player-info-window 个人信息窗已于 2026-06-15 关单,归档:`pipeline/archive/2026-06-15-ui-player-info-window/`)
