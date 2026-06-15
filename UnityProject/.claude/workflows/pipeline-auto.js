@@ -1,7 +1,7 @@
 export const meta = {
   name: 'pipeline-auto',
   description: 'TEngine_block 流水线自治模式:plan→dev→test 闭环,3 轮打回熔断,返回 PASS/FAIL/BLOCKED(FAIL 仅 test-only 档:无 dev 在环不返修)',
-  whenToUse: '仅当用户显式激活自治模式(/pipeline auto)时由 boss 启动;常规编排走 pipeline skill,不走本脚本',
+  whenToUse: '仅当用户显式激活自治模式(/pipeline-auto)时由 boss 启动;常规编排走 pipeline skill,不走本脚本',
   phases: [
     { title: '策划' },
     { title: '开发' },
@@ -17,7 +17,7 @@ export const meta = {
 //                test-only = 只跑 test 一轮(代码已就绪、仅补运行验证;无 dev 在环不返修),须给 baseline
 //   baseline:  string  设计基线文件路径(full 由 plan 产出覆盖;dev-test / test-only 必须传)
 //   batonNote: string  微调指令/优化目标(裁剪环节的任务用,可空)
-//   devModel / testModel: 'opus' | 'sonnet'  模型档(boss 按 SKILL.md 选档表传;缺省继承会话模型)
+//   devModel / testModel: 'opus' | 'sonnet'  可选覆盖;缺省用 agent 卡 frontmatter 的 model 档(plan 固定 opus,见下 spawn)
 // }
 // 打回每轮 spawn 新 dev(workflow 内无续接),上下文靠 state 文件交接——文件是真相。
 // 自主决策由各角色在返回值 decisions 里上报,boss 收尾统一写 state/boss.md 决策日志。

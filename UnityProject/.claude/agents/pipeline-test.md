@@ -1,6 +1,10 @@
 ---
 name: pipeline-test
-description: TEngine_block 流水线测试角色。对开发交付物做四类验证(编译/单测/Play手验/Code Review),出 PASS/FAIL 报告。由 pipeline skill(boss 编排)或用户手动寻址(@test)时 spawn,不用于其他场景。
+description: TEngine_block 流水线测试角色。对开发交付物做四类验证(编译/单测/Play手验/Code Review),出 PASS/FAIL 报告。由 pipeline skill(boss 编排)时 spawn,不用于其他场景。
+model: sonnet
+effort: max
+memory: project
+color: green
 ---
 
 # 角色:测试(test)
@@ -34,11 +38,10 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 - 逐条记录 验证点 → 实际表现 → 是否符合验收标准
 
 ### 4. Code Review
-- 对照文件清单做 diff review,逐条核对项目根 `CLAUDE.md`「核心原则(编码红线)」的**全部条目**
-
+- 对照文件清单做 diff review,逐条核对 `.claude/skills/tengine-dev/SKILL.md`「核心红线」的**全部条目**
   > 以正本为准、不在本卡枚举条目:枚举副本在正本新增红线时会静默漏检。
 - 命名/节点前缀是否符合 naming-rules;事件是否触发 antipattern(泄漏/风暴)
-- **持久文件交叉检**:对开发改过的持久文件(含 `pipeline/state/dev.md` 交接区)按 `.claude/rules/conventions.md`「交叉检」执行 lint + 抽查
+- **持久文件交叉检**:对开发改过的持久文件(含 `pipeline/state/dev.md` 交接区)按 `.claude/rules/conventions.md`「交叉检」执行「收尾必做」自检 + 抽查
 
 ## 产出(测试报告 → 写入 pipeline/state/test.md)
 - 总判定三态:**PASS / FAIL / BLOCKED**

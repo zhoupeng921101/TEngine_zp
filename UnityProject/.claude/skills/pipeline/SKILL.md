@@ -1,13 +1,11 @@
 ---
 name: pipeline
-description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排,boss 判断参与环节)、/pipeline <环节> <任务>(显式指定参与环节,如 /pipeline dev/test)、/pipeline auto <任务>(自治模式)、/pipeline resume(恢复续接)、@plan/@dev/@test <指令>(手动单角色寻址),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
+description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排,boss 判断参与环节)、/pipeline <环节> <任务>(显式指定参与环节,如 /pipeline dev-test)、/pipeline-auto <任务>(自治模式)、/pipeline resume(恢复续接),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
 ---
 
 # AI 流水线编排(boss)
-
-我是总调度:不亲自写代码/设计,只编排、验收、重试。三个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。
-
-> 本环境能力边界(2026-06-12 探针实测):①子 agent 自动注入项目 CLAUDE.md,但是主会话启动时的快照——改 CLAUDE.md 须重启会话才对子 agent 生效;②SendMessage 续接子 agent 不可用,每次 spawn 都是全新会话(隔离彻底,独立评审保证白送),跨环节/打回的上下文一律靠 state 文件交接;③子 agent 带全套 unityMCP。
+职责范围：用户语义澄清，编排|验收任务，不亲自写代码/设计。
+三个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。
 
 ## 记忆与恢复
 
@@ -33,9 +31,9 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 ## 编排流程(常规模式,`/pipeline <任务>`)
 
 1. 接到任务 → `state/boss.md` 记任务定义(含参与环节与设计基线)→ 定参与环节:用户用 `/pipeline <环节> <任务>` 显式指定则直接采用,否则按「环节裁剪」判断
-2. Agent 工具 spawn 角色 agent(按「模型选档」传 model)。简报 self-contained:任务内容、设计基线、要读的 state/memory 路径;角色职责已在 agent 定义里,简报不复述
+2. Agent 工具 spawn 角色 agent。简报 self-contained:任务内容、设计基线、要读的 state/memory 路径;角色职责已在 agent 定义里,简报不复述
 3. **收产出首选验文件**:读各角色 state 交接区 / `git diff`;agent 返回文本只当「完成信号 + 取件路径」
-4. 验收 OK → 转下一环节(plan→dev→test);对每个环节的产出做交叉检(`.claude/rules/conventions.md`「交叉检」:lint + 抽查该角色改过的持久文件)
+4. 验收 OK → 转下一环节(plan→dev→test);对每个环节的产出做交叉检(`.claude/rules/conventions.md`「交叉检」:「收尾必做」自检 + 抽查该角色改过的持久文件)
 5. test 出判定 → 走「打回循环」;全绿 → 「关单事务」
 6. 分歧点呈报用户(常规模式用户在场,直接问,不积压)
 
@@ -43,7 +41,7 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 
 1. 读 `pipeline/state/test.md` 总判定(三态:PASS / FAIL=代码缺陷 / BLOCKED=环境阻塞)
 2. PASS → 进「关单事务」
-3. BLOCKED(环境型:Unity MCP/编辑器不可达等,非代码缺陷)→ **不打回、不计轮次**——dev 无可修,打回只会空转(2026-06-13 core-loop 3 轮实测)。常规模式呈报用户修环境,修复后直接重跑 test 补运行验证;自治模式记 BLOCKED 结束
+3. BLOCKED(环境型:Unity MCP/编辑器不可达等,非代码缺陷)→ **不打回、不计轮次**——dev 无可修,打回只会空转。常规模式呈报用户修环境,修复后直接重跑 test 补运行验证;自治模式记 BLOCKED 结束
 4. FAIL → `state/boss.md` 打回轮次 +1,记原因
 5. 轮次 < 3 → spawn 新 dev 返修,简报附三样:`state/test.md` 可复现清单、`state/dev.md` 既有交接区路径、**上一轮 dev 的最终回复原文**(boss 上下文里有,直接粘进简报)→ 修复后重测,回步骤 1
 6. 轮次 = 3 → **熔断**:停止自动重派。常规模式呈报用户拍板(继续重试/调整方案/升级为从 plan 环节重做);自治模式记入 BLOCKED 清单,流水线结束时一并呈报
@@ -55,10 +53,10 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 闭环默认全程 plan→dev→test;按任务性质裁剪参与环节。**验收/打回/关单语义不变**,打回只在参与环节内循环(test FAIL → dev,不会打回到未参与的 plan)。
 
 **参与环节两个来源**:
-- 用户显式指定(`/pipeline <环节> <任务>`,优先):环节序列 = plan→dev→test 的连续子序列,`/` 分隔(`dev/test`、`test`、`plan`、`plan/dev/test`)。boss 直接采用,跳过下表判断。
+- 用户显式指定(`/pipeline <环节> <任务>`,优先):环节序列 = plan→dev→test 的连续子序列,`/` 分隔(`dev-test`、`test`、`plan`、`plan-dev-test`)。boss 直接采用,跳过下表判断。
 - 未指定(`/pipeline <任务>`):boss 按下表任务性质判断。
 
-**是否含 test 决定验收强度**:含 test → test 做四类验证后关单(完整);不含 test(如 `plan`、`dev`)→ 只有 boss 产出验收(产出完整 + 交叉检 lint),无代码正确性验证,据此关单。
+**是否含 test 决定验收强度**:含 test → test 做四类验证后关单(完整);不含 test(如 `plan`、`dev`)→ 只有 boss 产出验收(产出完整 + 交叉检自检),无代码正确性验证,据此关单。
 
 > 自治模式经 pipeline-auto workflow,baton = full / dev-test / test-only。test-only 仅作环境恢复后补运行验证的续接档(无 dev 在环、验出 FAIL 不返修直接返回),新鲜任务从 full 或 dev-test 起。要 plan-only / dev-only 这类其余单环节,走常规模式。
 
@@ -78,27 +76,13 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 - test 验证范围随参与环节:微调 = 指令点 + 受影响区域回归;优化 = 行为不变回归 + 优化目标达成证据
 - 环节判不准:常规模式问用户一句;自治模式选最保守(全环节)并记决策日志
 
-## 模型选档(spawn 时按这一环节活儿的难度传 model 参数)
-
-| 环节 | 任务等级 | 模型 |
-|----|---------|------|
-| plan | 一律(设计取舍最吃模型) | opus |
-| dev | 新功能/有耦合/改状态机核心 | opus |
-| dev | 设计已定的微调/纯重构(行为不变) | sonnet |
-| test | 要设计新验证/判复杂行为对错 | opus |
-| test | 纯回归跑单测/按清单逐项验 | sonnet |
-
-等级对齐「环节裁剪」的任务性质:同一份判断既定参与环节、又定模型。**拿不准就往高配**:省的 token 不值一次返工。
-
-## 自治模式(`/pipeline auto <任务>`)
+## 自治模式(`/pipeline-auto <任务>`)
 
 **授权只能来自用户显式激活(auto 字样或同义明示),boss 不能自己进入。** 激活后:
 
 1. **启动检查 + 自动基线**:启动须有干净基线 commit(供一键退回)。working tree 干净 → 直接以当前 HEAD 为基线启动;不干净 → **自动提交**未提交改动为一个基线 commit(message 标明「流水线自治运行基线」),不停下等用户。提交后向用户报告提交内容(文件清单 + commit hash)+ 提示这是本地 checkpoint、未 push、可 `git reset` 一键退回。
-
-   > 这道启动前检查 2026-06-14 由用户从「提示用户先提交、不启动」改为「自动提交」:本地 commit 可逆、不违反自治边界(不 push),省去启动前的停顿。代价:会把当下所有未提交改动(含与本任务无关的在途工作)一并打进基线 commit——靠「报告提交内容 + 可一键退回」兜底。
 2. **回执并落盘**:任务范围 + git 基线 commit + 自主边界写 `state/boss.md`(授权仅本次任务有效,关单即失效)
-3. 用 Workflow 工具启动 `pipeline-auto`(name 调用,args 含 task/baton/baseline/模型档)后台执行闭环;收到 PASS/BLOCKED 结果后走关单/呈报
+3. 用 Workflow 工具启动 `pipeline-auto`(name 调用,args 含 task/baton/baseline)后台执行闭环;收到 PASS/BLOCKED 结果后走关单/呈报
 4. **决策规则**:
    - 默认全自主推进;每次自主拍板把「分歧点/选择/依据」记入 `state/boss.md` 决策日志(供用户审计 + git 回滚)
    - 拿不准/疑似设计方向错/3 轮熔断 → 记 **BLOCKED**,跳过该点继续推进不依赖它的部分;结束时呈报待裁决清单
@@ -110,32 +94,13 @@ description: TEngine_block AI 流水线总调度(boss)。触发:/pipeline <任�
 > 顺序原则:**先落盘后回报**。各步幂等,中断恢复后整段重跑。
 
 1. **核对判定 + 核磁盘交付物**:`state/test.md` 总判定 = PASS,收拢其遗留/观察项;**并核验 verdict 声称的产出在磁盘真实存在**——`git status` 非空,且关键产出(设计稿 / 代码 / 测试 / 配置文件)按路径 `ls` 确在。verdict 与磁盘不一致 = workflow 可能返回脱离真实执行的结果,**按未完成处理:不归档、不提交**,定位缺口后续接(dev-test)或重跑,不据假 verdict 关单
-
-   > workflow 的 PASS 可能脱离真实执行:2026-06-14 mail 轮先返「PASS 333/333」假结果(磁盘零文件),数分钟后第二条通知更正为 BLOCKED(plan 撞会话用量上限、dev/test 未跑)。关单若信首条 verdict 会给不存在的系统记 PASS。磁盘核验是唯一可靠判据——state 交接区文本同样可能脱离执行,只有文件实际存在才算交付。
 2. 收拢遗留事项:已完成的从 `state/boss.md`「遗留事项」划掉,新产生的跨任务待办登记进去(遗留是活的,**不归档**)
 3. 归档(**四件套一起**):
    - `state/plan.md|dev.md|test.md` 整体移入 `pipeline/archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向)
    - 当前任务的 boss 编排日志(任务定义/拍板归属/spawn 登记/自治决策日志/打回轮次/授权/运行验证结论)整理成 boss 关单总结,写入 `archive/<日期-任务名>/boss.md`
    - `state/boss.md`:「当前任务」节重置为「(无活跃任务)」;「最近关单」**只追加一行索引**(日期·任务·结论·archive 路径),不留详情
-
-   > boss state 与各角色 state 同为工作态,关单即归档,主文件只留「当前任务 + 关单索引 + 活遗留」。否则只增不减:实测曾积到 6 段 100+ 行并出现转述副本漂移(2026-06-14 清理,详见 archive 各 boss.md)。
-4. 规则栈巡检:本次任务改过 CLAUDE.md / `.claude/` 规则文件 / agent 定义 → 触发 `/audit` 增量审计;没改过 → 跳过
-5. 回报用户:结果 + 证据位置 + 遗留事项(自治模式另附决策日志与 BLOCKED 清单)
-6. 按 `.claude/rules/conventions.md`「收尾必做」过一遍本次改过的持久文件
-
-> 全绿 ≠ 结束:关单事务跑完才算闭环。
-
-## 手动单角色寻址(`@plan / @dev / @test <指令>`)
-
-手动档 = 只传话,**不走自动闭环**:
-
-1. spawn 对应角色 agent(简报 self-contained;每次都是全新会话,前情须写进简报或让它读 state)
-2. 产出直接转告用户:**不做**验收/环节交接/失败回灌,不更新编排日志(除非用户明确要求)
-3. 诉求里出现**环节交接**(「改完让 test 验」一类速记同义)→ 这是任务,走「编排流程」+ 环节裁剪开单,不在手动档里做环节交接
-
-   > 环节交接/打回/关单只有编排流程一套实现;手动档里环节交接会长出第二套残血副本。
-
-**`@<角色>` vs `/pipeline <单环节>`**:同一个角色,差别在要不要验收闭环。`@dev X` 传话、不验收、不关单(快速差遣零碎活);`/pipeline dev X` 走正式流程,boss 验收 + 关单归档(留证据链)。
+4. 回报用户:结果 + 证据位置 + 遗留事项(自治模式另附决策日志与 BLOCKED 清单)
+5. 按 `.claude/rules/conventions.md`「收尾必做」过一遍本次改过的持久文件
 
 ## 独立评审(高风险决策防顺从)
 

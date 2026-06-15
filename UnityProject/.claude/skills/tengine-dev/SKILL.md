@@ -10,7 +10,13 @@ TEngine 是基于 HybridCLR + YooAsset + UniTask + Luban 的 Unity 游戏框架�
 
 ## 核心红线
 
-编码红线以项目根 `CLAUDE.md`「核心原则（编码红线）」为唯一信息源，本文件不复制条文。各红线的展开说明见下方路由表对应文档（异步/资源 → resource-api.md，模块 → modules.md，热更边界 → hotfix-workflow.md，事件 → event-system.md）。
+1. **异步优先**：IO 操作用 `UniTask`，禁止同步加载/Coroutine
+2. **模块访问**：通过 `GameModule.XXX` 访问，而非 `ModuleSystem.GetModule<T>()`
+3. **资源必须释放**：`LoadAssetAsync` 对应 `UnloadAsset`，GameObject 用 `LoadGameObjectAsync`
+4. **热更边界**：`GameScripts/Main` 不热更，`GameScripts/HotFix/` 全部热更
+5. **事件解耦**：模块间用 `GameEvent`，UI 内部用 `AddUIEvent`
+
+各红线的展开说明见下方路由表对应文档（异步/资源 → resource-api.md，模块 → modules.md，热更边界 → hotfix-workflow.md，事件 → event-system.md）。
 
 ## 文档路由
 
