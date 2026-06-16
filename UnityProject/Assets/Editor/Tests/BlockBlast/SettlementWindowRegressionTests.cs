@@ -128,15 +128,18 @@ namespace GameLogic.BlockBlast.Tests
                 "R3: MergeOrderWindow.cs:718 应传 lines（通关路径传结算行，不得改传参）");
         }
 
-        // ── R4：四个回调目标未改 ───────────────────────────────────────────────────
+        // ── R4：回调目标核对（融合后重试改指融合窗口，设计 29 §3.1）─────────────────
         [Test]
-        public void R4_GameOverWindow_RetryCallback_TargetsGameWindow()
+        public void R4_GameOverWindow_RetryCallback_TargetsMergeOrderWindow()
         {
             var src = ReadSource(GameOverPath);
 
-            // 重试 → GameWindow（R4 零回归）
-            Assert.IsTrue(src.Contains("ShowUIAsync<GameWindow>()"),
-                "R4: GameOverWindow 重试回调目标必须是 GameWindow");
+            // 玩法融合（设计 29 §3.1）：经典纯无尽入口下线，GameOver 仅由融合窗口触发，
+            // 重试回融合玩法窗口 MergeOrderWindow（不再回经典 GameWindow）。
+            Assert.IsTrue(src.Contains("ShowUIAsync<MergeOrderWindow>()"),
+                "R4: 融合后 GameOverWindow 重试回调目标必须是 MergeOrderWindow（设计 29）");
+            Assert.IsFalse(src.Contains("ShowUIAsync<GameWindow>()"),
+                "R4: 融合后 GameOverWindow 不得再回经典 GameWindow（纯无尽入口已下线）");
         }
 
         [Test]

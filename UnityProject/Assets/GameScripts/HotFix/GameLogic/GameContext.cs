@@ -70,9 +70,10 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 从既有 <see cref="MergeMetaSave"/> 存档同步重建 <see cref="Player"/>：
+        /// 从既有 <see cref="MergeMetaSave"/> 存档同步重建 <see cref="Player"/> + 加载经典最高分（设计 29 §5.4）：
         /// 有档 → <see cref="PlayerInfo.ImportFromMeta"/>（逐字段保底夹值，头像 id 越界退默认）；
         /// 无档 → <see cref="PlayerInfo.CreateDefault"/>（新 id + 系统名 + 默认头像/框）。
+        /// 同一份 DTO 同时把 <see cref="BlockGameState.HighScore"/> 并入元层加载（与玩家信息同时机）。
         /// </summary>
         private void LoadPlayer()
         {
@@ -81,6 +82,8 @@ namespace GameLogic
             Player = (dto != null)
                 ? PlayerInfo.ImportFromMeta(dto, rng, avatarValid: AvatarIdValid)
                 : PlayerInfo.CreateDefault(rng);
+            // 经典最高分并入元层时机（设计 29 §5.4）：与玩家信息同读一份 DTO；无档则保持缺省（首次无最高分）。
+            BlockGameState.Instance.ImportHighScoreFromMeta(dto);
         }
 
         /// <summary>
@@ -105,6 +108,18 @@ namespace GameLogic
             if (Player == null) return;
             var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
             Player.ExportToMeta(dto);
+            MergeMetaPersistence.SaveAsync(dto).Forget();
+        }
+
+        /// <summary>
+        /// 把经典最高分 <see cref="BlockGameState.HighScore"/> 落盘到元层（设计 29 §5.4），与 <see cref="SavePlayer"/>
+        /// 同口径：先读回既有 DTO 保留其余元层字段，仅覆写 highScore，再经异步外壳即发即忘落盘。
+        /// 在「最高分可能刷新」的结束/退出时机调用，使经典遗产与元层进度同一落盘节点。
+        /// </summary>
+        public void SaveHighScore()
+        {
+            var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
+            BlockGameState.Instance.ExportHighScoreToMeta(dto);
             MergeMetaPersistence.SaveAsync(dto).Forget();
         }
 

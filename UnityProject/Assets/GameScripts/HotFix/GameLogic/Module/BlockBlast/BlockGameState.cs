@@ -365,7 +365,30 @@ namespace GameLogic.BlockBlast
             if (Score > HighScore) HighScore = Score;
         }
 
-        // ─── 持久化 ──────────────────────────────────────────────
+        // ─── HighScore 并入元层存档（设计 29 §5.4）──────────────────
+        // 经典「最高分」是跨会话长期指标，并入 MergeMetaSave 元层、与元层进度同一加载/落盘时机
+        // （由 GameContext 在 LoadPlayer / SavePlayer 中枢节点串联，与 PlayerInfo 同口径）。
+        // 纯方法、无 IO：在 HighScore 字段与 DTO 平铺字段之间转换，落盘外壳仍是既有 MergeMetaPersistence。
+        // 与 block_blast_save_v1（棋盘/手牌/分数 = 局内瞬态）分层：局内瞬态每局重开、不进元层（设计 14 判据）。
+
+        /// <summary>把当前 <see cref="HighScore"/> 写进元层 DTO（增量，不动既有玩法/玩家字段）。纯方法、无 IO。</summary>
+        public void ExportHighScoreToMeta(MergeMetaSave dto)
+        {
+            if (dto == null) return;
+            dto.highScore = HighScore;
+        }
+
+        /// <summary>
+        /// 从元层 DTO 读回 <see cref="HighScore"/>（设计 29 §5.4）。逐字段保底：负值（缺省 0 / 篡改）夹到 0。
+        /// dto 为 null 直接返回（保持现有 HighScore，等价首次无元层最高分）。
+        /// </summary>
+        public void ImportHighScoreFromMeta(MergeMetaSave dto)
+        {
+            if (dto == null) return;
+            HighScore = dto.highScore > 0 ? dto.highScore : 0;
+        }
+
+        // ─── 持久化（局内瞬态：棋盘/手牌/分数，键 block_blast_save_v1，每局重建不进元层）────
 
         [Serializable]
         private sealed class SaveData

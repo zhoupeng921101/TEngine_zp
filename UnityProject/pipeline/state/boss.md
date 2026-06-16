@@ -6,11 +6,10 @@
 
 ## 当前任务
 
-**无活跃单项。塔罗 UI「纯 UI 补完」自治线全部关单(2026-06-15)。**
+**(无活跃任务)**
 
-本轮自治产出 6 单(均 PASS + 已 commit,见「最近关单」表):打表工具 → 个人信息窗 → 结算窗(游戏结束+通关)→ tarot_mode HUD → 排行榜窗(设置窗在自治激活前已关单)。EditMode 427/427 全绿。**待用户裁决/后续**:商店付费(BLK1)、新系统屏占卜/牌组/皮肤/成就/每日任务/关卡开始(BLK3,需 GDD/产品规格)、各屏 Play 视觉手验、缺图占位待美术补切图、若干产品定义项(生日/结算图标/HUD 资源条与三机制)。详见收尾呈报 + 各 archive/<屏>/boss.md。
-
-> 背景方向(2026-06-14 用户拍板·xlsx 批次):剩余服务器/在线功能与本作离线·去变现方向不合,选「继续建底层,留服务器接缝」;兑换码/邮件/排行榜已落地关单。通用底层批基本到顶,转入 UI 换皮主线(遗留 #30),本工具是其前置。
+最近:gameplay-fusion-impl 玩法融合代码落地,dev-test PASS 关单(2026-06-16),见「最近关单」表 + `archive/2026-06-16-gameplay-fusion-impl/`。融合已落地(单入口 + 经典吸收进合成订单 + 体力预算保留),工作树未提交待用户审阅。后续:遗留 #32(BEST 冻结处置,随 #4 手感方向定)、#33(经济 HUD 塔罗子图配套)、P1-P5 人工 Play 手验。
+(更早:gameplay-fusion 设计稿 plan-only PASS 关单 2026-06-16;塔罗 UI 自治线全部关单 2026-06-15,待裁项 BLK1 商店付费 / BLK3 新系统屏见下「自治 BLOCKED 清单」。)
 
 ## 自治运行(2026-06-15 用户激活:「你自主决策,直到完成全部 UI」)
 
@@ -39,6 +38,8 @@
 
 | 日期 | 任务 | 结论 | 归档 |
 |------|------|------|------|
+| 2026-06-16 | gameplay-fusion-impl 玩法融合代码落地(按 29 设计稿:主菜单单入口化 / 经典纯无尽入口退役[GameWindow 代码留、仅下线] / 三隐患归一[进入重置不变量·dynamicWeight 每局重置·DDA 信号维持甲] / 存档合并[HighScore 并入元层+迁移取较大值保底] / 塔罗皮移植到 MergeOrderWindow;4 开关全默认基线)| PASS(dev-test,0 打回;编译 0 error + EditMode 415/415;2 处回归断言 R4/R5 随融合合理翻转且加严经独立核;Code Review 9 文件 + conventions 交叉检过;拖拽类三出口/老存档 BEST 列 P1-P5 人工手验) | `archive/2026-06-16-gameplay-fusion-impl/` |
+| 2026-06-16 | gameplay-fusion 玩法融合统一设计稿(把经典无尽吸收进合成订单、保留体力预算;新建 `design-docs/29-gameplay-fusion.html` 逐条裁决 8 冲突点 + 经典去向 + 代码落点 + 4 范围开关默认;连带 01 顶部状态说明 + nav.js 注册 29/修订 01·11 主题)| PASS(plan-only,用户显式指定环节;0 打回;boss 验收=磁盘三件核实 + conventions 交叉检;plan 真实代码勘察修正隐患;**代码落地转遗留 #31**;4 范围开关有安全默认按默认推进、不入 blockers) | `archive/2026-06-16-gameplay-fusion/` |
 | 2026-06-15 | ui-rank-window 排行榜窗·表现层(新建 RankWindow;GameContext 扩持 RankService;榜单列表/我的名次条接真实数据[代码生成行];点赞默认省略;复用 Sheet_settings+占位榜行/徽章/头像[art 受限];兑现 #27)| PASS 逻辑档(自治;full,0 打回;boss 桥直验 EditMode 427[+8 rank];真实全服榜[无网络]/点赞奖进邮箱[mail UI 未做]BLOCKED 呈报;V 组 Play=人工手验) | `archive/2026-06-15-ui-rank-window/` |
 | 2026-06-15 | ui-tarot-hud tarot_mode 主玩法 HUD reskin(=Classic GameWindow 再主题;路 A 只换 BuildStaticUI 静态壳+新增顶栏/动作按钮;首用打表工具产 Sheet_tarot_mode[13 子图];资源条占位/更换删除提示 stub[无数据源无机制];玩法逻辑/坐标/数据层零碰;纯 UI 补完)| PASS 回归档(自治;full,0 打回;boss 桥直验 EditMode 419[BlockBlast 407 含 14 例换皮回归 R1-R5 零回归];V 组 Play 对位+整局实玩=人工手验;运行期寻址 importer 同 Sheet_settings 等价) | `archive/2026-06-15-ui-tarot-hud/` |
 | 2026-06-15 | ui-settlement-windows 结算窗 reskin(游戏结束 GameOverWindow + 恭喜通关 MergeOrderWinWindow;路 A 轻量换皮——UGuiFactory 纯色 Image 链 SetSubSprite("Sheet_settings") 换木质,结算逻辑/UserData/回调零改;装饰图标省略[无数据源无切图];纯 UI 补完)| PASS 回归档(自治;full,0 打回;boss 桥直验 EditMode 405[BlockBlast 393 含 15 例结算回归 R1-R4 零回归 + UIAtlasPacker 12];V 组 Play 对位=人工手验)| `archive/2026-06-15-ui-settlement-windows/` |
@@ -93,3 +94,6 @@
 28. **[后续轮·UI 范式工具化;第二屏换皮前补]** 切图寻址范式已定为「每屏一张 Multiple 模式精灵表 PNG + `Image.SetSubSprite(图集location, 子图名)`」(ui-settings-window 关单确立,SpriteAtlas v2 经实测不向 YooAsset 暴露子精灵故不可用)。当前 `Sheet_settings.png` 是一次性手工合表。**建议在第二屏换皮前做一个 Editor 打表工具**(散切图目录 → 合成 Multiple 精灵表 PNG,子图名=源文件名,自动切 rect、九宫格 border 可配),否则约 20 屏每屏手工打表的成本线性累积且易错(子图名漏改/rect/pivot/border 手设)。交 plan 排期。
 29. **[待清理·低优]** `Assets/AssetArt/Atlas/Atlas_setting.spriteatlasv2`(+.meta,单数 setting)是 ui-settings-window 轮 dev 失败 SpriteAtlas 尝试的残留,GUID 全工程仅自身 .meta 引用 = 真孤儿,落在 AssetArt/Atlas(不被收集器收录)运行期无害,应删(避免误导后续 + 无用残留)。
 30. **[后续轮·塔罗成套 UI 换皮主线]** 塔罗美术成套素材(见 user-memory tarot-art-set:`Downloads\塔罗\塔罗\`,效果图 20 屏 + 切图 184 张)其余约 19 屏待换皮,按 ui-production-plan 排序:先换皮有数据层的(游戏 HUD tarot_mode / 个人信息 #22 / 游戏结束 / 恭喜通关),再按系统逐个做新功能(商店内购/成就/排行榜表现层 #27/每日任务/皮肤/牌组库/占卜流程——多数需先做数据层)。每屏走 /pipeline,复用本轮确立的「精灵表寻址 + GameContext 持有 + FindChildComponent 绑定 + [Window]」范式。
+31. **[后续轮·gameplay-fusion 代码落地;基线 = `design-docs/29-gameplay-fusion.html`]** 玩法融合设计稿已交付(2026-06-16),代码融合未做,转独立 `/pipeline dev`。落点(29·§五):① 主菜单单入口化(`MainMenuWindow` 去 CLASSIC/合成订单 DEMO 二选一);② 两窗合一(`GameWindow`+`MergeOrderWindow`,以 MergeOrderWindow 为完整循环超集主体;**含美术换皮归属理清**——GameWindow 已贴塔罗木质皮 #27/#30,合一时定最终皮;零回归红线=`BlockLayout` 坐标常量不动);③ 三隐患归一(Combo/Score 角色 + 进入重置不变量 / `dynamicWeight` 跨局归一策略 / DDA 强度信号源);④ 存档结构合并(HighScore 并入元层时机,保持元层进盘·局内瞬态不进盘分层);⑤ 可选 R1-R3 接线。**4 范围开关已定调(2026-06-16 用户「按推荐执行」)= 全默认安全基线起步**:#1 R1-R3 不接(默认);#2 DDA 信号维持现状(默认甲,融合后该量恒低则做局不启用);#3 dynamicWeight 每局重置(默认,消除跨局残留);#4 可见主分数沿用合成订单累计分(默认)。**#2/#4 是手感方向项**——按默认实现起步,代码做出来后由用户实玩试手感,再决定是否切备选(#2 乙改接经营进度量启用做局 / #4 恢复经典即时大分数);切备选属局部增量不返工。走 dev-test(设计已定),test 验编译 + Play 三出口路径 + 连消倍率隔离 + 存档往返。 **已解决(2026-06-16,gameplay-fusion-impl 关单,dev-test PASS 0 打回;编译 0 error + EditMode 415/415)。** 单入口 + 经典吸收 + 体力预算保留已落地;塔罗皮移植到融合主体;美术换皮归属判为实现可解(经济 HUD 配套塔罗子图转 #33)。详见 `archive/2026-06-16-gameplay-fusion-impl/`。
+32. **[随 #4 手感方向一起定·影响 BEST 语义]** 融合默认基线(#4 = 可见主分数沿用合成订单累计分)下,**主菜单 BEST(HighScore)成为冻结遗产**:经典纯无尽刷分入口退役后,唯一刷 `Score`→长 `HighScore` 的路径消失,融合窗口用 `TotalScore` 作可见量、局内 `Score` 恒 0。结果:BEST 保留老玩家历史最高(迁移保底已做),但**此后不再增长**。非 bug,是 #4 默认连带。处置选项:① 接受冻结(BEST = 历史经典最高,纪念性);② BEST 改追 `TotalScore` 历史最高(经营成绩最高);③ 切 #4 备选(恢复经典即时大分数,Score 复活则 HighScore 自然增长)。与用户试 #2/#4 手感时一并定。
+33. **[后续美术轮]** 融合窗口经济 HUD(体力/订单/合成区/盲盒/虔诚币/神庙)的塔罗子图配套。gameplay-fusion-impl 已把塔罗木质皮移植到核心区(背景 `chessboard` + 棋盘外框 `chess` 贴 `Sheet_tarot_mode`),但经济 HUD 在塔罗精灵表无对应子图,维持纯色+glyph(与 GameWindow 资源条/动作按钮占位 stub 同理)。给经济 HUD 配套塔罗子图是独立美术工作,需先有切图。

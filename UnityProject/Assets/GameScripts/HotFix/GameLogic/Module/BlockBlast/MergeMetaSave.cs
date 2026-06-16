@@ -28,6 +28,7 @@ namespace GameLogic.BlockBlast
         public int goddessLevel;     // 女神好感等级（从 1 起）
         public int completedOrders;  // 累计完成单数
         public int totalScore;       // O2：默认进盘当累计总分
+        public int highScore;        // 经典遗产「最高分」（设计 29 §5.4）：跨会话长期指标，与元层进度同时机落盘/加载。旧档缺此字段 JsonUtility 给缺省 0
 
         // ── 每日字段（配跨天重置 §3.6）──────────────────────────
         public int wishUsedToday;            // 今日已用祈愿次数

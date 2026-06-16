@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-(塔罗 UI 自治线各屏的运行验证由 boss 主会话桥直跑兜底,见各 archive/<屏>/boss.md。上一屏 ui-player-info-window 已关单 PASS。)
+(最近:gameplay-fusion-impl 玩法融合代码落地,总判定 PASS 关单 2026-06-16,归档 `pipeline/archive/2026-06-16-gameplay-fusion-impl/`)

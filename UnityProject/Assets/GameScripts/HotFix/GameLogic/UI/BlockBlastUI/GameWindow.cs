@@ -419,6 +419,8 @@ namespace GameLogic.BlockBlastUI
             if (_gameOverTriggered) return;
             _gameOverTriggered = true;
             _state.Save();
+            // 经典最高分并入元层落盘（设计 29 §5.4）：与元层进度同一节点，跨会话长期指标随元层存储。
+            GameLogic.GameContext.Instance.SaveHighScore();
             int previousHigh = _initialHigh;
             GameModule.UI.CloseUI<GameWindow>();
             GameModule.UI.ShowUIAsync<GameOverWindow>(previousHigh);

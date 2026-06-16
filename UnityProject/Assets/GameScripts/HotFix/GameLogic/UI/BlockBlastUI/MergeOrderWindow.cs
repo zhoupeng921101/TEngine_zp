@@ -9,13 +9,20 @@ using GameLogic.BlockBlast.Core;
 namespace GameLogic.BlockBlastUI
 {
     /// <summary>
-    /// 合成+订单+体力 Demo 窗口（独立切片）。棋盘/拖拽/ghost/落子流程与 <see cref="GameWindow"/> 同构，
-    /// 叠加体力条 / 双订单卡（手动交付）/ 合成区面板 / 悔棋按钮。
-    /// 全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭），不污染 Classic。
+    /// 玩法融合主玩法窗口（设计 29）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
+    /// 棋盘/拖拽/ghost/落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 双订单卡（手动交付）/
+    /// 合成区面板 / 悔棋按钮。全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭）。
+    /// 融合后这是唯一主玩法入口（经典纯无尽 GameWindow 入口下线，代码保留不删，设计 29 §4.2）。
     /// </summary>
     [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
     public sealed class MergeOrderWindow : UIWindow
     {
+        // ── 塔罗木质换皮（设计 27 → 29 §5.2 移植到融合主体）。仅核心区静态视觉壳贴 Sheet_tarot_mode 子图：
+        //    背景 chessboard（木纹大图）+ 棋盘外框 chess（九宫格框）。经济 HUD（体力/订单/合成区/盲盒/虔诚币/神庙）
+        //    在塔罗精灵表无对应子图，维持现状纯色 + glyph（与 GameWindow 里资源条/动作按钮占位同理）。
+        //    玩法逻辑（落子/消除/合成/订单/结算/存档/悔棋）一律不动——换皮只改静态视觉，不碰经济与坐标常量。
+        private const string Atlas = "Sheet_tarot_mode";
+
         private const int N = BlockLayout.BoardSize;
 
         private BlockGameState _state;
@@ -64,9 +71,16 @@ namespace GameLogic.BlockBlastUI
                 try { GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight(); }
                 catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] 权重表加载失败，退化随机：{e.Message}"); }
             }
+            // 隐患 B（设计 29 §5.3 / 开关 #3）：dynamicWeight 每局重置。
+            // Reset() 清 _dynamicWeight/_preDynamicWeight/_refillIndex（含 BeginGame 的 refillIndex 归零），
+            // 消除「跨局 / 跨模式 / 跨 app 重启」累积——每局从橡皮筋中位公平起步。
+            // 此前两窗只调 BeginGame()（不清 _dynamicWeight）→ 上一局做局到的权重会带进下一局。
+            DynamicWeightDiff.Instance.Reset();
             DynamicWeightDiff.Instance.BeginGame();
 
-            // 进入即重置：空棋盘 + 新 MergeState（起始体力/空合成区/初始订单）+ 补满 3 块（MergeOrderMode 在此开启）
+            // 进入即重置（隐患 A，设计 29 §5.3）：融合窗口进入路径显式清零局内瞬态分量——
+            // ResetForMergeOrder 内将 BlockGameState.Score / Combo 清零（局内瞬态，不进盘），作为单窗口下的不变量。
+            // 元层进度（灵力/虔诚币/女神/神庙/盲盒/HighScore 等）经存档加载覆盖，与局内瞬态分层不重叠。
             _state.ResetForMergeOrder(_board);
             _merge = _state.MergeState;
             _finished = false;
@@ -103,21 +117,29 @@ namespace GameLogic.BlockBlastUI
         {
             _content = UGuiFactory.CreateContentPanel(rectTransform);
 
-            UGuiFactory.CreateImage(_content, "Bg", BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
-                BlockLayout.DesignWidth, BlockLayout.DesignHeight, BlockLayout.BgColor);
+            // 背景：塔罗木纹底图（color 设白让木纹原色透出，设计 29 §5.2 换皮归属移植自 GameWindow）。
+            // 位置/尺寸铺设计全屏，坐标常量不动。
+            var bg = UGuiFactory.CreateImage(_content, "Bg", BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
+                BlockLayout.DesignWidth, BlockLayout.DesignHeight, Color.white);
+            bg.SetSubSprite(Atlas, "chessboard");
 
-            // 棋盘外框 + 格子背景
+            // 棋盘外框（木质九宫格框，贴图 color 设白）：位置/尺寸沿用 BlockLayout 既有值，绝不动（动了落子对位偏）。
             float boardCx = BlockLayout.BoardOriginX + BlockLayout.BoardPixels / 2f;
             float boardCy = BlockLayout.BoardOriginY + BlockLayout.BoardPixels / 2f;
-            UGuiFactory.CreateImage(_content, "BoardOuter", boardCx, boardCy,
-                BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16, BlockLayout.BoardOuterColor);
+            var boardOuter = UGuiFactory.CreateImage(_content, "BoardOuter", boardCx, boardCy,
+                BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16, Color.white);
+            boardOuter.SetSubSprite(Atlas, "chess");
+
+            // 格子背景：方案 A（设计 27 §5.2）——格底偏暖半透深棕，叠在木纹背景上更贴效果图浅格观感。
+            // 位置/尺寸沿用既有 BlockLayout 值，绝不动。
+            var cellBg = new Color32(0x3a, 0x24, 0x14, 0x55);
             for (int r = 0; r < N; r++)
             {
                 for (int c = 0; c < N; c++)
                 {
                     var center = BlockLayout.CellCenterDesign(c, r);
                     UGuiFactory.CreateImage(_content, $"cellbg_{r}_{c}", center.x, center.y,
-                        BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, BlockLayout.BoardCellBgColor);
+                        BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, cellBg);
                 }
             }
 

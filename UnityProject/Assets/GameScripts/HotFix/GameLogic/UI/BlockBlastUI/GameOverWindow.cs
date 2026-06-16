@@ -7,9 +7,9 @@ namespace GameLogic.BlockBlastUI
 {
     /// <summary>
     /// 结算窗口（游戏结束）：半透明遮罩 + 木质大面板 + 标题木牌 + 分数 + 重试/返回按钮。
-    /// userData = previousHigh（本局开始前的历史最高，int；订单路径传 0）。
+    /// userData = previousHigh（本局开始前的历史最高，int；融合窗口路径传 0）。
     /// 视觉：塔罗木质风格（Sheet_settings 子图），对位效果图「游戏结束.png」。
-    /// 逻辑（UserData 解析 / finalScore 计算 / 回调目标）保留不动（零回归约束）。
+    /// 结算逻辑（UserData 解析 / finalScore 计算）零回归不动；重试回调融合后改指融合窗口（设计 29 §3.1）。
     /// </summary>
     [Window(UILayer.Top, location: "GameOverWindow", fullScreen: true)]
     public sealed class GameOverWindow : UIWindow
@@ -66,14 +66,15 @@ namespace GameLogic.BlockBlastUI
             UGuiFactory.CreateText(content, "Best", cx, cardCy + 135, 400, 50, high.ToString(), 42,
                 isNewBest ? new Color32(0xff, 0xe0, 0x66, 0xFF) : new Color32(0x5a, 0x3a, 0x10, 0xFF));
 
-            // 重试按钮（button 子图；onClick 回调不动 — 零回归 R4：重试→GameWindow）
+            // 重试按钮（button 子图）。融合后（设计 29 §3.1）GameOver 仅由融合窗口触发，
+            // 重试回融合玩法窗口 MergeOrderWindow（经典纯无尽入口已下线），而非经典 GameWindow。
             var btn = UGuiFactory.CreateButton(content, "BtnAgain", cx, cardCy + 220, 400, 90,
                 "重试", 40, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var btnBg, out _);
             btnBg.SetSubSprite(Atlas, "button");
             btn.onClick.AddListener(() =>
             {
                 GameModule.UI.CloseUI<GameOverWindow>();
-                GameModule.UI.ShowUIAsync<GameWindow>();
+                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
             });
 
             // 返回按钮（button 子图；onClick 回调不动 — 零回归 R4：返回→MainMenuWindow）

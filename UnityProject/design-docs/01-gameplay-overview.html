@@ -15,8 +15,11 @@
     <h1>玩法总览</h1>
     <p class="subtitle">现状分析 · 一句话:8×8 拖放消除无尽模式,得分靠「憋大招多行列同消」,真正的核心是一套<b>会偷偷调整发牌难易的动态难度系统</b>,让你总觉得「就差一点」。</p>
 
+    <div class="callout warn">
+      <b>状态说明 · 经典模式已被融合吸收</b>:已确定把「纯经典独立模式」融合进合成订单,<mark class="y">融合后经典不再作为独立可玩入口存在</mark>——其核心(8 算法 DDA / 计分公式 / 71·39 方块库 / 首发固定 / 早期屏蔽 / 连消钩子)已下沉为融合玩法的<b>底层引擎</b>,「纯无尽刷分」入口与「无处可落即唯一 GameOver」结束模型被覆盖。本篇正文保留作<b>经典核心机制的现状记录</b>(融合引擎的底层即此);统一玩法与逐条裁决见 → <a href="29-gameplay-fusion.html">29 · 玩法融合</a>。
+    </div>
     <div class="callout note">
-      <b>本文档基于代码现状整理</b>,对应模块:<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。主体为 <b>Classic(无尽)模式</b>;另有「合成订单」自研切片在持续迭代(见 <a href="09-merge-order-energy.html">09</a>/<a href="10-score-element-rm-collect.html">10</a>),关卡 / 冒险未移植(路线已归档)。
+      <b>本文档基于代码现状整理</b>,对应模块:<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。主体为 <b>Classic(无尽)模式</b>的核心机制;合成订单完整设计见 <a href="11-core-loop-completion.html">11</a>(切片现状 <a href="09-merge-order-energy.html">09</a>/<a href="10-score-element-rm-collect.html">10</a>),关卡 / 冒险未移植(路线已归档)。
     </div>
 
     <h2 id="loop">一、核心玩法循环</h2>

@@ -4,4 +4,4 @@
 
 ## 当前任务:无
 
-(塔罗 UI 纯 UI 补完自治线已全部关单。最近:ui-rank-window 排行榜窗,归档 `pipeline/archive/2026-06-15-ui-rank-window/`)
+(最近:gameplay-fusion-impl 玩法融合代码落地,dev-test PASS 关单 2026-06-16,归档 `pipeline/archive/2026-06-16-gameplay-fusion-impl/`)

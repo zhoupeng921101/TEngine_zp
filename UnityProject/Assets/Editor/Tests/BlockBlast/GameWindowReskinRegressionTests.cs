@@ -205,17 +205,32 @@ namespace GameLogic.BlockBlast.Tests
                 "R4c: GameOver 调用点应传 previousHigh（Classic 路径不得改传参）");
         }
 
-        // ── R5：合成订单窗未受换皮影响（MergeOrderWindow.cs 关键属性/行仍在）──────────────
+        // ── R5：融合主体 MergeOrderWindow 承载塔罗皮 + 坐标常量零回归（设计 29 §5.2）────────
         [Test]
-        public void R5_MergeOrderWindow_Untouched_ByReskin()
+        public void R5_MergeOrderWindow_CarriesTarotSkin_CoordsUnchanged()
         {
             var src = ReadSource(MergeOrderWindowPath);
 
-            // MergeOrderWindow 仍存在且 location 属性未改（本轮不碰；git diff 仅 GameWindow + 资源由 boss 核）
-            Assert.IsTrue(src.Contains("MergeOrderWindow"), "R5: MergeOrderWindow.cs 仍存在");
-            // 本任务换皮不应在 MergeOrderWindow 里引用 Sheet_tarot_mode（本轮新表只用于 GameWindow）
-            Assert.IsFalse(src.Contains("Sheet_tarot_mode"),
-                "R5: MergeOrderWindow 不得引用 Sheet_tarot_mode（换皮只动 GameWindow）");
+            // MergeOrderWindow 仍存在且 location 属性未改
+            Assert.IsTrue(src.Contains("[Window(UILayer.UI, location: \"MergeOrderWindow\", fullScreen: true)]"),
+                "R5: MergeOrderWindow location 属性不得改（改则运行时找不到窗口）");
+
+            // 融合后（设计 29 §5.2）：塔罗皮移植到融合主体——背景 chessboard + 棋盘外框 chess 贴 Sheet_tarot_mode。
+            Assert.IsTrue(src.Contains("Sheet_tarot_mode"),
+                "R5: 融合主体 MergeOrderWindow 应承载塔罗皮（设计 29 §5.2 换皮归属）");
+            Assert.IsTrue(src.Contains("\"chessboard\""), "R5: 背景应贴 chessboard 子图");
+            Assert.IsTrue(src.Contains("\"chess\""), "R5: 棋盘外框应贴 chess 子图");
+
+            // 零回归红线：换皮节点沿用 BlockLayout 既有坐标，不硬编码棋盘位置（动了落子对位偏）。
+            Assert.IsTrue(src.Contains("float boardCx = BlockLayout.BoardOriginX + BlockLayout.BoardPixels / 2f;"),
+                "R5: 棋盘外框 cx 仍由 BlockLayout 既有常量算（换皮不动坐标）");
+            Assert.IsTrue(src.Contains("BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16"),
+                "R5: 棋盘外框尺寸沿用既有 BoardPixels+16");
+            // 经济逻辑零回归：落子结算链关键行仍在。
+            Assert.IsTrue(src.Contains("_state.PlacePiece(slotIdx, _board, col, row)"),
+                "R5: 落子 PlacePiece 调用必须保留（换皮不碰经济逻辑）");
+            Assert.IsTrue(src.Contains("ClearSettlement.Settle"),
+                "R5: 结算 ClearSettlement.Settle 必须保留（换皮不碰经济逻辑）");
         }
 
         // ── C2：换皮红线核对（五条编码红线）──────────────────────────────────────────
