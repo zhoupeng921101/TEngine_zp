@@ -25,21 +25,23 @@ TEngine_block 项目的策划。负责把需求/想法变成**结构化、可验
 - `pipeline/state/plan.md`(当前任务工作态)+ `pipeline/memory/plan.md`(跨任务经验,开工读)
 
 ## 产出(交给开发)
-1. 设计文档(新增或更新的 HTML;新增只在 `design-docs/assets/nav.js` 的 GROUPS 数据加一项,侧边栏与 index 卡片全库自动同步)
+1. 设计文档(Markdown 正文 `design-docs/NN-xxx.md`;新增在 `design-docs/assets/nav.js` 的 GROUPS 数据加一项 + 建同名 `.md`,侧边栏与 index 卡片全库自动同步)
 2. 验收标准清单,写入 `pipeline/state/plan.md`「交接区」:功能点逐条、每条的「完成定义」(测试可核对)、涉及的模块/UI/事件/配置(给开发定位)
 
 ## 设计稿章节骨架(玩法新增/调整类设计适用;现状分析、工具文档不强制)
 立项信息表(类型/基线/方向约束/影响范围) → 改什么与为什么 → 方案正文(数值必须给:公式 + 默认常量 + 可调旋钮命名 + 边界逐档代入表,不写「日后再调」) → 接缝清单(feature 挂到哪些现有系统/模块/事件/配置;符号名 grep 核实「存在」——证可行性 + 给 dev 起点,不写函数级改法/签名/类结构) → 验收点(test 可逐条核对) → 待拍板清单(范围开关集中列出交 boss/用户) → 风险表(风险+应对)。
 
 ## 文档表现(版式)
-- 侧边栏文档树、首页卡片、本页目录全部由 `assets/nav.js` 渲染——**新增文档只在 nav.js 的 GROUPS 数据加一项**(side=侧边栏标签;tag/title/desc=首页卡片),全库各页自动同步,不再逐篇改 sidebar。
-- 本页目录由 nav.js 扫描正文带 id 的 h2/h3 自动生成,故各级标题必须带 id(沿用现有 `#intro`/`#what` 风格);立项信息框用 `id="intro"` 会被置顶为目录首项。单栏页(`11-core-loop-completion.html`)不引用 nav.js。
-- 样式单源 `assets/style.css`,页面不内联自定义主题(单篇专用小样式除外);改过 style.css 后把各页引用的 `?v=N` 递增(防浏览器缓存)。
-- 强调双轨:`<b>` 次级强调提亮;`<mark>` 语义色——蓝(默认)=关键术语、`.g` 绿=收益/保留项、`.y` 黄=警示、`.r` 红=风险/删除项。每段至多 1-2 处 mark,不满屏上色。
+- 正文是 **Markdown 源**(`design-docs/NN-xxx.md`),由 `index.html` 外壳 + `assets/nav.js` 运行时 fetch 渲染(marked)。**须经本地服务器看**:双击 `design-docs/serve.bat`(file:// 下 fetch 被浏览器 CORS 拦)。
+- 侧边栏文档树、首页卡片、本页目录由 `assets/nav.js` 渲染——**新增文档在 nav.js 的 GROUPS 加一项**(href 仍写 `NN-xxx.html`,slug 由代码去后缀派生;side=侧栏标签;tag/title/desc=首页卡片)+ 建同名 `NN-xxx.md`。
+- 本页目录扫渲染后的 h2/h3 **自动生成 id**(无需手写);**仅当某标题要被跨文档锚点链接时**才手写 `<h2 id="锚名">…</h2>`(裸 HTML)固定锚;立项框用 `<div class="callout note" id="intro">…</div>` 置顶为目录首项。
+- 链接走 hash 路由约定:跨文档 `#NN-xxx` 或 `#NN-xxx::锚名`,同文档章节 `#本篇slug::锚名`——**不能写裸 `#锚名`**(会被路由当文档名 fetch)。
+- 样式单源 `assets/style.css`;改过 style.css 把 `index.html` 引用的 `?v=N` 递增(防缓存)。本篇专用小样式写在 `.md` 顶部 `<style>` 块。
+- 强调/语义色用**裸 HTML**(CJK 下 markdown `**`/`*` 不可靠,遇「」等失效):`<b>` 次级强调;`<mark>` 语义色——蓝(默认)=关键术语、`.g` 绿=收益/保留、`.y` 黄=警示、`.r` 红=风险/删除。每段至多 1-2 处 mark,不满屏上色。
 
 ## 文档表现(图示化)
 - 按内容形态选表现:多用图表(时序图,结构图,关系图,表格)和段落
-- 图统一用**手写内联 SVG**(零依赖,离线可看)
+- 新图用 **mermaid 围栏**(```mermaid …);复杂手绘图用**内联 `<svg>`**(裸 HTML,marked 透传)。二者经本地服务器均可渲染
 - 图内文案克制:箭头与节点上只写「是什么/发生了什么」,公式、常量、实现细节留在正文章节,图上以 §n 引用——细节堆进图里会把图撑宽且喧宾夺主。
 
 ## 红线

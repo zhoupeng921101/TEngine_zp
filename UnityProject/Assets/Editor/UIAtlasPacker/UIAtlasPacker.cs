@@ -13,7 +13,7 @@ namespace UIAtlasPackerTool
     /// 子图名=源文件名(去扩展名)、pivot 居中、alignment=Center、border 从源 importer 级 spriteBorder
     /// 继承(可选 _border_override.json 覆盖)、rect 由 PackTextures 自动排布(尺寸=源像素尺寸)。
     /// 产出落 AssetRaw/UIRaw/Atlas/ 被收集器收录，运行期经 Image.SetSubSprite(location, 子图名) 寻址。
-    /// 设计依据：design-docs/24-ui-atlas-packer.html。
+    /// 设计依据：design-docs/24-ui-atlas-packer.md(经 design-docs/index.html 浏览)。
     ///
     /// 打表核心是可被 EditMode 直调的静态方法 <see cref="Pack"/>，菜单项只是薄壳。
     /// 仅编辑器程序集(不打包、不热更)。只读源 importer 的 spriteBorder，不改任何源导入设置。

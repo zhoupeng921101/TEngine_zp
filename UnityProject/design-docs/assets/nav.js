@@ -1,9 +1,10 @@
 /* ============================================================
-   Block Blast 策划文档 - 导航单一信息源
-   职责:渲染①各页左侧文档树(自动高亮当前页)②首页卡片区
-        ③本页目录(扫描当前页带 id 的 h2/h3 自动生成 + 滚动高亮)。
-   新增文档:只改下方 GROUPS 一处,全库各页自动同步。
-   仅注入标准双栏布局的活跃文档与 index.html;单栏页(11)不引用本文件。
+   Block Blast 策划文档 - 导航 + 运行时 Markdown 渲染(单一信息源)
+   职责:① 左侧文档树(按 hash 高亮)② 首页卡片区
+        ③ hash 路由:fetch <slug>.md → marked 渲染 → mermaid 围栏 → 本页目录(扫标题自动生成 + 滚动高亮)。
+   hash 约定:#<slug> 跳文档;#<slug>::<章节id> 跳文档内章节(:: 避开与路由 hash 冲突)。
+   新增文档:只改下方 GROUPS 一处(href 仍写 NN-xxx.html,slug 由代码去 .html 派生)+ 建同名 NN-xxx.md。
+   须经本地服务器打开(双击 serve.bat);file:// 下 fetch 被浏览器 CORS 拦截。
    ============================================================ */
 (function () {
   // group.side = 侧边栏分组名;group.card = 首页区块标题(null 表示不在首页卡片区出现)
@@ -74,27 +75,37 @@
     ]},
   ];
 
-  // 当前页文件名(用于侧边栏 active 判定)
-  const path = location.pathname.replace(/\\/g, '/');
-  const file = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
-
+  // ---------- 路由工具 ----------
+  function slugOf(href) { return href === 'index.html' ? '' : href.replace(/\.html$/, ''); }
   function esc(s) { return s; } // 数据为本库自有可信内容,直接作 HTML 注入
+  // hash 约定:#<slug> 跳文档;#<slug>::<id> 跳文档内章节(:: 分隔,避开与路由 hash 冲突)
+  function parseHash() {
+    const raw = decodeURIComponent(location.hash.replace(/^#/, ''));
+    const i = raw.indexOf('::');
+    return i < 0
+      ? { slug: raw.trim(), section: '' }
+      : { slug: raw.slice(0, i).trim(), section: raw.slice(i + 2).trim() };
+  }
 
-  // ---------- ① 侧边栏文档树 ----------
+  // ---------- ① 侧边栏文档树(建一次) ----------
   function buildSidebar() {
     const aside = document.getElementById('sidebar');
     if (!aside) return;
-    let h = '<a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a><nav>';
+    let h = '<a class="side-brand" href="#"><span class="dot"></span>Block Blast 策划文档</a><nav>';
     for (const g of GROUPS) {
       h += '<div class="tree-group">' + g.side + '</div>';
-      for (const d of g.docs) h += treeLink(d);
+      for (const d of g.docs) {
+        const slug = slugOf(d.href);
+        h += '<a class="tree-link" data-slug="' + slug + '" href="#' + slug + '">' + esc(d.side) + '</a>';
+      }
     }
     h += '</nav>';
     aside.insertAdjacentHTML('afterbegin', h);
   }
-  function treeLink(d) {
-    const active = d.href === file ? ' active' : '';
-    return '<a class="tree-link' + active + '" href="' + d.href + '">' + esc(d.side) + '</a>';
+  function setActiveSidebar(slug) {
+    document.querySelectorAll('.tree-link').forEach(function (a) {
+      a.classList.toggle('active', a.dataset.slug === slug);
+    });
   }
 
   // ---------- ② 首页卡片区 ----------
@@ -106,7 +117,7 @@
       if (!g.card) continue;
       h += '<h2>' + g.card + '</h2><div class="cards">';
       for (const d of g.docs) {
-        h += '<a class="card" href="' + d.href + '">'
+        h += '<a class="card" href="#' + slugOf(d.href) + '">'
            + '<span class="tag">' + d.tag + '</span>'
            + '<h3>' + d.title + '</h3>'
            + '<p>' + d.desc + '</p></a>';
@@ -116,42 +127,132 @@
     root.innerHTML = h;
   }
 
-  // ---------- ③ 本页目录(扫描带 id 的 h2/h3;立项信息框 #intro 置顶) ----------
-  function buildToc() {
+  // ---------- ③ 路由:fetch md → marked 渲染 → mermaid → 本页目录 ----------
+  function elHome() { return document.getElementById('home'); }
+  function elDoc() { return document.getElementById('doc-body'); }
+  let loadedSlug = null;
+
+  async function route() {
+    const parsed = parseHash();
+    setActiveSidebar(parsed.slug);
+    if (!parsed.slug) { clearToc(); loadedSlug = null; showHome(); return; }
+    if (parsed.slug !== loadedSlug) {
+      clearToc();
+      const ok = await showDoc(parsed.slug);
+      loadedSlug = ok ? parsed.slug : null;
+    }
+    scrollToSection(parsed.section);
+  }
+  function showHome() {
+    if (elHome()) elHome().style.display = '';
+    if (elDoc()) elDoc().style.display = 'none';
+    window.scrollTo(0, 0);
+  }
+  function scrollToSection(section) {
+    if (!section) { window.scrollTo(0, 0); return; }
+    const t = document.getElementById(section);
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  async function showDoc(slug) {
+    const body = elDoc();
+    if (!body) return false;
+    if (elHome()) elHome().style.display = 'none';
+    body.style.display = '';
+    let md;
+    try {
+      const res = await fetch(slug + '.md', { cache: 'no-cache' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      md = await res.text();
+    } catch (e) {
+      body.innerHTML = '<h1>文档加载失败</h1><p>读取 <code>' + slug + '.md</code> 失败(' + e.message
+        + ')。文档须经本地服务器打开(双击 <code>serve.bat</code>),不能 file:// 直接打开。</p>';
+      return false;
+    }
+    body.innerHTML = window.marked
+      ? marked.parse(md)
+      : '<pre>' + md.replace(/[&<]/g, function (c) { return c === '&' ? '&amp;' : '&lt;'; }) + '</pre>';
+    await renderMermaid(body);
+    buildToc(body, slug);
+    return true;
+  }
+
+  // ```mermaid 围栏 → 图(旧内联 <svg> 是裸 HTML,marked 已透传,不经此)
+  let mermaidReady = false;
+  async function renderMermaid(scope) {
+    if (!window.mermaid) return;
+    const blocks = scope.querySelectorAll('code.language-mermaid');
+    if (!blocks.length) return;
+    if (!mermaidReady) {
+      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+      mermaidReady = true;
+    }
+    blocks.forEach(function (c) {
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = c.textContent;
+      (c.closest('pre') || c).replaceWith(div);
+    });
+    try { await mermaid.run({ nodes: scope.querySelectorAll('.mermaid') }); } catch (e) { /* 单图失败不挡全文 */ }
+  }
+
+  // ---------- 本页目录(扫 #doc-body 的 h2/h3,无 id 补稳定 slug;#intro 置顶) ----------
+  let tocObserver = null;
+  function clearToc() {
+    if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
+    const old = document.querySelector('.page-toc');
+    if (old) old.remove();
+  }
+  function slugify(text) {
+    return text.trim().toLowerCase().replace(/[^\w一-龥]+/g, '-').replace(/^-+|-+$/g, '') || 'sec';
+  }
+  function buildToc(scope, slug) {
     const aside = document.getElementById('sidebar');
-    const main = document.querySelector('main.content');
-    if (!aside || !main) return;
-    // 目录项 = 可选的立项信息框(#intro,非标题但设计稿首项)+ 各级标题
+    if (!aside || !scope) return;
     const items = [];
-    const intro = main.querySelector('#intro');
+    const intro = scope.querySelector('#intro');
     if (intro) {
       const b = intro.querySelector('b');
-      items.push({ el: intro, label: b ? b.textContent : '立项信息', sub: false });
+      items.push({ id: 'intro', label: b ? b.textContent : '立项信息', sub: false });
     }
-    main.querySelectorAll('h2[id], h3[id]').forEach(function (el) {
-      items.push({ el: el, label: el.textContent, sub: el.tagName === 'H3' });
+    const used = {};
+    scope.querySelectorAll('h2, h3').forEach(function (el) {
+      if (!el.id) {
+        const base = slugify(el.textContent);
+        let id = base, n = 1;
+        while (used[id] || document.getElementById(id)) { id = base + '-' + (n++); }
+        el.id = id;
+      }
+      used[el.id] = 1;
+      items.push({ id: el.id, label: el.textContent, sub: el.tagName === 'H3' });
     });
     if (!items.length) return;
     let h = '<nav class="page-toc"><div class="toc-title">本页目录</div>';
     items.forEach(function (it) {
-      h += '<a class="toc-link' + (it.sub ? ' sub' : '') + '" href="#' + it.el.id + '">' + it.label + '</a>';
+      h += '<a class="toc-link' + (it.sub ? ' sub' : '') + '" href="#' + slug + '::' + it.id + '">' + it.label + '</a>';
     });
     h += '</nav>';
     aside.insertAdjacentHTML('beforeend', h);
-    spyToc(items.map(function (it) { return it.el; }));
+    spyToc(items.map(function (it) { return it.id; }));
   }
 
-  // 滚动高亮:当前章节对应的目录项加 .active(样式由本文件注入,不动 style.css)
-  function spyToc(heads) {
+  // 滚动高亮(.active 样式注入一次)
+  function ensureTocStyle() {
+    if (document.getElementById('toc-active-style')) return;
     const style = document.createElement('style');
+    style.id = 'toc-active-style';
     style.textContent = '.toc-link.active{color:var(--accent);border-left-color:var(--accent);}';
     document.head.appendChild(style);
+  }
+  function spyToc(ids) {
+    ensureTocStyle();
     const links = {};
-    document.querySelectorAll('.toc-link').forEach(function (a) {
-      links[a.getAttribute('href').slice(1)] = a;
+    document.querySelectorAll('.page-toc .toc-link').forEach(function (a) {
+      const href = a.getAttribute('href');
+      const j = href.indexOf('::');
+      links[j >= 0 ? href.slice(j + 2) : href.slice(1)] = a;
     });
     let current = null;
-    const obs = new IntersectionObserver(function (entries) {
+    tocObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (e.isIntersecting) {
           if (current) current.classList.remove('active');
@@ -160,10 +261,12 @@
         }
       });
     }, { rootMargin: '0px 0px -75% 0px', threshold: 0 });
-    heads.forEach(function (el) { obs.observe(el); });
+    ids.forEach(function (id) { const el = document.getElementById(id); if (el) tocObserver.observe(el); });
   }
 
+  // ---------- 启动 ----------
   buildSidebar();
   buildCards();
-  buildToc();
+  window.addEventListener('hashchange', route);
+  route();
 })();
