@@ -33,6 +33,7 @@ const PLAN_SCHEMA = {
     decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍(自治审计用)' },
     blockers: { type: 'array', items: { type: 'string' }, description: '必须用户裁决才能推进的方向问题(无安全默认 / 默认会抵触 spec·GDD / 不可逆);有默认可走的范围开关走 decisions 默认推进,不进此处——blockers 非空会令流水线在 plan 环节中止' },
     taskFlaw: { type: 'string', description: 'boss 派的任务定义本身有硬伤(需求矛盾/基线指错/与工程现状冲突/范围不可行)且非设计可解时填原因,否则省略——对称 dev.designFlaw' },
+    feasibilityCheck: { type: 'array', items: { type: 'string' }, description: '接法存疑的未实现链路:转 full dev 前需 dev 预检的存疑接缝 + 待验证问题(能否按设计接线/粗工作量/有无现成链路);接到已实现稳定接缝则省略' },
   },
   required: ['summary', 'statePath', 'designDoc'],
 }
@@ -46,6 +47,17 @@ const DEV_SCHEMA = {
     designFlaw: { type: 'string', description: '设计本身有错且微调救不了时填原因,否则省略' },
   },
   required: ['summary', 'statePath'],
+}
+
+const FEASIBILITY_SCHEMA = {
+  type: 'object',
+  properties: {
+    feasible: { type: 'boolean', description: '能否按设计接线' },
+    effort: { type: 'string', description: '粗略工作量档:小 / 中 / 大' },
+    note: { type: 'string', description: '现成可复用链路 / 关键判断依据' },
+    altApproach: { type: 'string', description: '若不可行,可行的替代接法(供 plan 调整);可行则省略' },
+  },
+  required: ['feasible'],
 }
 
 const TEST_SCHEMA = {
@@ -79,6 +91,7 @@ const decisions = []
 const blocked = []
 
 let baseline = args.baseline || ''
+let feasibilityNote = ''
 
 if (baton === 'full') {
   phase('策划')
@@ -99,6 +112,26 @@ if (baton === 'full') {
     return { status: 'BLOCKED', stage: 'plan', blocked, decisions }
   }
   baseline = plan.designDoc
+
+  // 可行性预检:plan 标出接法存疑的未实现链路(feasibilityCheck)时,转 full dev 前要 dev 只读评估接线可行性,
+  // 避免按错接法实现一整轮再报 designFlaw 返工。接到已实现接缝(plan 不填)直接进 dev,不空跑预检。
+  if (plan.feasibilityCheck && plan.feasibilityCheck.length) {
+    phase('开发')
+    const precheckOpts = { agentType: 'pipeline-dev', phase: '开发', schema: FEASIBILITY_SCHEMA, label: '可行性预检' }
+    if (args.devModel) precheckOpts.model = args.devModel
+    const precheck = await agent(
+      `可行性预检(只读评估,不实现、不碰工程、不进交接区)。任务:${args.task}\n设计基线:${baseline}\n存疑接缝与待验证问题:\n${plan.feasibilityCheck.join('\n')}\n判定:能否按设计接线、粗略工作量(小/中/大)、有无现成链路可复用;不可行则给可行的替代接法。`,
+      precheckOpts
+    )
+    if (!precheck) return { status: 'BLOCKED', stage: 'feasibility', blocked: blocked.concat(['可行性预检 agent 异常退出']), decisions }
+    if (!precheck.feasible) {
+      // 接法不可行 = 提前发现的 designFlaw:不进 full dev 空耗,带替代接法停,供 plan 调整后重派
+      blocked.push(`可行性预检不通过:${precheck.note || '接法不可行'}${precheck.altApproach ? ';替代接法:' + precheck.altApproach : ''}`)
+      return { status: 'BLOCKED', stage: 'feasibility', blocked, decisions }
+    }
+    feasibilityNote = `通过(工作量 ${precheck.effort || '未估'})${precheck.note ? ',' + precheck.note : ''}`
+    decisions.push(`可行性预检${feasibilityNote}`)
+  }
   log(`策划完成:${plan.summary}`)
 }
 
@@ -143,7 +176,7 @@ if (baton === 'test-only') {
 
 let round = 0
 let verdict = null
-let devBrief = `任务:${args.task}\n设计基线:${baseline}${args.batonNote ? '\n附加指令:' + args.batonNote : ''}\n开工读 pipeline/state/dev.md、pipeline/memory/dev.md、pipeline/state/plan.md 交接区与设计基线;实现后编译自检,交接区写「改动摘要+文件清单+验证点」。${RETURN_NOTE}`
+let devBrief = `任务:${args.task}\n设计基线:${baseline}${feasibilityNote ? '\n可行性预检回执:' + feasibilityNote : ''}${args.batonNote ? '\n附加指令:' + args.batonNote : ''}\n开工读 pipeline/state/dev.md、pipeline/memory/dev.md、pipeline/state/plan.md 交接区与设计基线;实现后编译自检,交接区写「改动摘要+文件清单+验证点」。${RETURN_NOTE}`
 
 while (round < 3) {
   phase('开发')

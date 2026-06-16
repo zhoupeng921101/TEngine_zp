@@ -37,6 +37,17 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 5. test 出判定 → 走「打回循环」;全绿 → 「关单事务」
 6. 分歧点呈报用户(常规模式用户在场,直接问,不积压)
 
+## 可行性预检(plan 上报 feasibilityCheck 时)
+
+plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可行性,避免 dev 按错接法实现一整轮再报 designFlaw 返工。**常规模式** boss 动作:
+
+1. spawn 一次 dev,简报标「可行性预检」+ 存疑接缝 + plan 要验证的问题;dev 只读评估、不实现(见 pipeline-dev「可行性预检模式」)
+2. 回执可行 → 把回执并入 full dev 简报,转 dev
+3. 回执不可行 → 带 dev 给的替代接法回 plan 调整设计,**不计 dev 打回轮次**(未进实现,不是返修)
+
+> 预检只在 plan 触发 feasibilityCheck 时跑,不是每个 full 任务的固定步骤:多数任务接到已实现接缝,grep 证存在已够。
+> 自治模式由 pipeline-auto workflow 在 plan 与 dev 间插同款预检 stage:不可行返回 BLOCKED(stage=feasibility)并带替代接法,供 plan 调整后重派。
+
 ## 打回循环(确定性编号步骤;自治模式由 pipeline-auto workflow 执行同一逻辑)
 
 1. 读 `pipeline/state/test.md` 总判定(三态:PASS / FAIL=代码缺陷 / BLOCKED=环境阻塞)

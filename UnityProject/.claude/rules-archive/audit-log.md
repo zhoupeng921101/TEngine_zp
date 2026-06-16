@@ -61,3 +61,24 @@
 - **#6 孤儿旁注**:无。规则准入 #2 的 `>` 旁注(「敢反对 vs 先独立成判」例)随段整体迁入 conventions.md、父规范在位;CLAUDE.md 删除段无遗留旁注;本会话编辑未引入 / 遗留旁注。
 
 删除候选:无。修正候选:无(本会话编辑三处已自洽)。下次增量以本会话编辑提交后 commit 为基线。
+
+## 第十三次审计 @ 工作树(增量基线 commit `9ac4eddf`,本会话「dev 可行性预检通道 + plan 三自检」固化未提交)
+
+增量基线沿用第十二次的 `9ac4eddf`(其后第十二次审计的工作树改动已并入提交)。本次规则栈改动全系本会话固化「dev 早期可行性预检」通道 + plan 侧三自检,落在 `.claude/agents/pipeline-plan.md`、`.claude/agents/pipeline-dev.md`、`.claude/skills/pipeline/SKILL.md`(`.claude/workflows/pipeline-auto.js` 是脚本、不在规则栈散文范围,作为 SKILL 旁注所述自治预检 stage 的实现,一并核引用一致性)。
+
+新增条款:
+- pipeline-plan:红线 +`feasibilityCheck`(接法存疑的未实现链路,转 full dev 前要 dev 只读预检)、返回契约 +⑤、新增「设计自检」节(整局走查 + 向上对体验)、规则6 旁注加「影响半径清单」工具化落点。
+- pipeline-dev:新增「可行性预检模式」(只读评估、不实现、不进交接区)。
+- pipeline/SKILL:新增「可行性预检」编排节(常规 boss 动作)+ 自治旁注(指向 pipeline-auto workflow 的同款 stage)。
+
+查项结论(1-3 必查):
+- **重复**:无。`feasibilityCheck` 与 `taskFlaw`(需求/基线硬伤,实现前)、`designFlaw`(实现中发现设计错)、plan grep「证符号存在」分属不同时点/不同层(接法可行 vs 符号存在),互补非复制;整局走查(动态跑一局查接缝)≠ 接缝清单(静态列符号);向上对体验为新自检;影响半径是 conventions 规则6「同步他篇」的方法化落点(列受影响项 + 标已/待同步),在 plan 卡内细化「怎么做」、不复述规则6 的「做什么」,加法非同层重复。
+- **死规则**:无删除(单窗口不判死)。carry-forward 监视一项:**plan「向上对体验」自检**暂无项目内具体触发实例(feasibilityCheck 有 23§五 GameContext 接法换皮才补、整局走查有 29 三处跨模式隐患融合才现、影响半径有 09/11 库存口径分歧为实例;向上对体验系通用设计质量原则,无落档失败案例),累计窗口续观察。
+- **矛盾**:无。① 自治预检 doc/impl 一致:SKILL 旁注「自治走同款 stage」与 pipeline-auto.js 新增 feasibility stage(plan.feasibilityCheck 非空 → spawn dev 预检 → 不可行 BLOCKED stage=feasibility 带替代接法)对齐,本次同改、无漂移(主动规避第十次「audit-log 双向声明」类 doc/impl 漂移);② feasibilityCheck(技术接法可行)与 plan 既有范围开关 decisions/blockers 分流(方向/spec 取舍)正交,不同轴不冲突;③ 三文件 feasibilityCheck 描述一致。观察一项(非矛盾,报备不强改):plan 卡「grep 核实存在——证可行性」措辞在 feasibilityCheck 加入后成为「两级可行性」的存在级与接法级并存,「证可行性」读来略宽但不为假(存在是可行性证据之一);可选收紧为「证存在(基础可行性)」,属措辞精度非错误,留用户裁。
+
+条件查项(4-6):
+- **#4 信道匹配**:跳过。`.claude/rules/` 注入文件集无增减(本次只改 `.claude/agents/` 与 `.claude/skills/`,均非 `.claude/rules/` 递归注入路径内文件)。
+- **#5 净增趋势**:注入态 `.claude/rules/` 行数不变(本次未触 rules/)。散文增量落在 agent 卡 + SKILL(非注入态计入项):pipeline-plan ≈+6 行、pipeline-dev ≈+2、SKILL ≈+10;均按需注入(spawn / skill-load),不占每窗口常驻,不升「总量复查」。
+- **#6 孤儿旁注**:无。本次就地覆盖两处(SKILL 自治旁注「不走预检」→「走同款 stage」、plan feasibilityCheck 红线「常规/自治分叉」→「两模式统一」),均原地重写、无遗留旧正文或孤儿旁注;新增 SKILL「可行性预检」节的 `>` 旁注父节在位。
+
+删除候选:无。修正候选:无(line 32 措辞收紧列为可选观察,非必改)。下次增量以本会话编辑提交后 commit 为基线。
