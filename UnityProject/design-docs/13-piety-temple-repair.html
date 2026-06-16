@@ -41,7 +41,7 @@
       <tr><th>设计基线</th><td>GDD「虔诚币 / 神庙修复 / 经验·玩家等级」逐字需求 + 已落地 merge-order 切片(<code>Module/BlockBlast/MergeOrderState.cs</code> / <code>MergeOrderConfig.cs</code> / <code>UI/BlockBlastUI/MergeOrderWindow.cs</code> / <code>MainMenuWindow.cs</code>)</td></tr>
       <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(无付费购买虔诚币 / 无金币内购 / 无图案包售卖——项目红线);加法式扩展,不破坏现有核心循环 + 盲盒</td></tr>
       <tr><th>影响范围</th><td><code>MergeOrderState</code> 加 4 类字段(虔诚币 / 经验 / 守护者等级 / 12 厅修复位)并随 灵力·盲盒 同体例入快照;<code>Deliver</code> + <code>DeliverSpecial</code> 加虔诚币发放;新增数据层配置 <code>TempleConfig</code>(12 厅造价 + 等级曲线);新增神庙修复方法;新增神庙面板窗口 + <code>MainMenuWindow</code> / <code>MergeOrderWindow</code> 入口。<b>旧路径(Classic / 不交付订单 / 不开神庙面板时)零行为变化。</b></td></tr>
-      <tr><th>关键约束(继承现状)</th><td><code>MergeOrderState</code> 整体<b>不做磁盘持久化</b>,只入悔棋快照(单局内回滚)、每局 <code>ResetForMergeOrder</code> 重建——见设计 12 §四注与本篇 <a href="#open">§七 O3</a>。本篇的「长期主线」在现状下是<b>单局尺度</b>的:虔诚币/神庙/等级随开局重置。跨会话存盘是独立大改,不在本轮。</td></tr>
+      <tr><th>关键约束(继承现状)</th><td><code>MergeOrderState</code> 的元层进度(虔诚币 / 神庙修复 / 经验·守护者等级)经<b>跨会话磁盘存档</b>(设计 <a href="14-save-system.html">14</a>)落盘,退出重进保留;局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)不进盘,每局 <code>ResetForMergeOrder</code> 重建。本篇的「长期主线」是真正<b>跨会话尺度</b>的。</td></tr>
     </table>
   </div>
 
@@ -120,6 +120,7 @@
   </svg>
   </div>
   <p>整条链<b>单向、无随机</b>(全确定性,逐档可单测)。虔诚币的唯一来源是订单交付,唯一出口是神庙修复(GDD 明写「唯一出口」);经验只由修复产生;等级只由经验派生。三者互不旁路,链路清晰。</p>
+  <p class="muted">时间尺度:本链的虔诚币 / 神庙 / 经验·等级进度为<b>跨会话尺度</b>,经 <a href="14-save-system.html#what">14 · 跨会话磁盘存档</a>落盘,退出重进保留。</p>
 
   <h3 id="vs-soul">2.2 虔诚币 与 灵力 的分工(为什么不复用 Soul)</h3>
   <p>新增第二货币而非复用 灵力,是因为两者的<b>时间尺度与出口</b>不同,合并会互相污染:</p>
@@ -152,7 +153,7 @@ Piety += o.Difficulty * PietyPerDifficulty * SpecialPietyMult;  // 默认 Specia
   </table>
   <p class="muted">节奏标定:现行循环订单池(<code>OrderPool</code>,8 张)一轮总 Difficulty = 1+2+4+1+8+1+2+4 = 23,即一轮约产 <code>23×30=690</code> 虔诚币。第一座神庙造价 500(GDD 例「愚者大厅 500」),约<b>完成 6–7 单</b>可修第一厅——比 demo 通关线(5 单)稍长,让「修第一厅」成为通关后仍想继续的钩子。<b>旋钮:</b><code>PietyPerDifficulty</code> 调全局虔诚币慷慨度;<code>SpecialPietyMult</code> 调特殊订单溢价。</p>
   <div class="callout note">
-    <b>边界:</b>虔诚币只增不减地累积(<code>AddPiety</code> 仅接受正数,负数/0 不增,与现有 <code>AddSoul</code> 同写法)。仅在 <code>RepairTemple</code> 处扣减。无硬上限(攒多少都行;现状不存盘,单局尺度自然有界)。交付是已提交动作——发放随交付一起固化,不被悔棋倒回(<code>Deliver</code>/<code>DeliverSpecial</code> 末尾本就有 <code>_undoStack.Clear()</code>,与现有 体力/分数 奖励同步固化)。
+    <b>边界:</b>虔诚币只增不减地累积(<code>AddPiety</code> 仅接受正数,负数/0 不增,与现有 <code>AddSoul</code> 同写法)。仅在 <code>RepairTemple</code> 处扣减。无硬上限(攒多少都行,跨会话累积)。交付是已提交动作——发放随交付一起固化,不被悔棋倒回(<code>Deliver</code>/<code>DeliverSpecial</code> 末尾本就有 <code>_undoStack.Clear()</code>,与现有 体力/分数 奖励同步固化)。
   </div>
 
   <h3 id="temple-cost">3.2 12 神庙造价与解锁顺序</h3>
@@ -238,10 +239,7 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
     <tr><td>9</td><td><code>UI/BlockBlastUI/MainMenuWindow.cs</code></td><td>(可选)主菜单加「神庙」入口直达 <code>TempleWindow</code>。优先级低于 MergeOrderWindow 内入口;dev 时间紧可只接 MergeOrderWindow 内入口(<a href="#open">§七 O4</a>)。</td></tr>
     <tr><td>10</td><td><code>Editor/Tests/BlockBlast/TempleRepairTests.cs</code> <span class="pill-new">新建</span></td><td>覆盖 §六验收点。仿 <code>TarotBlindBoxTests</code> / <code>CoreLoopCompletionTests</code> 的 <code>SetUp</code>(InMemory Provider + 必要时 RandomSource.SetSeed,本系统无随机,主要构造确定性状态)。</td></tr>
   </table>
-  <p class="muted">持久化口径:<code>MergeOrderState</code> 整体<b>不做磁盘持久化</b>,只入悔棋快照——任务简报的「随 灵力/盲盒计数 同体例入悔棋快照 Persistence」在现状下等价于「入 <code>Snapshot</code>」(改动清单 #6),与 <code>_soul</code>/<code>_blindBoxCount</code> 现状完全一致。<code>Persistence</code> 类是 <code>BlockGameState</code> 的磁盘层(棋盘/分数),<code>MergeOrderState</code> 不经它。全量跨会话存盘是独立大改(见 <a href="#open">§七 O3</a>),不在本轮。</p>
-
-  <div class="callout note">
-    <b>勘误(2026-06-14):</b>本篇 §七 O3 标注的「跨会话存盘是独立大改,不在本轮」已由<b>设计 <a href="14-save-system.html">14 · 跨会话存档</a></b>承接落地。本篇所列「虔诚币/神庙/等级随开局重置、长期主线在现状下是单局尺度」的描述,在设计 14 落地后<mark>不再成立</mark>:元层进度(含虔诚币 / 神庙修复 / 经验·守护者等级)改为跨会话磁盘存档,退出重进保留。本篇正文(冻结)不改写,以本勘误为准。</div>
+  <p class="muted">持久化口径(两条独立轨):<b>跨会话尺度</b>的元层进度(虔诚币 / 经验 / 守护者等级派生 / 神庙修复位)经设计 <a href="14-save-system.html">14</a> 的磁盘存档落盘,退出重进保留;<b>单局内</b>的悔棋回滚走 <code>MergeOrderState.Snapshot</code>(改动清单 #6),与 <code>_soul</code>/<code>_blindBoxCount</code> 同体例。两轨字段虽重叠,但时机/介质/生命周期不同,互不调用。</p>
 
   <h2 id="ui">五、UI 方案(神庙面板)</h2>
   <p>glyph + 纯色,零美术,与现有 demo 一致(复用 <code>UGuiFactory</code> / <code>BurstText</code>)。神庙面板(<code>TempleWindow</code>)布局:</p>
@@ -286,7 +284,7 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
     <tr><th>#</th><th>待决项</th><th>我的默认取向(若无异议即按此)</th></tr>
     <tr><td>O1</td><td><b>升级奖励是否补金币/图案包。</b>GDD 列了,工程无金币货币、图案包属变现向。</td><td>本轮<b>不做</b>(只体力 + 章节解锁标记)。金币需先引入货币系统(独立大改);图案包触去变现红线。</td></tr>
     <tr><td>O2</td><td><b>修复经验是否解耦造价(引入 <code>ExpPerCost</code> 系数)。</b></td><td>本轮经验 = 造价 1:1(简单且后期升级感强)。留旋钮默认 1.0,要调再说。</td></tr>
-    <tr><td>O3</td><td><b>MergeOrderState 是否做全量跨会话磁盘持久化。</b>现状只快照、不存盘——意味着虔诚币/神庙/等级随开局重置,「长期主线」实为单局尺度。</td><td>本轮<b>不做</b>,跟随现状只入快照(与 灵力/盲盒一致)。全量存盘是独立大改(全字段序列化 + 与 <code>BlockGameState.Save</code> 的生命周期对齐),单列任务。<b>这是与「长期主线」语义最大的现状落差,请 boss 知会。</b></td></tr>
+    <tr><td>O3</td><td><b>MergeOrderState 元层进度的跨会话磁盘持久化。</b></td><td>已由设计 <a href="14-save-system.html">14</a> 落地:虔诚币 / 经验·守护者等级 / 神庙修复位等元层进度随 灵力·盲盒 同体例进 <code>MergeMetaSave</code> 磁盘存档,退出重进保留;局内瞬态仍每局重建。「长期主线」即真正跨会话尺度。</td></tr>
     <tr><td>O4</td><td><b>神庙面板入口放哪。</b></td><td>主入口在 <code>MergeOrderWindow</code> 顶部「神庙」按钮(叠层,不丢局);主菜单入口为可选加分项,dev 时间紧可省。</td></tr>
     <tr><td>O5</td><td><b>厅名是否用大阿尔卡那命名。</b></td><td>用(贴「塔罗」主题,GDD 例「愚者大厅」即大阿尔卡那第 0 张)。改名只动 <code>TempleConfig.Halls</code> 一处。</td></tr>
   </table>
@@ -298,7 +296,6 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
     <tr><td>主线字段漏进快照</td><td>悔棋后虔诚币/经验/修复位错乱(与 Soul 早期同类隐患)</td><td>§四 #6 逐字段列出必改;验收 T11 专测回滚;code review 比对 Capture/Restore 字段对称(含数组深拷贝)。</td></tr>
     <tr><td>修复动作不清悔棋栈 → 悔棋倒回已修厅</td><td>玩家修庙后悔棋,币退回但厅仍标记已修(或反之),状态不一致</td><td>§四 #6 明示修复后 <code>_undoStack.Clear()</code>(与交付同语义);验收 T11 末句专测。</td></tr>
     <tr><td>顺序解锁误用 <code>&gt;=</code> 或漏判,可跳修高价厅</td><td>玩家攒够一笔直接修最贵厅,破坏顺序节奏</td><td>§3.2 三前置含 <code>index==NextRepairIndex</code>(严格等);验收 T4 专测跳修返回 false。</td></tr>
-    <tr><td>「长期主线」与「不存盘」现状语义落差被误解为缺陷</td><td>boss/玩家预期跨会话攒币,实际每局重置</td><td>§intro 关键约束 + §七 O3 显式标注,请 boss 知会;不在本轮静默实现存盘(独立大改)。</td></tr>
     <tr><td>MCP 桥不可达,test 无法编译/跑测</td><td>无法判 PASS</td><td>按硬约束:test 判 BLOCKED 不判 FAIL,环境恢复后补测。</td></tr>
   </table>
 

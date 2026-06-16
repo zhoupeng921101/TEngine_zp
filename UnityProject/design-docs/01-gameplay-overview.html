@@ -15,11 +15,8 @@
     <h1>玩法总览</h1>
     <p class="subtitle">现状分析 · 一句话:8×8 拖放消除无尽模式,得分靠「憋大招多行列同消」,真正的核心是一套<b>会偷偷调整发牌难易的动态难度系统</b>,让你总觉得「就差一点」。</p>
 
-    <div class="callout warn">
-      <b>状态说明 · 经典模式已被融合吸收</b>:已确定把「纯经典独立模式」融合进合成订单,<mark class="y">融合后经典不再作为独立可玩入口存在</mark>——其核心(8 算法 DDA / 计分公式 / 71·39 方块库 / 首发固定 / 早期屏蔽 / 连消钩子)已下沉为融合玩法的<b>底层引擎</b>,「纯无尽刷分」入口与「无处可落即唯一 GameOver」结束模型被覆盖。本篇正文保留作<b>经典核心机制的现状记录</b>(融合引擎的底层即此);统一玩法与逐条裁决见 → <a href="29-gameplay-fusion.html">29 · 玩法融合</a>。
-    </div>
     <div class="callout note">
-      <b>本文档基于代码现状整理</b>,对应模块:<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。主体为 <b>Classic(无尽)模式</b>的核心机制;合成订单完整设计见 <a href="11-core-loop-completion.html">11</a>(切片现状 <a href="09-merge-order-energy.html">09</a>/<a href="10-score-element-rm-collect.html">10</a>),关卡 / 冒险未移植(路线已归档)。
+      <b>本篇是经典核心机制的现状记录,也是融合玩法的底层引擎</b>。游戏为<mark>单入口循环</mark>:经典机制融合进合成订单,无独立的「纯无尽刷分」入口。本篇描述的六项核心(8 算法 DDA / 计分公式 / 71·39 方块库 / 首发固定 / 早期屏蔽 / 连消钩子)即融合玩法的底层;其上的统一玩法、经典各机制的保留/覆盖去向、逐条裁决见 <a href="29-gameplay-fusion.html">29 · 玩法融合</a>(六项去向见 <a href="29-gameplay-fusion.html#keep">29·§4.1</a>)。对应模块 <code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>;合成订单完整设计见 <a href="11-core-loop-completion.html">11</a>(切片现状 <a href="09-merge-order-energy.html">09</a>/<a href="10-score-element-rm-collect.html">10</a>)。
     </div>
 
     <h2 id="loop">一、核心玩法循环</h2>
@@ -94,8 +91,8 @@
       <tr><td>2 行/列</td><td>+120</td><td>值得等</td></tr>
       <tr><td>3 行/列</td><td><mark class="g">+270</mark></td><td>大爽点</td></tr>
     </table>
-    <div class="callout warn">
-      <b>注意(潜在设计点):</b>代码里有 <b>Combo 连击</b>计数(连续落子都有消除则 +1,断了清零),连击弹字已上屏(COMBO×N / PERFECT),<mark class="y">但 Combo 未进入任何得分公式</mark>——是一个已埋好但未启用的数值钩子。
+    <div class="callout note">
+      <b>Combo 连消倍率链</b>:连续落子都有消除则 Combo +1,断了清零,连击弹字上屏(COMBO×N / PERFECT)。连消链长驱动<mark>显示分倍率</mark> ×1.0/1.2/1.5/1.8/2.0(封顶),<b>只乘显示分,不参与元素产出与全清判定</b>;<code>BlockGameState.Combo</code> 兼作驱动弹字的视觉镜像量。机制见 <a href="11-core-loop-completion.html#combo-table">11·§5.3</a>,融合裁决见 <a href="29-gameplay-fusion.html#v5">29·§3.5</a>。
     </div>
 
     <h2 id="blocks">三、方块库</h2>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>得分驱动元素生成 + 移除收集 Demo · Block Blast 策划文档</title>
+<title>得分驱动元素生成 · Block Blast 策划文档</title>
 <link rel="stylesheet" href="assets/style.css?v=2">
 <style>
   /* 本篇专用：得分→元素映射的小流程条 */
@@ -25,35 +25,34 @@
   <aside class="sidebar" id="sidebar"></aside>
 
   <main class="content">
-    <h1>得分驱动元素生成 + 移除收集 Demo</h1>
-    <p class="subtitle">两件互不相干、同批交付的改动：<b>①</b> 把 <a href="09-merge-order-energy.html">合成订单切片</a>的元素生成从「固定概率注入」改成「<mark>消除得分驱动数量</mark>」——消得越狠、待选区携带的元素越多；<b>②</b> 把 2026-06-11 的<a href="archive/08-collect-demo-slice.html">独立收集 Demo 切片</a>整套玩法<b>彻底移除</b>，同时甄别保留它与合成订单切片共用的基础设施。</p>
+    <h1>得分驱动元素生成</h1>
+    <p class="subtitle"><a href="09-merge-order-energy.html">合成订单切片</a>的元素产出由<mark>消除得分驱动数量</mark>：消得越狠，待选区携带的元素越多。本篇定义这套生成模型——得分函数、类型选择、配置旋钮与挂接点。</p>
 
     <div class="callout note">
       <b>立项信息</b>
       <table>
-        <tr><th>类型</th><td><span class="chip">玩法调整 + 切片下线</span> 非新切片</td></tr>
-        <tr><th>设计基线</th><td>当前<b>未提交工程现状</b>（main 已直接做掉收集移除的大半，本篇在其上设计「补完 ① + 验证 ②」），不回退 main 改动</td></tr>
-        <tr><th>方向约束</th><td>离线还原 · 去变现（沿用项目红线）</td></tr>
-        <tr><th>影响范围</th><td>① 触及 <a href="09-merge-order-energy.html">合成订单切片</a>的注入规则（用户授权的预期改动，非破坏）；② 收集切片下线，<b>不碰</b>合成订单的合成/订单/体力/通关/悔棋系统</td></tr>
+        <tr><th>类型</th><td><span class="chip">数值模型</span> 合成订单切片的元素生成模型</td></tr>
+        <tr><th>设计意图</th><td>元素生成与消除得分关联，得分越高产出越多——「会消除」直接奖励到产出上，比固定比例灵活。</td></tr>
+        <tr><th>方向约束</th><td>离线还原 · 去变现（项目红线）</td></tr>
+        <tr><th>影响范围</th><td>仅 <a href="09-merge-order-energy.html">合成订单切片</a>的元素生成；合成 / 订单 / 体力 / 通关 / 悔棋系统不涉及。元素携带链路（候选块携带 → 落子转移 → 消除统计）是本模型的载体。</td></tr>
       </table>
     </div>
 
-    <h2 id="why">一、这一批改什么</h2>
-    <table>
-      <tr><th>需求</th><th>动机（用户原话）</th><th>本质</th></tr>
-      <tr><td><b>① 得分驱动元素生成</b></td><td>「元素生成和消除得分关联，得分高低和元素生成多少关联，<b>这样更灵活</b>」——比固定比例灵活是设计意图。</td><td>替换合成订单切片里「每填充格 <code>InjectChance=0.30</code> 概率注入」的<b>固定比例</b>模型，改为「该次消除得分 → 元素数量」的<mark>得分函数</mark>模型。</td></tr>
-      <tr><td><b>② 移除收集 Demo</b></td><td>收集切片（凑齐 ◆×6/★×5 过关）已完成历史使命，下线。</td><td>删除收集专属代码 / 预制 / UI 入口 / 测试；甄别保留与合成订单共用的元素基础设施。</td></tr>
-    </table>
-    <div class="callout note"><b>为何两件事同批：</b>① 改的是「元素从哪来、来多少」，② 删的是「另一个曾经消费元素的模式」。两者都围绕<mark>「元素由候选块携带」这一条共享基础设施</mark>——② 删除时必须认准这条设施不能跟着收集玩法一起删，正是 ① 继续依赖它。</div>
+    <h2 id="why">一、模型一句话</h2>
+    <p>每次落子若触发消除，用<b>该次消除的得分</b> <code>clearScore</code> 算出元素数 <code>k</code>，挑 <code>k</code> 个当前订单所需类型压入<mark>元素预算队列</mark>，补牌时按填充格顺序 FIFO 抽干、写入新候选块。无消除则不入队，后续候选块为纯方块。</p>
+    <ul>
+      <li><b>数量</b>由得分确定（§2.3 映射），<b>类型</b>由需求拉动（§2.4）——两条都是确定性，无概率。</li>
+      <li>得分越高 → <code>k</code> 越大 → 队列积压越多 → 后续候选块携带越多元素。</li>
+      <li>得分仅作元素生成的<b>内部驱动量</b>，不计入玩家可见的订单得分。</li>
+    </ul>
 
-    <!-- ========================== 需求① ========================== -->
-    <h2 id="score-element">二、需求①：消除得分驱动元素生成</h2>
+    <!-- ========================== 模型 ========================== -->
+    <h2 id="score-element">二、得分驱动元素生成模型</h2>
 
-    <h3 id="cur">2.1 被替换的现状：固定概率注入</h3>
-    <p>合成订单切片现状（见 <a href="09-merge-order-energy.html#hook">09·§七</a>）：补牌时对每个候选块的<b>每个填充格</b>按 <code>InjectChance=0.30</code> 概率，从「订单所需类型并集」里抽一个元素注入；辅以<b>消除门控</b>（上一手没消除过则整手干净）与<b>保底计数器</b>（连续 8 次没注入则强制注入一个）。</p>
-    <p>问题：注入<mark class="y">数量与玩家表现脱钩</mark>——清一行和清四行，下一批候选块期望携带的元素数一样（都是 0.30×格数），「会消除」没有被奖励到产出上。</p>
+    <h3 id="cur">2.1 为何用得分驱动数量</h3>
+    <p>元素产出数量与<b>该次消除的得分</b>挂钩，而非按固定比例。固定比例的产出与玩家表现脱钩——清一行和清四行携带的元素数一样，「会消除」没有被奖励到产出上。得分驱动让<mark class="g">消得越狠、产出越多</mark>，把技巧直接转化为经济收益。一个旋钮 <code>ScorePerElement</code>（§2.3）调松紧，比固定比例灵活。</p>
 
-    <h3 id="model">2.2 新模型：得分 → 元素预算队列</h3>
+    <h3 id="model">2.2 得分 → 元素预算队列</h3>
     <div class="flow">
       <div class="node"><b>落子消除</b><small>触发行/列消除</small></div>
       <div class="arrow">→</div>
@@ -67,13 +66,13 @@
     </div>
     <ul>
       <li><b>触发即得分</b>：每次落子若触发消除，就用<b>该次消除的得分</b> <code>clearScore</code> 算元素数 <code>k</code>。无消除 → 不入队 → 后续候选块纯方块。开局首手必纯方块（队列初始空）。</li>
-      <li><b>预算队列承接</b>：算出的 <code>k</code> 个元素不立即凭空出现，而是压入 <mark><code>MergeState.PendingElements</code></mark> 队列；<b>补牌（<code>BuildPiece</code>）时</b>从队头 FIFO 抽取，按与落子转移一致的「行优先填充格顺序」写入新候选块的 <code>Elements</code>。这沿用 09 既有的「补牌时注入」节奏（元素始终出现在新发的候选块上），改动面最小、可纯逻辑单测。</li>
+      <li><b>预算队列承接</b>：算出的 <code>k</code> 个元素不立即凭空出现，而是压入 <mark><code>MergeState.PendingElements</code></mark> 队列；<b>补牌（<code>BuildPiece</code>）时</b>从队头 FIFO 抽取，按与落子转移一致的「行优先填充格顺序」写入新候选块的 <code>Elements</code>。元素始终出现在新发的候选块上，逻辑可纯单测。</li>
       <li><b>队列天然满足两个边界</b>：无消除 → 队列不增长 → 候选块干净；得分高 → <code>k</code> 大 → 队列积压多 → 后续候选块携带更多元素。</li>
     </ul>
-    <div class="callout note"><b>投放时机取舍（dev 按此实现，列入 <a href="#decide">§六 待拍板</a> 供用户确认）：</b>采用<mark>补牌时抽干队列</mark>（推荐）——与 09 现状一致，玩家感知为「狠消一手 → 下一批候选块明显更多元素」。备选「消除当下立即注入到待选区现有未落子块」反馈更即时，但要改两处注入点、且现有未落子块容量有限（0–2 块），复杂度高，列为后续 UX 增强，本批不做。</div>
+    <div class="callout note"><b>投放时机</b>：采用<mark>补牌时抽干队列</mark>，玩家感知为「狠消一手 → 下一批候选块明显更多元素」。备选「消除当下立即注入到待选区现有未落子块」反馈更即时，但要改两处注入点、且现有未落子块容量有限（0–2 块），列为后续 UX 增强（见 <a href="#decide">§六</a>）。</div>
 
-    <h3 id="map">2.3 得分 → 元素数量映射（核心审定点）</h3>
-    <p>这是用户要审的设计取舍。采用<b>线性系数 + 保底 + 封顶</b>，一个旋钮 <mark><code>ScorePerElement</code></mark> 调松紧：</p>
+    <h3 id="map">2.3 得分 → 元素数量映射</h3>
+    <p>采用<b>线性系数 + 保底 + 封顶</b>，一个旋钮 <mark><code>ScorePerElement</code></mark> 调松紧：</p>
     <div class="callout good">
       <b>映射公式：</b>
       <pre style="margin:8px 0;padding:10px;background:#0d1622;border-radius:8px;overflow:auto;">k = clearScore &lt;= 0
@@ -100,40 +99,17 @@
     <div class="callout note"><b>边界处理小结</b>：0 分 → 0 元素（满足「开局/无消除纯方块」）；超高连消 → 封顶 4（不刷爆）；单消 → 保底 1（小消除不空手）。整段是<mark>单调递增、确定性</mark>（无随机），逐档可单测。</div>
 
     <h3 id="type">2.4 元素类型选择：需求拉动 + 轮转均摊</h3>
-    <p>队列里这 <code>k</code> 个元素是<b>什么类型</b>，沿用 09 的<mark>需求拉动</mark>：只从 <code>MergeState.NeededTypes()</code>（当前激活订单所需类型并集）里取，保证产出对订单有用。多个所需类型时按<b>轮转游标</b>均摊（<code>_needRotor</code> 取模递增），让双订单都被喂到。</p>
-    <div class="callout good"><b>保底计数器（<code>PitySinceNeeded</code>/<code>PityThreshold</code>）随旧模型一并退役</b>：旧保底是为了兜「概率长期不中饿死订单」；新模型是确定性生成 + 轮转均摊，任何消除都必产 ≥1 且类型轮流覆盖所需，<b>结构上不会饿死某类型</b>，保底失去存在理由。</div>
+    <p>队列里这 <code>k</code> 个元素是<b>什么类型</b>，由<mark>需求拉动</mark>决定：只从 <code>MergeState.NeededTypes()</code>（当前激活订单所需类型并集）里取，保证产出对订单有用。多个所需类型时按<b>轮转游标</b>均摊（<code>_needRotor</code> 取模递增），让双订单都被喂到。</p>
+    <div class="callout good"><b>不设保底计数器</b>：本模型是确定性生成 + 轮转均摊，任何消除都必产 ≥1 且类型轮流覆盖所需，<b>结构上不会饿死某类型</b>，无需额外保底。</div>
 
-    <h3 id="drop">2.5 被取代 / 退役的旧机制</h3>
-    <table>
-      <tr><th>旧机制（09 现状）</th><th>去留</th><th>原因</th></tr>
-      <tr><td><code>InjectChance = 0.30</code>（每格概率）</td><td class="drop">删</td><td>被「得分→数量」确定性映射取代——正是用户要替换的「固定比例」。</td></tr>
-      <tr><td><code>RequireClearForInject</code> + <code>ClearedSinceRefill</code> 消除门控</td><td class="drop">删</td><td>「无消除→无元素」由「无消除→不入队」自动满足，门控冗余。</td></tr>
-      <tr><td><code>PityThreshold</code> + <code>PitySinceNeeded</code> 保底</td><td class="drop">删</td><td>见 §2.4，确定性 + 轮转下不会饿死，保底冗余。</td></tr>
-      <tr><td><code>InjectElementsForMergeOrder()</code> 概率注入</td><td class="drop">改写</td><td>改为「补牌时从 <code>PendingElements</code> 抽干填入」的 <code>DrainPendingElementsInto()</code>。</td></tr>
-      <tr><td>合成区摄入 <code>IngestElement</code> / 自动配对 / 订单 / 体力 / 悔棋</td><td class="keep">不动</td><td>① 只改「元素从哪来、来多少」，合成订单切片其余系统零改动。</td></tr>
-      <tr><td>合成订单的<b>显示分数</b>（订单交付 <code>TotalScore</code>）</td><td class="keep">不动</td><td><code>clearScore</code> 仅作元素生成的内部驱动量，<b>不计入</b>玩家的订单得分，合成订单经济展示保持原样。</td></tr>
-    </table>
+    <h3 id="drop">2.5 得分量与玩家可见分的隔离</h3>
+    <p><code>clearScore</code> 仅作元素生成的<b>内部驱动量</b>，<mark>不计入</mark>玩家可见的订单得分（订单交付累计 <code>MergeOrderState.TotalScore</code> 才是经营成绩）。会消除的玩家拿到更多元素，但合成订单的经济展示不被这个内部量通胀。</p>
 
-    <!-- ========================== 需求② ========================== -->
-    <h2 id="remove">三、需求②：移除收集 Demo + 保留边界</h2>
-
-    <h3 id="removed">3.1 移除现状：main 已做掉、且核查干净</h3>
-    <p>核查结论：收集玩法的<b>专属</b>部分 main 已删净，<mark class="g">无悬空引用、无孤儿 .meta / GUID</mark>（已 grep 全工程验证：<code>CollectDemoWindow</code>/<code>CollectMode</code>/<code>ResetForCollectDemo</code>/<code>CollectionTargets</code>/<code>DemoTargets</code>/<code>CollectTarget</code>/<code>FromKey</code>/<code>Collected</code> 均 0 匹配；已删预制 GUID 在 Assets 下 0 引用）。</p>
-    <table>
-      <tr><th>已移除项</th><th>类别</th></tr>
-      <tr><td><code>UI/BlockBlastUI/CollectDemoWindow.cs(.meta)</code></td><td>收集主窗口</td></tr>
-      <tr><td><code>AssetRaw/UI/Prefabs/CollectDemoWindow.prefab(.meta)</code></td><td>收集窗口预制</td></tr>
-      <tr><td><code>Editor/Tests/BlockBlast/CollectDemoTests.cs(.meta)</code></td><td>收集单测</td></tr>
-      <tr><td><code>CollectDemo.cs</code> 内：<code>CollectTarget</code> 结构 / <code>InjectChance</code> / <code>ScoreKey</code> / <code>DemoTargets</code> / <code>FromKey()</code></td><td>收集配置与目标</td></tr>
-      <tr><td><code>BlockGameState</code> 内：<code>CollectMode</code> / <code>Collected</code> / <code>CollectionTargets</code> / <code>ResetForCollectDemo()</code></td><td>收集模式状态</td></tr>
-      <tr><td><code>MainMenuWindow</code> 的「收集 DEMO」入口按钮 + 副标题</td><td>UI 入口（合成订单按钮已上移补位）</td></tr>
-      <tr><td><code>MergeOrderTests</code> 内 <code>CollectMode_StillAccumulatesStaticTargets_MergeOff</code> 等收集回归断言</td><td>收集相关测试</td></tr>
-    </table>
-
-    <h3 id="keep">3.2 甄别保留：共享 / 已转用的基础设施（关键风险）</h3>
-    <p>下列带 <code>Collect</code> 字样的资产<b>不是收集玩法残留</b>，而是<b>① 与合成订单切片共同依赖</b>的共享设施，移除收集时<span class="keep">必须保留</span>。依赖关系一图概览（谁还在用 → 就不能删）：</p>
+    <!-- ========================== 依赖设施 ========================== -->
+    <h2 id="remove">三、本模型依赖的元素设施</h2>
+    <p>得分驱动生成不自带元素管线，而是<b>构建在</b>一套与合成订单切片共用的元素设施之上：元素词汇表、表现工具、被清元素统计、候选块携带链路。本模型只往这套设施的<b>队列</b>里写、由<b>补牌钩子</b>读，不改设施本身。依赖关系一图概览（谁用了哪一层）：</p>
     <div class="diagram">
-  <svg viewBox="0 0 900 592" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="共享设施依赖关系图">
+  <svg viewBox="0 0 900 592" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="共享元素设施依赖关系图">
     <defs>
       <marker id="ar-mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"/></marker>
       <marker id="ar-s1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"/></marker>
@@ -141,26 +117,26 @@
 
     <!-- 右:共享设施容器 -->
     <rect x="340" y="18" width="540" height="524" rx="14" fill="none" stroke="#2c3354"/>
-    <text x="610" y="48" text-anchor="middle" font-size="15" fill="#9aa3c4">共享设施 — 保留(带历史 Collect 命名,已转用)</text>
+    <text x="610" y="48" text-anchor="middle" font-size="15" fill="#9aa3c4">共享元素设施</text>
 
     <g>
       <rect x="370" y="70" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"/>
-      <text x="610" y="103" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">CollectElement 枚举</text>
+      <text x="610" y="103" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">MergeElement 枚举</text>
       <text x="610" y="128" text-anchor="middle" font-size="13" fill="#d8a98f">元素词汇表(9 种 + Key)</text>
     </g>
     <g>
       <rect x="370" y="162" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"/>
-      <text x="610" y="195" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">CollectDemo 静态类</text>
+      <text x="610" y="195" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">MergeElementVisual 静态类</text>
       <text x="610" y="220" text-anchor="middle" font-size="13" fill="#d8a98f">Glyph · ColorOf 纯表现工具</text>
     </g>
     <g>
       <rect x="370" y="254" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"/>
-      <text x="610" y="287" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">CollectWinWindow + 同名预制</text>
-      <text x="610" y="312" text-anchor="middle" font-size="13" fill="#d8a98f">通关面板(复用)</text>
+      <text x="610" y="287" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">MergeOrderWinWindow + 同名预制</text>
+      <text x="610" y="312" text-anchor="middle" font-size="13" fill="#d8a98f">通关面板</text>
     </g>
     <g>
       <rect x="370" y="346" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"/>
-      <text x="610" y="379" text-anchor="middle" font-size="15" font-weight="600" fill="#e6e9f5">BlockGameState.CollectClearedElements()</text>
+      <text x="610" y="379" text-anchor="middle" font-size="15" font-weight="600" fill="#e6e9f5">BlockGameState.HarvestClearedElements()</text>
       <text x="610" y="404" text-anchor="middle" font-size="13" fill="#d8a98f">被清元素统计输出(喂合成区)</text>
     </g>
     <g>
@@ -178,11 +154,11 @@
     </g>
     <g>
       <rect x="20" y="330" width="250" height="86" rx="12" fill="#2a3566" stroke="#6c8cff"/>
-      <text x="145" y="367" text-anchor="middle" font-size="17" font-weight="700" fill="#e6e9f5">① 得分驱动元素生成</text>
-      <text x="145" y="392" text-anchor="middle" font-size="12.5" fill="#aebcf5">本批新逻辑(消除得分 → 元素数)</text>
+      <text x="145" y="367" text-anchor="middle" font-size="17" font-weight="700" fill="#e6e9f5">得分驱动元素生成</text>
+      <text x="145" y="392" text-anchor="middle" font-size="12.5" fill="#aebcf5">消除得分 → 元素数</text>
     </g>
 
-    <!-- 依赖箭头:绿=合成订单切片,蓝=①新逻辑 -->
+    <!-- 依赖箭头:绿=合成订单切片,蓝=得分驱动生成 -->
     <g fill="none" stroke="#5bd6a0" stroke-opacity="0.75" stroke-width="1.6">
       <path d="M270 163 C 315 163, 320 109, 366 109" marker-end="url(#ar-mo)"/>
       <path d="M270 163 C 315 163, 320 201, 366 201" marker-end="url(#ar-mo)"/>
@@ -199,33 +175,31 @@
     <line x1="240" y1="572" x2="280" y2="572" stroke="#5bd6a0" stroke-width="2"/>
     <text x="288" y="577" font-size="13" fill="#9aa3c4">合成订单切片依赖</text>
     <line x1="460" y1="572" x2="500" y2="572" stroke="#6c8cff" stroke-width="2"/>
-    <text x="508" y="577" font-size="13" fill="#9aa3c4">① 新逻辑依赖</text>
+    <text x="508" y="577" font-size="13" fill="#9aa3c4">得分驱动生成依赖</text>
   </svg>
     </div>
+    <h3 id="removed">3.1 元素词汇表与表现</h3>
     <table>
-      <tr><th>资产</th><th>为何保留</th><th>谁依赖</th></tr>
-      <tr><td><code>CollectElement</code> 枚举（9 种元素 + Key）</td><td>是<mark class="g">元素词汇表</mark>本身，不是收集玩法。① 的元素、合成订单的合成物全用它。</td><td>BlockGameState / MergeOrder* / ①</td></tr>
-      <tr><td><code>CollectDemo</code> 静态类（<code>Glyph()</code>/<code>ColorOf()</code>）</td><td>已被 main 收敛为<b>纯元素表现工具</b>（glyph/纯色，零美术）。收集配置已剥离。</td><td>MergeOrderWindow（8 处渲染）/ MergeOrderConfig</td></tr>
-      <tr><td><code>CollectWinWindow.cs</code> + 同名预制</td><td>合成订单<mark class="g">通关面板复用</mark>（main 已改文案为「通关！」、「再来一局」回 <code>MergeOrderWindow</code>）。删它直接连累合成订单通关（boss 遗留#8）。</td><td>MergeOrderWindow（通关弹窗）</td></tr>
-      <tr><td><code>BlockGameState.CollectClearedElements()</code></td><td>已转为合成订单的「统计被清格元素并输出列表」通用助手（喂合成区）。</td><td>MergeOrderWindow（消除入合成区）</td></tr>
-      <tr><td>「元素由候选块携带」链路：<code>PendingPiece.Elements</code> / <code>ElementArr</code> / <code>PlacePiece</code> 转移 / <code>BuildPiece</code> 注入钩子</td><td>① 与合成订单<b>共同的元素流水线</b>。② 删除收集玩法时<mark class="r">绝不能</mark>动它。</td><td>① / 合成订单切片</td></tr>
+      <tr><th>设施</th><th>是什么</th><th>谁依赖</th></tr>
+      <tr><td><code>MergeElement</code> 枚举（9 种元素 + Key）</td><td><mark class="g">元素词汇表</mark>本身。得分驱动生成挑的类型、合成订单的合成物全用它。</td><td>BlockGameState / MergeOrder* / 得分驱动生成</td></tr>
+      <tr><td><code>MergeElementVisual</code> 静态类（<code>Glyph()</code>/<code>ColorOf()</code>）</td><td><b>纯元素表现工具</b>（glyph / 纯色，零美术）。</td><td>MergeOrderWindow（8 处渲染）/ MergeOrderConfig</td></tr>
+      <tr><td><code>MergeOrderWinWindow.cs</code> + 同名预制</td><td>合成订单<mark class="g">通关面板</mark>（文案「通关！」、「再来一局」回 <code>MergeOrderWindow</code>）。</td><td>MergeOrderWindow（通关弹窗）</td></tr>
     </table>
 
-    <h3 id="misnomer">3.3 命名误导的处理：保留原名 + 文档标注（推荐）</h3>
-    <p>上述保留项中，<code>CollectDemo</code> / <code>CollectWinWindow</code> / <code>CollectClearedElements</code> 三个名字带 <code>Collect</code>，源于它们诞生于收集切片，现已转用——属<b>命名误导（misnomer）</b>，而非功能残留。</p>
-    <div class="callout warn">
-      <b>取舍：本批<span class="keep">不改名</span>，文档标注为「已转用的共享设施」。理由：</b>
-      <ul>
-        <li>改名零功能收益，纯属整洁；而 <code>CollectWinWindow</code> 改名需同步改<b>预制 location 字符串 + .prefab 资产 + .meta + <code>[Window]</code> 特性 + 调用点</b>——UI 按 location 字符串加载，<mark class="r">一处不同步即运行期找不到窗口</mark>，对<b>已交付的合成订单切片</b>是实打实的风险。</li>
-        <li>与「移除收集时别牵连合成订单」的约束直接冲突：改名恰恰要动合成订单的工作文件。</li>
-        <li>「移除干净」指的是收集<b>玩法</b>（代码/场景/入口/测试）已下线——这已达成；共享设施带历史名字不等于没删干净。</li>
-      </ul>
-      若用户坚持正名，列为<b>独立低优先级清理任务</b>（建议名：<code>CollectDemo→BlockElementVisual</code>、<code>CollectWinWindow→DemoWinWindow</code>、<code>CollectClearedElements→GatherClearedElements</code>），单独排期、单独回归，不混进本批。见 <a href="#decide">§六</a>。
-    </div>
+    <h3 id="keep">3.2 被清元素统计与携带链路</h3>
+    <p>得分驱动生成的「写队列、补牌投放」两端都落在这条链路上——<b>队列</b>由本模型写（§四），<b>携带与转移</b>是链路既有能力，本模型不改。</p>
+    <table>
+      <tr><th>设施</th><th>是什么</th><th>谁依赖</th></tr>
+      <tr><td><code>BlockGameState.HarvestClearedElements()</code></td><td>「统计被清格元素并输出列表」通用助手（喂合成区）。</td><td>MergeOrderWindow（消除入合成区）</td></tr>
+      <tr><td>「元素由候选块携带」链路：<code>PendingPiece.Elements</code> / <code>ElementArr</code> / <code>PlacePiece</code> 转移 / <code>BuildPiece</code> 注入钩子</td><td>得分驱动生成与合成订单<b>共同的元素流水线</b>。本模型只在 <code>BuildPiece</code> 钩子处把队列元素写入候选块。</td><td>得分驱动生成 / 合成订单切片</td></tr>
+    </table>
+
+    <h3 id="misnomer">3.3 命名约定</h3>
+    <p>这套设施统一用 <code>Merge</code> 前缀命名（<code>MergeElement</code> / <code>MergeElementVisual</code> / <code>MergeOrderWinWindow</code> / <code>HarvestClearedElements</code>），标明其归属于合成订单经济。元素词汇表与表现工具（<code>MergeElement</code> / <code>MergeElementVisual</code> / <code>HarvestClearedElements</code>）不绑定具体窗口，得分驱动生成与合成订单各窗口共用同一套。</p>
 
     <!-- ========================== 挂接点 ========================== -->
-    <h2 id="hook">四、挂接点 / dev 改动清单（可落地）</h2>
-    <p>先看 ① 落地后「一次落子」的完整元素流时序——入队发生在<mark>消除分支内、补牌之前</mark>，投放发生在<b>补牌时</b>，两个时机隔了一次交互（这正是「狠消一手 → 下一批候选块更多元素」的玩家感知来源）。各文件的具体改动落点见下表。</p>
+    <h2 id="hook">四、挂接点（一次落子的元素流）</h2>
+    <p>「一次落子」的完整元素流时序——入队发生在<mark>消除分支内、补牌之前</mark>，投放发生在<b>补牌时</b>，两个时机隔了一次交互（这正是「狠消一手 → 下一批候选块更多元素」的玩家感知来源）。各文件承担的角色见下表。</p>
     <div class="diagram">
   <svg viewBox="0 0 1100 985" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="一次落子的元素流时序图">
     <defs>
@@ -253,7 +227,7 @@
 
       <rect x="495" y="12" width="170" height="64" rx="10" fill="#3f2718" stroke="#b86a45"/>
       <text x="580" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BlockScoring</text>
-      <text x="580" y="61" font-size="12.5" fill="#d8a98f">纯计分函数(新增)</text>
+      <text x="580" y="61" font-size="12.5" fill="#d8a98f">纯计分函数</text>
 
       <rect x="695" y="12" width="170" height="64" rx="10" fill="#3f2718" stroke="#b86a45"/>
       <text x="780" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">MergeOrderConfig</text>
@@ -283,10 +257,10 @@
 
     <g font-size="15.5" fill="#cdd3ea" text-anchor="middle">
       <line x1="140" y1="300" x2="372" y2="300" stroke="#8a93b8" marker-end="url(#ar-g)"/>
-      <text x="260" y="292">CollectClearedElements()</text>
+      <text x="260" y="292">HarvestClearedElements()</text>
 
       <line x1="380" y1="352" x2="148" y2="352" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-g)"/>
-      <text x="260" y="344">被清元素列表(入合成区,不动)</text>
+      <text x="260" y="344">被清元素列表(入合成区)</text>
 
       <line x1="140" y1="404" x2="572" y2="404" stroke="#8a93b8" marker-end="url(#ar-g)"/>
       <text x="360" y="396">ClearScore(clearedCells, lines)</text>
@@ -331,19 +305,19 @@
   </svg>
     </div>
     <table>
-      <tr><th>文件</th><th>改动</th></tr>
-      <tr><td><code>Module/BlockBlast/MergeOrderConfig.cs</code></td><td><b>删</b> <code>RequireClearForInject</code> / <code>InjectChance</code> / <code>PityThreshold</code>。<b>增</b> <code>ScorePerElement=200</code> / <code>MinElementsPerClear=1</code> / <code>MaxElementsPerClear=4</code> / <code>MaxPendingElements=12</code>。<b>增</b>静态 <code>int ElementsForScore(int clearScore)</code> 实现 §2.3 公式。<b>增</b>计分常量或调用 §下 <code>BlockScoring</code>。</td></tr>
-      <tr><td><code>Module/BlockBlast/MergeOrderState.cs</code></td><td><b>删</b> <code>PitySinceNeeded</code> / <code>ClearedSinceRefill</code> 字段。<b>增</b> <code>Queue&lt;CollectElement&gt; PendingElements</code> + 轮转游标 <code>_needRotor</code>。<b>增</b> <code>EnqueueScoreElements(int k)</code>：从 <code>NeededTypes()</code> 轮转取 k 个压队（受 <code>MaxPendingElements</code> 截断；<code>NeededTypes</code> 空则跳过）。<code>Reset()</code> 清空队列 + 游标。<b>快照</b>：<code>Snapshot.Capture/Restore</code> 去掉 <code>_pity</code>/<code>_clearedSinceRefill</code>、<b>深拷贝</b> <code>PendingElements</code>（悔棋须回滚队列，否则撤销引发消除的落子后元素预算不回退）。</td></tr>
-      <tr><td><code>Module/BlockBlast/BlockGameState.cs</code></td><td>把 <code>InjectElementsForMergeOrder()</code> <b>改写</b>为 <code>DrainPendingElementsInto(piece, shapeId)</code>：按填充格行优先顺序，从 <code>MergeState.PendingElements</code> 队头 FIFO 抽取写入 <code>piece.Elements</code>（队空则不分配 <code>Elements</code>=纯方块）。<code>BuildPiece</code> 的调用点改为调它。<b>删</b> <code>OnHandRefilled()</code> 里对 <code>ClearedSinceRefill</code> 的复位（连带方法可空）；<b>删</b> <code>ClearRowsAndCols</code> 里对 <code>ClearedSinceRefill=true</code> 的置位。其余（元素转移 / <code>CollectClearedElements</code> / 持久化）不动。</td></tr>
-      <tr><td>新增 <code>Module/BlockBlast/BlockScoring.cs</code>（推荐）</td><td>抽出 <code>int ClearScore(int clearedCells, int lines) =&gt; clearedCells*10 + lines*lines*30</code> 与 <code>int PlacementScore(int cells)=&gt;cells</code>，供 <code>GameWindow</code>（Classic）与 <code>MergeOrderWindow</code> 共用。<b>硬约束</b>：Classic 计分输出须逐数字不变（回归）。若 dev 评估抽取风险高，可退而在 <code>MergeOrderWindow</code> 内联同公式，但需注释指明与 Classic 同源。</td></tr>
-      <tr><td><code>UI/BlockBlastUI/MergeOrderWindow.cs</code></td><td><code>PlaceAndResolve</code> 消除分支：捕获 <code>int clearedCells = _state.ClearRowsAndCols(...)</code> 返回值 → <code>int clearScore = BlockScoring.ClearScore(clearedCells, lines)</code> → <code>int k = MergeOrderConfig.ElementsForScore(clearScore)</code> → <code>_merge.EnqueueScoreElements(k)</code>，<b>置于补牌（<code>RefillPieces</code>）之前</b>，使紧随的补牌抽干队列。合成区摄入 / 返体力 / 连击弹字 / 通关 / 软死亡判定不动。</td></tr>
-      <tr><td><code>Editor/Tests/BlockBlast/MergeOrderTests.cs</code></td><td><b>删/改写</b>测旧注入模型的用例：<code>Inject_GatedUntilClear_FirstHandClean</code> / <code>Inject_AllowedAfterClear</code> / <code>Inject_GateClosesAgainAfterRefill</code> / <code>Undo_RestoresClearGateFlag</code> / 保底注入用例。<b>新增</b> §五 验收点对应用例。</td></tr>
+      <tr><th>文件</th><th>承担的角色</th></tr>
+      <tr><td><code>Module/BlockBlast/MergeOrderConfig.cs</code></td><td>持有旋钮常量 <code>ScorePerElement=200</code> / <code>MinElementsPerClear=1</code> / <code>MaxElementsPerClear=4</code> / <code>MaxPendingElements=12</code>，以及静态 <code>int ElementsForScore(int clearScore)</code>（§2.3 公式）。</td></tr>
+      <tr><td><code>Module/BlockBlast/MergeOrderState.cs</code></td><td>持有 <code>Queue&lt;MergeElement&gt; PendingElements</code> + 轮转游标 <code>_needRotor</code>；<code>EnqueueScoreElements(int k)</code> 从 <code>NeededTypes()</code> 轮转取 k 个压队（受 <code>MaxPendingElements</code> 截断；<code>NeededTypes</code> 空则跳过）。<code>Reset()</code> 清空队列 + 游标。悔棋快照 <code>Snapshot.Capture/Restore</code> <b>深拷贝</b> <code>PendingElements</code>，使撤销引发消除的落子时元素预算一并回退。</td></tr>
+      <tr><td><code>Module/BlockBlast/BlockGameState.cs</code></td><td><code>DrainPendingElementsInto(piece, shapeId)</code>：按填充格行优先顺序，从 <code>MergeState.PendingElements</code> 队头 FIFO 抽取写入 <code>piece.Elements</code>（队空则不分配 <code>Elements</code>=纯方块）；由 <code>BuildPiece</code> 调用。元素转移 / <code>HarvestClearedElements</code> / 持久化各司其职。</td></tr>
+      <tr><td><code>Module/BlockBlast/BlockScoring.cs</code></td><td>纯计分函数 <code>int ClearScore(int clearedCells, int lines) =&gt; clearedCells*10 + lines*lines*30</code> 与 <code>int PlacementScore(int cells)=&gt;cells</code>，<code>GameWindow</code>（Classic）与 <code>MergeOrderWindow</code> 共用，两路计分同源。</td></tr>
+      <tr><td><code>UI/BlockBlastUI/MergeOrderWindow.cs</code></td><td><code>PlaceAndResolve</code> 消除分支：<code>clearedCells</code>（<code>ClearRowsAndCols</code> 返回）→ <code>BlockScoring.ClearScore</code> → <code>MergeOrderConfig.ElementsForScore</code> → <code>_merge.EnqueueScoreElements(k)</code>，位于补牌（<code>RefillPieces</code>）<b>之前</b>，使紧随的补牌抽干队列。合成区摄入 / 返体力 / 连击弹字 / 通关 / 软死亡判定各自独立。</td></tr>
+      <tr><td><code>Editor/Tests/BlockBlast/MergeOrderTests.cs</code></td><td>覆盖 §五 各验收点的 EditMode 用例（映射逐档 / 无消除纯方块 / 入队投放 / 轮转均摊 / 积压封顶 / 悔棋回滚队列 / off 零触）。</td></tr>
     </table>
-    <div class="callout note"><b>回归红线（沿用 09）</b>：合成订单切片全部由 <code>MergeOrderMode</code> 门控；off 时 Classic 落子/消除/补块/存档<mark>逐字节不变</mark>。① 的队列/抽干逻辑只在 <code>MergeOrderMode &amp;&amp; MergeState!=null</code> 路径生效。Classic 回归测试必须全绿。</div>
+    <div class="callout note"><b>回归红线</b>：合成订单切片全部由 <code>MergeOrderMode</code> 门控；off 时 Classic 落子 / 消除 / 补块 / 存档<mark>逐字节不变</mark>。得分驱动生成的队列 / 抽干逻辑只在 <code>MergeOrderMode &amp;&amp; MergeState!=null</code> 路径生效。Classic 回归测试必须全绿。</div>
 
     <!-- ========================== 验收 ========================== -->
     <h2 id="accept">五、验收点（给 test 逐条核对）</h2>
-    <h3>需求① · 得分→元素映射</h3>
+    <h3>得分 → 元素映射</h3>
     <ul>
       <li><b>映射逐档</b>：<code>ElementsForScore</code>：0→0、110→1、280→2、500→3、780→4、2000→4（封顶）。负/0 分 → 0。</li>
       <li><b>无消除纯方块</b>：连续落子不触发消除 → <code>PendingElements</code> 恒空 → 补牌后候选块 <code>Elements==null</code>。开局首手三块全干净。</li>
@@ -354,33 +328,29 @@
       <li><b>悔棋回滚队列</b>：落子→引发消除→入队 k 个，悔棋后 <code>PendingElements</code> 恢复到落子前（k 个被撤回），剩余悔棋次数 -1。</li>
       <li><b>off 模式零触</b>：<code>MergeOrderMode=false</code> 时落子不入队、不分配 <code>Elements</code>，<code>ElementArr</code> 保持 null。</li>
     </ul>
-    <h3>需求② · 移除干净 + 保留完整</h3>
+    <h3>设施完整 + 不回归</h3>
     <ul>
-      <li><b>编译通过</b>：删除收集后全工程 0 error（无悬空引用）。</li>
-      <li><b>保留集存活</b>：<code>CollectElement</code> / <code>CollectDemo.Glyph/ColorOf</code> / <code>CollectWinWindow</code> / <code>CollectClearedElements</code> 仍在且被合成订单正常引用。</li>
-      <li><b>合成订单切片不回归</b>：合成区自动配对 / 订单交付刷新 / 体力扣返补 / 通关（复用 <code>CollectWinWindow</code>）/ 双失败 / 悔棋——既有用例全绿（① 改注入后须重新通过）。</li>
-      <li><b>无残留入口</b>：主菜单无「收集 DEMO」按钮；无任何 <code>CollectDemoWindow</code> 引用、无孤儿 .meta。</li>
-      <li><b>Classic 不回归</b>：Classic 计分（含抽取的 <code>BlockScoring</code> 后）逐数字不变。</li>
+      <li><b>共享设施存活</b>：<code>MergeElement</code> / <code>MergeElementVisual.Glyph/ColorOf</code> / <code>MergeOrderWinWindow</code> / <code>HarvestClearedElements</code> 仍在且被合成订单正常引用。</li>
+      <li><b>合成订单切片不回归</b>：合成区自动配对 / 订单交付刷新 / 体力扣返补 / 通关（<code>MergeOrderWinWindow</code>）/ 双失败 / 悔棋——既有用例全绿。</li>
+      <li><b>Classic 不回归</b>：Classic 计分（经 <code>BlockScoring</code> 共用公式后）逐数字不变。</li>
+      <li><b>编译通过</b>：全工程 0 error、无悬空引用、无孤儿 .meta。</li>
     </ul>
-    <div class="callout note"><b>运行验证</b>：dev/test 子会话无 Unity MCP，编译 + EditMode 全量单测由 boss 经命令行 batchmode 补跑（沿用 merge-order 路径）。Play 手验（拖拽落子时元素随得分出现在新候选块的目视确认）列人工遗留。</div>
+    <div class="callout note"><b>运行验证</b>：dev/test 子会话无 Unity MCP，编译 + EditMode 全量单测由 boss 经命令行 batchmode 补跑。Play 手验（拖拽落子时元素随得分出现在新候选块的目视确认）列人工遗留。</div>
 
     <!-- ========================== 待拍板 ========================== -->
-    <h2 id="decide">六、待拍板清单（交 boss/用户）</h2>
+    <h2 id="decide">六、可调旋钮（交 boss/用户）</h2>
     <table>
-      <tr><th>#</th><th>取舍点</th><th>策划建议（默认采纳此项推进）</th></tr>
-      <tr><td>1</td><td><b>得分→元素映射数值</b>（核心）</td><td>线性系数 <code>ScorePerElement=200</code> + 保底 1 + 封顶 4（§2.3）。这是用户点名要审的取舍——若希望更慷慨调小系数、更稀有调大。</td></tr>
-      <tr><td>2</td><td>元素投放时机</td><td><b>补牌时抽干队列</b>（与 09 一致、最小改动）；备选「消除当下即时注入待选区现有块」列后续 UX 增强（§2.2）。</td></tr>
-      <tr><td>3</td><td>共享设施的 <code>Collect*</code> 命名</td><td><b>保留原名 + 文档标注</b>（§3.3）；正名列独立低优先级清理任务，不混本批。</td></tr>
+      <tr><th>#</th><th>旋钮</th><th>当前取定（默认值）</th></tr>
+      <tr><td>1</td><td><b>得分→元素映射数值</b>（核心）</td><td>线性系数 <code>ScorePerElement=200</code> + 保底 1 + 封顶 4（§2.3）。慷慨度旋钮：调小更慷慨、调大更稀有。</td></tr>
+      <tr><td>2</td><td>元素投放时机</td><td><b>补牌时抽干队列</b>；备选「消除当下即时注入待选区现有块」列后续 UX 增强（§2.2）。</td></tr>
     </table>
-    <div class="callout good"><b>无硬冲突需停手</b>：核查确认「彻底移除收集」与「保留合成订单 + 元素携带设施 + <code>CollectWinWindow</code>」<mark class="g">不冲突</mark>——main 已把两者干净分离，保留集是共享/已转用设施而非收集玩法。可直接推进 dev。</div>
 
     <h2 id="risk">七、风险</h2>
     <table>
       <tr><th>风险</th><th>应对</th></tr>
-      <tr><td>① 触及「勿动」的合成订单切片注入规则</td><td>这是用户授权的预期改动；只改「元素从哪来、来多少」，合成/订单/体力/通关/悔棋系统零改动；既有用例 + 新用例双重回归。</td></tr>
-      <tr><td>悔棋漏回滚新增的 <code>PendingElements</code> 队列</td><td>快照深拷贝队列 + 专项用例（§五·悔棋回滚队列）。</td></tr>
-      <tr><td>抽取 <code>BlockScoring</code> 改动 Classic 计分</td><td>纯等价抽取，硬约束「Classic 计分逐数字不变」+ 回归；高风险则退内联同公式。</td></tr>
-      <tr><td>误删共享设施（<code>CollectElement</code>/<code>CollectWinWindow</code> 等）连累合成订单</td><td>§3.2 保留集清单逐项标注依赖方；编译 0 error + 合成订单回归为硬验收。</td></tr>
+      <tr><td>悔棋漏回滚 <code>PendingElements</code> 队列</td><td>快照深拷贝队列 + 专项用例（§五·悔棋回滚队列）。</td></tr>
+      <tr><td><code>BlockScoring</code> 两路共用，改公式同时影响 Classic 与合成订单计分</td><td>硬约束「Classic 计分逐数字不变」+ 回归用例守门。</td></tr>
+      <tr><td>误删共享设施（<code>MergeElement</code>/<code>MergeOrderWinWindow</code> 等）连累合成订单</td><td>§三 依赖清单逐项标注依赖方；编译 0 error + 合成订单回归为硬验收。</td></tr>
       <tr><td>映射数值不合手感（太多/太少元素）</td><td><code>ScorePerElement</code> 等全为可调常量，test 配平后一处改数即可。</td></tr>
     </table>
 
@@ -388,13 +358,12 @@
       <h2>相关文档</h2>
       <div class="related-links">
         <a href="index.html">← 返回总览</a>
-        <a href="09-merge-order-energy.html">合成订单切片（① 改其注入规则）</a>
-        <a href="archive/08-collect-demo-slice.html">收集 Demo 切片（② 移除对象 · 已下线）</a>
+        <a href="09-merge-order-energy.html">合成订单切片</a>
         <a href="07-blockblast-code-architecture.html">BlockBlast 代码架构剖析</a>
       </div>
     </div>
 
-    <footer>Block Blast · TEngine 项目策划文档 · 得分驱动元素 + 移除收集 · 由策划维护</footer>
+    <footer>Block Blast · TEngine 项目策划文档 · 得分驱动元素生成 · 由策划维护</footer>
   </main>
 </div>
 

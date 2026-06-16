@@ -1,7 +1,7 @@
 /* ============================================================
    Block Blast 策划文档 - 共享样式
    布局:左侧目录树(.layout/.sidebar/.content 双栏)。
-   归档页(archive/)沿用旧版 .topbar + .wrap 单栏布局,相关类保留。
+   单栏遗留页(11-core-loop-completion.html)沿用旧版 .topbar + .wrap 布局,相关类保留。
    ============================================================ */
 
 :root {
@@ -194,7 +194,7 @@ tr:hover td { background: rgba(108,140,255,.05); }
 footer { margin-top: 40px; color: var(--text-dim); font-size: 13px; text-align: center; }
 
 /* ============================================================
-   旧版单栏布局 — 归档页(archive/)专用,勿删
+   旧版单栏布局 — 单栏遗留页(11-core-loop-completion.html)专用,勿删
    ============================================================ */
 .topbar {
   position: sticky; top: 0; z-index: 10;

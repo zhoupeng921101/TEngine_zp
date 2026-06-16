@@ -28,6 +28,10 @@
   <p class="subtitle">把四份原始策划稿(方块玩法 / 订单 / 宝箱 / 女神)里的漏洞与空缺补成<b>完整、自洽、可验收</b>的一套设计。八个挂账问题逐条给确定答案——并发模型、连消/多消/全清结算、体力系统、货币与术语统一、图案经济数值、智能生成算法仲裁、宝箱、女神。术语与工程现状(<a href="09-merge-order-energy.html">09</a>/<a href="10-score-element-rm-collect.html">10</a> 的 merge-order 语义)对齐,不另起第二套概念。</p>
 
   <div class="callout warn">
+    <b>本篇是融合玩法的完整设计</b>:游戏为<mark class="y">单入口循环</mark>——经典无尽融合进合成订单,无「纯无尽」独立入口,保留体力预算。本篇补全的这套系统(并发订单 / 连消多消全清 / 体力 / 经济 / 智能生成 / 宝箱 / 女神)即融合玩法的上层设计,经典 DDA / 计分 / 连消钩子是其底层。顶层裁决、经典各机制的保留/被覆盖清单、三处跨模式状态隐患见 <a href="29-gameplay-fusion.html#verdict">29·§三</a> 与 <a href="29-gameplay-fusion.html#dev">29·§五</a>。
+  </div>
+
+  <div class="callout warn">
     <b>读前必看 · 本篇与工程现状的关系(单一事实源)</b>
     <p style="margin:8px 0 0">当前已落地的是一条<b>刻意收窄的垂直切片</b>(merge-order demo):合成封顶 <span class="lv">Lv3</span>、双订单、硬编码配置、消除得分驱动元素、无宝箱/女神。原始策划稿描述的是一套<b>完整商业体量的游戏</b>(图案 5 级、四类订单、宝箱、女神、双货币、11 挂件)。两者不是替代关系,而是<b>同一款游戏的两个完成度</b>:</p>
     <ul style="margin:8px 0 0">
@@ -274,6 +278,7 @@
 > 二者一旦耦合，连消就会变成刷图案的捷径，§六的经济平衡全盘失效。</pre>
 
   <h2 id="economy">六、图案经济:数值框架 <span class="hole">问题 5</span></h2>
+  <div class="callout note">本节的图案经济是合成订单的完整循环,也是<b>融合玩法唯一的经济</b>——单入口循环下不存在「与纯无尽刷分并列的另一套经济」需要平衡。融合裁决(经济/计分口径维持现状、不另立常量)见 <a href="29-gameplay-fusion.html#verdict">29·§三</a> 与 <a href="29-gameplay-fusion.html#keep">29·§4.1</a>。</div>
 
   <h3 id="depth">6.1 先决判定:5 级深度不合理,降为 3 级</h3>
   <div class="callout warn">
@@ -522,7 +527,7 @@ OnPlaced(clearedLines):
     </table>
   </div>
   <div class="callout note"><b>与全清奖励的关系(去重)</b>:<a href="#allclear-table">§5.4</a> 的「全清即时奖」(1 Lv3 + 换背景)是<b>每次</b>全清的即时给予;女神是全清的<b>累计</b>进度(攒 10 次的里程碑大奖)。二者不重复:即时奖管「这一次爽」,女神管「攒够了的长线爽」。换背景统一归女神升级触发,§5.4 的「换背景」改为「推进女神 +1」(女神升级时才换),避免每次全清都换背景的频繁打扰。</div>
-  <div class="callout note"><b>降级到 demo 范围</b>:女神是<b>本篇新增</b>系统。最小版 = 单档好评条(全清 +1,满 10 发一次奖),好感多级 + 赛季列后续。现状切片无女神,落地时新增计数器 + 满档弹窗(可复用 <code>CollectWinWindow</code> 风格)。</div>
+  <div class="callout note"><b>降级到 demo 范围</b>:女神是<b>本篇新增</b>系统。最小版 = 单档好评条(全清 +1,满 10 发一次奖),好感多级 + 赛季列后续。现状切片无女神,落地时新增计数器 + 满档弹窗(可复用 <code>MergeOrderWinWindow</code> 风格)。</div>
 
   <h2 id="accept">十一、验收标准(给 test 逐条核对)</h2>
   <div class="callout note"><b>验收性质说明</b>:本篇为<b>完整游戏设计</b>,含大量「本篇新增、未落地」系统。验收分两类:<b>(A) 与现状对齐项</b>——可立即对照代码核验;<b>(B) 新增系统设计项</b>——dev 落地后按此核验。test 按系统是否已落地选择适用类。</p></div>

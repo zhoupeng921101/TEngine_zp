@@ -180,7 +180,7 @@ int r = RandomSource.Range(0, total);      // [0, total)
   </table>
   <p><b>实现位置抉择:</b> <code>DeliverSpecial</code> 内按 <code>SpecialTrack.Occupied.Kind</code> 查表 <code>BlindBoxCount += 表[kind]</code>。注意 <code>DeliverSpecial</code> 末尾有 <code>_undoStack.Clear()</code>(交付是已提交动作,悔棋不倒回)——附赠的盲盒计数随交付一起固化,不被悔棋倒回,符合「已交付」语义。</p>
   <div class="callout note">
-    <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但<b>尚未接入任何 UI 窗口</b>(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是<b>数据层逻辑</b>,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是设计 11 §三的独立未接 UI 项,<b>不在本轮范围</b>。本轮只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
+    <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但<b>尚未接入任何 UI 窗口</b>(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是<b>数据层逻辑</b>,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="11-core-loop-completion.html#concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,<b>不在本轮范围</b>。本轮只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
   </div>
 
   <h2 id="hook">四、挂接点 / dev 改动清单</h2>

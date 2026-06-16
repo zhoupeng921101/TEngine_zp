@@ -17,32 +17,31 @@
 
   <main class="content">
     <h1>元素合成 + 订单 + 体力 Demo 切片</h1>
-    <p class="subtitle">在 <a href="archive/08-collect-demo-slice.html">收集 Demo 切片</a>（候选块携带元素 → 消除掉落）之上，叠加三套系统组成一条<mark>可自持的核心循环</mark>：<b>体力 → 落子 → 消除 → 元素 → 合成 → 订单交付 → 奖励</b>。消除产出的元素不再只是累加进静态计数，而是落入合成区两两合并升级；订单反向拉动玩家去消除指定元素，交付得奖励并刷新下一单。一条技巧驱动的正反馈链。</p>
+    <p class="subtitle">三套系统组成一条<mark>可自持的核心循环</mark>：<b>体力 → 落子 → 消除 → 元素 → 合成 → 订单交付 → 奖励</b>。候选块携带元素，消除时被清元素落入合成区两两合并升级；订单反向拉动玩家去消除指定元素，交付得奖励并刷新下一单。一条技巧驱动的正反馈链。</p>
 
     <div class="callout note">
       <b>立项信息</b>
       <table>
         <tr><th>类型</th><td><span class="chip">垂直切片 / Demo</span> 核心循环验证，非正式关卡内容</td></tr>
-        <tr><th>基线</th><td><a href="archive/08-collect-demo-slice.html">收集 Demo 切片（已落地）</a> + 其实现（<code>BlockGameState</code> 元素层 / <code>CollectDemoWindow</code>）</td></tr>
+        <tr><th>基线</th><td>已落地的元素层（候选块携带元素 → 消除掉落，<code>BlockGameState</code> 元素层）。元素生成现状与符号映射以 <a href="10-score-element-rm-collect.html">10 · 得分驱动元素生成</a> 为准。</td></tr>
         <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>（体力无购买 / 无广告复活 / 无道具内购——项目红线）</td></tr>
         <tr><th>竞品参照</th><td>浪漫餐厅 / Gossip Harbor 的订单冷却刷新 + 锯齿波难度 + 体力模型（<b>取材不照抄</b>，数值按本作局长重算，见 <a href="#tradeoff">§六</a>）</td></tr>
         <tr><th>范围优先级</th><td>订单闭环优先（订单 → 交付 → 奖励 → 刷新跑通）；锯齿波难度可做简化实现，完整规则进文档</td></tr>
       </table>
     </div>
 
-    <h2 id="why">一、这一切片在 08 之上加什么</h2>
-    <p><a href="archive/08-collect-demo-slice.html">08 收集切片</a>已经跑通了一条链路：<b>候选块携带元素 → 落子转移到 <code>ElementArr</code> → 消行/列时统计被清格元素</b>。它的终点是「累加进静态目标 <code>Collected[type]</code>，凑齐即胜」——一次性的收集关。</p>
-    <p>本切片<b>复用这条产元素链路的全部前半段</b>，把它的终点（静态计数→胜利）替换成一条<mark>可循环的经济</mark>：</p>
+    <h2 id="why">一、切片构成</h2>
+    <p>底层是<b>元素携带链路</b>：候选块携带元素，落子时转移到 <code>ElementArr</code>，消行/列时 <code>BlockGameState.HarvestClearedElements</code> 统计被清格元素并输出列表。本切片在这条链路上接三套系统，把被清元素导入一条<mark>可循环的经济</mark>：</p>
     <table>
-      <tr><th>环节</th><th>08 收集切片</th><th>本切片（合成+订单+体力）</th></tr>
-      <tr><td>元素产出</td><td>候选块携带（~22% 注入「仍需收集」类型）</td><td><b>沿用</b>，但注入类型改为<b>当前订单所需</b>（需求拉动）+ 保底</td></tr>
-      <tr><td>消除后</td><td><code>Collected[type]++</code> 累加静态计数</td><td>被清元素<b>落入合成区</b>，成为 <span class="lv">Lv1</span> 合成物</td></tr>
-      <tr><td>合成</td><td>无</td><td><b>新增</b>：合成区相同元素两两合并升级（<span class="lv">Lv1</span>×2 → <span class="lv">Lv2</span> …）</td></tr>
-      <tr><td>目标</td><td>静态目标（◆×6、★×5），凑齐即胜</td><td><b>新增</b>：订单要求「指定元素 + 指定等级 + 数量」，交付得奖励、刷新下一单</td></tr>
-      <tr><td>资源约束</td><td>无（无限落子）</td><td><b>新增</b>：落子耗体力、消除返还、订单奖励补充——技巧驱动「会消除 → 玩得久」</td></tr>
-      <tr><td>胜负</td><td>凑齐胜 / 无可落子 GameOver</td><td>完成 N 单胜（demo 终点）/ 棋盘塞满 <b>或</b> 体力耗尽 GameOver</td></tr>
+      <tr><th>环节</th><th>本切片做法</th></tr>
+      <tr><td>元素产出</td><td>候选块携带，类型为<b>当前订单所需</b>（需求拉动）+ 保底，数量由消除得分确定性产出（见 <a href="#risk1">§四·1</a>）</td></tr>
+      <tr><td>消除后</td><td>被清元素<b>落入合成区</b>，成为 <span class="lv">Lv1</span> 合成物</td></tr>
+      <tr><td>合成</td><td>合成区相同元素两两合并升级（<span class="lv">Lv1</span>×2 → <span class="lv">Lv2</span> …）</td></tr>
+      <tr><td>目标</td><td>订单要求「指定元素 + 指定等级 + 数量」，交付得奖励、刷新下一单</td></tr>
+      <tr><td>资源约束</td><td>落子耗体力、消除返还、订单奖励补充——技巧驱动「会消除 → 玩得久」</td></tr>
+      <tr><td>胜负</td><td>完成 N 单胜（demo 终点）/ 棋盘塞满 <b>或</b> 体力耗尽 GameOver</td></tr>
     </table>
-    <div class="callout good"><b>「收集计数」语义裁决</b>（boss 代决 §3 留给策划）：本切片<mark>替换</mark>而非并存——08 的静态 <code>Collected[type]</code> 累加胜利在本模式关闭，被清元素改为路由进合成区。08 已实现的「消除→统计被清元素」逻辑（<code>CollectClearedElements</code>）保留并扩展为「输出本次被清元素列表」供合成区摄入。两个模式各自独立门控，互不影响。</div>
+    <div class="callout good"><b>被清元素的去向</b>：被清元素路由进合成区，成为合成与订单经济的输入。「消除→统计被清元素」逻辑是 <code>BlockGameState.HarvestClearedElements</code>，输出本次被清元素列表供合成区摄入。</div>
 
     <h2 id="loop">二、核心循环</h2>
     <p>七个环节首尾相接成环：奖励的体力回填到「落子」预算（正反馈回路），订单需求<b>反向拉动</b>候选块注入（只产订单要的元素）：</p>
@@ -126,8 +125,8 @@
     </div>
     <p>正反馈链：奖励的体力回填到「落子」预算；订单需求<b>反向拉动</b>注入与消除（只产/只消订单要的元素）。<mark class="g">技巧（多消除）→ 体力净正 → 玩得久</mark>。</p>
     <ul>
-      <li><b>两条产出随机性叠加</b>：元素先要被注入候选块（概率），再要那一格被消除（落子技巧）。双重随机 = 高方差，须保底（见 <a href="#risk1">§五·风险1</a>）。</li>
-      <li><b>两个失败条件</b>：棋盘塞满无可落子（硬死亡，沿用 08 的 GameOver）；体力耗尽且无法支付落子（软死亡，「精力耗尽」面板）。</li>
+      <li><b>产出由消除得分确定</b>：元素数量随该次消除得分确定性产出（不靠概率），类型只产当前订单所需——「会消除」直接转化为「拿到要的元素」（见 <a href="#risk1">§四·风险1</a>）。</li>
+      <li><b>两个失败条件</b>：棋盘塞满无可落子（硬死亡，复用 <code>GameOverWindow</code>）；体力耗尽且无法支付落子（软死亡，「精力耗尽」面板）。</li>
       <li><b>demo 终点</b>：完成约定单数（默认 5 单）→ 通关面板。生产环境为无限订单流（仅靠失败条件结束），demo 设有限终点便于测试核对。</li>
     </ul>
 
@@ -172,15 +171,13 @@
     <h2 id="risk">四、三个数值风险点的明确方案</h2>
     <p>boss 代决 §6 要求三个风险点在设计中给出明确方案，逐条如下。</p>
 
-    <h3 id="risk1">风险 1 · 元素掉率方差 / 保底</h3>
-    <div class="callout warn"><b>本节注入机制已更新</b>：下述「按 <code>InjectChance</code> 概率注入 + 保底计数器」的固定比例模型，已被 <a href="10-score-element-rm-collect.html">10 · 得分驱动元素生成</a>替换为「消除得分 → 元素数量」的确定性映射；保底计数器随之退役。下文保留作历史设计记录。</div>
-    <p><b>问题</b>：元素经「注入候选块（概率）→ 那格被消除（技巧）」双重随机，某订单所需类型可能长时间不出，<mark class="r">订单卡死</mark>。</p>
+    <h3 id="risk1">风险 1 · 元素供给与订单卡死</h3>
+    <p><b>问题</b>：某订单所需的元素类型若长时间不产出，订单<mark class="r">卡死</mark>。</p>
     <div class="callout good">
-      <b>方案（三管齐下，前两条为主）：</b>
+      <b>方案（两条，均确定性、无概率方差）：</b>
       <ol>
-        <li><b>需求拉动注入</b>：候选块注入的类型池 = <b>当前激活订单所需的元素类型并集</b>（不再是 08 的「所有仍需收集类型」）。把有限的产出集中到「正被需要」的类型上，直接压低「有用掉落」的方差。</li>
-        <li><b>保底计数器</b>：记「距上次注入订单所需类型已过的落子数」<code>pitySinceNeeded</code>；超阈值 <code>PityThreshold = 8</code> → 下一个候选块<b>强制注入</b>一个订单所需类型（绕过概率）。保证订单永不被随机饿死。</li>
-        <li><b>注入概率上调为可调常量</b>：<code>InjectChance</code> 从 08 的 0.22 提到 <b>0.30</b>（订单要吞吐），作为配平旋钮，dev/test 可改数验证节奏。</li>
+        <li><b>需求拉动</b>：待投放队列只压入<b>当前激活订单所需的元素类型</b>（按轮转游标均摊）。产出集中到「正被需要」的类型上，不产无用元素。</li>
+        <li><b>得分驱动数量（确定性）</b>：每次消除按 <code>MergeOrderConfig.ElementsForScore(clearScore)</code> 算出元素数（<code>MinElementsPerClear=1</code> 保底，任何成功消除至少产 1），压入队列，补牌时 FIFO 抽干。无概率注入、无保底计数器——「会消除就有产出」由保底常量直接保证。映射与边界见 <a href="10-score-element-rm-collect.html#map">10·§2.3</a>。</li>
       </ol>
     </div>
 
@@ -200,14 +197,14 @@
     <div class="callout good">
       <b>方案 · 限次免费悔棋（推荐）：</b>每局 <code>UndoCharges = 3</code> 次免费悔棋（无广告、无内购，纯次数限制，契合去变现）。
       <ul>
-        <li><b>悔棋范围</b>：仅撤销<b>最后一次落子</b>（单步）。落子前对受影响状态打快照：棋盘 <code>BinaryBoard</code>、元素层 <code>ElementArr</code>、体力值、合成区库存、订单进度、保底计数器。悔棋 = 整体回滚到该快照 + 把方块退回待选槽 + 退回该次落子扣的体力。</li>
+        <li><b>悔棋范围</b>：仅撤销<b>最后一次落子</b>（单步）。落子前对受影响状态打快照：棋盘 <code>BinaryBoard</code>、元素层 <code>ElementArr</code>、体力值、合成区库存、订单进度、待投放元素队列 <code>PendingElements</code>。悔棋 = 整体回滚到该快照 + 把方块退回待选槽 + 退回该次落子扣的体力。</li>
         <li><b>更轻的备选</b>：仅当该次落子<b>未触发消除</b>（纯失误落子）时允许单步撤销，省去回滚消除/合成/订单的复杂度。若 dev 评估全量单步快照成本高，可先落地此备选版，全量快照列为增强。</li>
-        <li>悔棋次数耗尽后回归正常死局判定（沿用 08 的 GameOver）。</li>
+        <li>悔棋次数耗尽后回归正常死局判定（复用 <code>GameOverWindow</code>）。</li>
       </ul>
     </div>
 
     <h2 id="config">五、配置一览（可调常量）</h2>
-    <p>全部硬编码在配置类（仿 08 的 <code>CollectDemo</code> 静态类，不接 Luban），<mark>改数即调难度</mark>。</p>
+    <p>全部硬编码在配置类 <code>MergeOrderConfig</code>（不接 Luban），<mark>改数即调难度</mark>。元素生成的旋钮含义见 <a href="10-score-element-rm-collect.html#map">10·§2.3</a>。</p>
     <table>
       <tr><th>模块</th><th>常量</th><th>默认</th></tr>
       <tr><td rowspan="3">合成</td><td><code>MaxLevel</code></td><td>3</td></tr>
@@ -223,9 +220,10 @@
       <tr><td><code>ClearRefund</code></td><td>消除行列数</td></tr>
       <tr><td><code>RegenPerTick / IntervalSec</code></td><td>+1 / 120s（demo 可简化）</td></tr>
       <tr><td>耗尽兜底</td><td>软 GameOver</td></tr>
-      <tr><td rowspan="3">掉率/保底</td><td><code>InjectChance</code></td><td>0.30</td></tr>
-      <tr><td>注入类型池</td><td>激活订单所需类型并集</td></tr>
-      <tr><td><code>PityThreshold</code></td><td>8 次落子</td></tr>
+      <tr><td rowspan="4">元素生成<br>（得分驱动）</td><td><code>ScorePerElement</code></td><td>200（每 200 分折 1 元素）</td></tr>
+      <tr><td><code>MinElementsPerClear</code></td><td>1（任何消除保底产 1）</td></tr>
+      <tr><td><code>MaxElementsPerClear</code></td><td>4（单次消除封顶）</td></tr>
+      <tr><td><code>MaxPendingElements</code></td><td>12（待投放队列上限）</td></tr>
       <tr><td>兜底</td><td><code>UndoCharges</code></td><td>3 / 局</td></tr>
     </table>
 
@@ -242,7 +240,7 @@
     </table>
 
     <h2 id="hook">七、与现有模块的挂接点</h2>
-    <p>沿用 08 的<b>加法式 + 独立窗口 + 模式门控</b>策略：新增 <code>MergeOrderMode</code> 门控本切片全部新逻辑；off 时（含 Classic、08 收集模式）<mark>行为零变化</mark>。</p>
+    <p><b>加法式 + 独立窗口 + 模式门控</b>策略：<code>MergeOrderMode</code> 门控本切片全部新逻辑；off 时（Classic）<mark>行为零变化</mark>。元素生成走得分驱动映射（<code>MergeOrderConfig.ElementsForScore</code> 算数量 → <code>MergeOrderState.PendingElements</code> 队列 → 补牌抽干），详见 <a href="10-score-element-rm-collect.html#hook">10·§四</a>。</p>
     <div class="diagram">
     <svg viewBox="0 0 880 400" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="模块挂接关系图">
       <defs>
@@ -268,9 +266,9 @@
         <text x="450" y="72" font-size="16" font-weight="700" fill="#f2f4fc">MergeOrderWindow</text>
         <text x="450" y="98" font-size="12" fill="#8fd0b4">切片主体窗口（新增）</text>
 
-        <rect x="340" y="200" width="200" height="60" rx="12" fill="#283256" stroke="#6c8cff"/>
-        <text x="440" y="226" font-size="14" font-weight="700" fill="#f2f4fc">CollectWinWindow</text>
-        <text x="440" y="246" font-size="12" fill="#aebcf5">demo 通关面板复用</text>
+        <rect x="340" y="200" width="200" height="60" rx="12" fill="#16382c" stroke="#5bd6a0"/>
+        <text x="440" y="226" font-size="14" font-weight="700" fill="#f2f4fc">MergeOrderWinWindow</text>
+        <text x="440" y="246" font-size="12" fill="#8fd0b4">demo 通关面板（新增）</text>
 
         <rect x="340" y="300" width="200" height="60" rx="12" fill="#283256" stroke="#6c8cff"/>
         <text x="440" y="326" font-size="14" font-weight="700" fill="#f2f4fc">GameOverWindow</text>
@@ -307,17 +305,17 @@
     </div>
     <table>
       <tr><th>现有 / 新增</th><th>挂接方式</th></tr>
-      <tr><td><code>Module/BlockBlast/BlockGameState.cs</code></td><td><b>复用</b>元素层（<code>ElementArr</code> / <code>BuildPiece</code> 注入 / <code>PlacePiece</code> 转移）。<code>InjectElements</code> 的类型池来源由「仍需收集类型」扩展为「订单所需类型并集 + 保底强制注入」（新增门控分支，08 路径不变）。<code>CollectClearedElements</code> 扩展为<b>额外输出本次被清元素列表</b>（供合成区摄入），现有累加 <code>Collected</code> 行为在新模式下不用即可。</td></tr>
-      <tr><td>新增 <code>Module/BlockBlast/MergeOrderConfig.cs</code></td><td>仿 <code>CollectDemo</code> 静态类：合成/订单/体力/掉率/兜底全部可调常量 + 循环订单池 + glyph/纯色（复用 <code>CollectDemo.Glyph/ColorOf</code>）。</td></tr>
-      <tr><td>新增 <code>Module/BlockBlast/MergeOrderState.cs</code></td><td>新系统状态机（组合，不塞进 <code>BlockGameState</code> 以免污染）：合成区库存 <code>Dictionary&lt;(CollectElement,int),int&gt;</code> + 自动配对升级、订单队列 + 交付/刷新/锯齿波、体力值 + 扣/返/补/恢复、保底计数器、悔棋快照栈。纯逻辑、可单测。</td></tr>
+      <tr><td><code>Module/BlockBlast/BlockGameState.cs</code></td><td><b>复用</b>元素层（<code>ElementArr</code> / <code>BuildPiece</code> 注入 / <code>PlacePiece</code> 转移）。补牌时由 <code>DrainPendingElementsInto</code> 从得分驱动的待投放队列抽取元素写入新候选块（门控分支，Classic 路径不变）。<code>HarvestClearedElements</code> 输出本次被清元素列表供合成区摄入。</td></tr>
+      <tr><td>新增 <code>Module/BlockBlast/MergeOrderConfig.cs</code></td><td>静态配置类：合成/订单/体力/元素生成/兜底全部可调常量 + 循环订单池 + 得分→元素数映射 <code>ElementsForScore</code>。glyph/纯色取 <code>MergeElementVisual.Glyph/ColorOf</code>。</td></tr>
+      <tr><td>新增 <code>Module/BlockBlast/MergeOrderState.cs</code></td><td>新系统状态机（组合，不塞进 <code>BlockGameState</code> 以免污染）：合成区库存 <code>Dictionary&lt;(MergeElement,int),int&gt;</code> + 自动配对升级、订单队列 + 交付/刷新/锯齿波、体力值 + 扣/返/补/恢复、待投放元素队列 <code>PendingElements</code>、悔棋快照栈。纯逻辑、可单测。</td></tr>
       <tr><td><code>Core/BinaryBoard.cs</code> / <code>Core/BlockShapeMap.cs</code></td><td><b>不改</b>。复用 <code>CanClearRowCols</code> / <code>PutBlock</code> / <code>CanPutAnyOf</code> / <code>IsEmpty</code>。</td></tr>
-      <tr><td>新增 <code>UI/BlockBlastUI/MergeOrderWindow.cs</code></td><td>切片主体窗口，镜像 <code>CollectDemoWindow</code> 的棋盘/拖拽/ghost/落子流程。在 <code>PlaceAndResolve</code> 同构流程中插入：落子扣体力 → 消除返体力 → 被清元素入合成区（自动合并）→ 刷新订单/合成区/体力 UI → 检查订单可交付 → 检查 demo 通关 / 软死亡。新增悔棋按钮。</td></tr>
+      <tr><td>新增 <code>UI/BlockBlastUI/MergeOrderWindow.cs</code></td><td>切片主体窗口，复用 Classic 的棋盘/拖拽/ghost/落子流程。在 <code>PlaceAndResolve</code> 同构流程中插入：落子扣体力 → 消除返体力 → 被清元素入合成区（自动合并）→ 刷新订单/合成区/体力 UI → 检查订单可交付 → 检查 demo 通关 / 软死亡。新增悔棋按钮。</td></tr>
       <tr><td>新增 UI：订单卡 ×2、合成区面板、体力条、悔棋按钮</td><td>glyph/纯色零美术；订单卡显示「元素 glyph + Lv + 数量 + 交付按钮（满足点亮）」；合成区显示各类型当前等级 token；体力条显示 <code>当前/上限</code>。</td></tr>
-      <tr><td>复用 <code>UI/BlockBlastUI/CollectWinWindow.cs</code></td><td>demo 通关面板（完成 N 单）复用，传「完成单数/奖励」摘要行。</td></tr>
-      <tr><td>复用 <code>UI/BlockBlastUI/GameOverWindow.cs</code></td><td>棋盘塞满 / 体力耗尽兜底，沿用 08；体力耗尽可传变体标题「精力耗尽」。</td></tr>
+      <tr><td>新增 <code>UI/BlockBlastUI/MergeOrderWinWindow.cs</code></td><td>demo 通关面板（完成 N 单），传「完成单数/奖励」摘要行。</td></tr>
+      <tr><td>复用 <code>UI/BlockBlastUI/GameOverWindow.cs</code></td><td>棋盘塞满 / 体力耗尽兜底；体力耗尽可传变体标题「精力耗尽」。</td></tr>
       <tr><td><code>UI/BlockBlastUI/MainMenuWindow.cs</code></td><td>加「合成订单 Demo」入口按钮 → 打开 <code>MergeOrderWindow</code>。</td></tr>
     </table>
-    <div class="callout note"><b>回归红线</b>：本切片全部新逻辑由 <code>MergeOrderMode</code> 门控。off 时 <code>BlockGameState</code> 的 Classic 落子/消除/补块/存档、以及 08 收集模式行为与现状<mark class="y">逐字节一致</mark>。Classic + 08 回归测试必须通过。</div>
+    <div class="callout note"><b>回归红线</b>：本切片全部新逻辑由 <code>MergeOrderMode</code> 门控。off 时 <code>BlockGameState</code> 的 Classic 落子/消除/补块/存档与现状<mark class="y">逐字节一致</mark>。Classic 回归测试必须通过。</div>
 
     <h2 id="scope">八、Demo 范围</h2>
     <h3 id="scope-in">做什么（In Scope）</h3>
@@ -325,10 +323,10 @@
       <li>体力系统：落子扣、消除返、订单补、自然恢复（可简化）、耗尽软兜底。</li>
       <li>合成区：消除元素入区 → 自动两两合并升级（封顶 Lv3）+ 显示。</li>
       <li>订单系统：双订单、手动交付（消耗合成物 + 发奖）、刷新、锯齿波（循环池实现）。</li>
-      <li>掉率保底：需求拉动注入 + 保底计数器 + 可调注入概率。</li>
+      <li>元素生成：消除得分驱动数量（确定性映射）+ 需求拉动类型 + 队列上限。</li>
       <li>落错兜底：限次免费悔棋（单步快照回滚）。</li>
       <li>demo 通关（完成 N 单 → 胜利面板）+ 双失败条件。</li>
-      <li>独立窗口 + 主菜单入口 + 模式门控（Classic / 08 零影响）。</li>
+      <li>独立窗口 + 主菜单入口 + 模式门控（Classic 零影响）。</li>
     </ul>
     <h3 id="scope-out">不做什么（Out of Scope）</h3>
     <table>
@@ -337,18 +335,18 @@
       <tr><td>体力瓶可合成道具的完整实装</td><td>奖励先直接给体力；瓶子合成链列为后续增强</td></tr>
       <tr><td>完整程序化锯齿波（动态算难度约束相邻单）</td><td>demo 用手编循环池；完整规则已文档化</td></tr>
       <tr><td>自然恢复的真实跨会话计时 / 离线结算</td><td>单局测试意义小；demo 可简化或暂不实装</td></tr>
-      <tr><td>关卡框架 / 存档 / 多关 / Luban 接表</td><td>沿用 08 切片边界，配置硬编码</td></tr>
+      <tr><td>关卡框架 / 存档 / 多关 / Luban 接表</td><td>Demo 切片边界，配置硬编码</td></tr>
       <tr><td>任何变现：体力购买 / 广告复活 / 道具内购</td><td>项目红线（去变现）</td></tr>
     </table>
 
     <h2 id="risks">九、风险</h2>
     <table>
       <tr><th>风险</th><th>应对</th></tr>
-      <tr><td>双重随机（注入×消除）饿死订单</td><td>需求拉动注入 + 保底计数器 + 可调 InjectChance（<a href="#risk1">§四·1</a>）</td></tr>
+      <tr><td>元素供给不足饿死订单</td><td>需求拉动类型 + 得分驱动确定性数量 + 保底 <code>MinElementsPerClear≥1</code>（<a href="#risk1">§四·1</a>）</td></tr>
       <tr><td>体力早期饿死 / 后期无感</td><td>预算数学定档（起始≥首单落子数、订单净正）；常量全可调（<a href="#risk2">§四·2</a>）</td></tr>
       <tr><td>落错子死局且无广告复活</td><td>限次免费悔棋（单步快照，3 次/局）（<a href="#risk3">§四·3</a>）</td></tr>
       <tr><td>悔棋快照范围广、易漏状态</td><td>集中快照 6 项状态于一处；备选轻量版（仅无消除时撤销）兜底</td></tr>
-      <tr><td>新逻辑污染 Classic / 08</td><td><code>MergeOrderMode</code> 门控 + 独立窗口 + 独立状态类；回归测试硬验收</td></tr>
+      <tr><td>新逻辑污染 Classic</td><td><code>MergeOrderMode</code> 门控 + 独立窗口 + 独立状态类；回归测试硬验收</td></tr>
       <tr><td>自动合成削弱玩家合成层 agency</td><td>玩家 agency 主要在方块层（落子/消除/先交哪单）；合成自动降低心智负担适配 demo；空间拖拽列为增强</td></tr>
     </table>
 
@@ -356,8 +354,6 @@
       <h2>相关文档</h2>
       <div class="related-links">
         <a href="index.html">← 返回总览</a>
-        <a href="archive/08-collect-demo-slice.html">收集 Demo 切片（本切片基线）</a>
-        <a href="archive/05-proposal-adventure.html">提案 P1 · Adventure 关卡模式</a>
         <a href="07-blockblast-code-architecture.html">BlockBlast 代码架构剖析</a>
       </div>
     </div>
