@@ -15,6 +15,9 @@
     <h1>动态难度拆解</h1>
     <p class="subtitle">现状分析 · 游戏最核心、最值钱的系统。它让发牌「会读心」:你顺的时候偷偷加码,你快死的时候悄悄放水,永远把你按在「就差一点」的心流区。</p>
 
+    <div class="callout warn">
+      <b>状态说明 · DDA 在融合后是底层引擎,强度信号源待定</b>:经典被吸收进合成订单后,本篇描述的整套 DDA 作为<b>融合发牌的底层引擎(R4)</b>保留,8 算法与权重表不变。但本篇通篇以 <code>Score</code> 为强度信号——融合后局内分数语义重新理清,<mark class="y">DDA 用哪个分量作强度信号(决定它是否激活做局)是一个有安全默认的范围开关</mark>:默认维持以 <code>Score</code> 为信号(该量在融合里若恒低则 DDA 休眠在清屏窗口,零回归),可选改接经营进度量(让做局随经营推进激活)。本篇正文按经典现状阅读;信号源裁决与默认见 <a href="29-gameplay-fusion.html#v8">29·§3.8</a> 与 <a href="29-gameplay-fusion.html#decisions">29·§七#2</a>。
+    </div>
     <div class="callout note">
       <b>一句话原理:</b> 系统维护一个隐藏变量 <code>dynamicWeight</code>(可理解为「最近有多惯着你」的累加器)。喂你简单块 → 这个值升高 → 触发「做局」档发难块;喂你难块 → 值降低 → 触发「放水」档发简单块。<b>一根自动收紧又松开的橡皮筋。</b>
     </div>
@@ -309,8 +312,6 @@
       <div class="related-links">
         <a href="index.html">← 返回总览</a>
         <a href="01-gameplay-overview.html">玩法总览</a>
-        <a href="archive/03-reference-gap-roadmap.html">原版功能差距 &amp; 移植路线图</a>
-        <a href="archive/04-proposal-combo-juice.html">提案 P0 · Combo &amp; 打击感</a>
       </div>
     </div>
 

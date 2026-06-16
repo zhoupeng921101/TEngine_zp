@@ -40,3 +40,24 @@
 - 净增趋势(#5 续记):处置后注入态 `.claude/rules/` ≈ 51 行(conventions 43 + audit-log stub ~8),较裁决前 161 行降约 110;降幅来自 conventions-dev(85,移 skills)+ audit-log 活账本(~40,移本文件)退出注入。
 - carry-forward:第八次(语体指引)本轮编号订正已对齐、结案;第五次(blockers 判据 3 触点)当前工作树已收敛(plan/auto 一致)、结案。
 - 关单事务:本次审计覆盖上方三段 2026-06-15 改动登记;按 header 策略已随本次结构调整全部移入本活账本(rules-archive),注入态只留 stub 基线指针。
+
+## 第十二次审计 @ 工作树(增量基线 commit `9ac4eddf`,第十一次审计工作落地后)
+
+增量基线取第十一次审计工作落地的 commit `9ac4eddf`(conventions-dev git mv + audit-log stub 均在此),而非注入指针记的 `5293bb73`(那是第十一次审计的工作树基线,其后大重构已提交、不可再当增量起点)。审 `9ac4eddf..HEAD`(`3c775755 优化agents` / `6bea4682 玩法融合`)+ 工作树未提交(本会话 pipeline-plan 粒度边界)。合并提交 `a1dcf15e` 经逐文件核:未触及任何我方治理规则文件(只引入 luban-dev/caveman/grill-me/grill-with-docs/improve-codebase-architecture/openspec-*/wiki-synchelper 等外部 skill 文档),排除出审计核心。
+
+新改动范围(我方治理规则):
+- `3c775755`:① 规则准入 5 问从 CLAUDE.md 整段移入 conventions.md(grep 核实仅存 conventions 一处,移动非复制);② CLAUDE.md 回复风格收为一行「结构化优先·多用图表」,删「请使用中文 / 简洁直接 / 平实呈报」三句;③ pipeline-plan 图示化两点由详细 SVG 风格规约缩为简版;④ pipeline-dev `effort: max→xhigh`。
+- `6bea4682`:memory/dev.md +2、memory/test.md ±1,均经验沉淀(gameplay-fusion / fusion-test 先例),无规范条款变更。
+- 工作树(本会话):pipeline-plan 职责 +#5「设计稿粒度」(答需求·不答代码实现)+ 章节骨架「dev 改动清单→接缝清单」;memory/plan.md:8「精确到方法名→点到现有方法名(接缝)」。
+
+查项结论(1-3 必查):
+- **重复**:无。规则准入经 grep 仅存 conventions.md;pipeline-plan #5(文档粒度)与 #4(不碰 Unity 工程)跨层互补(内容粒度 vs 工具动作边界),非同层重复。
+- **死规则**:无新增。规则准入 5 问本轮即被 #5 准入实际调用;memory 各条带具体先例。第十一次 carry-forward(第五 / 第八次)已结案,无续留监视项。
+- **矛盾**:无。#5 / 接缝清单 / memory:8 三处互相一致,且与 dev「自做实现设计」职责一致。观察一项(非矛盾):CLAUDE.md「多用图表」为无条件指令,触及规则准入 #4 反噬式样(无条件→当默认动作),但句尾含「段落等」已软化、系用户本次有意提交,记观察不作处置;平实呈报指引现仅存用户级 memory + 全局 CLAUDE「详细带解释」,与项目 CLAUDE 不在同一信道、不构成冲突。
+
+条件查项(4-6):
+- **#4 信道匹配**:跳过。`.claude/rules/` 注入文件集无增减(规则准入移入已注入的 conventions.md,非新文件进出)。
+- **#5 净增趋势**:`.claude/rules/` 58 行(conventions 53 + audit-log stub 5),较第十一次 ≈51 净增 7;增量全系规则准入由 CLAUDE.md 迁入(CLAUDE.md 同步缩约 17 行),真实常驻新增 ≈0,不升「总量复查」。
+- **#6 孤儿旁注**:无。规则准入 #2 的 `>` 旁注(「敢反对 vs 先独立成判」例)随段整体迁入 conventions.md、父规范在位;CLAUDE.md 删除段无遗留旁注;本会话编辑未引入 / 遗留旁注。
+
+删除候选:无。修正候选:无(本会话编辑三处已自洽)。下次增量以本会话编辑提交后 commit 为基线。

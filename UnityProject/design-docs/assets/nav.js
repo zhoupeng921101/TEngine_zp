@@ -2,13 +2,12 @@
    Block Blast 策划文档 - 导航单一信息源
    职责:渲染①各页左侧文档树(自动高亮当前页)②首页卡片区
         ③本页目录(扫描当前页带 id 的 h2/h3 自动生成 + 滚动高亮)。
-   新增/归档文档:只改下方 GROUPS 一处,全库各页自动同步。
-   仅注入标准双栏布局的活跃文档与 index.html;单栏页(11、archive/)不引用本文件。
+   新增文档:只改下方 GROUPS 一处,全库各页自动同步。
+   仅注入标准双栏布局的活跃文档与 index.html;单栏页(11)不引用本文件。
    ============================================================ */
 (function () {
   // group.side = 侧边栏分组名;group.card = 首页区块标题(null 表示不在首页卡片区出现)
   // doc.href / doc.side(侧边栏标签)/ doc.tag·title·desc(首页卡片,desc 可含 HTML)
-  // 归档组:archived:true;doc.related = 首页归档区链接文案
   const GROUPS = [
     { side: '总览', card: null, docs: [
       { href: 'index.html', side: '文档库首页' },
@@ -73,12 +72,6 @@
       { href: '06-psd2ugui-componentize.html', side: '06 · PSD2UGUI 工具', tag: '工具 · 已落地', title: '06 · PSD2UGUI 组件化工具',
         desc: '扁平节点 → 组件调色板一键挂 UGUI 组件(控件自动补 targetGraphic),引用在 Inspector 连。已实现并编译验证。' },
     ]},
-    { side: '已归档', card: '已归档(archive/)', archived: true, docs: [
-      { href: 'archive/03-reference-gap-roadmap.html', side: '03 · 移植路线图', related: '03 · 移植路线图(路线已被自研切片取代)' },
-      { href: 'archive/04-proposal-combo-juice.html', side: '04 · Combo 提案', related: '04 · Combo 提案(弹字已落地,余项搁置)' },
-      { href: 'archive/05-proposal-adventure.html', side: '05 · Adventure 提案', related: '05 · Adventure 提案(未实施)' },
-      { href: 'archive/08-collect-demo-slice.html', side: '08 · 收集切片', related: '08 · 收集切片(玩法已移除)' },
-    ]},
   ];
 
   // 当前页文件名(用于侧边栏 active 判定)
@@ -93,14 +86,8 @@
     if (!aside) return;
     let h = '<a class="side-brand" href="index.html"><span class="dot"></span>Block Blast 策划文档</a><nav>';
     for (const g of GROUPS) {
-      if (g.archived) {
-        h += '<details class="tree-fold"><summary>' + g.side + '</summary>';
-        for (const d of g.docs) h += treeLink(d);
-        h += '</details>';
-      } else {
-        h += '<div class="tree-group">' + g.side + '</div>';
-        for (const d of g.docs) h += treeLink(d);
-      }
+      h += '<div class="tree-group">' + g.side + '</div>';
+      for (const d of g.docs) h += treeLink(d);
     }
     h += '</nav>';
     aside.insertAdjacentHTML('afterbegin', h);
@@ -117,22 +104,14 @@
     let h = '';
     for (const g of GROUPS) {
       if (!g.card) continue;
-      if (g.archived) {
-        h += '<div class="related"><h2>' + g.card + '</h2>'
-           + '<p style="color:var(--text-dim);font-size:14px;margin:0 0 12px">不再推进或已下线的历史文档,各篇首部标注归档原因。</p>'
-           + '<div class="related-links">';
-        for (const d of g.docs) h += '<a href="' + d.href + '">' + (d.related || d.side) + '</a>';
-        h += '</div></div>';
-      } else {
-        h += '<h2>' + g.card + '</h2><div class="cards">';
-        for (const d of g.docs) {
-          h += '<a class="card" href="' + d.href + '">'
-             + '<span class="tag">' + d.tag + '</span>'
-             + '<h3>' + d.title + '</h3>'
-             + '<p>' + d.desc + '</p></a>';
-        }
-        h += '</div>';
+      h += '<h2>' + g.card + '</h2><div class="cards">';
+      for (const d of g.docs) {
+        h += '<a class="card" href="' + d.href + '">'
+           + '<span class="tag">' + d.tag + '</span>'
+           + '<h3>' + d.title + '</h3>'
+           + '<p>' + d.desc + '</p></a>';
       }
+      h += '</div>';
     }
     root.innerHTML = h;
   }
