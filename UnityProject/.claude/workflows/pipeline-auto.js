@@ -22,7 +22,7 @@ export const meta = {
 // 打回每轮 spawn 新 dev(workflow 内无续接),上下文靠 state 文件交接——文件是真相。
 // 自主决策由各角色在返回值 decisions 里上报,boss 收尾统一写 state/boss.md 决策日志。
 
-const RETURN_NOTE = '详细产出写对应 state 文件;结构化返回只填摘要字段,不长篇复述。能在安全默认上推进的取舍(含有默认可走的范围开关)填 decisions 并按默认推进;只有非裁决不可推进的方向问题(无默认 / 默认会抵触 spec·GDD / 不可逆)填 blockers——blockers 非空会中止本环节、攒给用户。'
+const RETURN_NOTE = '详细产出写对应 state 文件;结构化返回只填摘要字段,不长篇复述。遇不确定按三段阶梯处置:①有明显安全默认(不抵触 spec/GDD 主线、可逆)→ 立即取默认、记 decisions,不为此调查;②无明显默认 → 先调查取证(读相关代码 / grep 现成链路 / 核对 GDD 原文与现有 design-docs),据证据定最优解、记 decisions 并写明依据;③仅当调查也定不了、且不可逆、且抵触 GDD 原文,三者同时成立 → 填 blockers。blockers 非空会中止本环节、攒给用户,故只留给这第三类。'
 
 const PLAN_SCHEMA = {
   type: 'object',
@@ -31,7 +31,7 @@ const PLAN_SCHEMA = {
     statePath: { type: 'string', description: '交接区路径' },
     designDoc: { type: 'string', description: '设计稿路径(design-docs/xx.html)' },
     decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍(自治审计用)' },
-    blockers: { type: 'array', items: { type: 'string' }, description: '必须用户裁决才能推进的方向问题(无安全默认 / 默认会抵触 spec·GDD / 不可逆);有默认可走的范围开关走 decisions 默认推进,不进此处——blockers 非空会令流水线在 plan 环节中止' },
+    blockers: { type: 'array', items: { type: 'string' }, description: '必须用户裁决才能推进的方向问题:调查取证也定不了、且不可逆、且抵触 GDD 原文,三者同时成立才填。有安全默认、或调查后能据证据拍板的(含范围开关)走 decisions 默认推进,不进此处——blockers 非空会令流水线在 plan 环节中止' },
     taskFlaw: { type: 'string', description: 'boss 派的任务定义本身有硬伤(需求矛盾/基线指错/与工程现状冲突/范围不可行)且非设计可解时填原因,否则省略——对称 dev.designFlaw' },
     feasibilityCheck: { type: 'array', items: { type: 'string' }, description: '接法存疑的未实现链路:转 full dev 前需 dev 预检的存疑接缝 + 待验证问题(能否按设计接线/粗工作量/有无现成链路);接到已实现稳定接缝则省略' },
   },
@@ -69,6 +69,16 @@ const TEST_SCHEMA = {
     decisions: { type: 'array', items: { type: 'string' }, description: '本环节自主拍板的取舍' },
   },
   required: ['verdict', 'statePath'],
+}
+
+const DIAGNOSIS_SCHEMA = {
+  type: 'object',
+  properties: {
+    category: { type: 'string', enum: ['design-flaw', 'dev-misread', 'flaky-or-environment'], description: '3 轮不收敛的根因归类:设计缺陷 / dev 持续误读 / flaky 或环境' },
+    rationale: { type: 'string', description: '归类依据(历轮可复现清单与 diff 的共性)' },
+    recommendation: { type: 'string', description: '建议下一步(回 plan 调设计 / 换 dev 接法重做 / 人工查环境)' },
+  },
+  required: ['category', 'recommendation'],
 }
 
 // args 防御:runner 可能把 args 序列化成 JSON 字符串送达,先尝试解析回对象;再校验必填字段
@@ -205,7 +215,15 @@ while (round < 3) {
 }
 
 if (!verdict || verdict.verdict !== 'PASS') {
-  blocked.push(`3 轮熔断:${(verdict && verdict.reason) || '见 pipeline/state/test.md'}`)
+  // 3 轮仍不过:先做一次只读根因诊断,让 BLOCKED 报告可执行(供链式 boss 判断剩余增量能否继续),不自动 re-route
+  const diagOpts = { agentType: 'pipeline-dev', phase: '测试', schema: DIAGNOSIS_SCHEMA, label: '熔断根因诊断' }
+  if (args.devModel) diagOpts.model = args.devModel
+  const diag = await agent(
+    `熔断根因诊断(只读评估,不改工程、不进交接区)。3 轮返修后 test 仍未过。任务:${args.task}\n设计基线:${baseline}\n读 pipeline/state/test.md 历轮可复现清单、pipeline/state/dev.md 交接区与 git diff,归类不收敛根因(design-flaw 设计缺陷 / dev-misread dev 持续误读 / flaky-or-environment)并给建议下一步。`,
+    diagOpts
+  )
+  const diagNote = diag ? `;根因诊断=${diag.category}:${diag.recommendation}` : ';根因诊断 agent 异常退出,人工查 pipeline/state'
+  blocked.push(`3 轮熔断:${(verdict && verdict.reason) || '见 pipeline/state/test.md'}${diagNote}`)
   return { status: 'BLOCKED', stage: 'circuit-breaker', blocked, decisions, round }
 }
 

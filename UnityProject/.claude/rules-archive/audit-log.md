@@ -82,3 +82,27 @@
 - **#6 孤儿旁注**:无。本次就地覆盖两处(SKILL 自治旁注「不走预检」→「走同款 stage」、plan feasibilityCheck 红线「常规/自治分叉」→「两模式统一」),均原地重写、无遗留旧正文或孤儿旁注;新增 SKILL「可行性预检」节的 `>` 旁注父节在位。
 
 删除候选:无。修正候选:无(line 32 措辞收紧列为可选观察,非必改)。下次增量以本会话编辑提交后 commit 为基线。
+
+## 第十四次审计 @ 工作树(增量基线 = 第十三次固化 commit `e7b8cd1b`,本会话「自治流水线提示词优化」未提交)
+
+标准基线指针仍记 `9ac4eddf`(第十二/十三次沿用),已严重滞后——`9ac4eddf..HEAD` 含大批中间提交(caveman / grill-me / luban-dev 重写 / openspec / wiki-synchelper 删除 / conventions / CLAUDE 等),非本增量。本次以第十三次固化提交 `e7b8cd1b`(可行性预检落地)为真实增量起点,审 `e7b8cd1b..HEAD` 触及规则栈的提交 + 工作树未提交。增量经核仅:① 提交 `92251a59`(plan 卡「文档表现」HTML→Markdown 重写)② 提交 `a82d3d82`(memory/plan.md)③ 本会话工作树(自治优化)。中间 `80072efe`/`7952ae4e` 只动 design-docs,非规则栈。
+
+本会话改动(自治流水线「投资取证三段阶梯 + 续接整个 backlog」,用户拍板范围=续接链 + 激进自治):
+- pipeline/SKILL「自治模式」节重写:二元决策 → 三段阶梯(有默认即取 / 无默认先调查取证据证拍板 / 仅「调查仍无解 且 不可逆 且 抵触 GDD 原文」入 BLOCKED);加「续接循环」(挑增量→workflow→关单→链式 checkpoint commit→续接,终止=目标达成/硬阻塞/安全上限 N=6)+ 决策日志三元组(选择+依据+可逆性标签);关单事务第4步加链式不逐增量回报。
+- pipeline-plan 红线 + 旁注:二元 → 三段阶梯(同 SKILL 口径)。
+- pipeline-dev 红线:designFlaw 上报前先取证确认「确是设计错·非实现层可绕」。
+- `.claude/workflows/pipeline-auto.js`(脚本、不在规则栈散文范围,作 SKILL 实现一并核引用一致):RETURN_NOTE 三段阶梯、PLAN_SCHEMA.blockers 门槛收窄、熔断分支加只读根因诊断(DIAGNOSIS_SCHEMA);`node --check`(运行时 async 包裹)语法过。
+
+查项结论(1-3 必查):
+- **重复**:无。三段阶梯在 SKILL 决策规则 / plan 红线 / workflow RETURN_NOTE 三处并存,系多 agent 提示词架构固有(各 consumer 只见自己的 system prompt,boss 与 plan 卡互不可见,须各自自包含);SKILL line112 已以「(各角色在环节内执行,见 agent 卡;boss 同此)」做跨引而非全量复述。此为旧二元规则既有的并列副本同步更新(§反向冲突要求同次改完),非新增重复。feasibilityCheck 仍是窄实例(未实现链路接法),三段阶梯把「先调查再决」泛化到一切不确定,互补。
+- **死规则**:无删除。三段阶梯有具体触发(2026-06 三次范围开关误报 blocker 空停一轮 + 用户 2026-06-17 明示诉求),复发性结构问题非一次性。carry-forward 续监视:第十三次「plan 向上对体验自检」仍无项目内触发实例,累计窗口续观察。
+- **矛盾**:无。① 三段阶梯的 BLOCKED(设计选择级·取证后·不可逆+抵触 GDD)与 SKILL 其余 BLOCKED 引用分属不同类别——环境型(line55)/ 熔断(line58)/ designFlaw(line85)/ taskFlaw(line86)/ 环节判不准(line88),各自触发条件不交叠,口径一致。② doc/impl 锁步无漂移:SKILL 决策规则 ↔ workflow RETURN_NOTE ↔ plan 红线 ↔ dev designFlaw 四处门槛措辞统一(「调查也定不了 且 不可逆 且 抵触 GDD 原文」),熔断诊断(workflow)↔ SKILL line58 一致(主动规避第十次 doc/impl 漂移式样)。③ `92251a59` plan 卡「文档表现」由「HTML 单源 + 手写内联 SVG」覆盖式重写到「Markdown 正文 + index.html 外壳运行时渲染 + mermaid/SVG」,合 conventions 规则6(过时即重写到现状),卡内自洽、与 design-docs 现实(已迁 Markdown)一致,无矛盾。
+
+**观察(用户已确认有意取消跟踪,非回归)**:用户手动把 `pipeline/` 部分文件移出版本控制,视其为本地临时工作区(根级 `.gitignore` 规则 `UnityProject/pipeline/` 兜底 ignore)。实测 HEAD 现状半跟踪、不一致:`archive/`(~30 已结案任务记录)、`README.md`、`memory/{boss,dev,test}.md`、`state/{dev,test}.md` 仍 tracked;`memory/plan.md`、`state/{boss,plan}.md` 已移出。durability 分层已向用户呈报:`state/` 真临时(关单即重置,丢之无害);`memory/`(跨任务沉淀)与 `archive/`(结案设计依据 + 测试证据)durable。用户拍板**全取消**,本会话执行 `git rm --cached -r pipeline/`(commit `8c22e95d`,94 文件移出索引、本地保留);pipeline/ 成纯本地工作区。**审计机制后果**:`pipeline/memory/*.md` 头准入仍在审计范围,但已脱离 git → 后续审计对 memory 头的增量须本地直读、不能靠 git-diff 短路(头准入稳定、改动罕见,影响小)。非规则内容矛盾,不入删除/修正候选。
+
+条件查项(4-6):
+- **#4 信道匹配**:跳过。`.claude/rules/` 注入文件集无增减(本次只改 `.claude/agents/`、`.claude/skills/`、`.claude/workflows/`)。
+- **#5 净增趋势**:注入态 `.claude/rules/` 行数不变(未触 rules/)。散文增量(非注入态):SKILL ≈+12 行、plan ≈±0(覆盖式)、dev ≈±0(覆盖式);workflow +~18(脚本非注入)。不升「总量复查」。
+- **#6 孤儿旁注**:无。plan 红线旁注(2026-06 三次空停)就地更新到新门槛「取证后仍无解的不可逆 GDD 冲突」,与上方新规则一致,无孤儿;SKILL 重写无遗留旧正文。
+
+删除候选:无。修正候选:无(pipeline/ 跟踪取向 = 用户流程偏好,非规则栈内容订正;现状半跟踪不一致,取向待用户定后由用户执行 git 操作)。**下次增量基线应从本会话提交后 commit 起,并把注入态指针从滞后的 `9ac4eddf` 推进过来**(9ac4eddf 已隔大批中间提交,继续沿用会使增量短路失真)。
