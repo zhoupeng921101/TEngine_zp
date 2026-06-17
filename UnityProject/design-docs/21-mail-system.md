@@ -327,9 +327,9 @@ namespace GameLogic.Config
 
 发奖<mark>不新造逻辑</mark>:奖励库 id → `GiftOpener.OpenRandom` 抽出 `GiftEntry` 列表 → 每项查 `ItemConfigMgr.GetItem` → `ItemGrant.GrantOnAcquire` 落 `MergeOrderState`,汇总 `GrantPayload` 列表返回。`state==null` 时只产出结构、不落实际系统(纯解析单测路径,同 16/20)。
 
-<pre class="code">private IReadOnlyList&lt;GrantPayload&gt; GrantPool(int rewardPoolId, MergeOrderState state)
+<pre class="code">private IReadOnlyList(GrantPayload) GrantPool(int rewardPoolId, MergeOrderState state)
 {
-    var all = new List&lt;GrantPayload&gt;();
+    var all = new List(GrantPayload)();
     if (rewardPoolId == 0) return all;                                  // 无奖励
     var rng = RngProvider();
     var rolled = GameLogic.BlockBlast.Item.GiftOpener.OpenRandom(rewardPoolId, 1, rng); // 既有，抽一次
@@ -491,7 +491,7 @@ sequenceDiagram
     U->>S: Claim(id, state) / ClaimAll(state)
     S->>S: 校验态
     S->>G: OpenRandom(reward_id,1,rng) → GrantOnAcquire
-    G-->>S: List&lt;GrantPayload&gt;(落 Exp/Piety/图案…)
+    G-->>S: List(GrantPayload)(落 Exp/Piety/图案…)
     S->>P: 标已领+已读 → Save(inbox)
     S-->>U: ClaimResult(Success, textId, Granted)
     Note over U,S: UI 弹「奖励已领」+ RewardView 展示(17)

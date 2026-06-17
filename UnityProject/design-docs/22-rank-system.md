@@ -503,7 +503,7 @@ sequenceDiagram
     R->>P: 记 lastSettle = now(防重复结) + Save
     R-->>U: List(SettleResult)(结算了哪些榜)
     Note over U,R: UI 提示「X 榜已结算,奖励发邮箱」→ 玩家去 21 领
-    Note over U,M: 幂等:同周期重复调 → IsSettleDue 因 last 已写返 false,不重复发奖<br/>未入榜 / 无档奖 → 不发邮件仅记已结。实线=调用;虚线=返回/读
+    Note over U,M: 幂等:同周期重复调 → IsSettleDue 因 last 已写返 false,不重复发奖<br/>未入榜 / 无档奖 → 不发邮件仅记已结。实线=调用、虚线=返回/读
 ```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>

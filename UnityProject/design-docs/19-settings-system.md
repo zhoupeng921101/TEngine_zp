@@ -298,7 +298,7 @@ sequenceDiagram
     S-->>U: 返新态 + ToggleTipTextId<br/>UI 弹「音乐已关闭」(textId 占位)
     Note over U,A: — 下次登录(启动流程,零改动复用)—
     T->>A: InitSoundSettings 读同键<br/>MusicEnable = !GetBool(MusicMuted)
-    Note over U,A: 实线 = 调用 / 数据流;虚线 = 返回 / 完成。键映射(muted↔on 取反)见 §3.2
+    Note over U,A: 实线 = 调用 / 数据流、虚线 = 返回 / 完成。键映射(muted↔on 取反)见 §3.2
 ```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>

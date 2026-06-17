@@ -78,7 +78,7 @@
 
 ```mermaid
 flowchart TD
-    subgraph cfg["配置层 · Luban 头像&框表(数据源,既有 GameConfig 管线)"]
+    subgraph cfg["配置层 · Luban 头像与框表(数据源,既有 GameConfig 管线)"]
         c1["avatar.xlsx(源) → 导表<br/>5 字段 + EAvatarType/EUnlockCond §3.5"]
         c2["avatar_tbavatar.bytes + GameConfig.avatar.*<br/>运行期经 ConfigSystem.Tables.TbAvatar(YooAsset)"]
         c1 --> c2
@@ -98,7 +98,7 @@ flowchart TD
     subgraph persist["持久化 · 并入既有 MergeMetaSave"]
         p1["DTO 加玩家字段 + Export/ImportMeta 拷贝<br/>复用设计 14 落盘/迁移/夹值,不另造<br/>version 不必升(逐字段保底)§3.8"]
     end
-    cfg -->|行 → POCO 桥接(AvatarConfigMgr)| svc
+    cfg -->|"行 → POCO 桥接(AvatarConfigMgr)"| svc
     svc -->|读写 PlayerInfo 字段| model
     model -.复用既有设施.-> persist
 ```
@@ -396,9 +396,9 @@ sequenceDiagram
     Note over R: RenameCount==0? 免费 : 读价 cost
     R->>N: ③cost＞0 → trySpendDiamond(cost)
     N-->>R: 返 true/false(钻石无余额 → 默认 true,§3.2)
-    R->>P: ④成功 → Name=新名; RenameCount++
+    R->>P: ④成功 → Name=新名、RenameCount++
     P->>S: ⑤SaveAsync(并入 MergeMetaSave §3.8)
-    R-->>U: ⑥RenameResult{Success, Reason, Cost} → UI 提示
+    R-->>U: ⑥RenameResult(Success, Reason, Cost) → UI 提示
     Note over R,N: 拒绝分支(任一不过即返,不进后续 / 不扣费)<br/>· 空 / 超长 → Reason=Empty/TooLong<br/>· 屏蔽字命中 → Reason=Profanity(②后即返,不计费)<br/>· 钻石不足 → Reason=NotEnoughDiamond(③返 false 后返,不改名)
 ```
 

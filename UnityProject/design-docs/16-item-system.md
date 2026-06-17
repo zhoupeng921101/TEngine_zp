@@ -254,8 +254,8 @@ public sealed class GiftEntry { public int ItemId, Num, Rate; }
 // 注册表（仿 NumericConfigMgr：EnsureLoaded / Get / InitForTest / ResetForTest）
 public static class ItemConfigMgr {
     public static ItemDef GetItem(int id);                       // 查不到返 null（不抛）
-    public static IReadOnlyList&lt;GiftEntry&gt; GetGiftRandom(int index); // 按 index 聚合，空返空集合
-    public static IReadOnlyList&lt;GiftEntry&gt; GetGiftSelect(int index);
+    public static IReadOnlyList(GiftEntry) GetGiftRandom(int index); // 按 index 聚合，空返空集合
+    public static IReadOnlyList(GiftEntry) GetGiftSelect(int index);
     public static void EnsureLoaded();                           // 经 ConfigSystem.Tables（YooAsset）
     public static void InitForTest(IEnumerable&lt;ItemDef&gt; items,
                                    IEnumerable&lt;GiftEntry&gt; randoms = null,
@@ -274,7 +274,7 @@ public static class ItemConfigMgr {
 <b>权重抽样算法(确定可测):</b>
 
 <pre class="code">// 注入 System.Random 使种子可控、单测可复现。
-public static GiftEntry RollRandom(IReadOnlyList&lt;GiftEntry&gt; pool, System.Random rng) {
+public static GiftEntry RollRandom(IReadOnlyList(GiftEntry) pool, System.Random rng) {
     if (pool == null || pool.Count == 0) return null;
     int total = 0;
     foreach (var e in pool) total += Math.Max(0, e.Rate);  // 负权重当 0
@@ -298,7 +298,7 @@ public static List&lt;GiftEntry&gt; OpenRandom(int index, int times, System.Rand
     return result;
 }
 // 自选：返回候选列表（不抽，UI 选）
-public static IReadOnlyList&lt;GiftEntry&gt; ListSelectable(int index)
+public static IReadOnlyList(GiftEntry) ListSelectable(int index)
     =&gt; ItemConfigMgr.GetGiftSelect(index);</pre>
 
 <b>抽样确定性验收的地基:</b>同一个 `new System.Random(种子)` + 同一奖池,`RollRandom` 必返同一项。单测用固定种子断言「抽 N 次的结果序列等于预期序列」;再用大样本(如 10000 次)断言「各项命中频率落在权重比例 ±容差内」(统计意义验权重生效,不依赖具体种子)。
@@ -403,7 +403,7 @@ sequenceDiagram
     G->>C: Resolve→GiftRandom: 调 OpenRandom(6001, times)
     G->>O: OpenRandom(index=6001, times, rng)
     O->>C: GetGiftRandom(6001) → 奖池(4 项)
-    C-->>O: 返回 IReadOnlyList&lt;GiftEntry&gt;
+    C-->>O: 返回 IReadOnlyList(GiftEntry)
     Note over O: 权重抽样(注入 rng)<br/>RollRandom: 命中 item_id=30002 体力 ×1
     O-->>G: 返回抽中道具列表
     Note over G: 逐项 Resolve(体力道具 30002)<br/>→ GrantKind.Numeric(num_id=4 体力, 30)
