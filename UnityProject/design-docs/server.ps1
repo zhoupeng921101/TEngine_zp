@@ -1,11 +1,11 @@
-# design-docs 本地静态服务器(零安装:Windows 自带 .NET HttpListener)
-# 双击 serve.bat 调用本脚本;运行时渲染 .md 需经 http:// 打开(file:// 下 fetch 被 CORS 拦)。
+# design-docs local static server (zero-install: Windows built-in .NET HttpListener).
+# Fallback used by serve.bat when Python is absent. Serve over http:// (file:// blocks fetch via CORS).
+# ASCII only: Windows PowerShell 5.1 reads .ps1 as ANSI/GBK without a BOM, which corrupts non-ASCII source.
 param(
   [int]$Port = 8765,
   [string]$Root = $PSScriptRoot,
   [switch]$NoBrowser
 )
-
 $Root = (Resolve-Path -LiteralPath $Root).Path
 $rootPrefix = $Root.TrimEnd('\') + '\'
 
@@ -25,16 +25,16 @@ $listener.Prefixes.Add($prefix)
 try {
   $listener.Start()
 } catch {
-  Write-Host "启动失败:$prefix" -ForegroundColor Red
+  Write-Host ("Failed to start " + $prefix) -ForegroundColor Red
   Write-Host $_.Exception.Message -ForegroundColor Red
-  Write-Host "端口被占用就换端口(serve.bat 改 -Port);或已装 Python 时改用:python -m http.server $Port" -ForegroundColor Yellow
-  Read-Host "按回车退出"
+  Write-Host ("If the port is busy, change -Port; or run: python -m http.server " + $Port) -ForegroundColor Yellow
+  Read-Host "Press Enter to exit"
   exit 1
 }
 
-Write-Host "Serving $Root" -ForegroundColor Green
-Write-Host "  $prefix" -ForegroundColor Cyan
-Write-Host "关闭此窗口停止服务。" -ForegroundColor Yellow
+Write-Host ("Serving " + $Root) -ForegroundColor Green
+Write-Host ("  " + $prefix) -ForegroundColor Cyan
+Write-Host "Close this window to stop." -ForegroundColor Yellow
 if (-not $NoBrowser) { try { Start-Process $prefix } catch {} }
 
 while ($listener.IsListening) {
@@ -51,7 +51,7 @@ while ($listener.IsListening) {
     if (-not $inside -or -not (Test-Path -LiteralPath $resolved -PathType Leaf)) {
       $res.StatusCode = 404
       $res.ContentType = 'text/plain; charset=utf-8'
-      $nb = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found: $rel")
+      $nb = [System.Text.Encoding]::UTF8.GetBytes("404 Not Found: " + $rel)
       $res.OutputStream.Write($nb, 0, $nb.Length)
       $res.Close()
       continue
