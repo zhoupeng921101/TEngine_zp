@@ -15,7 +15,7 @@
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">本篇直接兑现设计 <a href="#13-piety-temple-repair::open">13 §七 O3</a> 标注的「跨会话存盘是独立大改,不在本设计」——那一轮就是这一轮。四条边界先钉死:</p>
+    <p style="margin:8px 0 0">本篇直接兑现设计 <a href="#13-piety-temple-repair::open">13 §七 O3</a> 标注为「独立大改、延后」的跨会话存盘——那项延后项即本篇。四条边界先钉死:</p>
     <ul style="margin:8px 0 0">
       <li><b>只存元层进度,默认不存局内瞬态。</b>当前棋盘 / 手牌 / 进行中订单 / 合成区库存 / 悔棋栈 <b>每局重开不存</b>(断点续玩不做,详 <a href="#14-save-system::boundary">§3.1</a> 与 <a href="#14-save-system::open">§七 O1</a>)。<code>ResetForMergeOrder</code> 仍每次重建局内瞬态,只是元层不再从 0 起。</li>
       <li><b>复用现有 <code>Persistence.Provider</code> 接缝,不自造存储框架。</b>工程已有 <code>Persistence</code>(<code>Module/BlockBlast/Persistence.cs</code>:生产 <code>PlayerPrefsProvider</code> / 测试 <code>InMemoryPersistenceProvider</code>),<code>BlockGameState</code> 与 <code>DynamicWeightDiff</code> 已按此模式存盘。本篇沿用同接缝 + 同 <code>JsonUtility</code> 序列化口径,<mark>不引入新存储栈</mark>(对照 <a href="#14-save-system::format">§3.2</a>)。</li>
