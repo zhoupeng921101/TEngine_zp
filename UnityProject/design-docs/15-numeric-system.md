@@ -14,27 +14,26 @@
 
 把散落在 `MergeOrderState` 的 ad-hoc 货币(灵力 / 虔诚币 / 经验 / 体力)统一收进**配置化货币注册表**:用 Luban 货币表描述每种数值的**名称文本 id / 图标资源名 / 类型 / 品质**,运行期按 `num_id` 查询;再提供一套全局**显示格式化**(0–999 原值 / K / M,带一位小数)与一个**可复用数值显示 helper**,供通用奖励展示等后续 UI 复用。这是 xlsx 系统底层批次第一刀。**加法式**:只建框架 + 配置 + 格式化 + 查询,<mark>不强行重构现有货币字段</mark>。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">四条边界先钉死,防 dev 把「框架」做成「重构」:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>用 Luban 定表导表,不硬编码货币表。</b>工程的配置全栈是 Luban(源 <code>Configs/GameConfig/</code> 在仓库根、与 <code>UnityProject/</code> 同级;生成代码落 <code>GameScripts/HotFix/GameProto/GameConfig/</code>,二进制落 <code>Assets/AssetRaw/Configs/bytes/</code>)。本表走<mark>既有 GameConfig 管线</mark>:在 <code>__tables__.xlsx</code> 注册 + 新建数据 xlsx + 跑导表脚本生成代码,口径与现有 <code>item</code> / <code>weightcfg</code> 两表完全一致。</li>
-      <li><b>加法式,不动现有货币字段。</b>本设计<mark>不</mark>把 <code>MergeOrderState</code> 的 <code>Soul</code> / <code>Piety</code> / <code>Exp</code> / <code>Energy</code> 改成「按 num_id 索引的字典」,也不删任何现有字段或改其读写。数值系统是<b>旁挂的元数据注册表 + 工具</b>:谁要展示某货币的图标/名字/格式化数字,查注册表;货币的<b>数量值仍由各自现有字段持有</b>。全面迁移(把数量也收进注册表)列为后续轮,见 <a href="#15-numeric-system::open">§七 O1</a>。</li>
-      <li><b>注册表与格式化是纯逻辑,可单测;配置加载分两条路。</b>「按 num_id 查名字/图标/类型/品质」「把整数格式化成 999.9K」都是纯内存逻辑,单测直接断言、不碰 YooAsset。Luban 表的运行期加载走工程既有 <code>ConfigSystem.Instance.Tables</code>(YooAsset,需 Unity 运行时);EditMode 单测则仿 <code>WeightCfgLubanTests</code> 经 <code>AssetDatabase</code> 直读 <code>.bytes</code> 绕过 YooAsset(详 <a href="#15-numeric-system::registry">§3.3</a>)。</li>
-      <li><b>UI helper 范围最小可用。</b>本设计交付「格式化数字 + (可选)拼图标资源名」的纯函数 / 轻组件,供后续通用奖励面板调用。<mark>不</mark>在本设计把现有 <code>MergeOrderWindow</code> 的货币显示全部改走 helper(那是表现层重构,加法式之外),仅提供能力 + 一处可选示范接入,见 <a href="#15-numeric-system::ui">§3.5</a> 与 <a href="#15-numeric-system::open">§七 O3</a>。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 四条边界先钉死,防 dev 把「框架」做成「重构」:
+>
+> - **用 Luban 定表导表,不硬编码货币表。**工程的配置全栈是 Luban(源 `Configs/GameConfig/` 在仓库根、与 `UnityProject/` 同级;生成代码落 `GameScripts/HotFix/GameProto/GameConfig/`,二进制落 `Assets/AssetRaw/Configs/bytes/`)。本表走**既有 GameConfig 管线**:在 `__tables__.xlsx` 注册 + 新建数据 xlsx + 跑导表脚本生成代码,口径与现有 `item` / `weightcfg` 两表完全一致。
+> - **加法式,不动现有货币字段。**本设计**不**把 `MergeOrderState` 的 `Soul` / `Piety` / `Exp` / `Energy` 改成「按 num_id 索引的字典」,也不删任何现有字段或改其读写。数值系统是**旁挂的元数据注册表 + 工具**:谁要展示某货币的图标/名字/格式化数字,查注册表;货币的**数量值仍由各自现有字段持有**。全面迁移(把数量也收进注册表)列为后续轮,见 [§七 O1](#15-numeric-system::open)。
+> - **注册表与格式化是纯逻辑,可单测;配置加载分两条路。**「按 num_id 查名字/图标/类型/品质」「把整数格式化成 999.9K」都是纯内存逻辑,单测直接断言、不碰 YooAsset。Luban 表的运行期加载走工程既有 `ConfigSystem.Instance.Tables`(YooAsset,需 Unity 运行时);EditMode 单测则仿 `WeightCfgLubanTests` 经 `AssetDatabase` 直读 `.bytes` 绕过 YooAsset(详 [§3.3](#15-numeric-system::registry))。
+> - **UI helper 范围最小可用。**本设计交付「格式化数字 + (可选)拼图标资源名」的纯函数 / 轻组件,供后续通用奖励面板调用。**不**在本设计把现有 `MergeOrderWindow` 的货币显示全部改走 helper(那是表现层重构,加法式之外),仅提供能力 + 一处可选示范接入,见 [§3.5](#15-numeric-system::ui) 与 [§七 O3](#15-numeric-system::open)。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新系统 · 配置化数值底层</span> 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第一刀。</td></tr>
-      <tr><th>设计基线</th><td>工程既有 Luban 配置管线(<code>Configs/GameConfig/</code> 源 + <code>__tables__.xlsx</code> 注册 + <code>gen_code_bin_to_project_lazyload</code> 导表 + <code>ConfigSystem.Instance.Tables</code> 运行期加载;现有 <code>item</code> / <code>block.TbWeightCfg</code> 两表为范本) + 已落地 merge-order 切片的 ad-hoc 货币字段(<code>MergeOrderState.Soul</code> / <code>Piety</code> / <code>Exp</code> / <code>Energy</code>,设计 09/11/13)。<code>item.EQuality</code> 枚举(WHITE=1/BLUE=2/PURPLE=3/RED=4)是品质字段的现成范本。</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(本表不含任何充值 / 内购 / 计价字段;<code>num_type=3 钻石</code> 仅作资源类型登记,不实装购买入口 — 任务边界)。加法式扩展,不破坏现有核心循环 + 已建系统。IO 走 TEngine 异步规范(配置加载经既有 <code>ConfigSystem</code>,沿用其加载口径)。</td></tr>
-      <tr><th>影响范围</th><td>新增 Luban 货币表 <code>num.TbNum</code>(8 字段,见 <a href="#15-numeric-system::schema">§3.1</a>) + 枚举 <code>num.ENumType</code>(<a href="#15-numeric-system::enum">§3.2</a>);新增运行期 <code>NumericConfigMgr</code>(Luban 行 → POCO 桥接 + 按 num_id 查,仿 <code>WeightCfgConfigMgr</code>) + POCO <code>NumericEntry</code>;新增纯逻辑 <code>NumericFormat</code>(整数 → 显示串);新增 UI helper <code>NumericDisplay</code>(格式化 + 拼图标名)。<b>现有货币字段与读写零改动;旧路径零行为变化。</b></td></tr>
-      <tr><th>关键约束(继承现状)</th><td>注册表 / 格式化为纯逻辑,可在纯 C# 单测里直接调用(不依赖 YooAsset / Unity 运行时);配置表 EditMode 测试经 <code>AssetDatabase</code> 直读 <code>.bytes</code>(仿 <code>WeightCfgLubanTests</code>);现有 190 例 EditMode 零回归。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新系统 · 配置化数值底层 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第一刀。 |
+> | **设计基线** | 工程既有 Luban 配置管线(`Configs/GameConfig/` 源 + `__tables__.xlsx` 注册 + `gen_code_bin_to_project_lazyload` 导表 + `ConfigSystem.Instance.Tables` 运行期加载;现有 `item` / `block.TbWeightCfg` 两表为范本) + 已落地 merge-order 切片的 ad-hoc 货币字段(`MergeOrderState.Soul` / `Piety` / `Exp` / `Energy`,设计 09/11/13)。`item.EQuality` 枚举(WHITE=1/BLUE=2/PURPLE=3/RED=4)是品质字段的现成范本。 |
+> | **方向约束** | 离线还原 · **去变现**(本表不含任何充值 / 内购 / 计价字段;`num_type=3 钻石` 仅作资源类型登记,不实装购买入口 — 任务边界)。加法式扩展,不破坏现有核心循环 + 已建系统。IO 走 TEngine 异步规范(配置加载经既有 `ConfigSystem`,沿用其加载口径)。 |
+> | **影响范围** | 新增 Luban 货币表 `num.TbNum`(8 字段,见 [§3.1](#15-numeric-system::schema)) + 枚举 `num.ENumType`([§3.2](#15-numeric-system::enum));新增运行期 `NumericConfigMgr`(Luban 行 → POCO 桥接 + 按 num_id 查,仿 `WeightCfgConfigMgr`) + POCO `NumericEntry`;新增纯逻辑 `NumericFormat`(整数 → 显示串);新增 UI helper `NumericDisplay`(格式化 + 拼图标名)。**现有货币字段与读写零改动;旧路径零行为变化。** |
+> | **关键约束(继承现状)** | 注册表 / 格式化为纯逻辑,可在纯 C# 单测里直接调用(不依赖 YooAsset / Unity 运行时);配置表 EditMode 测试经 `AssetDatabase` 直读 `.bytes`(仿 `WeightCfgLubanTests`);现有 190 例 EditMode 零回归。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -85,13 +84,12 @@ flowchart TD
 
 现有四种数值的**数量值**仍由 `MergeOrderState` 各自字段持有,本设计一律不动。数值系统只补「元数据 + 格式化」,二者通过<b>约定的 num\_id</b> 弱关联(谁要展示某字段就拿对应 num\_id 查注册表)。对照:
 
-<table>
-    <tbody><tr><th>维度</th><th>现有 ad-hoc 货币(本设计不动)</th><th>数值系统(本篇新增)</th></tr>
-    <tr><td>数量值存在哪</td><td><code>MergeOrderState.Soul/Piety/Exp/Energy</code> 各 int 字段</td><td><span class="no">不持有数量</span>,只持有元数据(名字/图标/类型/品质)</td></tr>
-    <tr><td>怎么关联</td><td colspan="2"><mark>弱关联,经 num_id</mark>:约定 <code>num_id</code> ↔ 字段(见 <a href="#15-numeric-system::enum">§3.2</a> 映射约定)。注册表不读写 <code>MergeOrderState</code>;<code>MergeOrderState</code> 不依赖注册表。展示侧自己拿值 + 拿 num_id 查元数据</td></tr>
-    <tr><td>本设计是否迁移数量</td><td colspan="2"><span class="no">否</span>。把 <code>Soul</code> 等改成 <code>Dictionary&lt;numId,int&gt;</code> 的统一钱包是<b>独立大改</b>(动核心循环 + 存档 DTO + 悔棋快照字段),列后续轮 <a href="#15-numeric-system::open">§七 O1</a></td></tr>
-    <tr><td>灵力(Soul)为何不在表里</td><td colspan="2">spec 货币表 num_type 只列 1–4(经验/虔诚币/钻石/体力),<b>无灵力</b>。本设计严格照 spec 填 4 行,灵力<mark>暂不登记</mark>;若后续要纳入,加一行 num_type 即可(加法式),见 <a href="#15-numeric-system::open">§七 O2</a></td></tr>
-  </tbody></table>
+| 维度 | 现有 ad-hoc 货币(本设计不动) | 数值系统(本篇新增) |
+| --- | --- | --- |
+| 数量值存在哪 | `MergeOrderState.Soul/Piety/Exp/Energy` 各 int 字段 | 不持有数量,只持有元数据(名字/图标/类型/品质) |
+| 怎么关联 | **弱关联,经 num_id**:约定 `num_id` ↔ 字段(见 [§3.2](#15-numeric-system::enum) 映射约定)。注册表不读写 `MergeOrderState`;`MergeOrderState` 不依赖注册表。展示侧自己拿值 + 拿 num_id 查元数据 |  |
+| 本设计是否迁移数量 | 否。把 `Soul` 等改成 `Dictionary<numId,int>` 的统一钱包是**独立大改**(动核心循环 + 存档 DTO + 悔棋快照字段),列后续轮 [§七 O1](#15-numeric-system::open) |  |
+| 灵力(Soul)为何不在表里 | spec 货币表 num_type 只列 1–4(经验/虔诚币/钻石/体力),**无灵力**。本设计严格照 spec 填 4 行,灵力**暂不登记**;若后续要纳入,加一行 num_type 即可(加法式),见 [§七 O2](#15-numeric-system::open) |  |
 
 > [!NOTE]
 > <b>加法式的回归保证:</b>不进入 merge-order、不调用注册表 / 格式化时,工程行为与本篇前完全一致。数值系统全部是新增文件 + 新增 Luban 表;唯一可能碰旧代码的是 §3.5 那处**可选**的 helper 示范接入(默认不做,见 O3)。
@@ -196,13 +194,11 @@ Luban 枚举默认从 1 起递增编号(对照 `item.EQuality` WHITE=1),故 EXP=
     public static void InitForTest(IEnumerable&lt;NumericEntry&gt; entries) { _cache = …; }
 }</pre>
 
-<div class="callout warn">
-    <b>EditMode 测试如何拿到表(继承 <code>WeightCfgLubanTests</code> 现状):</b><code>ConfigSystem.Instance.Tables</code> 内部走 <code>ModuleSystem.GetModule&lt;IResourceModule&gt;()</code> + YooAsset,<mark>纯 C# / EditMode 跑不通</mark>(无 Unity 运行时资源模块)。两条已验证的测试路径:
-    <ul style="margin:6px 0 0">
-      <li><b>配置表往返测试</b>:仿 <code>WeightCfgLubanTests</code>——<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;("Assets/AssetRaw/Configs/bytes/num_tbnum.bytes")</code> → <code>new GameConfig.num.TbNum(new Luban.ByteBuf(ta.bytes))</code> → 遍历 <code>DataList</code> 转 <code>NumericEntry</code>。绕过 YooAsset,直读导出的二进制,验证「4 行加载 + 按 id 查值正确」。</li>
-      <li><b>注册表 / 格式化纯逻辑测试</b>:用 <code>NumericConfigMgr.InitForTest(手造 entry 列表)</code> 或直接调 <code>NumericFormat</code>,完全不碰任何文件。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **EditMode 测试如何拿到表(继承 `WeightCfgLubanTests` 现状):**`ConfigSystem.Instance.Tables` 内部走 `ModuleSystem.GetModule<IResourceModule>()` + YooAsset,**纯 C# / EditMode 跑不通**(无 Unity 运行时资源模块)。两条已验证的测试路径:
+>
+> - **配置表往返测试**:仿 `WeightCfgLubanTests`——`AssetDatabase.LoadAssetAtPath<TextAsset>("Assets/AssetRaw/Configs/bytes/num_tbnum.bytes")` → `new GameConfig.num.TbNum(new Luban.ByteBuf(ta.bytes))` → 遍历 `DataList` 转 `NumericEntry`。绕过 YooAsset,直读导出的二进制,验证「4 行加载 + 按 id 查值正确」。
+> - **注册表 / 格式化纯逻辑测试**:用 `NumericConfigMgr.InitForTest(手造 entry 列表)` 或直接调 `NumericFormat`,完全不碰任何文件。
 
 <b>运行期初始化时机:</b>注册表懒加载,首次 `Get` 触发 `EnsureLoaded`。无需像 `WeightCfgConfigMgr.InitDynamicWeight` 那样在启动主动灌(那是因为 DynamicWeightDiff 是有状态单例);本注册表只读,懒加载即可。<mark>不引入新的加载红线问题</mark>:沿用 `ConfigSystem` 既有加载口径(其同步 `LoadAsset` 是工程现状,不在本设计改动范围;若工程后续把 ConfigSystem 改异步,本注册表自然跟随,见 [§七 O5](#15-numeric-system::open))。
 

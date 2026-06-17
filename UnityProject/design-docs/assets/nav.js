@@ -171,6 +171,13 @@
     body.innerHTML = window.marked
       ? marked.parse(md)
       : '<pre>' + md.replace(/[&<]/g, function (c) { return c === '&' ? '&amp;' : '&lt;'; }) + '</pre>';
+    // 立项信息块由 GFM `> [!NOTE]` 渲染成无 id 的 .callout;按内容(首项=「立项信息」)补回 #intro,
+    // 供本页目录顶项 + 跨文档 #slug::intro 锚点。按内容定位而非「首个 callout」:多数文档首个 callout 是「读前必看」warn,立项信息排第二
+    if (!body.querySelector('#intro')) {
+      body.querySelectorAll('.callout').forEach(function (c) {
+        if (!document.getElementById('intro') && c.textContent.trim().indexOf('立项信息') === 0) c.id = 'intro';
+      });
+    }
     await renderMermaid(body);
     buildToc(body, slug);
     return true;

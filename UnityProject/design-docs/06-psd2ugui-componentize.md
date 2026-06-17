@@ -2,14 +2,12 @@
 
 工具 / 管线 · 给「PSD 直解导入」生成的扁平节点,在 Unity 端**一键挂上对应 UGUI 组件**;spriteState / fill·handle / content 等引用在 Inspector 里连。
 
-<div class="callout note">
-      <b>它解决什么:</b>
-      <ul>
-        <li><b>新工作流定调:</b>PSD 侧只做<b>位置 / 层级 / 切图 / 文本 / 阴影 / 描边 / 九宫格 / @PNG 合图</b>这些「机械活 + 只有导入能做」的部分;<mark>组件类型移到 Unity 端</mark>——在真相所在地点几下,比 PSD 标注更方便、好改。</li>
-        <li><b>导入产物 = 扁平脚手架:</b>无组件标注的层,导入器本就输出 <code>Image</code> / <code>Text</code> / 空容器(位置·切图准确)。本工具给这些节点<b>一键挂上对应组件</b>,控件自动补 <code>Image</code> 作 targetGraphic。</li>
-        <li><b>薄工具:</b>只挂组件、不猜角色、不自动连引用——<code>spriteState</code> / fill·handle / content 等<b>在 Inspector 里直接连</b>。不走重导合并(<mark class="g">Unity 为唯一真相</mark>),组件化一次性完成。</li>
-      </ul>
-    </div>
+> [!NOTE]
+> **它解决什么:**
+>
+> - **新工作流定调:**PSD 侧只做**位置 / 层级 / 切图 / 文本 / 阴影 / 描边 / 九宫格 / @PNG 合图**这些「机械活 + 只有导入能做」的部分;**组件类型移到 Unity 端**——在真相所在地点几下,比 PSD 标注更方便、好改。
+> - **导入产物 = 扁平脚手架:**无组件标注的层,导入器本就输出 `Image` / `Text` / 空容器(位置·切图准确)。本工具给这些节点**一键挂上对应组件**,控件自动补 `Image` 作 targetGraphic。
+> - **薄工具:**只挂组件、不猜角色、不自动连引用——`spriteState` / fill·handle / content 等**在 Inspector 里直接连**。不走重导合并(**Unity 为唯一真相**),组件化一次性完成。
 
 <h2 id="principles">一、设计原则</h2>
 
@@ -100,9 +98,6 @@ flowchart LR
 - **Undo**:每次挂载进一个 Undo group,可撤销。
 - **报告**:控制台打印挂载结果。
 
-<div class="related">
-      <h2>相关文档</h2>
-      <div class="related-links">
-        <a href="#">← 返回总览</a>
-      </div>
-    </div>
+## 相关文档
+
+- [← 返回总览](#)

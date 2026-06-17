@@ -15,39 +15,27 @@
 
 本工程**第一个美术驱动的 UI 窗口**:把效果图 `setting.png` 换皮成可运行的 `SettingsWindow`。目的有二——① 兑现[设计 19 设置系统](#19-settings-system)遗留的表现层(boss 遗留 #24);② <mark>打通「切图 → 每屏一个 SpriteAtlas → prefab 摆节点 → FindChildComponent 绑定 → \[Window\] 加载 → SetSubSprite 取图 → 热更」整条链路,成为后续所有界面换皮的模板</mark>。数据逻辑层(音频开关 + 持久化 + 信息 getter)[设计 19](#19-settings-system) 已交付并经单测,本次换皮**只做表现层 + 接线**,不重写数据层。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">五条边界先钉死,防把「换皮一个窗」做歪成「重写设置系统 / 改框架 / 自造一套寻址」:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>数据层不动,只接线。</b><code>GameLogic.Settings</code>(<code>SettingsService</code> / <code>AudioSettings</code> / <code>SettingsInfo</code> / <code>SettingsText</code> / <code>SettingsLinks</code>)已实装并经 294 例 EditMode 单测覆盖(<a href="#19-settings-system">设计 19</a>,归档 <code>pipeline/archive/2026-06-14-settings-system/</code>)。本次换皮<mark>不</mark>改这些类的逻辑;窗口只<b>调用</b>它们(读开关态、切换、读版本号 / 用户 ID)。</li>
-      <li><b>音频开关已能持久化,缺的只是「运行期持有者」。</b>框架键 <code>Setting.MusicMuted</code> / <code>SoundMuted</code> 经 <code>SettingsService</code> 落盘、启动流程 <code>ProcedureLaunch.InitSoundSettings</code> 加载(<a href="#19-settings-system::additive">设计 19 §2.2</a>),但 <code>SettingsService</code> 当前<mark>没有运行期单例持有者</mark>(只在模块文件 / 单测里 <code>new</code>)。本次换皮要给它一个持有者(<a href="#23-settings-window-art::holder">§五</a>),否则窗口每次开都 <code>new</code> 一个、改的内存态无人持有。</li>
-      <li><b>切图寻址 = 每屏一个 SpriteAtlas v2 + <code>Image.SetSubSprite(图集 location, 子图名)</code>。</b>(用户拍板)<mark>不</mark>用 <code>AddressByFileName</code> 平铺单图——这套塔罗素材跨界面有重名(<code>x</code> / <code>icon_x</code> / <code>setting</code> 等),平铺会被导入器去重并报错。图集落点 + 建法 + 收集器配置见 <a href="#23-settings-window-art::atlas">§三</a>。</li>
-      <li><b>绑定 = 传统 FindChildComponent + prefab 节点 <code>m_</code> 前缀;窗口继承 <code>UIWindow</code> + <code>[Window]</code>。</b>(用户拍板)<mark>不</mark>用 UIBindComponent。前缀规则见 tengine-dev 的 <code>naming-rules</code> 参考文档(本篇 <a href="#23-settings-window-art::tree">§四节点树</a> 逐节点给名)。弹窗 <code>fullScreen:false</code>、层级 <code>Top</code>、prefab 根挂 <code>Canvas</code>(<a href="#23-settings-window-art::window">§六</a>)。</li>
-      <li><b>UI 业务代码在热更区,资源走 YooAsset。</b>窗口脚本落 <code>GameScripts/HotFix/GameLogic/UI/</code>(热更);切图 / 图集 / prefab 是资源,落 <code>AssetRaw/</code> 下被收集器收。改动全在加法侧,不破坏 Classic / Merge 主玩法(<a href="#23-settings-window-art::accept">§九 验收 R</a>)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 五条边界先钉死,防把「换皮一个窗」做歪成「重写设置系统 / 改框架 / 自造一套寻址」:
+>
+> - **数据层不动,只接线。**`GameLogic.Settings`(`SettingsService` / `AudioSettings` / `SettingsInfo` / `SettingsText` / `SettingsLinks`)已实装并经 294 例 EditMode 单测覆盖([设计 19](#19-settings-system),归档 `pipeline/archive/2026-06-14-settings-system/`)。本次换皮**不**改这些类的逻辑;窗口只**调用**它们(读开关态、切换、读版本号 / 用户 ID)。
+> - **音频开关已能持久化,缺的只是「运行期持有者」。**框架键 `Setting.MusicMuted` / `SoundMuted` 经 `SettingsService` 落盘、启动流程 `ProcedureLaunch.InitSoundSettings` 加载([设计 19 §2.2](#19-settings-system::additive)),但 `SettingsService` 当前**没有运行期单例持有者**(只在模块文件 / 单测里 `new`)。本次换皮要给它一个持有者([§五](#23-settings-window-art::holder)),否则窗口每次开都 `new` 一个、改的内存态无人持有。
+> - **切图寻址 = 每屏一个 SpriteAtlas v2 + `Image.SetSubSprite(图集 location, 子图名)`。**(用户拍板)**不**用 `AddressByFileName` 平铺单图——这套塔罗素材跨界面有重名(`x` / `icon_x` / `setting` 等),平铺会被导入器去重并报错。图集落点 + 建法 + 收集器配置见 [§三](#23-settings-window-art::atlas)。
+> - **绑定 = 传统 FindChildComponent + prefab 节点 `m_` 前缀;窗口继承 `UIWindow` + `[Window]`。**(用户拍板)**不**用 UIBindComponent。前缀规则见 tengine-dev 的 `naming-rules` 参考文档(本篇 [§四节点树](#23-settings-window-art::tree) 逐节点给名)。弹窗 `fullScreen:false`、层级 `Top`、prefab 根挂 `Canvas`([§六](#23-settings-window-art::window))。
+> - **UI 业务代码在热更区,资源走 YooAsset。**窗口脚本落 `GameScripts/HotFix/GameLogic/UI/`(热更);切图 / 图集 / prefab 是资源,落 `AssetRaw/` 下被收集器收。改动全在加法侧,不破坏 Classic / Merge 主玩法([§九 验收 R](#23-settings-window-art::accept))。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">表现层换皮 · 首个美术驱动 UI 窗口 + 寻址基础设施</span> 出设计稿 + 验收标准,交开发落地。兑现遗留 #24。</td></tr>
-      <tr><th>设计基线(经勘察核实的真实符号 / 现状)</th><td>
-        <b>数据层(已实装,只调用)</b>:<code>GameLogic.Settings.SettingsService</code>(<code>Load</code>/<code>SetMusic(bool)</code>/<code>SetSound(bool)</code>/<code>ToggleMusic()</code>/<code>ToggleSound()</code>/<code>Audio.MusicOn</code>/<code>Audio.SoundOn</code>/<code>AudioSink</code>/<code>static ToggleTipTextId</code>);<code>SettingsInfo.Version()</code>/<code>UserId(PlayerInfo)</code>;<code>SettingsLinks.UserAgreementUrl</code>/<code>PrivacyPolicyUrl</code>/<code>ContactSupport</code>;<code>SettingsText.MusicOn/Off/SoundOn/Off</code>(190001–4)。<br>
-        <b>UI 框架</b>:<code>UIWindow</code> + <code>[Window(UILayer, location, fullScreen, hideTimeToClose)]</code>(<code>WindowAttribute.cs:53</code>);生命周期 <code>ScriptGenerator → RegisterEvent → OnCreate → OnRefresh</code>(<code>UIBase.cs</code>);绑定 <code>FindChildComponent&lt;T&gt;(path)</code> / <code>FindChild(path)</code>(<code>UIBase.cs:253/243</code>);事件 <code>AddUIEvent</code>(<code>UIBase.cs:299</code>);打开 <code>GameModule.UI.ShowUIAsync&lt;T&gt;()</code> / 关闭 <code>CloseUI&lt;T&gt;()</code>。<br>
-        <b>取子图 API</b>:<code>Image.SetSubSprite(string location, string spriteName, bool setNativeSize=false)</code>(<code>SetSpriteExtensions.cs:43</code>);内部 <code>YooAssets.GetAssetInfo(location)</code> + <code>LoadSubAssetsAsync&lt;Sprite&gt;(location)</code> + <code>GetSubAssetObject&lt;Sprite&gt;(spriteName)</code>(<code>ResourceExtComponent.SubSprite.cs:50</code>),<mark>location 必须指向一个被收集器收录、可作 SubAssets 加载的 SpriteAtlas 资源</mark>。引用计数由框架 <code>SubSpriteReference</code> 自动管,无需手动释放。<br>
-        <b>收集器</b>:<code>AssetBundleCollectorSetting.asset</code> 现有组 <code>UI</code>(<code>Assets/AssetRaw/UI</code>,<code>AddressByFileName</code>,<code>PackSeparately</code>)放 prefab;<code>UIRaw/Atlas</code>(<code>Assets/AssetRaw/UIRaw/Atlas</code>,<code>AddressByFileName</code>,<code>PackDirectory</code>)放图集源。<br>
-        <b>分辨率</b>:UIRoot CanvasScaler 参考分辨率经场景 <code>main.unity:366</code> 覆写为 <mark>1080×1920</mark>(与美术基准一致);prefab 直接用 1080×1920 锚点坐标,<mark>不</mark>套用 <code>BlockLayout</code> 那套 750×1334 私有坐标系 / <code>UGuiFactory</code>。
-      </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:窗口不含充值 / 内购 / 快捷登录(效果图也无)。社交外链 / 客服 / 协议 URL 按 <a href="#19-settings-system">设计 19</a> 的「实做 / 占位 / 不做」分档(<a href="#23-settings-window-art::dispatch">§七</a>)。加法式:新建窗口 + 图集 + prefab + 持有者,不改框架、不改数据层逻辑、不动既有玩法窗口。</td></tr>
-      <tr><th>影响范围</th><td>
-        <b>新增资源</b>:切图 22 张(<code>AssetRaw/UIRaw/Atlas/setting/</code>)+ <code>Atlas_settings.spriteatlasv2</code> + <code>SettingsWindow.prefab</code>(<code>AssetRaw/UI/Prefabs/</code>);<br>
-        <b>新增代码(热更区)</b>:<code>SettingsWindow.cs</code>(窗口脚本)+ <code>GameContext</code>(运行期上下文单例,持有 <code>SettingsService</code> 等无主数据,<a href="#23-settings-window-art::holder">§五</a>);<br>
-        <b>改既有(最小)</b>:收集器加一个 <code>Atlas</code> 子收集路径(或复用 UIRaw/Atlas);主界面 / HUD 留设置入口按钮接 <code>ShowUIAsync&lt;SettingsWindow&gt;</code>(入口位置 <a href="#23-settings-window-art::entry">§八</a>);<code>ProcedureLaunch</code> 启动时把 <code>SettingsService.AudioSink</code> 接到音频模块(<a href="#23-settings-window-art::holder">§五</a>,一处约 4 行)。<br>
-        <b>不改</b>:<code>GameLogic.Settings</code> 各类逻辑、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测。
-      </td></tr>
-      <tr><th>关键约束(继承现状)</th><td>窗口逻辑可被反射驱动单测(EditMode 编译 + 反射调 <code>ScriptGenerator</code>/字段),但<b>真实视觉对位 / 指针点击 / 真实音频实听</b>须 Play 模式人眼 + 手验(MCP 不能模拟指针拖拽 / 点击,但能 <code>ShowUIAsync</code> + 截图核渲染)。验收按「逻辑可单测」与「需 Play / 人眼」两档拆开(<a href="#23-settings-window-art::accept">§九</a>)。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 表现层换皮 · 首个美术驱动 UI 窗口 + 寻址基础设施 出设计稿 + 验收标准,交开发落地。兑现遗留 #24。 |
+> | **设计基线(经勘察核实的真实符号 / 现状)** | **数据层(已实装,只调用)**:`GameLogic.Settings.SettingsService`(`Load`/`SetMusic(bool)`/`SetSound(bool)`/`ToggleMusic()`/`ToggleSound()`/`Audio.MusicOn`/`Audio.SoundOn`/`AudioSink`/`static ToggleTipTextId`);`SettingsInfo.Version()`/`UserId(PlayerInfo)`;`SettingsLinks.UserAgreementUrl`/`PrivacyPolicyUrl`/`ContactSupport`;`SettingsText.MusicOn/Off/SoundOn/Off`(190001–4)。 **UI 框架**:`UIWindow` + `[Window(UILayer, location, fullScreen, hideTimeToClose)]`(`WindowAttribute.cs:53`);生命周期 `ScriptGenerator → RegisterEvent → OnCreate → OnRefresh`(`UIBase.cs`);绑定 `FindChildComponent<T>(path)` / `FindChild(path)`(`UIBase.cs:253/243`);事件 `AddUIEvent`(`UIBase.cs:299`);打开 `GameModule.UI.ShowUIAsync<T>()` / 关闭 `CloseUI<T>()`。 **取子图 API**:`Image.SetSubSprite(string location, string spriteName, bool setNativeSize=false)`(`SetSpriteExtensions.cs:43`);内部 `YooAssets.GetAssetInfo(location)` + `LoadSubAssetsAsync<Sprite>(location)` + `GetSubAssetObject<Sprite>(spriteName)`(`ResourceExtComponent.SubSprite.cs:50`),**location 必须指向一个被收集器收录、可作 SubAssets 加载的 SpriteAtlas 资源**。引用计数由框架 `SubSpriteReference` 自动管,无需手动释放。 **收集器**:`AssetBundleCollectorSetting.asset` 现有组 `UI`(`Assets/AssetRaw/UI`,`AddressByFileName`,`PackSeparately`)放 prefab;`UIRaw/Atlas`(`Assets/AssetRaw/UIRaw/Atlas`,`AddressByFileName`,`PackDirectory`)放图集源。 **分辨率**:UIRoot CanvasScaler 参考分辨率经场景 `main.unity:366` 覆写为 **1080×1920**(与美术基准一致);prefab 直接用 1080×1920 锚点坐标,**不**套用 `BlockLayout` 那套 750×1334 私有坐标系 / `UGuiFactory`。 |
+> | **方向约束** | 离线还原 · **去变现**:窗口不含充值 / 内购 / 快捷登录(效果图也无)。社交外链 / 客服 / 协议 URL 按 [设计 19](#19-settings-system) 的「实做 / 占位 / 不做」分档([§七](#23-settings-window-art::dispatch))。加法式:新建窗口 + 图集 + prefab + 持有者,不改框架、不改数据层逻辑、不动既有玩法窗口。 |
+> | **影响范围** | **新增资源**:切图 22 张(`AssetRaw/UIRaw/Atlas/setting/`)+ `Atlas_settings.spriteatlasv2` + `SettingsWindow.prefab`(`AssetRaw/UI/Prefabs/`); **新增代码(热更区)**:`SettingsWindow.cs`(窗口脚本)+ `GameContext`(运行期上下文单例,持有 `SettingsService` 等无主数据,[§五](#23-settings-window-art::holder)); **改既有(最小)**:收集器加一个 `Atlas` 子收集路径(或复用 UIRaw/Atlas);主界面 / HUD 留设置入口按钮接 `ShowUIAsync<SettingsWindow>`(入口位置 [§八](#23-settings-window-art::entry));`ProcedureLaunch` 启动时把 `SettingsService.AudioSink` 接到音频模块([§五](#23-settings-window-art::holder),一处约 4 行)。 **不改**:`GameLogic.Settings` 各类逻辑、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测。 |
+> | **关键约束(继承现状)** | 窗口逻辑可被反射驱动单测(EditMode 编译 + 反射调 `ScriptGenerator`/字段),但**真实视觉对位 / 指针点击 / 真实音频实听**须 Play 模式人眼 + 手验(MCP 不能模拟指针拖拽 / 点击,但能 `ShowUIAsync` + 截图核渲染)。验收按「逻辑可单测」与「需 Play / 人眼」两档拆开([§九](#23-settings-window-art::accept))。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -108,15 +96,15 @@
     Allow Rotation / Tight Packing = 按现有图集口径
     Max Texture Size = 2048, 压缩按现有平台设置</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>关键:图集本身必须可被 YooAsset 当 SubAssets 加载(这是 SetSubSprite 能跑通的前提)</b>
-    <p style="margin:6px 0 0"><code>SetSubSprite(location, spriteName)</code> 内部对 <code>location</code> 调 <code>YooAssets.GetAssetInfo(location)</code> + <code>LoadSubAssetsAsync&lt;Sprite&gt;(location)</code>(<code>ResourceExtComponent.SubSprite.cs:52,62</code>)。所以 <code>location</code> 必须是一个<mark>被收集器收录、可按子资源枚举出各精灵的资源</mark>。现有 <code>AssetArt/Atlas/</code> 目录<b>不在</b>收集器任何组里(已勘察:收集器只收 <code>AssetRaw/</code> 树),工程也<b>从未实际调用过 <code>SetSubSprite</code></b>——所以「图集如何被寻址」是本次换皮要打通并验证的核心未知点。dev 须二选一并<b>在 Play 模式实测 <code>GetAssetInfo</code> 不返回 invalid、子图能取到</b>:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>(方案 A，推荐先试)</b> 把 <code>Atlas_settings.spriteatlasv2</code> 放进 <code>Assets/AssetRaw/UIRaw/Atlas/</code>(与切图源同树),使其被现有 <code>UIRaw/Atlas</code> 组按 <code>AddressByFileName</code> 收录,<code>location = "Atlas_settings"</code>。切图源 PNG 仍在子目录、由图集打包,运行期对图集资源做 <code>LoadSubAssetsAsync</code> 取各精灵。</li>
-      <li><b>(方案 B，A 不通时)</b> 不依赖 SpriteAtlas 资源本身,而是<b>对收录了散图的目录 / 散图直接做子资源寻址</b>——但这与用户拍板「每屏一个图集」相悖,仅作 A 不通时的兜底,<mark>须回报 boss 再定</mark>。</li>
-    </ul>
-    <p style="margin:8px 0 0">这是本次换皮唯一带验证风险的环节(其余链路均有同类先例)。<b>dev 落地第一步就先验证寻址跑通(取到任意一张子图显示出来)</b>,再铺满整窗——避免摆完整个 prefab 才发现寻址不通。</p>
-  </div>
+> [!WARNING]
+> **关键:图集本身必须可被 YooAsset 当 SubAssets 加载(这是 SetSubSprite 能跑通的前提)**
+>
+> `SetSubSprite(location, spriteName)` 内部对 `location` 调 `YooAssets.GetAssetInfo(location)` + `LoadSubAssetsAsync<Sprite>(location)`(`ResourceExtComponent.SubSprite.cs:52,62`)。所以 `location` 必须是一个**被收集器收录、可按子资源枚举出各精灵的资源**。现有 `AssetArt/Atlas/` 目录**不在**收集器任何组里(已勘察:收集器只收 `AssetRaw/` 树),工程也**从未实际调用过 `SetSubSprite`**——所以「图集如何被寻址」是本次换皮要打通并验证的核心未知点。dev 须二选一并**在 Play 模式实测 `GetAssetInfo` 不返回 invalid、子图能取到**:
+>
+> - **(方案 A，推荐先试)** 把 `Atlas_settings.spriteatlasv2` 放进 `Assets/AssetRaw/UIRaw/Atlas/`(与切图源同树),使其被现有 `UIRaw/Atlas` 组按 `AddressByFileName` 收录,`location = "Atlas_settings"`。切图源 PNG 仍在子目录、由图集打包,运行期对图集资源做 `LoadSubAssetsAsync` 取各精灵。
+> - **(方案 B，A 不通时)** 不依赖 SpriteAtlas 资源本身,而是**对收录了散图的目录 / 散图直接做子资源寻址**——但这与用户拍板「每屏一个图集」相悖,仅作 A 不通时的兜底,**须回报 boss 再定**。
+>
+> 这是本次换皮唯一带验证风险的环节(其余链路均有同类先例)。**dev 落地第一步就先验证寻址跑通(取到任意一张子图显示出来)**,再铺满整窗——避免摆完整个 prefab 才发现寻址不通。
 
 <h3 id="atlas-use">3.3 运行期取图写法</h3>
 
@@ -152,7 +140,8 @@ prefab 与图集分别被两个现有组收录,dev 落地后在收集器界面�
 
 根节点照既有窗口 prefab 范式(`TempleWindow.prefab`):根挂 `RectTransform`(stretch 锚点 0,0→1,1)+ `Canvas`(`RenderMode` 同 UIRoot)+ `GraphicRaycaster`。坐标系 = 1080×1920 参考分辨率(场景 CanvasScaler 已设此值,<mark>直接用真实锚点 / 像素,不套 750 私有系</mark>)。下方坐标为对位描述(精确像素 dev 摆图时对着 `setting.png` 微调)。`m_` 前缀决定 `FindChildComponent` 绑定类型(前缀表见 tengine-dev 的 `naming-rules` 参考文档)。
 
-<div class="tree">SettingsWindow                         (根: RectTransform 全屏 stretch + Canvas + GraphicRaycaster)
+```text
+SettingsWindow                         (根: RectTransform 全屏 stretch + Canvas + GraphicRaycaster)
 ├─ m_btn_Mask                          Button  全屏遮罩(Image alpha≈0.6 深色; 点击关窗); 锚点全屏 stretch
 └─ Root                                RectTransform 居中容器(锚点中心, 承载所有可见内容)
    ├─ m_btn_Close                      Button  右上角圆形关闭; 子图 icon_x(+ x); 锚点(顶部右)
@@ -176,7 +165,8 @@ prefab 与图集分别被两个现有组收录,dev 落地后在收集器界面�
       ├─ m_toggle_Sound                Toggle  音效开关; 子图 Volume_up / Player_music(双态)
       ├─ m_btn_Notify                  Button  图标按钮"通知设置"; 子图 printer(占位)
       ├─ m_btn_Help                    Button  图标按钮"帮助设置"; 子图 help
-      └─ m_btn_Privacy                 Button  图标按钮"隐私设置"; 子图 setting(兜底)</div>
+      └─ m_btn_Privacy                 Button  图标按钮"隐私设置"; 子图 setting(兜底)
+```
 
 > [!NOTE]
 > **静态节点 vs 动态节点**
@@ -306,13 +296,11 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
     }
 }</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 注意:references 与工程实际的两处出入(已勘察)</b>
-    <ul style="margin:6px 0 0">
-      <li><code>RegisterButtonClick(btn, handler)</code> 在 tengine-dev references 的 ui-patterns 示例里出现,但<mark>本工程 UIModule 未实现该方法</mark>(grep 零命中)。既有窗口(<code>TempleWindow</code> / <code>MainMenuWindow</code>)一律用 <code>btn.onClick.AddListener(...)</code>。本稿按工程实际写 <code>onClick.AddListener</code>。</li>
-      <li>窗口销毁回调是 <code>OnDestroy()</code>(无 <code>OnClose</code>)。<code>onClick</code> 监听随 GameObject 销毁自动清,无需手动 <code>RemoveAllListeners</code>;<code>AddUIEvent</code> 注册的跨模块事件才随窗口自动清(本窗暂无 <code>AddUIEvent</code> 需求)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **dev 注意:references 与工程实际的两处出入(已勘察)**
+>
+> - `RegisterButtonClick(btn, handler)` 在 tengine-dev references 的 ui-patterns 示例里出现,但**本工程 UIModule 未实现该方法**(grep 零命中)。既有窗口(`TempleWindow` / `MainMenuWindow`)一律用 `btn.onClick.AddListener(...)`。本稿按工程实际写 `onClick.AddListener`。
+> - 窗口销毁回调是 `OnDestroy()`(无 `OnClose`)。`onClick` 监听随 GameObject 销毁自动清,无需手动 `RemoveAllListeners`;`AddUIEvent` 注册的跨模块事件才随窗口自动清(本窗暂无 `AddUIEvent` 需求)。
 
 <h2 id="dispatch">七、每个按钮 / 开关的处置分流表</h2>
 
@@ -356,16 +344,15 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 
 <h3 id="accept-logic">9.1 逻辑 / 编译可单测(EditMode)</h3>
 
-<table class="tight">
-    <tbody><tr><th>组</th><th>#</th><th>验收点(完成定义)</th></tr>
-    <tr><td rowspan="2">编译 C</td><td>C1</td><td><code>SettingsWindow.cs</code> + <code>GameContext.cs</code> 编译 0 error;现有 EditMode 全绿(零回归,settings 数据层 294 例不动)</td></tr>
-    <tr><td>C2</td><td>Code Review 5 红线:异步优先(无同步大资源加载)/ 模块访问 <code>GameModule</code>(音频 / UI 经 GameModule 或 ModuleSystem 正路径)/ 资源释放(<code>SetSubSprite</code> 自管引用计数,无裸 <code>LoadAssetAsync&lt;Sprite&gt;</code>)/ 热更边界(窗口代码在 HotFix)/ 事件解耦(按钮用 onClick / 跨模块用 GameEvent)</td></tr>
-    <tr><td rowspan="3">持有者 H</td><td>H1</td><td><code>GameContext.Instance.Settings</code> 非空,且跨多次 <code>Instance</code> 访问返回<b>同一</b> <code>SettingsService</code> 实例(单例持有,不每次新建)</td></tr>
-    <tr><td>H2</td><td><code>GameContext</code> 首次 <code>Instance</code> 触发 <code>OnInit</code> 调 <code>Settings.Load()</code>:无键时 <code>Audio.SoundOn==true &amp;&amp; Audio.MusicOn==true</code>(默认全开,经数据层默认)</td></tr>
-    <tr><td>H3</td><td>经 <code>GameContext.Instance.Settings.SetSound(false)</code> 后,再次 <code>GameContext.Instance.Settings.Audio.SoundOn==false</code>(同实例态保真);<code>Release()</code> 后重取 <code>Instance</code> 复 <code>Load</code> 仍能从存储读回上次值(持久化往返,复用数据层 P3 同源逻辑)</td></tr>
-    <tr><td rowspan="2">窗口逻辑 W</td><td>W1</td><td>反射驱动 <code>ScriptGenerator</code>(对 prefab 实例或在测试桩上)后,各 <code>m_</code> 字段非空(节点路径 / 前缀与脚本绑定一致)——若 test 反射不便覆盖 prefab,降级为「<code>ScriptGenerator</code> 内各 <code>FindChildComponent</code> 路径与 §四节点树逐条对齐」的静态核对(test 读脚本 + prefab 对路径)</td></tr>
-    <tr><td>W2</td><td><code>OnSoundToggled(false)</code> 调用后 <code>GameContext.Instance.Settings.Audio.SoundOn==false</code> 且存储中 <code>Setting.SoundMuted==true</code>(窗口确把开关切换贯通到数据层落盘——可经注入 InMemory store 的 GameContext 测试变体断言)</td></tr>
-  </tbody></table>
+| 组 | # | 验收点(完成定义) |
+| --- | --- | --- |
+| 编译 C | C1 | `SettingsWindow.cs` + `GameContext.cs` 编译 0 error;现有 EditMode 全绿(零回归,settings 数据层 294 例不动) |
+| 编译 C | C2 | Code Review 5 红线:异步优先(无同步大资源加载)/ 模块访问 `GameModule`(音频 / UI 经 GameModule 或 ModuleSystem 正路径)/ 资源释放(`SetSubSprite` 自管引用计数,无裸 `LoadAssetAsync<Sprite>`)/ 热更边界(窗口代码在 HotFix)/ 事件解耦(按钮用 onClick / 跨模块用 GameEvent) |
+| 持有者 H | H1 | `GameContext.Instance.Settings` 非空,且跨多次 `Instance` 访问返回**同一** `SettingsService` 实例(单例持有,不每次新建) |
+| 持有者 H | H2 | `GameContext` 首次 `Instance` 触发 `OnInit` 调 `Settings.Load()`:无键时 `Audio.SoundOn==true && Audio.MusicOn==true`(默认全开,经数据层默认) |
+| 持有者 H | H3 | 经 `GameContext.Instance.Settings.SetSound(false)` 后,再次 `GameContext.Instance.Settings.Audio.SoundOn==false`(同实例态保真);`Release()` 后重取 `Instance` 复 `Load` 仍能从存储读回上次值(持久化往返,复用数据层 P3 同源逻辑) |
+| 窗口逻辑 W | W1 | 反射驱动 `ScriptGenerator`(对 prefab 实例或在测试桩上)后,各 `m_` 字段非空(节点路径 / 前缀与脚本绑定一致)——若 test 反射不便覆盖 prefab,降级为「`ScriptGenerator` 内各 `FindChildComponent` 路径与 §四节点树逐条对齐」的静态核对(test 读脚本 + prefab 对路径) |
+| 窗口逻辑 W | W2 | `OnSoundToggled(false)` 调用后 `GameContext.Instance.Settings.Audio.SoundOn==false` 且存储中 `Setting.SoundMuted==true`(窗口确把开关切换贯通到数据层落盘——可经注入 InMemory store 的 GameContext 测试变体断言) |
 
 <h3 id="accept-play">9.2 需 Play / 人眼(手验遗留,boss 授权)</h3>
 
@@ -412,14 +399,13 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 | B5 | 打开入口落点 | <b>主菜单 <code>MainMenuWindow</code> 加按钮</b>(最小改动) | 玩法 HUD 顶栏齿轮入口后续轮次 / 行有余力时一并接 |
 | B6 | 切图「子图名 → 功能位」最终映射 | dev 读图核实后定(§二 callout 给推断) | 命名歧义大的(`printer` / `chat` 复用)以效果图视觉为准 |
 
-<div class="callout warn" style="margin-top:8px">
-    <b>需问用户 / 产品(无安全默认 → 入返回 blockers 或 decisions)</b>
-    <ul style="margin:6px 0 0">
-      <li><b>社交外链真实 URL 来源</b>:5 个社交平台(facebook/twitter/x/youtube/instagram)的真实账号链接无来源。<mark>安全默认 = 占位 URL / Toast「外链待配」+ TODO</mark>(可逆、不抵触方向),按默认推进、不停机;真实 URL 由产品提供后替换常量。</li>
-      <li>协议 / 隐私 / 客服真实 URL 同此:占位(数据层已备占位常量),不停机。</li>
-    </ul>
-    <p style="margin:8px 0 0">以上均有安全默认(占位 + TODO),按 plan 红线<b>不入 blockers</b>(不停机),记 decisions 供 boss 关单复核;真实地址是后续数据,本次换皮不阻塞。</p>
-  </div>
+> [!WARNING]
+> **需问用户 / 产品(无安全默认 → 入返回 blockers 或 decisions)**
+>
+> - **社交外链真实 URL 来源**:5 个社交平台(facebook/twitter/x/youtube/instagram)的真实账号链接无来源。**安全默认 = 占位 URL / Toast「外链待配」+ TODO**(可逆、不抵触方向),按默认推进、不停机;真实 URL 由产品提供后替换常量。
+> - 协议 / 隐私 / 客服真实 URL 同此:占位(数据层已备占位常量),不停机。
+>
+> 以上均有安全默认(占位 + TODO),按 plan 红线**不入 blockers**(不停机),记 decisions 供 boss 关单复核;真实地址是后续数据,本次换皮不阻塞。
 
 <h2 id="risk">十二、风险表</h2>
 

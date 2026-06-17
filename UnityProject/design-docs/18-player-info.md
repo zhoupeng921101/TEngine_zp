@@ -14,40 +14,27 @@
 
 玩家个人信息系统的**数据逻辑层**:玩家信息数据模型(id / 名字 / 等级 / 经验 / 当前头像·框 / 已解锁集合)跨会话持久化,加上四组纯逻辑能力——**名字生成器**(初始系统名)、**改名逻辑**(首次免费 / 配置价格 / 钻石扣费尝试 / 屏蔽字匹配)、**头像/框解锁判定**(解锁条件→三态)、**id 复制剪贴板工具**。这是 xlsx 系统底层批次第四刀。**数据层先行**(沿用 15/16/17 节奏):全部 EditMode 可测;<mark>UI 窗口(玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览)是表现层,需美术,延后轮,本设计只留钩子 + TODO</mark>。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">五条边界先钉死,防 dev 把「数据层」做成「连 UI + 改既有系统」:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>用 Luban 定头像&amp;头像框表,不硬编码。</b>工程配置全栈是 Luban(源 <code>Configs/GameConfig/Datas/</code> 在仓库根、与 <code>UnityProject/</code> 同级;生成代码落 <code>GameScripts/HotFix/GameProto/GameConfig/</code>,二进制落 <code>Assets/AssetRaw/Configs/bytes/</code>)。本表走<mark>既有 GameConfig 管线</mark>:<code>__tables__.xlsx</code> 注册 + 新建数据 <code>avatar.xlsx</code> + 跑导表脚本,口径与现有 <code>num</code> / <code>item</code> / <code>itemdef</code> 完全一致。</li>
-      <li><b>玩家信息持久化并入既有 MergeMetaSave,不另造存储栈。</b>save-system(设计 14)已落地跨会话存档:<code>MergeMetaSave</code>(DTO,扁平 <code>[Serializable]</code>)+ <code>MergeMetaPersistence</code>(序列化 / 落盘 / 迁移 / 跨天重置,异步外壳 + 同步纯逻辑两层)。玩家信息新字段<mark>增量并入</mark>这套(加几个 DTO 字段 + ExportMeta/ImportMeta 拷贝),不新建第二个存档文件、不新建第二套 Persistence。</li>
-      <li><b>数据模型 + 服务是纯逻辑,可单测;配置加载分两路。</b>名字生成 / 改名判定 / 解锁三态 / 等级换算都是纯内存逻辑,单测直接断言、不碰 YooAsset。Luban 表运行期加载走既有 <code>ConfigSystem.Instance.Tables</code>(YooAsset,需 Unity 运行时);EditMode 单测仿 <code>ItemSystemTests</code> 经 <code>AssetDatabase</code> 直读 <code>.bytes</code> 绕 YooAsset(详 <a href="#18-player-info::schema">§3.5</a>),或经 <code>InitForTest</code> 注入。</li>
-      <li><b>UI 投放不在本设计。</b>玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览 tips 是表现层,依赖尚不存在的美术(头像/框 Sprite),本设计<mark>不</mark>建窗口、不挂 prefab。本设计交付到「服务方法 + 数据模型 + 头像表查询」,留主界面入口钩子 + TODO(见 <a href="#18-player-info::hook">§五</a>)。</li>
-      <li><b>离线 + 去变现适配(项目方向)。</b>① id 本地生成保证本地唯一(无服务器);② 账号绑定 = 不做(离线无账号);③ 改名「发起申请」离线直接生效(无服务器审批);④ 解锁条件 type 2「活动发放」表字段支持,本设计只接 type 1「等级」自动判定,type 2 留钩子 + TODO(无活动系统);⑤ 钻石扣费 = 实现「首次免费 + 读配置价格 + 经数值路径尝试扣减」逻辑,钻石(num_id=3)<mark>尚无可花费余额字段</mark>(item-system 关单记:<code>ItemGrant.ApplyNumeric</code> 对钻石返 false 不落),故扣减为 no-op,逻辑层照样可测(见 <a href="#18-player-info::name">§3.2</a>「钻石扣费的真实现状」)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 五条边界先钉死,防 dev 把「数据层」做成「连 UI + 改既有系统」:
+>
+> - **用 Luban 定头像&头像框表,不硬编码。**工程配置全栈是 Luban(源 `Configs/GameConfig/Datas/` 在仓库根、与 `UnityProject/` 同级;生成代码落 `GameScripts/HotFix/GameProto/GameConfig/`,二进制落 `Assets/AssetRaw/Configs/bytes/`)。本表走**既有 GameConfig 管线**:`__tables__.xlsx` 注册 + 新建数据 `avatar.xlsx` + 跑导表脚本,口径与现有 `num` / `item` / `itemdef` 完全一致。
+> - **玩家信息持久化并入既有 MergeMetaSave,不另造存储栈。**save-system(设计 14)已落地跨会话存档:`MergeMetaSave`(DTO,扁平 `[Serializable]`)+ `MergeMetaPersistence`(序列化 / 落盘 / 迁移 / 跨天重置,异步外壳 + 同步纯逻辑两层)。玩家信息新字段**增量并入**这套(加几个 DTO 字段 + ExportMeta/ImportMeta 拷贝),不新建第二个存档文件、不新建第二套 Persistence。
+> - **数据模型 + 服务是纯逻辑,可单测;配置加载分两路。**名字生成 / 改名判定 / 解锁三态 / 等级换算都是纯内存逻辑,单测直接断言、不碰 YooAsset。Luban 表运行期加载走既有 `ConfigSystem.Instance.Tables`(YooAsset,需 Unity 运行时);EditMode 单测仿 `ItemSystemTests` 经 `AssetDatabase` 直读 `.bytes` 绕 YooAsset(详 [§3.5](#18-player-info::schema)),或经 `InitForTest` 注入。
+> - **UI 投放不在本设计。**玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览 tips 是表现层,依赖尚不存在的美术(头像/框 Sprite),本设计**不**建窗口、不挂 prefab。本设计交付到「服务方法 + 数据模型 + 头像表查询」,留主界面入口钩子 + TODO(见 [§五](#18-player-info::hook))。
+> - **离线 + 去变现适配(项目方向)。**① id 本地生成保证本地唯一(无服务器);② 账号绑定 = 不做(离线无账号);③ 改名「发起申请」离线直接生效(无服务器审批);④ 解锁条件 type 2「活动发放」表字段支持,本设计只接 type 1「等级」自动判定,type 2 留钩子 + TODO(无活动系统);⑤ 钻石扣费 = 实现「首次免费 + 读配置价格 + 经数值路径尝试扣减」逻辑,钻石(num_id=3)**尚无可花费余额字段**(item-system 关单记:`ItemGrant.ApplyNumeric` 对钻石返 false 不落),故扣减为 no-op,逻辑层照样可测(见 [§3.2](#18-player-info::name)「钻石扣费的真实现状」)。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新系统 · 玩家信息数据逻辑层</span> 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第四刀。</td></tr>
-      <tr><th>设计基线(经 grep 核实的真实符号)</th><td>
-        <b>持久化</b>:<code>GameLogic.BlockBlast.MergeMetaSave</code>(DTO,15 字段)+ <code>MergeMetaPersistence</code>(<code>Serialize</code>/<code>Deserialize</code>/<code>Migrate</code>/<code>ApplyDailyReset</code>/<code>Load</code>/<code>SaveAsync</code>/<code>LoadAsync</code>,<code>CurrentVersion=1</code>,<code>StorageKey="block_blast_merge_meta_v1"</code>)+ <code>MergeOrderState.ExportMeta(today)</code>/<code>ImportMeta(dto,today)</code>(纯方法,逐字段保底夹值)。<br>
-        <b>数值/扣费</b>:<code>GameLogic.Config.NumericConfigMgr</code>(常量 <code>Diamond=3</code>;<code>Get/GetByType/InitForTest/ResetForTest</code>);<code>ItemGrant.ApplyNumeric(state,payload)</code>(钻石走 default 分支返 false,无字段)。<br>
-        <b>配置范本</b>:<code>ItemConfigMgr</code>(Luban 行→POCO 桥接 + <code>EnsureLoaded</code>/<code>GetItem</code>/<code>InitForTest</code>/<code>ResetForTest</code>);<code>ItemSystemTests</code>(<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(".../item_tbitemdef.bytes")</code>→<code>new GameConfig.item.TbItemDef(new Luban.ByteBuf(ta.bytes))</code> 直读)。<br>
-        <b>品质色复用</b>:<code>RewardDisplay.QualityColor(int)</code>(6 档权威色,白/绿/蓝/紫/橙/红,设计 17 §3.3)——头像/框品质显示<mark>复用它</mark>,不另造色表(见 <a href="#18-player-info::open">§七 O5</a>)。<br>
-        <b>等级现状</b>:工程<mark>无「玩家账号等级」</mark>概念——仅有 <code>MergeOrderState.GuardianLevel</code>(守护者等级,<code>TempleConfig.GuardianLevelFor(Exp)</code> 的纯函数,仅修神庙产经验)与 <code>GoddessLevel</code>(女神好感)。玩家等级是独立第三条进度线(见 <a href="#18-player-info::level">§3.4</a>)。
-      </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:本系统不含充值 / 内购入口;改名扣钻石仅作「读价 + 尝试扣减」逻辑,钻石无余额字段时为 no-op(去变现:不实装购买钻石入口)。加法式扩展,不破坏既有核心循环 + 已建系统(存档 / 数值 / 道具)。IO 走 TEngine 异步规范(配置经既有 <code>ConfigSystem</code>;落盘经既有 <code>MergeMetaPersistence.SaveAsync</code> 异步外壳)。</td></tr>
-      <tr><th>影响范围</th><td>
-        <b>新增 Luban</b>:头像&amp;头像框表 <code>avatar.TbAvatar</code>(5 字段,<a href="#18-player-info::schema">§3.5</a>)+ 枚举 <code>avatar.EAvatarType</code>(头像/框)/ <code>avatar.EUnlockCond</code>(等级/活动);<br>
-        <b>新增运行期</b>:<code>AvatarConfigMgr</code>(Luban 行→POCO <code>AvatarEntry</code> 桥接 + 按 id 查 / 按 type 列,仿 <code>ItemConfigMgr</code>);<br>
-        <b>新增数据模型</b>:<code>PlayerInfo</code>(POCO,<a href="#18-player-info::model-data">§3.1</a>) + 服务 <code>PlayerNameGenerator</code> / <code>PlayerRenameService</code> / <code>ProfanityFilter</code> / <code>PlayerLevelConfig</code> / <code>AvatarUnlockService</code> / <code>ClipboardUtil</code>;<br>
-        <b>改既有(增量,加字段不删)</b>:<code>MergeMetaSave</code> 加玩家信息字段;<code>MergeOrderState</code> 的 <code>ExportMeta</code>/<code>ImportMeta</code> 加对应拷贝行(或玩家信息独立挂 state,见 <a href="#18-player-info::persist">§3.8</a> 选型)。<br>
-        <b>UI 零改动</b>(本设计不建窗口)。<b>既有玩法逻辑零行为变化</b>。
-      </td></tr>
-      <tr><th>关键约束(继承现状)</th><td>数据模型 / 服务为纯逻辑,可在纯 C# 单测直接 <code>new</code> / 静态调用(不依赖 YooAsset / Unity 运行时);头像表 EditMode 测试经 <code>AssetDatabase</code> 直读 <code>.bytes</code>(仿 <code>ItemSystemTests</code>);现有 251 例 EditMode 零回归。剪贴板真实写入(<code>GUIUtility.systemCopyBuffer</code>)经可注入 sink 隔离,单测不碰真实剪贴板。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新系统 · 玩家信息数据逻辑层 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第四刀。 |
+> | **设计基线(经 grep 核实的真实符号)** | **持久化**:`GameLogic.BlockBlast.MergeMetaSave`(DTO,15 字段)+ `MergeMetaPersistence`(`Serialize`/`Deserialize`/`Migrate`/`ApplyDailyReset`/`Load`/`SaveAsync`/`LoadAsync`,`CurrentVersion=1`,`StorageKey="block_blast_merge_meta_v1"`)+ `MergeOrderState.ExportMeta(today)`/`ImportMeta(dto,today)`(纯方法,逐字段保底夹值)。 **数值/扣费**:`GameLogic.Config.NumericConfigMgr`(常量 `Diamond=3`;`Get/GetByType/InitForTest/ResetForTest`);`ItemGrant.ApplyNumeric(state,payload)`(钻石走 default 分支返 false,无字段)。 **配置范本**:`ItemConfigMgr`(Luban 行→POCO 桥接 + `EnsureLoaded`/`GetItem`/`InitForTest`/`ResetForTest`);`ItemSystemTests`(`AssetDatabase.LoadAssetAtPath<TextAsset>(".../item_tbitemdef.bytes")`→`new GameConfig.item.TbItemDef(new Luban.ByteBuf(ta.bytes))` 直读)。 **品质色复用**:`RewardDisplay.QualityColor(int)`(6 档权威色,白/绿/蓝/紫/橙/红,设计 17 §3.3)——头像/框品质显示**复用它**,不另造色表(见 [§七 O5](#18-player-info::open))。 **等级现状**:工程**无「玩家账号等级」**概念——仅有 `MergeOrderState.GuardianLevel`(守护者等级,`TempleConfig.GuardianLevelFor(Exp)` 的纯函数,仅修神庙产经验)与 `GoddessLevel`(女神好感)。玩家等级是独立第三条进度线(见 [§3.4](#18-player-info::level))。 |
+> | **方向约束** | 离线还原 · **去变现**:本系统不含充值 / 内购入口;改名扣钻石仅作「读价 + 尝试扣减」逻辑,钻石无余额字段时为 no-op(去变现:不实装购买钻石入口)。加法式扩展,不破坏既有核心循环 + 已建系统(存档 / 数值 / 道具)。IO 走 TEngine 异步规范(配置经既有 `ConfigSystem`;落盘经既有 `MergeMetaPersistence.SaveAsync` 异步外壳)。 |
+> | **影响范围** | **新增 Luban**:头像&头像框表 `avatar.TbAvatar`(5 字段,[§3.5](#18-player-info::schema))+ 枚举 `avatar.EAvatarType`(头像/框)/ `avatar.EUnlockCond`(等级/活动); **新增运行期**:`AvatarConfigMgr`(Luban 行→POCO `AvatarEntry` 桥接 + 按 id 查 / 按 type 列,仿 `ItemConfigMgr`); **新增数据模型**:`PlayerInfo`(POCO,[§3.1](#18-player-info::model-data)) + 服务 `PlayerNameGenerator` / `PlayerRenameService` / `ProfanityFilter` / `PlayerLevelConfig` / `AvatarUnlockService` / `ClipboardUtil`; **改既有(增量,加字段不删)**:`MergeMetaSave` 加玩家信息字段;`MergeOrderState` 的 `ExportMeta`/`ImportMeta` 加对应拷贝行(或玩家信息独立挂 state,见 [§3.8](#18-player-info::persist) 选型)。 **UI 零改动**(本设计不建窗口)。**既有玩法逻辑零行为变化**。 |
+> | **关键约束(继承现状)** | 数据模型 / 服务为纯逻辑,可在纯 C# 单测直接 `new` / 静态调用(不依赖 YooAsset / Unity 运行时);头像表 EditMode 测试经 `AssetDatabase` 直读 `.bytes`(仿 `ItemSystemTests`);现有 251 例 EditMode 零回归。剪贴板真实写入(`GUIUtility.systemCopyBuffer`)经可注入 sink 隔离,单测不碰真实剪贴板。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -109,13 +96,12 @@ flowchart TD
 
 玩家信息**新增**一个数据模型 + 一组服务 + 一张表;持久化**增量并入**既有 `MergeMetaSave`。既有玩法字段(灵力/虔诚币/经验/神庙…)与读写一律不动。对照:
 
-<table>
-    <tbody><tr><th>维度</th><th>既有 MergeMetaSave(本设计加字段不删)</th><th>玩家信息(本篇新增)</th></tr>
-    <tr><td>持有什么</td><td>元层玩法进度 15 字段(soul/piety/exp/神庙/盲盒/女神/订单/总分/祈愿)</td><td><span class="yes">新增</span>玩家字段(id/name/renameCount/playerExp/当前头像·框/已解锁集合)</td></tr>
-    <tr><td>玩家等级从哪来</td><td colspan="2"><mark>独立第三条进度线</mark>:玩家等级 = <code>PlayerLevelConfig</code> 对 <code>PlayerInfo.Exp</code> 的纯函数,<b>不</b>复用守护者经验(<code>MergeOrderState.Exp</code> 仅修神庙产出,语义不同)。两条线互不读写(<a href="#18-player-info::level">§3.4</a> 注)</td></tr>
-    <tr><td>存哪</td><td colspan="2"><mark>同一份 MergeMetaSave</mark>:玩家字段并入 DTO,随既有落盘 / 迁移 / 夹值一并走,不新建第二个存档文件 / 第二套 Persistence(设计 14 复用,见 <a href="#18-player-info::persist">§3.8</a>)</td></tr>
-    <tr><td>钻石扣费</td><td colspan="2">扣减经数值路径尝试;钻石<span class="no">无</span>余额字段(item-system 现状)时为 no-op,逻辑层照样可测(<a href="#18-player-info::name">§3.2</a>)</td></tr>
-  </tbody></table>
+| 维度 | 既有 MergeMetaSave(本设计加字段不删) | 玩家信息(本篇新增) |
+| --- | --- | --- |
+| 持有什么 | 元层玩法进度 15 字段(soul/piety/exp/神庙/盲盒/女神/订单/总分/祈愿) | 新增玩家字段(id/name/renameCount/playerExp/当前头像·框/已解锁集合) |
+| 玩家等级从哪来 | **独立第三条进度线**:玩家等级 = `PlayerLevelConfig` 对 `PlayerInfo.Exp` 的纯函数,**不**复用守护者经验(`MergeOrderState.Exp` 仅修神庙产出,语义不同)。两条线互不读写([§3.4](#18-player-info::level) 注) |  |
+| 存哪 | **同一份 MergeMetaSave**:玩家字段并入 DTO,随既有落盘 / 迁移 / 夹值一并走,不新建第二个存档文件 / 第二套 Persistence(设计 14 复用,见 [§3.8](#18-player-info::persist)) |  |
+| 钻石扣费 | 扣减经数值路径尝试;钻石无余额字段(item-system 现状)时为 no-op,逻辑层照样可测([§3.2](#18-player-info::name)) |  |
 
 > [!NOTE]
 > <b>加法式的回归保证:</b>不进入玩家信息服务、不读玩家字段时,既有玩法行为与本篇前完全一致。玩家信息全部是新增文件 + 新增表 + DTO 加字段(JsonUtility 旧档缺字段自动给缺省,ImportMeta 逐字段保底)。唯一碰旧文件的是 <code>MergeMetaSave</code>(加字段)与 <code>ExportMeta/ImportMeta</code>(加拷贝行)——若选 <a href="#18-player-info::persist">§3.8</a> 的「独立子对象」做法,连这两处都只是新增,既有字段一行不动。
@@ -499,12 +485,9 @@ test 逐条核对。**C 类**(配置直读)需 `avatar_tbavatar.bytes` 已导出
 | 头像表导表工具链不可达(本机缺 .NET 7) | 遗留 #18 已知:导表带 `DOTNET_ROLL_FORWARD=Major`;不可达 → C1/C2 判 BLOCKED 不判 FAIL,纯逻辑验收照跑 |
 | id 本地生成碰撞(理论) | §3.1:默认 Guid.NewGuid,单机无碰撞域;本地唯一已足够(spec「服务器规则」离线无服务器) |
 
-<div class="related">
-    <h2>关联文档</h2>
-    <div class="related-links">
-      <a href="#14-save-system">14 · 跨会话存档(本篇持久化复用其 MergeMetaSave / MergeMetaPersistence)</a>
-      <a href="#15-numeric-system">15 · 数值底层(钻石 num_id=3 / NumericConfigMgr 常量)</a>
-      <a href="#16-item-system">16 · 道具底层(AvatarConfigMgr 仿 ItemConfigMgr;钻石扣费现状)</a>
-      <a href="#17-reward-display">17 · 通用奖励展示(品质色复用 RewardDisplay.QualityColor)</a>
-    </div>
-  </div>
+## 关联文档
+
+- [14 · 跨会话存档(本篇持久化复用其 MergeMetaSave / MergeMetaPersistence)](#14-save-system)
+- [15 · 数值底层(钻石 num_id=3 / NumericConfigMgr 常量)](#15-numeric-system)
+- [16 · 道具底层(AvatarConfigMgr 仿 ItemConfigMgr;钻石扣费现状)](#16-item-system)
+- [17 · 通用奖励展示(品质色复用 RewardDisplay.QualityColor)](#17-reward-display)

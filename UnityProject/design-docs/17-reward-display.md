@@ -18,27 +18,26 @@
 
 把游戏里**三种异构奖励产出**(道具系统 `GrantPayload` / 盲盒 `ChestReward` / 数值系统裸 num+数量)<mark>归一成一个统一的展示结构 <code>RewardView</code></mark>(图标资源名 + 名称文本 id + 数量显示文本 + 品质色 + 角标),让任何 UI(开箱三选一、礼包开启、订单交付、道具领取)**用同一套显示逻辑渲染奖励**。这是 xlsx 系统底层批次**第三刀**:补的是奖励的**展示归一层**——产出逻辑各系统已实现,本篇只做「拿到任意奖励 → 怎么显示」。**加法式**:新增纯逻辑 helper + POCO,<mark>不改任何既有产出 / 发奖路径</mark>,旧路径零行为变化。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">四条边界先钉死,防 dev 把「展示层」做成「重构产出逻辑」、防误改既有切片:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>只读不写既有产出结构。</b><code>GrantPayload</code>(<a href="#16-item-system">设计 16</a>,已实装 <code>ItemGrant.cs</code>)、<code>ChestReward</code>(<a href="#11-core-loop-completion">设计 11</a>,已实装 <code>ChestSystem.cs</code>)、<code>NumericEntry</code>(<a href="#15-numeric-system">设计 15</a>,已实装 <code>NumericConfigMgr.cs</code>)三个结构<mark>本系统不改一行</mark>,只读它们的字段产出 <code>RewardView</code>。发奖落点(谁加经验、谁调 AddDirect)仍归各既有系统,本系统不碰。</li>
-      <li><b>归一 + 格式化是纯逻辑,可单测。</b>「<code>GrantPayload</code> → <code>RewardView</code>」「<code>ChestReward</code> → <code>RewardView</code>」「数量 → 显示文本」「品质 → 色」全是纯内存函数,EditMode / 纯 C# 单测直接断言,<mark>不碰 YooAsset / Unity 运行时</mark>。涉及 <code>NumericConfigMgr</code>(查货币元数据)的路径用既有 <code>InitForTest</code> 注入,绕 ConfigSystem。</li>
-      <li><b>真实 Sprite 加载 / UI 投放本设计不做(无美术 + UI 是独立后续)。</b><code>RewardView</code> 只产出<b>图标资源名(字符串)</b>,真实 <code>Image.SetSprite(name)</code> 由调用方在接 UI 时做;本篇给一份<b>列表项 Widget 骨架</b>(<code>RewardItemWidget</code>)作接法示范,但<mark>本设计不挂 prefab、不投放到任何窗口</mark>,验收锚在纯逻辑 helper(详 <a href="#17-reward-display::open">§七 O1/O2</a>)。</li>
-      <li><b>6 档品质色在本层定一份单一事实源,收编旧的 4 档。</b>既有 <code>NumericDisplay.QualityColor</code>(<a href="#15-numeric-system">设计 15</a>)是 4 档(白/蓝/紫/红),与<a href="#16-item-system">道具系统 6 档 <code>EItemQuality</code></a>(白/绿/蓝/紫/橙/红)<mark>色序不一致</mark>。本层新建权威的 6 档 <code>RewardDisplay.QualityColor</code>(<a href="#17-reward-display::quality">§3.3</a>);旧 4 档 helper 现状<b>不删</b>(它还被 <code>NumericDisplay</code> 自用,删要核 UI 引用,列独立低优先级正名任务,<a href="#17-reward-display::open">§七 O3</a>),但本层产出的 <code>RewardView.QualityColor</code> 一律走新 6 档。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 四条边界先钉死,防 dev 把「展示层」做成「重构产出逻辑」、防误改既有切片:
+>
+> - **只读不写既有产出结构。**`GrantPayload`([设计 16](#16-item-system),已实装 `ItemGrant.cs`)、`ChestReward`([设计 11](#11-core-loop-completion),已实装 `ChestSystem.cs`)、`NumericEntry`([设计 15](#15-numeric-system),已实装 `NumericConfigMgr.cs`)三个结构**本系统不改一行**,只读它们的字段产出 `RewardView`。发奖落点(谁加经验、谁调 AddDirect)仍归各既有系统,本系统不碰。
+> - **归一 + 格式化是纯逻辑,可单测。**「`GrantPayload` → `RewardView`」「`ChestReward` → `RewardView`」「数量 → 显示文本」「品质 → 色」全是纯内存函数,EditMode / 纯 C# 单测直接断言,**不碰 YooAsset / Unity 运行时**。涉及 `NumericConfigMgr`(查货币元数据)的路径用既有 `InitForTest` 注入,绕 ConfigSystem。
+> - **真实 Sprite 加载 / UI 投放本设计不做(无美术 + UI 是独立后续)。**`RewardView` 只产出**图标资源名(字符串)**,真实 `Image.SetSprite(name)` 由调用方在接 UI 时做;本篇给一份**列表项 Widget 骨架**(`RewardItemWidget`)作接法示范,但**本设计不挂 prefab、不投放到任何窗口**,验收锚在纯逻辑 helper(详 [§七 O1/O2](#17-reward-display::open))。
+> - **6 档品质色在本层定一份单一事实源,收编旧的 4 档。**既有 `NumericDisplay.QualityColor`([设计 15](#15-numeric-system))是 4 档(白/蓝/紫/红),与[道具系统 6 档 `EItemQuality`](#16-item-system)(白/绿/蓝/紫/橙/红)**色序不一致**。本层新建权威的 6 档 `RewardDisplay.QualityColor`([§3.3](#17-reward-display::quality));旧 4 档 helper 现状**不删**(它还被 `NumericDisplay` 自用,删要核 UI 引用,列独立低优先级正名任务,[§七 O3](#17-reward-display::open)),但本层产出的 `RewardView.QualityColor` 一律走新 6 档。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新系统 · 奖励展示归一层</span> 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第三刀。<b>纯逻辑 helper + POCO,UI 投放本设计不做。</b></td></tr>
-      <tr><th>设计基线</th><td>已落地的三种奖励产出结构(单一事实源 = 代码):① <a href="#16-item-system">道具系统</a> <code>GameLogic.BlockBlast.Item.GrantPayload</code>(<code>GrantKind {None,Numeric,Pattern,GiftSelect,GiftRandom}</code> + TargetId + Amount + Level + Times,见 <code>ItemGrant.cs</code>);② <a href="#11-core-loop-completion">盲盒</a> <code>GameLogic.BlockBlast.ChestReward</code>(<code>ChestRewardKind {Soul,Energy,Pattern,UndoCharge,WishCharge}</code> + Amount + PatternLevel,见 <code>ChestSystem.cs</code>);③ <a href="#15-numeric-system">数值系统</a> <code>NumericConfigMgr.Get(num_id)</code> → <code>NumericEntry</code>(IconName / NameTextId / Quality) + <code>NumericFormat.Abbreviate</code>(已实装的 0–999/K/M 缩写);④ <a href="#16-item-system">道具元数据</a> <code>ItemConfigMgr.GetItem(id)</code> → <code>ItemDef</code>(Icon / Name / Quality);⑤ <code>MergeElementVisual</code>(图案 glyph + 纯色,见 <code>MergeElementVisual.cs</code>)。</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(本层不含任何价格 / 充值显示)。加法式扩展,不破坏现有产出 / 发奖路径 + 已建系统(数值 / 道具 / 盲盒)。IO 走 TEngine 异步规范(图标真实加载用既有 <code>Image.SetSprite</code> 内置缓存池,本设计只给名字不加载)。现有 EditMode 零回归。</td></tr>
-      <tr><th>影响范围</th><td>新增 POCO <code>RewardView</code>(展示归一结构)+ 静态 helper <code>RewardDisplay</code>(各源 → RewardView 转换 + 6 档品质色 + 数量文本 + 图标 / 名称解析)+ 列表项 Widget 骨架 <code>RewardItemWidget</code>(UI 接法示范,本设计不挂 prefab)。<b>既有 <code>GrantPayload</code> / <code>ChestReward</code> / <code>NumericConfigMgr</code> / <code>ItemConfigMgr</code> / <code>MergeElementVisual</code> 读写零改动;旧路径零行为变化。</b>无新增 Luban 表 / 枚举(复用既有)。</td></tr>
-      <tr><th>关键约束(继承现状)</th><td>归一 / 格式化 / 品质色为纯逻辑,可在纯 C# 单测直接调(不依赖 YooAsset / Unity 运行时);涉及货币 / 道具元数据查询的路径经既有 <code>NumericConfigMgr.InitForTest</code> / <code>ItemConfigMgr.InitForTest</code> 注入(绕 ConfigSystem)。<code>RewardView</code> 是不含 Unity 类型(<code>Color</code> 除外,<code>UnityEngine.Color</code> 是值类型可在 EditMode 单测构造)的 POCO。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新系统 · 奖励展示归一层 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第三刀。**纯逻辑 helper + POCO,UI 投放本设计不做。** |
+> | **设计基线** | 已落地的三种奖励产出结构(单一事实源 = 代码):① [道具系统](#16-item-system) `GameLogic.BlockBlast.Item.GrantPayload`(`GrantKind {None,Numeric,Pattern,GiftSelect,GiftRandom}` + TargetId + Amount + Level + Times,见 `ItemGrant.cs`);② [盲盒](#11-core-loop-completion) `GameLogic.BlockBlast.ChestReward`(`ChestRewardKind {Soul,Energy,Pattern,UndoCharge,WishCharge}` + Amount + PatternLevel,见 `ChestSystem.cs`);③ [数值系统](#15-numeric-system) `NumericConfigMgr.Get(num_id)` → `NumericEntry`(IconName / NameTextId / Quality) + `NumericFormat.Abbreviate`(已实装的 0–999/K/M 缩写);④ [道具元数据](#16-item-system) `ItemConfigMgr.GetItem(id)` → `ItemDef`(Icon / Name / Quality);⑤ `MergeElementVisual`(图案 glyph + 纯色,见 `MergeElementVisual.cs`)。 |
+> | **方向约束** | 离线还原 · **去变现**(本层不含任何价格 / 充值显示)。加法式扩展,不破坏现有产出 / 发奖路径 + 已建系统(数值 / 道具 / 盲盒)。IO 走 TEngine 异步规范(图标真实加载用既有 `Image.SetSprite` 内置缓存池,本设计只给名字不加载)。现有 EditMode 零回归。 |
+> | **影响范围** | 新增 POCO `RewardView`(展示归一结构)+ 静态 helper `RewardDisplay`(各源 → RewardView 转换 + 6 档品质色 + 数量文本 + 图标 / 名称解析)+ 列表项 Widget 骨架 `RewardItemWidget`(UI 接法示范,本设计不挂 prefab)。**既有 `GrantPayload` / `ChestReward` / `NumericConfigMgr` / `ItemConfigMgr` / `MergeElementVisual` 读写零改动;旧路径零行为变化。**无新增 Luban 表 / 枚举(复用既有)。 |
+> | **关键约束(继承现状)** | 归一 / 格式化 / 品质色为纯逻辑,可在纯 C# 单测直接调(不依赖 YooAsset / Unity 运行时);涉及货币 / 道具元数据查询的路径经既有 `NumericConfigMgr.InitForTest` / `ItemConfigMgr.InitForTest` 注入(绕 ConfigSystem)。`RewardView` 是不含 Unity 类型(`Color` 除外,`UnityEngine.Color` 是值类型可在 EditMode 单测构造)的 POCO。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 

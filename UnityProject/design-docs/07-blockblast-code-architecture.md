@@ -168,29 +168,24 @@ sequenceDiagram
 
 <h2 id="review">六、工程亮点 &amp; 关注点</h2>
 
-<div class="callout good"><b>亮点：</b>
-      <ul>
-        <li><b>完全 headless</b>：算法层零 Unity 依赖，<code>RandomSource</code>/<code>Persistence</code> 都是可注入接口，EditMode 单测可固定种子复现。</li>
-        <li><b>关注点分离彻底</b>：占用（位棋盘）↔ 颜色（带色数组）↔ 难度（调度器）三层互不渗透。</li>
-        <li><b>配置外置预留</b>：<code>WeightConfigEntry</code> 与采样次数都留了接 Luban 表的口子。</li>
-        <li><b>忠实标注与原版差异</b>，便于回溯「为什么这么写」。</li>
-      </ul>
-    </div>
+> [!TIP]
+> **亮点：**
+>
+> - **完全 headless**：算法层零 Unity 依赖，`RandomSource`/`Persistence` 都是可注入接口，EditMode 单测可固定种子复现。
+> - **关注点分离彻底**：占用（位棋盘）↔ 颜色（带色数组）↔ 难度（调度器）三层互不渗透。
+> - **配置外置预留**：`WeightConfigEntry` 与采样次数都留了接 Luban 表的口子。
+> - **忠实标注与原版差异**，便于回溯「为什么这么写」。
 
-<div class="callout warn"><b>关注点：</b>
-      <ul>
-        <li><b>CPU 热点</b>：<code>StraightDeathDiff</code> <mark class="r">采样 320 次、每次还要 DFS 枚举解</mark>，<b>满盘时是最重的开销</b>。目前靠 limit 剪枝兜着，量产前需测真机帧时间。</li>
-        <li><b>采样次数硬编码</b>在 <code>BlockAlgorithms.cs</code>（如死亡难题 320），建议外置配置，按机型/难度调。</li>
-        <li><mark class="y">难度手感强依赖 weightcfg 表与 FactorList</mark>，目前是静态默认值，真正调校还没接表（见《<a href="#02-dynamic-difficulty">动态难度拆解</a>》对 odds 表的分析）。</li>
-        <li><code>JsonUtility</code> 存档对 <code>int[][]</code> 不友好，已用「拍平成 64 长 int[]」绕过 —— 后续若换形状库需注意存档兼容。</li>
-      </ul>
-    </div>
+> [!WARNING]
+> **关注点：**
+>
+> - **CPU 热点**：`StraightDeathDiff` **采样 320 次、每次还要 DFS 枚举解**，**满盘时是最重的开销**。目前靠 limit 剪枝兜着，量产前需测真机帧时间。
+> - **采样次数硬编码**在 `BlockAlgorithms.cs`（如死亡难题 320），建议外置配置，按机型/难度调。
+> - **难度手感强依赖 weightcfg 表与 FactorList**，目前是静态默认值，真正调校还没接表（见《[动态难度拆解](#02-dynamic-difficulty)》对 odds 表的分析）。
+> - `JsonUtility` 存档对 `int[][]` 不友好，已用「拍平成 64 长 int[]」绕过 —— 后续若换形状库需注意存档兼容。
 
-<div class="related">
-      <h2>相关文档</h2>
-      <div class="related-links">
-        <a href="#">← 返回总览</a>
-        <a href="#02-dynamic-difficulty">动态难度拆解（数值视角）</a>
-        <a href="#01-gameplay-overview">玩法总览</a>
-      </div>
-    </div>
+## 相关文档
+
+- [← 返回总览](#)
+- [动态难度拆解(数值视角)](#02-dynamic-difficulty)
+- [玩法总览](#01-gameplay-overview)

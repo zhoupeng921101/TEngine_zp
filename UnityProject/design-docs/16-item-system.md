@@ -16,28 +16,27 @@
 
 用 Luban 道具表统一登记每件道具的**名称 / 描述 / 图标 / 品质 / 类型 / 使用效果 / 叠放规则**;运行期按 `Id` 查道具元数据;实现**礼包开启**(随机礼包按权重抽、自选礼包返回可选列表),产出经 `UseEffect` 落到对应系统(货币→[数值系统 / MergeOrderState](#15-numeric-system)、图案→`MergeElement`);并提供**基础背包容器**(计数 + 叠加上限 999 + 不可叠加单独占格 + 容量上限 100)。这是 xlsx 系统底层批次**第二刀**。**加法式**:新建框架 + 配置 + 纯逻辑,<mark>不重构既有货币 / 图案系统</mark>,旧路径零行为变化。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">五条边界先钉死,防 dev 把「框架」做成「重构」、防误改既有切片:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>新建道具表,不扩展模板示例 <code>item.TbItem</code>。</b>工程里现有的 <code>Configs/GameConfig/Datas/item.xlsx</code>(<code>Item.TbItem</code>:衣服 / 裙子 / 鞋子 / 帽子、带 <code>price</code> / <code>upgrade_to_item_id</code> / <code>exchange_stream</code>)是 <mark>TEngine 框架自带的模板示例</mark>,字段与本系统 spec 不兼容、且无任何运行期业务代码消费它(grep 仅生成代码引用)。本系统在 <code>item</code> 模块下<b>新建独立表</b> <code>item.TbItemDef</code>,与 <code>TbItem</code> 并存互不干扰(拍板理由详 <a href="#16-item-system::fork">§3.1</a>)。</li>
-      <li><b>新建品质枚举 <code>item.EItemQuality</code>(1–6),不复用现有 <code>item.EQuality</code>(1–4)。</b>现有 <code>EQuality</code> 为 <code>WHITE=1/BLUE=2/PURPLE=3/RED=4</code>,色序与本 spec(1 白 / 2 绿 / 3 蓝 / 4 紫 / 5 橙 / 6 红)<mark>不一致且档数不够</mark>;它被模板 <code>TbItem</code> 引用,改它会动模板示例。新建独立 6 档枚举,详 <a href="#16-item-system::enum">§3.3</a>。</li>
-      <li><b>礼包开启 / 背包是纯逻辑,可单测;配置加载分两条路。</b>「按 rate 权重抽奖」「自选礼包返回可选列表」「背包计数 / 叠加 / 占格」都是纯内存逻辑,单测直接断言、不碰 YooAsset。权重抽样接受外部 <code>System.Random</code>(种子可控)使<mark>抽样结果确定可测</mark>。Luban 表运行期加载走既有 <code>ConfigSystem.Instance.Tables</code>(YooAsset,需 Unity 运行时);EditMode 单测仿 <code>WeightCfgLubanTests</code> / <code>NumericSystemTests</code> 经 <code>AssetDatabase</code> 直读 <code>.bytes</code> 绕 YooAsset(详 <a href="#16-item-system::registry">§3.5</a>)。</li>
-      <li><b>产出落点复用既有系统,不另起炉灶。</b>UseEffect=1(货币)调用既有 <code>MergeOrderState</code> 的对应字段路径 / <a href="#15-numeric-system">数值系统</a> <code>NumericConfigMgr</code> 约定的 num_id;UseEffect=2(图案)调既有 <code>MergeOrderState.AddDirect(MergeElement, level, count)</code>。道具系统只产出「要发什么」的结构,<mark>由调用方接到既有发奖方法</mark>,本系统不复制发奖逻辑(详 <a href="#16-item-system::useeffect">§3.7</a>)。</li>
-      <li><b>限时 / 邮件补偿 / UI 跳转本设计全部不做(spec 自身依赖未建系统)。</b>限时整套(<code>Term</code> / <code>TermTime</code> / <code>Compensate</code>→Reward 表 / <code>CompensateEmail</code>→邮件)、背包溢出邮件补发、<code>JumpList</code> 获取跳转、真实 Sprite / Light 特效——这些<mark>字段照样进表</mark>(为后续不返工),但运行期 <b>stub</b>:不做到期检测 / 补偿 / 邮件 / UI;背包满本设计<b>拒绝并记 TODO</b>不发邮件;资源名占位(详 <a href="#16-item-system::open">§七</a> 各 O 项 + 风险表)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 五条边界先钉死,防 dev 把「框架」做成「重构」、防误改既有切片:
+>
+> - **新建道具表,不扩展模板示例 `item.TbItem`。**工程里现有的 `Configs/GameConfig/Datas/item.xlsx`(`Item.TbItem`:衣服 / 裙子 / 鞋子 / 帽子、带 `price` / `upgrade_to_item_id` / `exchange_stream`)是 **TEngine 框架自带的模板示例**,字段与本系统 spec 不兼容、且无任何运行期业务代码消费它(grep 仅生成代码引用)。本系统在 `item` 模块下**新建独立表** `item.TbItemDef`,与 `TbItem` 并存互不干扰(拍板理由详 [§3.1](#16-item-system::fork))。
+> - **新建品质枚举 `item.EItemQuality`(1–6),不复用现有 `item.EQuality`(1–4)。**现有 `EQuality` 为 `WHITE=1/BLUE=2/PURPLE=3/RED=4`,色序与本 spec(1 白 / 2 绿 / 3 蓝 / 4 紫 / 5 橙 / 6 红)**不一致且档数不够**;它被模板 `TbItem` 引用,改它会动模板示例。新建独立 6 档枚举,详 [§3.3](#16-item-system::enum)。
+> - **礼包开启 / 背包是纯逻辑,可单测;配置加载分两条路。**「按 rate 权重抽奖」「自选礼包返回可选列表」「背包计数 / 叠加 / 占格」都是纯内存逻辑,单测直接断言、不碰 YooAsset。权重抽样接受外部 `System.Random`(种子可控)使**抽样结果确定可测**。Luban 表运行期加载走既有 `ConfigSystem.Instance.Tables`(YooAsset,需 Unity 运行时);EditMode 单测仿 `WeightCfgLubanTests` / `NumericSystemTests` 经 `AssetDatabase` 直读 `.bytes` 绕 YooAsset(详 [§3.5](#16-item-system::registry))。
+> - **产出落点复用既有系统,不另起炉灶。**UseEffect=1(货币)调用既有 `MergeOrderState` 的对应字段路径 / [数值系统](#15-numeric-system) `NumericConfigMgr` 约定的 num_id;UseEffect=2(图案)调既有 `MergeOrderState.AddDirect(MergeElement, level, count)`。道具系统只产出「要发什么」的结构,**由调用方接到既有发奖方法**,本系统不复制发奖逻辑(详 [§3.7](#16-item-system::useeffect))。
+> - **限时 / 邮件补偿 / UI 跳转本设计全部不做(spec 自身依赖未建系统)。**限时整套(`Term` / `TermTime` / `Compensate`→Reward 表 / `CompensateEmail`→邮件)、背包溢出邮件补发、`JumpList` 获取跳转、真实 Sprite / Light 特效——这些**字段照样进表**(为后续不返工),但运行期 **stub**:不做到期检测 / 补偿 / 邮件 / UI;背包满本设计**拒绝并记 TODO**不发邮件;资源名占位(详 [§七](#16-item-system::open) 各 O 项 + 风险表)。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新系统 · 配置化道具底层</span> 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第二刀。</td></tr>
-      <tr><th>设计基线</th><td>工程既有 Luban 配置管线(<code>Configs/GameConfig/</code> 源 + <code>__tables__.xlsx</code> 注册 + <code>gen_code_bin_to_project_lazyload</code> 导表 + <code>ConfigSystem.Instance.Tables</code> 运行期加载;现有 <code>item</code> / <code>num</code> / <code>block.TbWeightCfg</code> 三表为范本) + 上轮已落地的<a href="#15-numeric-system">数值底层系统</a>(<code>NumericConfigMgr</code> / <code>NumericEntry</code>,num_id 约定:1 经验 / 2 虔诚币 / 3 钻石 / 4 体力) + 已落地 merge-order 切片(<code>MergeOrderState.AddDirect</code> 图案注入、<code>MergeElement</code> 9 种图案、各货币字段)。</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(本表不含任何充值 / 内购 / 计价字段;道具仅作游戏内获取 / 使用登记)。加法式扩展,不破坏现有核心循环 + 已建系统(数值 / 存档 / 盲盒 / 神庙)。IO 走 TEngine 异步规范(配置加载经既有 <code>ConfigSystem</code>)。现有 209 例 EditMode 零回归。</td></tr>
-      <tr><th>影响范围</th><td>新增 3 张 Luban 表:<code>item.TbItemDef</code>(道具定义,18 字段)+ <code>item.TbGiftRandom</code>(随机礼包池)+ <code>item.TbGiftSelect</code>(自选礼包池);新增 2 个枚举 <code>item.EItemQuality</code>(1–6)/ <code>item.EItemType</code>(类型);新增运行期 <code>ItemConfigMgr</code>(Luban 行 → POCO 桥接 + 按 Id 查,仿 <code>NumericConfigMgr</code>) + POCO <code>ItemDef</code> / <code>GiftEntry</code>;新增纯逻辑 <code>GiftOpener</code>(权重抽样 + 自选列表) + <code>ItemGrant</code>(UseEffect → 产出结构) + <code>ItemBag</code>(背包容器)。<b>既有货币字段 / 图案系统 / 数值系统读写零改动;旧路径零行为变化。</b></td></tr>
-      <tr><th>关键约束(继承现状)</th><td>礼包抽样 / 背包 / UseEffect 解析为纯逻辑,可在纯 C# 单测直接 <code>new</code>(不依赖 YooAsset / Unity 运行时);权重抽样注入 <code>System.Random(seed)</code> 使确定可测;配置表 EditMode 测试经 <code>AssetDatabase</code> 直读 <code>.bytes</code>(仿 <code>NumericSystemTests</code>)。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新系统 · 配置化道具底层 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第二刀。 |
+> | **设计基线** | 工程既有 Luban 配置管线(`Configs/GameConfig/` 源 + `__tables__.xlsx` 注册 + `gen_code_bin_to_project_lazyload` 导表 + `ConfigSystem.Instance.Tables` 运行期加载;现有 `item` / `num` / `block.TbWeightCfg` 三表为范本) + 上轮已落地的[数值底层系统](#15-numeric-system)(`NumericConfigMgr` / `NumericEntry`,num_id 约定:1 经验 / 2 虔诚币 / 3 钻石 / 4 体力) + 已落地 merge-order 切片(`MergeOrderState.AddDirect` 图案注入、`MergeElement` 9 种图案、各货币字段)。 |
+> | **方向约束** | 离线还原 · **去变现**(本表不含任何充值 / 内购 / 计价字段;道具仅作游戏内获取 / 使用登记)。加法式扩展,不破坏现有核心循环 + 已建系统(数值 / 存档 / 盲盒 / 神庙)。IO 走 TEngine 异步规范(配置加载经既有 `ConfigSystem`)。现有 209 例 EditMode 零回归。 |
+> | **影响范围** | 新增 3 张 Luban 表:`item.TbItemDef`(道具定义,18 字段)+ `item.TbGiftRandom`(随机礼包池)+ `item.TbGiftSelect`(自选礼包池);新增 2 个枚举 `item.EItemQuality`(1–6)/ `item.EItemType`(类型);新增运行期 `ItemConfigMgr`(Luban 行 → POCO 桥接 + 按 Id 查,仿 `NumericConfigMgr`) + POCO `ItemDef` / `GiftEntry`;新增纯逻辑 `GiftOpener`(权重抽样 + 自选列表) + `ItemGrant`(UseEffect → 产出结构) + `ItemBag`(背包容器)。**既有货币字段 / 图案系统 / 数值系统读写零改动;旧路径零行为变化。** |
+> | **关键约束(继承现状)** | 礼包抽样 / 背包 / UseEffect 解析为纯逻辑,可在纯 C# 单测直接 `new`(不依赖 YooAsset / Unity 运行时);权重抽样注入 `System.Random(seed)` 使确定可测;配置表 EditMode 测试经 `AssetDatabase` 直读 `.bytes`(仿 `NumericSystemTests`)。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -121,9 +120,8 @@ flowchart TD
 
 <b>拍板:新建,不扩展。</b>理由:① 现表是 TEngine 框架自带的**模板示例**(连同 `test.*` 系列示例 Bean / Enum 一起存在),并非本游戏的真实道具表,扩展它等于把模板示例改成生产表、且要删它带的 10 行无关数据;② 字段冲突严重——保留 `price/upgrade_to_item_id/exchange_*` 是垃圾字段,删它们又会破坏现有(虽无业务消费但)生成代码与 .bytes;③ 品质枚举档数 / 色序都对不上,改 `EQuality` 会动到模板 `TbItem` 的引用。新建 `item.TbItemDef` + `item.EItemQuality` 与模板并存,互不干扰,回归最干净。
 
-<div class="callout">
-    <b>命名:</b>新表全名 <code>item.TbItemDef</code>(value_type <code>ItemDef</code>),导出 <code>item_tbitemdef.bytes</code>;礼包表 <code>item.TbGiftRandom</code> / <code>item.TbGiftSelect</code>,导出 <code>item_tbgiftrandom.bytes</code> / <code>item_tbgiftselect.bytes</code>。与现有 <code>item_tbitem.bytes</code>(模板)并列,文件名不撞。<b>命名理由:</b>「ItemDef」= 道具<b>定义</b>表,区别于将来可能的「ItemInstance」运行期实例;若直接叫 <code>TbItem2</code> 之类是无语义私造名,违 conventions 规则 5(公共词汇)。<p></p>
-  </div>
+> [!NOTE]
+> **命名:**新表全名 `item.TbItemDef`(value_type `ItemDef`),导出 `item_tbitemdef.bytes`;礼包表 `item.TbGiftRandom` / `item.TbGiftSelect`,导出 `item_tbgiftrandom.bytes` / `item_tbgiftselect.bytes`。与现有 `item_tbitem.bytes`(模板)并列,文件名不撞。**命名理由:**「ItemDef」= 道具**定义**表,区别于将来可能的「ItemInstance」运行期实例;若直接叫 `TbItem2` 之类是无语义私造名,违 conventions 规则 5(公共词汇)。
 
 <h3 id="schema">3.2 Luban 道具表 schema</h3>
 

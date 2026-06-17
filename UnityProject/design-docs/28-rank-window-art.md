@@ -17,42 +17,25 @@
 
 塔罗 UI 换皮自治线<b>末屏(第五屏)</b>:把效果图 `排行榜.png` 换皮成可运行的 `RankWindow`。目的:兑现[设计 22 排行榜底层系统](#22-rank-system)遗留的表现层(boss 遗留 #27)。<mark>本次换皮 = 纯 UI 补完</mark>——数据逻辑层([设计 22](#22-rank-system))已交付并经 EditMode 单测(归档 `pipeline/archive/2026-06-14-rank-system/`),本屏只**调用**它 + 接线,不重写数据层。基础设施**全部复用**[设计 23 设置窗](#23-settings-window-art)已确立、并经[设计 25 个人信息窗](#25-player-info-window-art)二次验证的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
 
-<div class="callout warn">
-    <b>读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)</b>
-    <ul style="margin:8px 0 0">
-      <li><b>数据层不动,只调用。</b><code>GameLogic.Rank</code>(<code>RankService</code> / <code>RankBoard</code> / <code>RankEntry</code> / <code>RankDef</code> / <code>RankClaimResult</code> / <code>LocalRankSource</code> / <code>RemoteRankSource</code> / <code>RankPersistence</code> / <code>RankConfigMgrSource</code>)+ 配置 <code>GameLogic.Config.RankConfigMgr</code> 已实装并经 EditMode 单测(<a href="#22-rank-system">设计 22</a>)。本次换皮<mark>不</mark>改这些类的逻辑;窗口只<b>调用</b>(查榜、查我的名次、领点赞、读红点)。</li>
-      <li><b>基础设施全部复用设计 23 / 25,不重造。</b>切图寻址(<code>SetSubSprite(精灵表 location, 子图名)</code>)、绑定(<code>FindChildComponent</code> + <code>m_</code> 前缀)、窗口范式(<code>UIWindow</code> + <code>[Window]</code> + 遮罩 + Top 层)、运行期上下文(<code>GameContext</code> 单例)全部已打通(<a href="#23-settings-window-art">设计 23</a> §三/§四/§五/§六,<a href="#25-player-info-window-art">设计 25</a> 复验)。本屏照搬,<mark>无任何新基础设施</mark>。</li>
-      <li><b>本屏无专属切图,复用 <code>Sheet_settings</code> 精灵表 + 占位榜行 / 徽章 / 头像。</b>塔罗素材里<mark>没有「排行榜」专属切图文件夹,也没有榜行底 / 名次徽章(金银铜)/ 头像切图</mark>。本屏的面板 / 标题板 / 关闭钮 / 底部按钮用 <code>Sheet_settings</code> 通用木板 / 按钮子图拼(<a href="#28-rank-window-art::atlas">§三</a>);榜行底 / 名次徽章 / 头像 = <mark>占位</mark>(纯色条 / 纯色块 + 字符)+ TODO 待美术(<a href="#28-rank-window-art::placeholder">§3.2</a>)。<b>本屏视觉是结构占位、非高保真——这是本屏已知限制,不判 FAIL。</b></li>
-      <li><b>离线本地榜 + 远程 stub 返空 → 榜单多为占位 / 陪榜。</b>数据层 <code>RemoteRankSource</code> 返空(无网络模块),离线 <code>LocalRankSource</code> 产「本机一条 + 配置陪榜」(<a href="#22-rank-system::source">设计 22 §3.6</a>)。本屏渲染的真实数据来自 <code>RankService.GetBoard</code>:本机成绩是真的,陪榜由配置 / 注入基准分(非随机 NPC)。<mark>真实全服榜待网络模块就绪后实现,服务层零改动切注入</mark>(<a href="#28-rank-window-art::open">§十一 BLK1</a>)。</li>
-      <li><b>UI 业务代码在热更区,资源走 YooAsset,加法式不破坏玩法。</b>窗口脚本落 <code>GameScripts/HotFix/GameLogic/UI/</code>(热更,与 <code>SettingsWindow.cs</code> / <code>PlayerInfoWindow.cs</code> 同目录);prefab 落 <code>AssetRaw/UI/Prefabs/</code>。改动全在加法侧——<code>GameContext</code> 扩一个 <code>Rank</code> 成员、主菜单加一个入口按钮(同设置窗 / 个人信息窗),不动 Classic / Merge 主玩法(<a href="#28-rank-window-art::accept">§九 验收 R</a>)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)**
+>
+> - **数据层不动,只调用。**`GameLogic.Rank`(`RankService` / `RankBoard` / `RankEntry` / `RankDef` / `RankClaimResult` / `LocalRankSource` / `RemoteRankSource` / `RankPersistence` / `RankConfigMgrSource`)+ 配置 `GameLogic.Config.RankConfigMgr` 已实装并经 EditMode 单测([设计 22](#22-rank-system))。本次换皮**不**改这些类的逻辑;窗口只**调用**(查榜、查我的名次、领点赞、读红点)。
+> - **基础设施全部复用设计 23 / 25,不重造。**切图寻址(`SetSubSprite(精灵表 location, 子图名)`)、绑定(`FindChildComponent` + `m_` 前缀)、窗口范式(`UIWindow` + `[Window]` + 遮罩 + Top 层)、运行期上下文(`GameContext` 单例)全部已打通([设计 23](#23-settings-window-art) §三/§四/§五/§六,[设计 25](#25-player-info-window-art) 复验)。本屏照搬,**无任何新基础设施**。
+> - **本屏无专属切图,复用 `Sheet_settings` 精灵表 + 占位榜行 / 徽章 / 头像。**塔罗素材里**没有「排行榜」专属切图文件夹,也没有榜行底 / 名次徽章(金银铜)/ 头像切图**。本屏的面板 / 标题板 / 关闭钮 / 底部按钮用 `Sheet_settings` 通用木板 / 按钮子图拼([§三](#28-rank-window-art::atlas));榜行底 / 名次徽章 / 头像 = **占位**(纯色条 / 纯色块 + 字符)+ TODO 待美术([§3.2](#28-rank-window-art::placeholder))。**本屏视觉是结构占位、非高保真——这是本屏已知限制,不判 FAIL。**
+> - **离线本地榜 + 远程 stub 返空 → 榜单多为占位 / 陪榜。**数据层 `RemoteRankSource` 返空(无网络模块),离线 `LocalRankSource` 产「本机一条 + 配置陪榜」([设计 22 §3.6](#22-rank-system::source))。本屏渲染的真实数据来自 `RankService.GetBoard`:本机成绩是真的,陪榜由配置 / 注入基准分(非随机 NPC)。**真实全服榜待网络模块就绪后实现,服务层零改动切注入**([§十一 BLK1](#28-rank-window-art::open))。
+> - **UI 业务代码在热更区,资源走 YooAsset,加法式不破坏玩法。**窗口脚本落 `GameScripts/HotFix/GameLogic/UI/`(热更,与 `SettingsWindow.cs` / `PlayerInfoWindow.cs` 同目录);prefab 落 `AssetRaw/UI/Prefabs/`。改动全在加法侧——`GameContext` 扩一个 `Rank` 成员、主菜单加一个入口按钮(同设置窗 / 个人信息窗),不动 Classic / Merge 主玩法([§九 验收 R](#28-rank-window-art::accept))。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">表现层换皮 · 塔罗 UI 自治线第 5 屏(末屏)· 纯 UI 补完 · art 受限</span> 复用设计 23 / 25 范式,兑现遗留 #27(rank 表现层)。出设计稿 + 验收标准,交开发落地。</td></tr>
-      <tr><th>设计基线(经 grep 核实的真实符号)</th><td>
-        <b>数据层(已实装,只调用,命名空间 <code>GameLogic.Rank</code>)</b>:<code>RankService(IRankSource source, IRankPersistence persist, GameLogic.Mail.IMailService mail, IRankConfigSource cfg = null)</code>;字段 <code>NowProvider</code>(<code>Func&lt;DateTime&gt;</code>,默认系统时钟)/ <code>OpenDate</code>(<code>DateTime</code>)。查榜入口:<code>RankBoard GetBoard(int rankId)</code>(榜不存在返 null)、<code>(int rank, long score) GetMyRank(int rankId)</code>、<code>(long score, long ticks, int nameTextId) GetMyBest(int rankId)</code>、<code>void SubmitScore(int rankId, long score)</code>。领取:<code>RankClaimResult ClaimDaily(int rankId)</code> / <code>RankClaimResult ClaimPraise(int rankId)</code>;红点 <code>bool HasClaimable</code>;结算 <code>List&lt;SettleResult&gt; CheckAndSettle(DateTime now)</code>。<br>
-        <b>查榜返回结构</b>:<code>RankBoard{ int Id; List&lt;RankEntry&gt; Entries; RankEntry Self; int SelfRank; long SelfScore; }</code>;<code>RankEntry{ int PlayerNameTextId; long Score; long AchievedTicks; bool IsSelf; int Rank; }</code>(<code>Rank</code> 由服务排序后回填,1 起);领取结果 <code>RankClaimResult{ RankClaimStatus Status; int TextId; }</code>,状态枚举 <code>RankClaimStatus{ Success, NotRanked, NoReward, AlreadyClaimedToday }</code>。<br>
-        <b>榜定义</b>:<code>RankDef{ int Id; int NameTextId; int Group; int Method; long Condition; int PraiseRewardPoolId; RankValidType ValidType; long ValidVal; int MailDefId; int CountMax; int ShowMax; List&lt;RankRewardTier&gt; Tiers; }</code>;<code>RankRewardTier TierForRank(int rank)</code>(无匹配返 null);<code>RankRewardTier{ int RankMin; int RankMax; int RewardPoolId; int ShowRewardPoolId; int DailyRewardPoolId; }</code>。<br>
-        <b>数据源 / 持久化 / 配置接缝</b>:<code>IRankSource.Fetch(int rankId)</code>;离线 <code>LocalRankSource(Func&lt;int,(long,long,int)&gt; selfProvider, Func&lt;int,IReadOnlyList&lt;RankEntry&gt;&gt; filler = null)</code>;远程 <code>RemoteRankSource</code>(<code>Fetch</code> 返 <code>Array.Empty</code>,不连网不抛);<code>RankPersistence</code>(键 <code>"Rank.Progress"</code>,经 <code>Persistence.Provider</code>)/ <code>InMemoryRankPersistence</code>(测试);<code>RankConfigMgrSource</code>(默认配置源,包 <code>RankConfigMgr</code>);<code>GameLogic.Config.RankConfigMgr</code>(<code>GetRank(id)</code> / <code>All()</code> / <code>EnsureLoaded()</code> / <code>InitForTest(IEnumerable&lt;RankDef&gt;)</code> / <code>ResetForTest()</code>)。<br>
-        <b>发奖渠道</b>:领取 / 结算奖一律经注入 <code>GameLogic.Mail.IMailService.Send(MailDraft)</code>(设计 21),排名层不碰 <code>MergeOrderState</code> / <code>ItemGrant</code>——<mark>窗口领点赞后奖励进邮箱,不在排行榜窗直接弹奖</mark>(<a href="#28-rank-window-art::praise">§六 点赞</a>)。<br>
-        <b>UI 框架 + 取图 API(与设计 23 / 25 同源,已打通)</b>:<code>UIWindow</code> + <code>[Window(UILayer, location, fullScreen, hideTimeToClose)]</code>;生命周期 <code>ScriptGenerator → OnCreate → OnRefresh</code>;绑定 <code>FindChildComponent&lt;T&gt;(path)</code>;打开 <code>GameModule.UI.ShowUIAsync&lt;T&gt;()</code> / 关闭 <code>CloseUI&lt;T&gt;()</code>;取子图 <code>Image.SetSubSprite("Sheet_settings", 子图名)</code>(精灵表 Multiple 模式,子图名 = 源切图文件名,<a href="#23-settings-window-art::atlas">设计 23 §三</a>)。<br>
-        <b>运行期上下文(已建,本次换皮扩持有)</b>:<code>GameLogic.GameContext : SimpleSingleton&lt;GameContext&gt;</code>(<code>OnInit</code> 里建 <code>Settings</code> + <code>Player</code>;现有 <code>InitSettingsWithStore</code> / <code>InitPlayerFromMeta</code> 测试注入入口)。<br>
-        <b>入口现状</b>:<code>GameLogic.BlockBlastUI.MainMenuWindow</code>(code-built,<code>OnCreate</code> 里 <code>UGuiFactory.CreateButton</code>)已加 <code>BtnSettings</code>(第 58–63 行)+ <code>BtnPlayerInfo</code>(第 65–71 行)入口——本次换皮照同样做法加 <code>BtnRank</code>。<br>
-        <b>分辨率</b>:UIRoot CanvasScaler 参考分辨率 <mark>1080×1920</mark>;prefab 直接用 1080×1920 锚点,<mark>不</mark>套 <code>BlockLayout</code> 那套 750×1334 私有坐标系。
-      </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:窗口不含充值 / 内购 / 真实社交分享。点赞奖经数据层发邮件(去变现:点赞是免费每日福利,非诱导付费)。加法式:新建窗口 + prefab + GameContext 扩一个成员,不改框架、不改数据层逻辑、不动既有玩法窗口。无网络模块 → 远程榜返空,本屏榜单以本机 + 陪榜为主(<a href="#28-rank-window-art::open">§十一 BLK1</a>)。</td></tr>
-      <tr><th>影响范围</th><td>
-        <b>新增资源</b>:<code>RankWindow.prefab</code>(<code>AssetRaw/UI/Prefabs/</code>);<mark>无新切图</mark>(复用 <code>Sheet_settings</code> + 占位)。<br>
-        <b>新增代码(热更区)</b>:<code>RankWindow.cs</code>(窗口脚本,落 <code>GameScripts/HotFix/GameLogic/UI/</code>,同 <code>SettingsWindow.cs</code> / <code>PlayerInfoWindow.cs</code>);<code>RankRowWidget</code>(榜行,见 <a href="#28-rank-window-art::row">§五</a> dev 二选一)。<br>
-        <b>改既有(最小)</b>:<code>GameContext.cs</code> 加一个 <code>Rank</code> 成员 + <code>OnInit</code> 里构造(<a href="#28-rank-window-art::holder">§四</a>);<code>MainMenuWindow.cs</code> 加入口按钮(一处约 5 行,同 <code>BtnPlayerInfo</code> 做法)。<br>
-        <b>不改</b>:<code>GameLogic.Rank</code> 各类逻辑、<code>RankConfigMgr</code>、<code>GameLogic.Mail</code>、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测、<code>Persistence</code> 任一键。
-      </td></tr>
-      <tr><th>关键约束(继承设计 23 / 25)</th><td>窗口逻辑可被反射 / 直调驱动单测(EditMode 编译 + <code>GameContext</code> 持有 + 查榜数据贯通 + 点赞结果),但<b>真实视觉对位 / 列表渲染 / 指针点击</b>须 Play 模式人眼 + 手验。验收按「逻辑可单测(EditMode)」与「需 Play / 人眼」两档拆开(<a href="#28-rank-window-art::accept">§九</a>)。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 表现层换皮 · 塔罗 UI 自治线第 5 屏(末屏)· 纯 UI 补完 · art 受限 复用设计 23 / 25 范式,兑现遗留 #27(rank 表现层)。出设计稿 + 验收标准,交开发落地。 |
+> | **设计基线(经 grep 核实的真实符号)** | **数据层(已实装,只调用,命名空间 `GameLogic.Rank`)**:`RankService(IRankSource source, IRankPersistence persist, GameLogic.Mail.IMailService mail, IRankConfigSource cfg = null)`;字段 `NowProvider`(`Func<DateTime>`,默认系统时钟)/ `OpenDate`(`DateTime`)。查榜入口:`RankBoard GetBoard(int rankId)`(榜不存在返 null)、`(int rank, long score) GetMyRank(int rankId)`、`(long score, long ticks, int nameTextId) GetMyBest(int rankId)`、`void SubmitScore(int rankId, long score)`。领取:`RankClaimResult ClaimDaily(int rankId)` / `RankClaimResult ClaimPraise(int rankId)`;红点 `bool HasClaimable`;结算 `List<SettleResult> CheckAndSettle(DateTime now)`。 **查榜返回结构**:`RankBoard{ int Id; List<RankEntry> Entries; RankEntry Self; int SelfRank; long SelfScore; }`;`RankEntry{ int PlayerNameTextId; long Score; long AchievedTicks; bool IsSelf; int Rank; }`(`Rank` 由服务排序后回填,1 起);领取结果 `RankClaimResult{ RankClaimStatus Status; int TextId; }`,状态枚举 `RankClaimStatus{ Success, NotRanked, NoReward, AlreadyClaimedToday }`。 **榜定义**:`RankDef{ int Id; int NameTextId; int Group; int Method; long Condition; int PraiseRewardPoolId; RankValidType ValidType; long ValidVal; int MailDefId; int CountMax; int ShowMax; List<RankRewardTier> Tiers; }`;`RankRewardTier TierForRank(int rank)`(无匹配返 null);`RankRewardTier{ int RankMin; int RankMax; int RewardPoolId; int ShowRewardPoolId; int DailyRewardPoolId; }`。 **数据源 / 持久化 / 配置接缝**:`IRankSource.Fetch(int rankId)`;离线 `LocalRankSource(Func<int,(long,long,int)> selfProvider, Func<int,IReadOnlyList<RankEntry>> filler = null)`;远程 `RemoteRankSource`(`Fetch` 返 `Array.Empty`,不连网不抛);`RankPersistence`(键 `"Rank.Progress"`,经 `Persistence.Provider`)/ `InMemoryRankPersistence`(测试);`RankConfigMgrSource`(默认配置源,包 `RankConfigMgr`);`GameLogic.Config.RankConfigMgr`(`GetRank(id)` / `All()` / `EnsureLoaded()` / `InitForTest(IEnumerable<RankDef>)` / `ResetForTest()`)。 **发奖渠道**:领取 / 结算奖一律经注入 `GameLogic.Mail.IMailService.Send(MailDraft)`(设计 21),排名层不碰 `MergeOrderState` / `ItemGrant`——**窗口领点赞后奖励进邮箱,不在排行榜窗直接弹奖**([§六 点赞](#28-rank-window-art::praise))。 **UI 框架 + 取图 API(与设计 23 / 25 同源,已打通)**:`UIWindow` + `[Window(UILayer, location, fullScreen, hideTimeToClose)]`;生命周期 `ScriptGenerator → OnCreate → OnRefresh`;绑定 `FindChildComponent<T>(path)`;打开 `GameModule.UI.ShowUIAsync<T>()` / 关闭 `CloseUI<T>()`;取子图 `Image.SetSubSprite("Sheet_settings", 子图名)`(精灵表 Multiple 模式,子图名 = 源切图文件名,[设计 23 §三](#23-settings-window-art::atlas))。 **运行期上下文(已建,本次换皮扩持有)**:`GameLogic.GameContext : SimpleSingleton<GameContext>`(`OnInit` 里建 `Settings` + `Player`;现有 `InitSettingsWithStore` / `InitPlayerFromMeta` 测试注入入口)。 **入口现状**:`GameLogic.BlockBlastUI.MainMenuWindow`(code-built,`OnCreate` 里 `UGuiFactory.CreateButton`)已加 `BtnSettings`(第 58–63 行)+ `BtnPlayerInfo`(第 65–71 行)入口——本次换皮照同样做法加 `BtnRank`。 **分辨率**:UIRoot CanvasScaler 参考分辨率 **1080×1920**;prefab 直接用 1080×1920 锚点,**不**套 `BlockLayout` 那套 750×1334 私有坐标系。 |
+> | **方向约束** | 离线还原 · **去变现**:窗口不含充值 / 内购 / 真实社交分享。点赞奖经数据层发邮件(去变现:点赞是免费每日福利,非诱导付费)。加法式:新建窗口 + prefab + GameContext 扩一个成员,不改框架、不改数据层逻辑、不动既有玩法窗口。无网络模块 → 远程榜返空,本屏榜单以本机 + 陪榜为主([§十一 BLK1](#28-rank-window-art::open))。 |
+> | **影响范围** | **新增资源**:`RankWindow.prefab`(`AssetRaw/UI/Prefabs/`);**无新切图**(复用 `Sheet_settings` + 占位)。 **新增代码(热更区)**:`RankWindow.cs`(窗口脚本,落 `GameScripts/HotFix/GameLogic/UI/`,同 `SettingsWindow.cs` / `PlayerInfoWindow.cs`);`RankRowWidget`(榜行,见 [§五](#28-rank-window-art::row) dev 二选一)。 **改既有(最小)**:`GameContext.cs` 加一个 `Rank` 成员 + `OnInit` 里构造([§四](#28-rank-window-art::holder));`MainMenuWindow.cs` 加入口按钮(一处约 5 行,同 `BtnPlayerInfo` 做法)。 **不改**:`GameLogic.Rank` 各类逻辑、`RankConfigMgr`、`GameLogic.Mail`、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测、`Persistence` 任一键。 |
+> | **关键约束(继承设计 23 / 25)** | 窗口逻辑可被反射 / 直调驱动单测(EditMode 编译 + `GameContext` 持有 + 查榜数据贯通 + 点赞结果),但**真实视觉对位 / 列表渲染 / 指针点击**须 Play 模式人眼 + 手验。验收按「逻辑可单测(EditMode)」与「需 Play / 人眼」两档拆开([§九](#28-rank-window-art::accept))。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -158,13 +141,11 @@ private void InitRank()
     Rank = svc;
 }</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>待 dev 核实(B1):邮件服务从哪取 + selfProvider 闭包时序</b>
-    <ul style="margin:6px 0 0">
-      <li><b>邮件服务来源</b>:<code>RankService</code> 构造要一个 <code>GameLogic.Mail.IMailService</code>(设计 21)。dev 落地时按工程现状取:① 若 <code>GameContext</code> 后续也持有 <code>MailboxService</code>(mail 表现层轮,遗留 #26),则复用同一实例;② 本次换皮 mail 表现层未做 → dev 现场 <code>new MailboxService(...)</code>(注入 mail 的生产持久化 + 配置源,仿设计 21)作 <code>RankService</code> 的发奖出口,或暂注一个 no-op <code>IMailService</code>(领奖时记日志、不真发,待 mail 表现层接入后替为真实实例)。<mark>本屏验收只要求「点赞返 Success 且数据层 <code>ClaimPraise</code> 被调」</mark>(W4),奖是否真进邮箱属 mail 表现层(#26)范畴,非本屏方向问题。dev 取何路记 dev 交接区。</li>
-      <li><b>selfProvider 闭包</b>:<code>LocalRankSource</code> 的 <code>selfProvider</code> 要引用 <code>RankService</code> 自身的 <code>GetMyBest</code>——存在「服务引用源、源引用服务」的循环,用「先声明 svc 变量、闭包捕获、后赋值」打破(上方代码 + 设计 22 测试 SK1 / 持久化往返用例已是此写法,可照搬)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **待 dev 核实(B1):邮件服务从哪取 + selfProvider 闭包时序**
+>
+> - **邮件服务来源**:`RankService` 构造要一个 `GameLogic.Mail.IMailService`(设计 21)。dev 落地时按工程现状取:① 若 `GameContext` 后续也持有 `MailboxService`(mail 表现层轮,遗留 #26),则复用同一实例;② 本次换皮 mail 表现层未做 → dev 现场 `new MailboxService(...)`(注入 mail 的生产持久化 + 配置源,仿设计 21)作 `RankService` 的发奖出口,或暂注一个 no-op `IMailService`(领奖时记日志、不真发,待 mail 表现层接入后替为真实实例)。**本屏验收只要求「点赞返 Success 且数据层 `ClaimPraise` 被调」**(W4),奖是否真进邮箱属 mail 表现层(#26)范畴,非本屏方向问题。dev 取何路记 dev 交接区。
+> - **selfProvider 闭包**:`LocalRankSource` 的 `selfProvider` 要引用 `RankService` 自身的 `GetMyBest`——存在「服务引用源、源引用服务」的循环,用「先声明 svc 变量、闭包捕获、后赋值」打破(上方代码 + 设计 22 测试 SK1 / 持久化往返用例已是此写法,可照搬)。
 
 **测试注入入口**(仿既有 `InitSettingsWithStore` / `InitPlayerFromMeta`):加一个 `InitRankWithDeps(IRankSource source, IRankPersistence persist, IMailService mail, IRankConfigSource cfg = null)`,EditMode 经它灌入 `InMemoryRankPersistence` + `RecordingMailService` + `RankConfigMgr.InitForTest` 的榜定义,断言 `GameContext.Instance.Rank.GetBoard` 数据贯通,不污染真实 PlayerPrefs / 不连网(验收 H2/H3,[§九](#28-rank-window-art::accept))。
 
@@ -176,7 +157,8 @@ private void InitRank()
 
 根节点照设置窗 / 个人信息窗 prefab 范式:根挂 `RectTransform`(stretch 0,0→1,1)+ `Canvas` + `GraphicRaycaster`。坐标系 = 1080×1920 参考分辨率,直接用真实锚点。`m_` 前缀决定 `FindChildComponent` 绑定类型(前缀表见 tengine-dev `naming-rules`)。下方坐标为对位描述,精确像素 dev 摆图时对着 `排行榜.png` 微调。
 
-<div class="tree">RankWindow                             (根: RectTransform 全屏 stretch + Canvas + GraphicRaycaster)
+```text
+RankWindow                             (根: RectTransform 全屏 stretch + Canvas + GraphicRaycaster)
 ├─ m_btn_Mask                          Button  全屏遮罩(Image alpha≈0.6 深色; 点击关窗); 锚点全屏 stretch
 └─ Root                                RectTransform 居中容器(承载所有可见内容)
    ├─ m_img_TitleBg                    Image   标题木牌底; 子图 box2
@@ -193,7 +175,8 @@ private void InitRank()
    │  ├─ m_img_MyAvatar                Image   头像占位(纯色块)
    │  ├─ m_text_MyName                 Text    本机玩家名
    │  └─ m_text_MyScore               Text    本机成绩(SelfScore)
-   └─ m_btn_Bottom                     Button  底部"再来一次"长条; 子图 button + 文本; 点击→关窗(§七 D3)</div>
+   └─ m_btn_Bottom                     Button  底部"再来一次"长条; 子图 button + 文本; 点击→关窗(§七 D3)
+```
 
 > [!NOTE]
 > **静态节点 vs 动态节点**
@@ -310,15 +293,13 @@ namespace GameLogic.UI
     }
 }</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 注意(与设计 23 / 25 一致的工程实际)</b>
-    <ul style="margin:6px 0 0">
-      <li>接钮一律 <code>onClick.AddListener</code>(本工程 UIModule <mark>无 <code>RegisterButtonClick</code></mark>,设计 23 已验证)。<code>onClick</code> 监听随 GameObject 销毁自动清,无需手动 <code>RemoveAllListeners</code>。</li>
-      <li>占位反馈临时走 <code>Log.Info</code>(工程暂无 Toast / 飘字,同设计 23 / 25);<mark>占位不等于死按钮</mark>:点了要有 Log / 提示。</li>
-      <li>列表行实现(Widget / 代码生成 / 固定槽)+ 实际用的 <code>UIWidget</code> / 对象池 / <code>ScrollRect</code> API,dev <b>grep 工程真实签名后用,别臆造方法名</b>(<a href="#28-rank-window-art::row">§五</a>)。</li>
-      <li>名 <code>PlayerNameTextId</code> 是占位 textId(真实多语言查表延后,设计 22 O6)→ 本屏暂显占位名 / 直接显 textId 数字 / 显「玩家+id」皆可,补查表后替。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **dev 注意(与设计 23 / 25 一致的工程实际)**
+>
+> - 接钮一律 `onClick.AddListener`(本工程 UIModule **无 `RegisterButtonClick`**,设计 23 已验证)。`onClick` 监听随 GameObject 销毁自动清,无需手动 `RemoveAllListeners`。
+> - 占位反馈临时走 `Log.Info`(工程暂无 Toast / 飘字,同设计 23 / 25);**占位不等于死按钮**:点了要有 Log / 提示。
+> - 列表行实现(Widget / 代码生成 / 固定槽)+ 实际用的 `UIWidget` / 对象池 / `ScrollRect` API,dev **grep 工程真实签名后用,别臆造方法名**([§五](#28-rank-window-art::row))。
+> - 名 `PlayerNameTextId` 是占位 textId(真实多语言查表延后,设计 22 O6)→ 本屏暂显占位名 / 直接显 textId 数字 / 显「玩家+id」皆可,补查表后替。
 
 <h3 id="praise">6.1 点赞接 ClaimPraise(数据支持,效果图无钮 → 可选)</h3>
 

@@ -12,25 +12,24 @@
 
 把 GDD 的「神秘塔罗盲盒」落成一个**持有式、即时开盒**的核心系统:消除中的连消/全消挑战与特殊订单交付积累盲盒,玩家自选时机一键开出 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / 当前订单所需高阶物。接入现有 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)),复用 `MergeOrderState` / `ClearSettlement` / `SpecialOrderTrack` / `ChestSystem` 的既有形态,不另起一套。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">盲盒接的是已落地的 merge-order 切片现状,不是 GDD 的完整商业体量游戏。两条边界先钉死:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>产物上限随现状封顶 <span class="lv">Lv3</span>,不引入 Lv4</b>。GDD 写盲盒产「Lv1–Lv4」,但工程 <code>MergeOrderConfig.MaxLevel=3</code>,且设计 11 §六已把「5 级 → 3 级」作为已拍板收敛(Lv4/Lv5 不落地)。盲盒奖池产 Lv4 会与封顶不变量冲突——本篇据此把图案产物收敛为 <span class="lv">Lv1</span>–<span class="lv">Lv3</span>。详见 <a href="#12-tarot-blind-box::what">§一</a>。</li>
-      <li><b>「付费购买」渠道本设计不做</b>。项目红线去变现,GDD 盲盒的「付费购买」获取渠道明确不实装(见任务边界)。本设计只做<b>消除挑战解锁</b>与<b>特殊订单附赠</b>两条免费获取路径。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 盲盒接的是已落地的 merge-order 切片现状,不是 GDD 的完整商业体量游戏。两条边界先钉死:
+>
+> - **产物上限随现状封顶 Lv3,不引入 Lv4**。GDD 写盲盒产「Lv1–Lv4」,但工程 `MergeOrderConfig.MaxLevel=3`,且设计 11 §六已把「5 级 → 3 级」作为已拍板收敛(Lv4/Lv5 不落地)。盲盒奖池产 Lv4 会与封顶不变量冲突——本篇据此把图案产物收敛为 Lv1–Lv3。详见 [§一](#12-tarot-blind-box::what)。
+> - **「付费购买」渠道本设计不做**。项目红线去变现,GDD 盲盒的「付费购买」获取渠道明确不实装(见任务边界)。本设计只做**消除挑战解锁**与**特殊订单附赠**两条免费获取路径。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新玩法 · 核心系统</span> 出设计稿 + 验收标准,交开发落地</td></tr>
-      <tr><th>设计基线</th><td>GDD「三 · 3 神秘塔罗盲盒」逐字需求 + 已落地 merge-order 切片(<code>Module/BlockBlast/MergeOrderState.cs</code> / <code>ClearSettlement.cs</code> / <code>SpecialOrderTrack.cs</code> / <code>ChestSystem.cs</code> / <code>MergeOrderConfig.cs</code>)</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(无付费购买盲盒 / 无广告开盒加速——项目红线)</td></tr>
-      <tr><th>影响范围</th><td>新增数据层模块 1 个(盲盒奖池)+ <code>MergeOrderState</code> 加 1 个持有计数字段并入快照 + <code>ClearSettlement</code> 加 1 个解锁钩子 + <code>DeliverSpecial</code> 加附赠 + <code>MergeOrderWindow</code> 加计数显示与开盒窗。<b>旧路径(Classic / 无盲盒触发时)零行为变化。</b></td></tr>
-      <tr><th>关键约束(继承现状)</th><td><b>自动配对合成</b>使每个非封顶等级库存恒 ≤1(满 2 即升级)。盲盒产 Lv1/Lv2 图案进收集区会触发级联合并,这是预期行为而非缺陷;但意味着盲盒「产 1 个 Lv1」可能瞬间合成升级——产物价值要按级联后的实际收益评估。详见 <a href="#12-tarot-blind-box::grant">§3.3</a>。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新玩法 · 核心系统 出设计稿 + 验收标准,交开发落地 |
+> | **设计基线** | GDD「三 · 3 神秘塔罗盲盒」逐字需求 + 已落地 merge-order 切片(`Module/BlockBlast/MergeOrderState.cs` / `ClearSettlement.cs` / `SpecialOrderTrack.cs` / `ChestSystem.cs` / `MergeOrderConfig.cs`) |
+> | **方向约束** | 离线还原 · **去变现**(无付费购买盲盒 / 无广告开盒加速——项目红线) |
+> | **影响范围** | 新增数据层模块 1 个(盲盒奖池)+ `MergeOrderState` 加 1 个持有计数字段并入快照 + `ClearSettlement` 加 1 个解锁钩子 + `DeliverSpecial` 加附赠 + `MergeOrderWindow` 加计数显示与开盒窗。**旧路径(Classic / 无盲盒触发时)零行为变化。** |
+> | **关键约束(继承现状)** | **自动配对合成**使每个非封顶等级库存恒 ≤1(满 2 即升级)。盲盒产 Lv1/Lv2 图案进收集区会触发级联合并,这是预期行为而非缺陷;但意味着盲盒「产 1 个 Lv1」可能瞬间合成升级——产物价值要按级联后的实际收益评估。详见 [§3.3](#12-tarot-blind-box::grant)。 |
 
 <h2 id="what">一、改什么与为什么</h2>
 
@@ -60,40 +59,18 @@
 
 <h3 id="vs-chest">2.2 与宝箱的分工(为什么不复用 ChestSystem 的占槽)</h3>
 
-<div class="diagram">
-  <svg viewBox="0 0 900 360" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="盲盒与宝箱获取节奏对比结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-brown" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b86a45"></path></marker>
-    </defs>
-    <!-- 共同产出引擎 -->
-    <rect x="350" y="20" width="200" height="56" rx="10" fill="#1b2740" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="450" y="44" text-anchor="middle" fill="#cdd9ff" font-size="16" font-weight="bold">消除结算</text>
-    <text x="450" y="64" text-anchor="middle" fill="#8aa0d0" font-size="12">ClearSettlement.Settle</text>
-    <!-- 盲盒路径 绿 -->
-    <rect x="120" y="140" width="240" height="64" rx="10" fill="#16301f" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="240" y="166" text-anchor="middle" fill="#aef0cf" font-size="15" font-weight="bold">盲盒(持有计数)</text>
-    <text x="240" y="188" text-anchor="middle" fill="#7fcaa0" font-size="12">全清/连消阈值 → Count+1</text>
-    <rect x="120" y="250" width="240" height="64" rx="10" fill="#16301f" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="240" y="276" text-anchor="middle" fill="#aef0cf" font-size="15" font-weight="bold">即时开盒</text>
-    <text x="240" y="298" text-anchor="middle" fill="#7fcaa0" font-size="12">玩家点开 → 扣1 → 掷奖池</text>
-    <!-- 宝箱路径 棕 -->
-    <rect x="540" y="140" width="240" height="64" rx="10" fill="#2a1d14" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="660" y="166" text-anchor="middle" fill="#e3b694" font-size="15" font-weight="bold">宝箱(占槽 4 位)</text>
-    <text x="660" y="188" text-anchor="middle" fill="#c89a78" font-size="12">掉落 → 入箱位 + 倒计时</text>
-    <rect x="540" y="250" width="240" height="64" rx="10" fill="#2a1d14" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="660" y="276" text-anchor="middle" fill="#e3b694" font-size="15" font-weight="bold">倒计时到点才可开</text>
-    <text x="660" y="298" text-anchor="middle" fill="#c89a78" font-size="12">被动等待 → 三选一</text>
-    <line x1="400" y1="76" x2="270" y2="138" stroke="#5bd6a0" stroke-width="1.6" marker-end="url(#m-green)"></line>
-    <line x1="500" y1="76" x2="630" y2="138" stroke="#b86a45" stroke-width="1.6" marker-end="url(#m-brown)"></line>
-    <line x1="240" y1="204" x2="240" y2="248" stroke="#5bd6a0" stroke-width="1.6" marker-end="url(#m-green)"></line>
-    <line x1="660" y1="204" x2="660" y2="248" stroke="#b86a45" stroke-width="1.6" marker-end="url(#m-brown)"></line>
-    <!-- 图例 -->
-    <rect x="120" y="334" width="14" height="10" fill="#16301f" stroke="#5bd6a0"></rect><text x="140" y="343" fill="#9fb0c8" font-size="12">盲盒 = 主动开,无等待(本篇)</text>
-    <rect x="540" y="334" width="14" height="10" fill="#2a1d14" stroke="#b86a45"></rect><text x="560" y="343" fill="#9fb0c8" font-size="12">宝箱 = 被动等,占箱位(设计 11 §九,已落地未接 UI)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    Engine["<b>消除结算</b><br>ClearSettlement.Settle"]
+    subgraph blind["盲盒 = 主动开,无等待(本篇)"]
+        Box1["<b>盲盒(持有计数)</b><br>全清/连消阈值 → Count+1"] --> Box2["<b>即时开盒</b><br>玩家点开 → 扣1 → 掷奖池"]
+    end
+    subgraph chest["宝箱 = 被动等,占箱位(设计 11 §九,已落地未接 UI)"]
+        Chest1["<b>宝箱(占槽 4 位)</b><br>掉落 → 入箱位 + 倒计时"] --> Chest2["<b>倒计时到点才可开</b><br>被动等待 → 三选一"]
+    end
+    Engine --> Box1
+    Engine --> Chest1
+```
 
 两者共用上游的消除结算引擎,下游分两套互不干扰。盲盒的产物落点(图案/体力)复用 `MergeOrderState.AddDirect` / `RefundEnergy`,与宝箱发奖同源,改产物只改奖池一处。
 
@@ -169,12 +146,11 @@ int r = RandomSource.Range(0, total);      // [0, total)
 
 GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.DeliverSpecial()`:特殊订单交付成功时附赠盲盒。
 
-<table class="tight">
-    <tbody><tr><th>特殊订单类型</th><th>附赠盲盒数</th><th>旋钮</th></tr>
-    <tr><td>加急(Express)</td><td><code>BoxPerExpress</code>(默认 1)</td><td rowspan="3">各 Kind 独立常量,可分别调</td></tr>
-    <tr><td>剧情(Story)</td><td><code>BoxPerStory</code>(默认 2,主线奖励更重)</td></tr>
-    <tr><td>黄金时段(GoldenHour)</td><td><code>BoxPerGolden</code>(默认 1)</td></tr>
-  </tbody></table>
+| 特殊订单类型 | 附赠盲盒数 | 旋钮 |
+| --- | --- | --- |
+| 加急(Express) | `BoxPerExpress`(默认 1) | 各 Kind 独立常量,可分别调 |
+| 剧情(Story) | `BoxPerStory`(默认 2,主线奖励更重) | 各 Kind 独立常量,可分别调 |
+| 黄金时段(GoldenHour) | `BoxPerGolden`(默认 1) | 各 Kind 独立常量,可分别调 |
 
 <b>实现位置抉择:</b> `DeliverSpecial` 内按 `SpecialTrack.Occupied.Kind` 查表 `BlindBoxCount += 表[kind]`。注意 `DeliverSpecial` 末尾有 `_undoStack.Clear()`(交付是已提交动作,悔棋不倒回)——附赠的盲盒计数随交付一起固化,不被悔棋倒回,符合「已交付」语义。
 

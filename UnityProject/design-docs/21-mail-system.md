@@ -14,43 +14,27 @@
 
 命名空间 `GameLogic.Mail` 的**收件箱数据逻辑层**:邮件数据模型(发件人 / 时间 / 标题 / 内容 / 奖励附件 / 已读 / 已领取)+ 收件箱服务 `MailboxService`(收件 / 列表排序 / 标记已读 / 领取奖励单封+一键 / 删除已读 / 自动清理超量+过期 / 红点)。关键在两道接缝:① **对外收件 API** `IMailService.Send`——供排行榜结算 / 活动回收 / 系统奖励调用(即 spec 的「为其他功能留邮件调用接口」);② **服务器/运营接缝** `IMailSource`(后台发删 / 定时 / 区服多选)<mark>= stub + TODO,离线不实现</mark>。奖励附件复用 [道具系统 16](#16-item-system) 的礼包随机库 + `ItemGrant` 落点,领取后用 [设计 17](#17-reward-display) 的 `RewardView` 展示。这是 xlsx 系统底层批次第七刀。<mark>邮件界面 / 详情 / 红点显示 / icon(表现层)需美术,延后轮,本设计只留服务 + 接缝 + 红点状态 getter。</mark>
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">五条边界先明确,防 dev 把「邮件数据层」做成「真连服务器收发邮件 + 另造一套发奖 / 存储」:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>「服务器/运营接缝」= 可注入邮件来源接口,不是真收发网络邮件。</b>本工程<mark>没有网络模块</mark>(<code>Books/3-8-网络模块.md</code> 标「待补充」,全工程 grep 无 <code>INetworkModule</code>/<code>UnityWebRequest</code>/<code>HttpClient</code>),方向<b>离线还原 · 去变现</b>。「后台全服发邮件 / 定时邮件 / 区服多选」本应由运营后台 + 服务器推送,本设计抽象成 <code>IMailSource</code> 接口:留 <mark>stub + TODO</mark>,离线不实现,<b>区服离线视单一本地区服</b>(无多区概念)。这道接缝指的是<b>接口边界本身</b>,而非本设计真去连服务器(见 <a href="#21-mail-system::source">§3.7</a> / <a href="#21-mail-system::open">§七 O1</a>)。</li>
-      <li><b>「对外收件 API」是本设计真做的核心接缝。</b>spec 写「为其他功能留邮件调用接口,用于奖励发放」——这是<mark>本游戏内部</mark>各系统(排行榜结算 / 活动回收 / 系统补偿)把奖励经邮件发给玩家的入口 <code>IMailService.Send(MailDraft)</code>。它<b>不依赖网络</b>,是本设计真实实现的服务方法。下一轮排行榜底层即接此真实本地邮件服务做结算发奖,而非再 stub(本批次决策,见 boss.md)。</li>
-      <li><b>奖励附件复用 16 道具系统的礼包随机库 + 既有落点,不另造发奖。</b>邮件配置表第 5 列 <code>Reward表id</code> = <mark>奖励随机库表 id</mark>(spec 原文),即道具系统 <code>gift_random</code> 礼包池的 index。领取时经既有 <code>GiftOpener.OpenRandom(rewardId, 1, rng)</code> 抽出 <code>GiftEntry</code> 列表,每项经 <code>ItemConfigMgr.GetItem</code> → <code>ItemGrant.GrantOnAcquire</code> 落 <code>MergeOrderState</code>(<code>Item/ItemGrant.cs</code>,设计 16 §3.6/§3.7)。本系统<mark>只持有「奖励来自哪个库表 id」,不复制发奖落点逻辑</mark>。</li>
-      <li><b>持久化复用既有接缝,本地单机。</b>整个收件箱(邮件列表 + 各封已读/已领状态)序列化进既有 <code>GameLogic.BlockBlast.IPersistenceProvider</code>/<code>Persistence.Provider</code> 的专用键 <code>Mail.Inbox</code>(生产 PlayerPrefs / 测试 InMemory)。<mark>不</mark>新建第二套存储栈。脏数据 / 截断对任意输入须产出合法空集合不抛(同 14 save-system 保底口径)。</li>
-      <li><b>UI 投放不在本设计。</b>邮件界面 / 详情 / 无邮件态 / 全部删除二次确认 / 红点显示 / 邮件 icon 是表现层,依赖美术与窗口流程,本设计<mark>不</mark>建窗口、不挂 prefab。交付到「邮件模型 + 收件箱服务 + 两道接缝 + 红点状态 getter + 文案 textId 占位」。多语言标题/内容存 textId 占位(同 num/item/reward/settings/redeem 现状)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 五条边界先明确,防 dev 把「邮件数据层」做成「真连服务器收发邮件 + 另造一套发奖 / 存储」:
+>
+> - **「服务器/运营接缝」= 可注入邮件来源接口,不是真收发网络邮件。**本工程**没有网络模块**(`Books/3-8-网络模块.md` 标「待补充」,全工程 grep 无 `INetworkModule`/`UnityWebRequest`/`HttpClient`),方向**离线还原 · 去变现**。「后台全服发邮件 / 定时邮件 / 区服多选」本应由运营后台 + 服务器推送,本设计抽象成 `IMailSource` 接口:留 **stub + TODO**,离线不实现,**区服离线视单一本地区服**(无多区概念)。这道接缝指的是**接口边界本身**,而非本设计真去连服务器(见 [§3.7](#21-mail-system::source) / [§七 O1](#21-mail-system::open))。
+> - **「对外收件 API」是本设计真做的核心接缝。**spec 写「为其他功能留邮件调用接口,用于奖励发放」——这是**本游戏内部**各系统(排行榜结算 / 活动回收 / 系统补偿)把奖励经邮件发给玩家的入口 `IMailService.Send(MailDraft)`。它**不依赖网络**,是本设计真实实现的服务方法。下一轮排行榜底层即接此真实本地邮件服务做结算发奖,而非再 stub(本批次决策,见 boss.md)。
+> - **奖励附件复用 16 道具系统的礼包随机库 + 既有落点,不另造发奖。**邮件配置表第 5 列 `Reward表id` = **奖励随机库表 id**(spec 原文),即道具系统 `gift_random` 礼包池的 index。领取时经既有 `GiftOpener.OpenRandom(rewardId, 1, rng)` 抽出 `GiftEntry` 列表,每项经 `ItemConfigMgr.GetItem` → `ItemGrant.GrantOnAcquire` 落 `MergeOrderState`(`Item/ItemGrant.cs`,设计 16 §3.6/§3.7)。本系统**只持有「奖励来自哪个库表 id」,不复制发奖落点逻辑**。
+> - **持久化复用既有接缝,本地单机。**整个收件箱(邮件列表 + 各封已读/已领状态)序列化进既有 `GameLogic.BlockBlast.IPersistenceProvider`/`Persistence.Provider` 的专用键 `Mail.Inbox`(生产 PlayerPrefs / 测试 InMemory)。**不**新建第二套存储栈。脏数据 / 截断对任意输入须产出合法空集合不抛(同 14 save-system 保底口径)。
+> - **UI 投放不在本设计。**邮件界面 / 详情 / 无邮件态 / 全部删除二次确认 / 红点显示 / 邮件 icon 是表现层,依赖美术与窗口流程,本设计**不**建窗口、不挂 prefab。交付到「邮件模型 + 收件箱服务 + 两道接缝 + 红点状态 getter + 文案 textId 占位」。多语言标题/内容存 textId 占位(同 num/item/reward/settings/redeem 现状)。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新系统 · 通用邮件数据逻辑层 + 服务器/运营接缝</span> 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第七刀。</td></tr>
-      <tr><th>设计基线(经 grep 核实的真实符号)</th><td>
-        <b>奖励发放</b>:邮件附件 = 礼包随机库 id → <code>GameLogic.BlockBlast.Item.GiftOpener.OpenRandom(index, times, rng)</code>(<code>Item/GiftOpener.cs</code>,返 <code>List&lt;GiftEntry&gt;</code>);每项 <code>GiftEntry.ItemId/Num</code> → <code>GameLogic.Config.ItemConfigMgr.GetItem(id)</code> → <code>GameLogic.BlockBlast.Item.ItemGrant.GrantOnAcquire(def, num, state, rng)</code> 落 <code>MergeOrderState</code>(<code>Item/ItemGrant.cs</code>,设计 16)。<br>
-        <b>持久化接缝</b>:<code>GameLogic.BlockBlast.IPersistenceProvider</code>(<code>TryGet/Set/Remove</code>)+ <code>Persistence.Provider</code>(默认 <code>PlayerPrefsProvider</code> / 测试 <code>InMemoryPersistenceProvider</code>,<code>Module/BlockBlast/Persistence.cs</code>)。<br>
-        <b>序列化范本</b>:<code>MergeMetaPersistence.Serialize/Deserialize/Migrate</code> + <code>MergeMetaSave</code>(<code>JsonUtility</code> 友好 <code>[Serializable]</code> DTO + version 字段 + 反序列化 null 保底,<code>Module/BlockBlast/MergeMeta*.cs</code>,设计 14)。<br>
-        <b>配置桥接范本</b>:<code>ItemConfigMgr</code>/<code>RedeemConfigMgr</code>(Luban 行 → POCO,运行期 <code>EnsureLoaded</code> 走 <code>ConfigSystem.Instance.Tables</code>;EditMode 经 <code>InitForTest</code> 注入绕 YooAsset)。<br>
-        <b>结果展示(可选接)</b>:<code>GameLogic.BlockBlast.Reward.RewardView</code>(<code>Module/BlockBlast/Reward/RewardView.cs</code>,设计 17)——领取后用它统一渲染奖励;本设计只产出 <code>GrantPayload</code>,UI 接时自行转 <code>RewardView</code>。<br>
-        <b>主界面入口钩子</b>:邮件 icon = 主界面邮件按钮 + 红点(spec),本设计留<code>MailboxService.HasUnreadOrUnclaimed</code> 红点 getter 供主界面接,UI 投放延后。
-      </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:邮件用于运营发放(节日礼包 / 公告补偿 / 系统奖励)与<b>游戏内系统结算发奖</b>(排行榜 / 活动回收),<mark>不</mark>含充值 / 内购 / 付费;真实服务器后台发删邮件延后(本工程无网络模块),离线版 <code>IMailSource</code> inert。IO 走框架既有非阻塞 PlayerPrefs(同 14/19/20 口径,不触「禁阻塞 IO」红线)。加法式扩展,不破坏既有核心循环 + 已建系统。</td></tr>
-      <tr><th>影响范围</th><td>
-        <b>新增配置表</b>:<code>mail.xlsx</code>(邮件模板表) → Luban <code>GameConfig.Mail</code>;<b>全局配置</b> maxCount(默认 100)/ retainDays(默认 30)入 <code>mail_global</code> 表或既有全局配置(<a href="#21-mail-system::config">§3.1</a>);<br>
-        <b>新增 POCO + 桥接</b>:<code>MailDef</code> + <code>MailGlobalConfig</code> + <code>MailConfigMgr</code>(含 <code>InitForTest</code>,归 <code>GameLogic.Config</code>,<a href="#21-mail-system::poco">§3.2</a>);<br>
-        <b>新增邮件模型</b>:<code>MailItem</code>(运行期) + <code>MailDraft</code>(收件入参) + <code>MailStatus</code> 枚举(<a href="#21-mail-system::model">§二</a> / <a href="#21-mail-system::draft">§3.3</a>);<br>
-        <b>新增收件箱服务</b>:<code>MailboxService</code>(实现对外 <code>IMailService</code>)+ <code>ClaimResult</code>(领取结果)+ <code>MailText</code>(textId 占位,<a href="#21-mail-system::service">§3.4</a>–<a href="#21-mail-system::reddot">§3.6</a>);<br>
-        <b>新增持久化层</b>:<code>MailInboxSave</code>(<code>[Serializable]</code> DTO)+ <code>MailPersistence</code>(序列化 + 专用键 <code>Mail.Inbox</code>,包既有 <code>Persistence.Provider</code>,<a href="#21-mail-system::persist">§3.5</a>);<br>
-        <b>新增运营接缝</b>:<code>IMailSource</code> + <code>InertMailSource</code>(stub,<a href="#21-mail-system::source">§3.7</a>);<br>
-        <b>改既有</b>:无(发奖复用 16 既有礼包库+落点,持久化复用既有接缝,框架代码不动)。<b>UI 零改动</b>(本设计不建窗口)。<b>既有玩法逻辑零行为变化</b>。
-      </td></tr>
-      <tr><th>关键约束(继承现状)</th><td>POCO / 模型 / 服务 / 持久化 / 接缝为纯逻辑,可在纯 C# 单测直接 <code>new</code> / 注入(不依赖 YooAsset / Unity 运行时 / 网络);配置经 <code>MailConfigMgr.InitForTest</code> 注入(绕 ConfigSystem);持久化往返经 <code>InMemoryPersistenceProvider</code> 注入断言(不碰真实 PlayerPrefs);<mark>时钟注入 <code>NowProvider</code></mark>(默认 <code>DateTime.Now</code>,有效期/保留/过期清理用注入 today,可单测);发奖落 <code>MergeOrderState</code> 经既有礼包库+落点(state 可 null 走纯解析)。现有 EditMode 测试零回归。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新系统 · 通用邮件数据逻辑层 + 服务器/运营接缝 出设计稿 + 验收标准,交开发落地。xlsx 系统底层批次第七刀。 |
+> | **设计基线(经 grep 核实的真实符号)** | **奖励发放**:邮件附件 = 礼包随机库 id → `GameLogic.BlockBlast.Item.GiftOpener.OpenRandom(index, times, rng)`(`Item/GiftOpener.cs`,返 `List<GiftEntry>`);每项 `GiftEntry.ItemId/Num` → `GameLogic.Config.ItemConfigMgr.GetItem(id)` → `GameLogic.BlockBlast.Item.ItemGrant.GrantOnAcquire(def, num, state, rng)` 落 `MergeOrderState`(`Item/ItemGrant.cs`,设计 16)。 **持久化接缝**:`GameLogic.BlockBlast.IPersistenceProvider`(`TryGet/Set/Remove`)+ `Persistence.Provider`(默认 `PlayerPrefsProvider` / 测试 `InMemoryPersistenceProvider`,`Module/BlockBlast/Persistence.cs`)。 **序列化范本**:`MergeMetaPersistence.Serialize/Deserialize/Migrate` + `MergeMetaSave`(`JsonUtility` 友好 `[Serializable]` DTO + version 字段 + 反序列化 null 保底,`Module/BlockBlast/MergeMeta*.cs`,设计 14)。 **配置桥接范本**:`ItemConfigMgr`/`RedeemConfigMgr`(Luban 行 → POCO,运行期 `EnsureLoaded` 走 `ConfigSystem.Instance.Tables`;EditMode 经 `InitForTest` 注入绕 YooAsset)。 **结果展示(可选接)**:`GameLogic.BlockBlast.Reward.RewardView`(`Module/BlockBlast/Reward/RewardView.cs`,设计 17)——领取后用它统一渲染奖励;本设计只产出 `GrantPayload`,UI 接时自行转 `RewardView`。 **主界面入口钩子**:邮件 icon = 主界面邮件按钮 + 红点(spec),本设计留`MailboxService.HasUnreadOrUnclaimed` 红点 getter 供主界面接,UI 投放延后。 |
+> | **方向约束** | 离线还原 · **去变现**:邮件用于运营发放(节日礼包 / 公告补偿 / 系统奖励)与**游戏内系统结算发奖**(排行榜 / 活动回收),**不**含充值 / 内购 / 付费;真实服务器后台发删邮件延后(本工程无网络模块),离线版 `IMailSource` inert。IO 走框架既有非阻塞 PlayerPrefs(同 14/19/20 口径,不触「禁阻塞 IO」红线)。加法式扩展,不破坏既有核心循环 + 已建系统。 |
+> | **影响范围** | **新增配置表**:`mail.xlsx`(邮件模板表) → Luban `GameConfig.Mail`;**全局配置** maxCount(默认 100)/ retainDays(默认 30)入 `mail_global` 表或既有全局配置([§3.1](#21-mail-system::config)); **新增 POCO + 桥接**:`MailDef` + `MailGlobalConfig` + `MailConfigMgr`(含 `InitForTest`,归 `GameLogic.Config`,[§3.2](#21-mail-system::poco)); **新增邮件模型**:`MailItem`(运行期) + `MailDraft`(收件入参) + `MailStatus` 枚举([§二](#21-mail-system::model) / [§3.3](#21-mail-system::draft)); **新增收件箱服务**:`MailboxService`(实现对外 `IMailService`)+ `ClaimResult`(领取结果)+ `MailText`(textId 占位,[§3.4](#21-mail-system::service)–[§3.6](#21-mail-system::reddot)); **新增持久化层**:`MailInboxSave`(`[Serializable]` DTO)+ `MailPersistence`(序列化 + 专用键 `Mail.Inbox`,包既有 `Persistence.Provider`,[§3.5](#21-mail-system::persist)); **新增运营接缝**:`IMailSource` + `InertMailSource`(stub,[§3.7](#21-mail-system::source)); **改既有**:无(发奖复用 16 既有礼包库+落点,持久化复用既有接缝,框架代码不动)。**UI 零改动**(本设计不建窗口)。**既有玩法逻辑零行为变化**。 |
+> | **关键约束(继承现状)** | POCO / 模型 / 服务 / 持久化 / 接缝为纯逻辑,可在纯 C# 单测直接 `new` / 注入(不依赖 YooAsset / Unity 运行时 / 网络);配置经 `MailConfigMgr.InitForTest` 注入(绕 ConfigSystem);持久化往返经 `InMemoryPersistenceProvider` 注入断言(不碰真实 PlayerPrefs);**时钟注入 `NowProvider`**(默认 `DateTime.Now`,有效期/保留/过期清理用注入 today,可单测);发奖落 `MergeOrderState` 经既有礼包库+落点(state 可 null 走纯解析)。现有 EditMode 测试零回归。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -528,34 +512,33 @@ sequenceDiagram
 
 纯逻辑全 EditMode 可测(POCO + 注入隔离 + 注入时钟);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在**配置桥接 + 收件 + 排序 + 读 + 领取单/一键 + 删除 + 自动清理 + 红点 + 持久化往返 + 发奖复用**;真实服务器 / UI 视觉不在本设计(无后端 / 需美术)。
 
-<table class="tight">
-    <tbody><tr><th>组</th><th>#</th><th>验收点(完成定义,test 可逐条核对)</th></tr>
-    <tr><td rowspan="3">配置 C</td><td>C1</td><td><code>MailConfigMgr.InitForTest</code> 灌入邮件后 <code>GetMail(id)</code> 返对应 <code>MailDef</code>,字段(title/desc/expire_days/reward_id)正确;查不存在的 id 返 null(不抛)</td></tr>
-    <tr><td>C2</td><td><code>Global</code> 在表缺省时返默认 <code>MaxCount==100</code> / <code>RetainDays==30</code>;注入自定义全局配置后返注入值</td></tr>
-    <tr><td>C3</td><td>(Luban 直读,工具链可达时)<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../mail.bytes)</code> → <code>new TbMail(ByteBuf)</code> 含 5 条 demo 行且字段映射正确(id 1–5 / reward=1002 / expire=14);不可达列 <b>BLOCKED</b></td></tr>
-    <tr><td rowspan="2">收件 N</td><td>N1</td><td><code>Send(draft)</code> 后收件箱 +1,新邮件 <code>Read==false</code> / <code>Claimed==false</code> / <code>SendTimeTicks</code>==注入 now;返回的 id 能 <code>Find</code> 到</td></tr>
-    <tr><td>N2</td><td><code>MailDraft.FromTemplate(defId)</code> 从配置复制字段(title/desc/expire/reward 与 <code>MailDef</code> 一致);<code>Send</code> 进收件箱</td></tr>
-    <tr><td rowspan="2">排序 SO</td><td>SO1</td><td><code>List()</code>:未读邮件排在已读之前(已读&gt;未读 = 未读置顶);组内按 <code>SendTimeTicks</code> 降序(新在前)</td></tr>
-    <tr><td>SO2</td><td>混合(2 未读 + 2 已读,各含早晚)→ <code>List()</code> 次序 = [未读新, 未读旧, 已读新, 已读旧]</td></tr>
-    <tr><td rowspan="1">已读 RD</td><td>RD1</td><td><code>MarkRead(id)</code> 后该邮件 <code>Read==true</code>;再 <code>MarkRead</code> 幂等(不重复落盘可不强求,但状态不变);未读数 <code>UnreadCount</code> 相应减少</td></tr>
-    <tr><td rowspan="4">领取 CL</td><td>CL1</td><td>有奖励邮件 <code>Claim(id, state!=null)</code> → <code>Success</code> 且 <code>Granted</code> 含产出;邮件 <code>Claimed==true</code> &amp;&amp; <code>Read==true</code>(领后标已领+已读)</td></tr>
-    <tr><td>CL2</td><td>再次 <code>Claim</code> 同邮件 → <code>AlreadyClaimed</code> 且<mark>不重复发奖</mark>;无奖励邮件(reward=0)<code>Claim</code> → <code>NoReward</code>;不存在 id → <code>NotFound</code></td></tr>
-    <tr><td>CL3</td><td><code>ClaimAll(state)</code>:所有「有奖励未领未过期」邮件被领(<code>Claimed==true</code>),<mark>全部邮件标已读</mark>(spec);<code>Granted</code> 汇总各封产出;已领/无奖励邮件不重复发</td></tr>
-    <tr><td>CL4</td><td><code>state==null</code> 时 <code>Claim</code>/<code>ClaimAll</code> 仍返 <code>Success</code> 且 <code>Granted</code> 含产出结构(纯解析路径,不抛);奖励库 id 在道具系统未登记 → <code>Granted</code> 空但仍 <code>Success</code>(不抛)</td></tr>
-    <tr><td rowspan="2">删除 DEL</td><td>DEL1</td><td><code>DeleteRead(id)</code>:已读+无奖励 → 删成功(返 true,收件箱 -1);已读+奖励已领 → 删成功</td></tr>
-    <tr><td>DEL2</td><td>未读邮件 → <code>DeleteRead</code> 返 false 不删;已读+有奖励未领 → 返 false 不删(<code>CanDelete</code> 前置)</td></tr>
-    <tr><td rowspan="3">清理 CU</td><td>CU1</td><td>过期清理:邮件 <code>SendTime + ExpireDays &lt; 注入 today</code> → 收件 / <code>List</code> / 红点查询时被移除;未过期保留;<code>ExpireDays&lt;=0</code> 的邮件用全局 <code>RetainDays</code> 判过期</td></tr>
-    <tr><td>CU2</td><td>超量清理:连发 &gt; <code>MaxCount</code> 封 → 收件箱稳定在 <code>MaxCount</code> 封,<mark>留最新</mark>(删最早 <code>SendTimeTicks</code>);新邮件在(插尾)、最早的被删</td></tr>
-    <tr><td>CU3</td><td>清理用<mark>注入的 <code>NowProvider</code></mark>:同一批邮件,注入「今天」无过期、注入「一月后」全过期(证时钟可注入可单测)</td></tr>
-    <tr><td rowspan="2">红点 RDOT</td><td>RDOT1</td><td><code>HasUnreadOrUnclaimed</code>:有未读邮件 → true;有「有奖未领」邮件 → true;全已读且(无奖励 ‖ 已领)→ false。每封 <code>MailItem.HasRedDot</code> 同口径</td></tr>
-    <tr><td>RDOT2</td><td>已读但奖励未领的邮件 <code>HasRedDot==true</code>(读态不消红点,奖励态才消);领取后该邮件 <code>HasRedDot==false</code></td></tr>
-    <tr><td rowspan="2">持久化 P</td><td>P1</td><td><code>MailPersistence</code> 注 <code>InMemoryPersistenceProvider</code>:<code>Send</code> 几封后新建 <code>MailboxService</code> 实例(复用同 provider)→ <code>List</code> 含原邮件且读/领态保真(跨实例往返,模拟重启)</td></tr>
-    <tr><td>P2</td><td>反序列化保底:provider 无键 / 空串 / 非法 JSON → <code>Load</code> 返空列表(不抛);服务能从空收件箱正常 <code>Send</code></td></tr>
-    <tr><td rowspan="2">接缝 SK</td><td>SK1</td><td><code>InertMailSource.Pull()</code> 返空集合且<mark>不抛、不连网</mark>(stub 不崩);grep 全系统无 <code>UnityWebRequest</code>/<code>HttpClient</code> 引用</td></tr>
-    <tr><td>SK2</td><td><code>IMailService.Send</code> 是真实可用接口:经接口引用调 <code>Send</code> 收件成功(证「对外收件 API」本设计真做,下轮排行榜可接)</td></tr>
-    <tr><td rowspan="2">回归 / 编译 R</td><td>R1</td><td>编译 0 error;现有 EditMode 测试全绿(零回归);新增 Mail 测试全绿</td></tr>
-    <tr><td>R2</td><td>Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件;重点核「无真实网络 / HTTP 调用」「PlayerPrefs/JsonUtility 非阻塞不触同步 IO」「发奖复用 16 不复制落点」「持久化复用既有 Provider 不另造存储栈」)</td></tr>
-  </tbody></table>
+| 组 | # | 验收点(完成定义,test 可逐条核对) |
+| --- | --- | --- |
+| 配置 C | C1 | `MailConfigMgr.InitForTest` 灌入邮件后 `GetMail(id)` 返对应 `MailDef`,字段(title/desc/expire_days/reward_id)正确;查不存在的 id 返 null(不抛) |
+| 配置 C | C2 | `Global` 在表缺省时返默认 `MaxCount==100` / `RetainDays==30`;注入自定义全局配置后返注入值 |
+| 配置 C | C3 | (Luban 直读,工具链可达时)`AssetDatabase.LoadAssetAtPath<TextAsset>(.../mail.bytes)` → `new TbMail(ByteBuf)` 含 5 条 demo 行且字段映射正确(id 1–5 / reward=1002 / expire=14);不可达列 **BLOCKED** |
+| 收件 N | N1 | `Send(draft)` 后收件箱 +1,新邮件 `Read==false` / `Claimed==false` / `SendTimeTicks`==注入 now;返回的 id 能 `Find` 到 |
+| 收件 N | N2 | `MailDraft.FromTemplate(defId)` 从配置复制字段(title/desc/expire/reward 与 `MailDef` 一致);`Send` 进收件箱 |
+| 排序 SO | SO1 | `List()`:未读邮件排在已读之前(已读>未读 = 未读置顶);组内按 `SendTimeTicks` 降序(新在前) |
+| 排序 SO | SO2 | 混合(2 未读 + 2 已读,各含早晚)→ `List()` 次序 = [未读新, 未读旧, 已读新, 已读旧] |
+| 已读 RD | RD1 | `MarkRead(id)` 后该邮件 `Read==true`;再 `MarkRead` 幂等(不重复落盘可不强求,但状态不变);未读数 `UnreadCount` 相应减少 |
+| 领取 CL | CL1 | 有奖励邮件 `Claim(id, state!=null)` → `Success` 且 `Granted` 含产出;邮件 `Claimed==true` && `Read==true`(领后标已领+已读) |
+| 领取 CL | CL2 | 再次 `Claim` 同邮件 → `AlreadyClaimed` 且**不重复发奖**;无奖励邮件(reward=0)`Claim` → `NoReward`;不存在 id → `NotFound` |
+| 领取 CL | CL3 | `ClaimAll(state)`:所有「有奖励未领未过期」邮件被领(`Claimed==true`),**全部邮件标已读**(spec);`Granted` 汇总各封产出;已领/无奖励邮件不重复发 |
+| 领取 CL | CL4 | `state==null` 时 `Claim`/`ClaimAll` 仍返 `Success` 且 `Granted` 含产出结构(纯解析路径,不抛);奖励库 id 在道具系统未登记 → `Granted` 空但仍 `Success`(不抛) |
+| 删除 DEL | DEL1 | `DeleteRead(id)`:已读+无奖励 → 删成功(返 true,收件箱 -1);已读+奖励已领 → 删成功 |
+| 删除 DEL | DEL2 | 未读邮件 → `DeleteRead` 返 false 不删;已读+有奖励未领 → 返 false 不删(`CanDelete` 前置) |
+| 清理 CU | CU1 | 过期清理:邮件 `SendTime + ExpireDays < 注入 today` → 收件 / `List` / 红点查询时被移除;未过期保留;`ExpireDays<=0` 的邮件用全局 `RetainDays` 判过期 |
+| 清理 CU | CU2 | 超量清理:连发 > `MaxCount` 封 → 收件箱稳定在 `MaxCount` 封,**留最新**(删最早 `SendTimeTicks`);新邮件在(插尾)、最早的被删 |
+| 清理 CU | CU3 | 清理用**注入的 `NowProvider`**:同一批邮件,注入「今天」无过期、注入「一月后」全过期(证时钟可注入可单测) |
+| 红点 RDOT | RDOT1 | `HasUnreadOrUnclaimed`:有未读邮件 → true;有「有奖未领」邮件 → true;全已读且(无奖励 ‖ 已领)→ false。每封 `MailItem.HasRedDot` 同口径 |
+| 红点 RDOT | RDOT2 | 已读但奖励未领的邮件 `HasRedDot==true`(读态不消红点,奖励态才消);领取后该邮件 `HasRedDot==false` |
+| 持久化 P | P1 | `MailPersistence` 注 `InMemoryPersistenceProvider`:`Send` 几封后新建 `MailboxService` 实例(复用同 provider)→ `List` 含原邮件且读/领态保真(跨实例往返,模拟重启) |
+| 持久化 P | P2 | 反序列化保底:provider 无键 / 空串 / 非法 JSON → `Load` 返空列表(不抛);服务能从空收件箱正常 `Send` |
+| 接缝 SK | SK1 | `InertMailSource.Pull()` 返空集合且**不抛、不连网**(stub 不崩);grep 全系统无 `UnityWebRequest`/`HttpClient` 引用 |
+| 接缝 SK | SK2 | `IMailService.Send` 是真实可用接口:经接口引用调 `Send` 收件成功(证「对外收件 API」本设计真做,下轮排行榜可接) |
+| 回归 / 编译 R | R1 | 编译 0 error;现有 EditMode 测试全绿(零回归);新增 Mail 测试全绿 |
+| 回归 / 编译 R | R2 | Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件;重点核「无真实网络 / HTTP 调用」「PlayerPrefs/JsonUtility 非阻塞不触同步 IO」「发奖复用 16 不复制落点」「持久化复用既有 Provider 不另造存储栈」) |
 
 > [!WARNING]
 > <b>不在本设计验收(boss 授权遗留)</b>

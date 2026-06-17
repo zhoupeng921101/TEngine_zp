@@ -12,26 +12,25 @@
 
 把 GDD 的**长期主线**落成一条可验收的成长链:订单交付产<span class="coin">虔诚币</span> → 攒够修复 12 座神庙大厅 → 每次修复产**经验**抬升**神庙守护者等级** → 升级解锁剧情章节(本设计只做解锁标记)。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)),复用 `MergeOrderState` / `MergeOrderConfig` / `MergeOrderWindow` 的既有形态,**不重构现有 灵力(Soul) 经济**。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">本篇接的是已落地的 merge-order 切片现状,不是 GDD 的完整商业体量游戏。三条边界先钉死:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>加法式引入第二货币,不动 灵力。</b>现行经济是设计 11 的单软货币 灵力(<code>MergeOrderState.Soul</code>)。本篇新增<span class="coin">虔诚币</span>(<code>Piety</code>)作长期主线货币,与 灵力 并存、各管一段(对照 <a href="#13-piety-temple-repair::vs-soul">§2.2</a>)。GDD 写的「灵力 100 上限神谕槽」重构<b>不在本设计</b>。</li>
-      <li><b>订单交付当前不发 灵力(已 grep 核实)。</b><code>MergeOrderState.Deliver</code> / <code>DeliverSpecial</code> 现状只发 体力(<code>OrderRewardEnergy</code>) + 累计分(<code>TotalScore</code>),<b>不调 <code>AddSoul</code></b>(<code>AddSoul</code> 已存在且入快照,但交付路径无调用方)。因此把<span class="coin">虔诚币</span>挂为「订单的主要奖励」是<b>纯新增</b>,不与现有奖励冲突。详见 <a href="#13-piety-temple-repair::piety-reward">§3.1</a>。</li>
-      <li><b>金币 / 高级图案包 不实装。</b>GDD 升级奖励含「金币和高级图案包」,但工程<b>无金币货币</b>,且图案包属变现向内容。本设计升级奖励只做<b>体力 + 剧情章节解锁标记</b>;金币/图案包<b>不做</b>(见 <a href="#13-piety-temple-repair::levelup">§3.5</a> 与任务边界)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 本篇接的是已落地的 merge-order 切片现状,不是 GDD 的完整商业体量游戏。三条边界先钉死:
+>
+> - **加法式引入第二货币,不动 灵力。**现行经济是设计 11 的单软货币 灵力(`MergeOrderState.Soul`)。本篇新增虔诚币(`Piety`)作长期主线货币,与 灵力 并存、各管一段(对照 [§2.2](#13-piety-temple-repair::vs-soul))。GDD 写的「灵力 100 上限神谕槽」重构**不在本设计**。
+> - **订单交付当前不发 灵力(已 grep 核实)。**`MergeOrderState.Deliver` / `DeliverSpecial` 现状只发 体力(`OrderRewardEnergy`) + 累计分(`TotalScore`),**不调 `AddSoul`**(`AddSoul` 已存在且入快照,但交付路径无调用方)。因此把虔诚币挂为「订单的主要奖励」是**纯新增**,不与现有奖励冲突。详见 [§3.1](#13-piety-temple-repair::piety-reward)。
+> - **金币 / 高级图案包 不实装。**GDD 升级奖励含「金币和高级图案包」,但工程**无金币货币**,且图案包属变现向内容。本设计升级奖励只做**体力 + 剧情章节解锁标记**;金币/图案包**不做**(见 [§3.5](#13-piety-temple-repair::levelup) 与任务边界)。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新玩法 · 长期主线</span> 出设计稿 + 验收标准,交开发落地</td></tr>
-      <tr><th>设计基线</th><td>GDD「虔诚币 / 神庙修复 / 经验·玩家等级」逐字需求 + 已落地 merge-order 切片(<code>Module/BlockBlast/MergeOrderState.cs</code> / <code>MergeOrderConfig.cs</code> / <code>UI/BlockBlastUI/MergeOrderWindow.cs</code> / <code>MainMenuWindow.cs</code>)</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(无付费购买虔诚币 / 无金币内购 / 无图案包售卖——项目红线);加法式扩展,不破坏现有核心循环 + 盲盒</td></tr>
-      <tr><th>影响范围</th><td><code>MergeOrderState</code> 加 4 类字段(虔诚币 / 经验 / 守护者等级 / 12 厅修复位)并随 灵力·盲盒 同体例入快照;<code>Deliver</code> + <code>DeliverSpecial</code> 加虔诚币发放;新增数据层配置 <code>TempleConfig</code>(12 厅造价 + 等级曲线);新增神庙修复方法;新增神庙面板窗口 + <code>MainMenuWindow</code> / <code>MergeOrderWindow</code> 入口。<b>旧路径(Classic / 不交付订单 / 不开神庙面板时)零行为变化。</b></td></tr>
-      <tr><th>关键约束(继承现状)</th><td><code>MergeOrderState</code> 的元层进度(虔诚币 / 神庙修复 / 经验·守护者等级)经<b>跨会话磁盘存档</b>(设计 <a href="#14-save-system">14</a>)落盘,退出重进保留;局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)不进盘,每局 <code>ResetForMergeOrder</code> 重建。本篇的「长期主线」是真正<b>跨会话尺度</b>的。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新玩法 · 长期主线 出设计稿 + 验收标准,交开发落地 |
+> | **设计基线** | GDD「虔诚币 / 神庙修复 / 经验·玩家等级」逐字需求 + 已落地 merge-order 切片(`Module/BlockBlast/MergeOrderState.cs` / `MergeOrderConfig.cs` / `UI/BlockBlastUI/MergeOrderWindow.cs` / `MainMenuWindow.cs`) |
+> | **方向约束** | 离线还原 · **去变现**(无付费购买虔诚币 / 无金币内购 / 无图案包售卖——项目红线);加法式扩展,不破坏现有核心循环 + 盲盒 |
+> | **影响范围** | `MergeOrderState` 加 4 类字段(虔诚币 / 经验 / 守护者等级 / 12 厅修复位)并随 灵力·盲盒 同体例入快照;`Deliver` + `DeliverSpecial` 加虔诚币发放;新增数据层配置 `TempleConfig`(12 厅造价 + 等级曲线);新增神庙修复方法;新增神庙面板窗口 + `MainMenuWindow` / `MergeOrderWindow` 入口。**旧路径(Classic / 不交付订单 / 不开神庙面板时)零行为变化。** |
+> | **关键约束(继承现状)** | `MergeOrderState` 的元层进度(虔诚币 / 神庙修复 / 经验·守护者等级)经**跨会话磁盘存档**(设计 [14](#14-save-system))落盘,退出重进保留;局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)不进盘,每局 `ResetForMergeOrder` 重建。本篇的「长期主线」是真正**跨会话尺度**的。 |
 
 <h2 id="what">一、改什么与为什么</h2>
 

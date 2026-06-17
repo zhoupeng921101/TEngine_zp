@@ -15,37 +15,26 @@
 
 一个 Editor 菜单工具:输入一个**散切图目录**(`AssetRaw/UIRaw/Atlas/<screen>/`),一键输出一张 <mark>Multiple 模式精灵表 PNG</mark>(`Sheet_<目录名>.png`),落 `AssetRaw/UIRaw/Atlas/` 并设好 `TextureImporter`。目的:[设计 23](#23-settings-window-art) 确立的切图寻址范式(每屏一张 Multiple 精灵表 PNG + `Image.SetSubSprite(图集 location, 子图名)`)当前靠**一次性手工合表**实现,后续约 20 屏 UI 换皮若每屏手工打表,成本线性累积且易错(子图名漏改 / rect / pivot / border 手设)。本工具把这条打表流程工具化,服务整条换皮主线([遗留 #28](#))。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">四条边界先明确,防把「做一个打表工具」做歪成「重写图集系统 / 改框架 / 自造寻址」:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>寻址范式不动,只工具化产出。</b> 范式 = <a href="#23-settings-window-art">设计 23</a> 关单确立的「Multiple 精灵表 PNG + <code>SetSubSprite</code>」(<a href="#">遗留 #28</a>)。<mark>不</mark>用 SpriteAtlas v2(经实测不向 YooAsset 暴露子精灵,<code>LoadSubAssetsAsync&lt;Sprite&gt;</code> count=0,不可用,<a href="#">遗留 #29</a> 是其失败残留)。本工具产出的就是现状 <code>Sheet_settings.png</code> 那种「单张 PNG + spriteMode=Multiple + 多个命名子图」资源。</li>
-      <li><b>子图名 = 源 PNG 文件名(去扩展名)。</b> <code>SetSubSprite</code> 内部走 <code>LoadSubAssetsAsync&lt;Sprite&gt;(location).GetSubAssetObject&lt;Sprite&gt;(子图名)</code>,子图名即精灵表里每个 <code>SpriteMetaData.name</code>。工具把每张源 PNG 的文件名(去 <code>.png</code>)作为对应子图的 <code>name</code>,运行期 <code>SetSubSprite("Sheet_setting", "button")</code> 即按文件名取得到。</li>
-      <li><b>不复用既有 AtlasMaker。</b> 工程已有 <code>TEngine.Editor.AtlasConfiguration</code> / AtlasMaker(<code>Assets/TEngine/Editor/AtlasMakerEditor/</code>),但它生成的是 <b>SpriteAtlas v2</b> 容器(上一条已排除),与本工具产出的「Multiple 精灵表 PNG」是两条不同路径。本工具是新建独立 Editor 脚本,不改 AtlasMaker。</li>
-      <li><b>纯 Editor 工具,不进热更区、不进运行期。</b> 工具脚本落 <code>Assets/Editor/</code>(编辑器程序集,不打包、不热更);产出资源(PNG + .meta)落 <code>AssetRaw/UIRaw/Atlas/</code> 被收集器收。运行期代码(<code>SetSubSprite</code> 调用方)是各换皮窗口的事,本设计不碰。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 四条边界先明确,防把「做一个打表工具」做歪成「重写图集系统 / 改框架 / 自造寻址」:
+>
+> - **寻址范式不动,只工具化产出。** 范式 = [设计 23](#23-settings-window-art) 关单确立的「Multiple 精灵表 PNG + `SetSubSprite`」([遗留 #28](#))。**不**用 SpriteAtlas v2(经实测不向 YooAsset 暴露子精灵,`LoadSubAssetsAsync<Sprite>` count=0,不可用,[遗留 #29](#) 是其失败残留)。本工具产出的就是现状 `Sheet_settings.png` 那种「单张 PNG + spriteMode=Multiple + 多个命名子图」资源。
+> - **子图名 = 源 PNG 文件名(去扩展名)。** `SetSubSprite` 内部走 `LoadSubAssetsAsync<Sprite>(location).GetSubAssetObject<Sprite>(子图名)`,子图名即精灵表里每个 `SpriteMetaData.name`。工具把每张源 PNG 的文件名(去 `.png`)作为对应子图的 `name`,运行期 `SetSubSprite("Sheet_setting", "button")` 即按文件名取得到。
+> - **不复用既有 AtlasMaker。** 工程已有 `TEngine.Editor.AtlasConfiguration` / AtlasMaker(`Assets/TEngine/Editor/AtlasMakerEditor/`),但它生成的是 **SpriteAtlas v2** 容器(上一条已排除),与本工具产出的「Multiple 精灵表 PNG」是两条不同路径。本工具是新建独立 Editor 脚本,不改 AtlasMaker。
+> - **纯 Editor 工具,不进热更区、不进运行期。** 工具脚本落 `Assets/Editor/`(编辑器程序集,不打包、不热更);产出资源(PNG + .meta)落 `AssetRaw/UIRaw/Atlas/` 被收集器收。运行期代码(`SetSubSprite` 调用方)是各换皮窗口的事,本设计不碰。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">Editor 工具 · 换皮生产基础设施</span> 出设计稿 + 验收标准,交开发落地。兑现遗留 #28。</td></tr>
-      <tr><th>设计基线(经勘察核实的真实符号 / 现状)</th><td>
-        <b>寻址底层(已实证,只生产符合它的资源)</b>:<code>Image.SetSubSprite(string location, string spriteName, bool setNativeSize=false)</code>(<code>SetSpriteExtensions.cs:43</code>)→ 内部 <code>YooAssets.GetAssetInfo(location)</code> + <code>LoadSubAssetsAsync&lt;Sprite&gt;(location)</code> + <code>GetSubAssetObject&lt;Sprite&gt;(spriteName)</code>(<code>ResourceExtComponent.SubSprite.cs</code>)。要求 <code>location</code> 指向「含多个命名 Sprite 子对象的单一资源」= spriteMode=Multiple 的精灵表 PNG。<br>
-        <b>收集器</b>:<code>AssetBundleCollectorSetting.asset</code> 组 <code>UIRaw</code> 收 <code>Assets/AssetRaw/UIRaw/Atlas</code>(<code>AddressByFileName</code> + <code>PackDirectory</code>,<code>AssetBundleCollectorConfig.xml:32-34</code>)。<mark>故 <code>Sheet_setting.png</code> 直接落该目录 → location = <code>Sheet_setting</code>(文件名,不含路径 / 扩展名)</mark>,无需改收集器。<br>
-        <b>模拟清单重建</b>:<code>YooAsset.EditorSimulateModeHelper.SimulateBuild(string packageName)</code>(<code>EditorSimulateModeHelper.cs:6</code>);默认包名 <code>"DefaultPackage"</code>(<code>ProcedureInitPackage.cs</code> 用 <code>_resourceModule.DefaultPackageName</code>)。改 <code>AssetRaw</code> 资源后须重建,EditorSimulateMode 下 location 才解析得到;Play 启动会自动重建,工具内调一次便于改完即在编辑器查询。<br>
-        <b>对照基准</b>:现有手工表 <code>Assets/AssetRaw/UIRaw/Atlas/Sheet_settings.png</code>(+ <code>.meta</code>)= 工具产出的逐字段对照基准。其 importer:<code>textureType=8</code>(Sprite) / <code>spriteMode=2</code>(Multiple) / <code>spriteMeshType=1</code>(FullRect) / <code>sRGBTexture=1</code> / <code>alphaIsTransparency=1</code> / <code>maxTextureSize=2048</code> / <code>compressionQuality=50</code> / <code>filterMode=1</code> / <code>spriteExtrude=1</code> / <code>spritePixelsToUnits=100</code> / <code>alignment=0</code> / <code>spritePivot={0.5,0.5}</code>;其 <code>spriteSheet.sprites</code> 实际 21 个命名子图(6 个 <code>border=24</code>:base_plate/base_plate2/base_plate3/box1/box2/button;其余 15 个 <code>border=0</code>)。<mark>另有 <code>Sheet_settings_0..25</code> 共 26 个早期自动切残留名,只在 <code>internalIDToNameTable</code>/<code>nameFileIdTable</code>、不在真实 sprites 列表(<code>LoadSubAssetsAsync</code> count=21);工具产出不带此类残留。</mark>
-      </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · 去变现:工具不触网、不含任何变现逻辑,纯本地资源加工。加法式:新建独立 Editor 脚本 + 不改收集器(<code>Sheet_*</code> 落已收录目录)、不改框架、不改运行期代码、不动既有 <code>Sheet_settings.png</code>(产出 <code>Sheet_setting.png</code> 与之并排,非破坏)。</td></tr>
-      <tr><th>影响范围</th><td>
-        <b>新增代码(编辑器区)</b>:1 个 Editor 脚本(<code>Assets/Editor/UIAtlasPacker/</code>,菜单入口 + 打表核心 + 可选「覆盖」配置承载),不打包不热更;<br>
-        <b>新增产出(运行本工具时)</b>:<code>Sheet_&lt;目录名&gt;.png</code> + <code>.meta</code>(落 <code>AssetRaw/UIRaw/Atlas/</code>);首跑对 <code>setting/</code> → <code>Sheet_setting.png</code>;<br>
-        <b>新增测试(编辑器区)</b>:EditMode 测试,调打表入口 → 读回产出表断言子图 / rect / pivot / border;<br>
-        <b>不改</b>:收集器配置、框架代码、运行期热更代码、现有 <code>Sheet_settings.png</code>、AtlasMaker。
-      </td></tr>
-      <tr><th>关键约束(继承现状)</th><td>工具逻辑(读源 → 排布 → 写 PNG → 设 importer → 读回校验)<b>全部 EditMode 可验</b>(batchmode 能跑 EditMode;工具是 Editor 脚本,测试里可直接调打表入口、再用 <code>AssetImporter</code>/<code>TextureImporter</code> 读回产出表的 <code>spritesheet</code> 断言)。唯<b>运行期寻址</b>(Play 中 <code>SetSubSprite</code> / <code>LoadSubAssetsAsync&lt;Sprite&gt;</code> 取子图)须 Play 模式验。验收按「逻辑可单测」与「需 Play」两档拆开(<a href="#24-ui-atlas-packer::accept">§九</a>)。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | Editor 工具 · 换皮生产基础设施 出设计稿 + 验收标准,交开发落地。兑现遗留 #28。 |
+> | **设计基线(经勘察核实的真实符号 / 现状)** | **寻址底层(已实证,只生产符合它的资源)**:`Image.SetSubSprite(string location, string spriteName, bool setNativeSize=false)`(`SetSpriteExtensions.cs:43`)→ 内部 `YooAssets.GetAssetInfo(location)` + `LoadSubAssetsAsync<Sprite>(location)` + `GetSubAssetObject<Sprite>(spriteName)`(`ResourceExtComponent.SubSprite.cs`)。要求 `location` 指向「含多个命名 Sprite 子对象的单一资源」= spriteMode=Multiple 的精灵表 PNG。 **收集器**:`AssetBundleCollectorSetting.asset` 组 `UIRaw` 收 `Assets/AssetRaw/UIRaw/Atlas`(`AddressByFileName` + `PackDirectory`,`AssetBundleCollectorConfig.xml:32-34`)。**故 `Sheet_setting.png` 直接落该目录 → location = `Sheet_setting`(文件名,不含路径 / 扩展名)**,无需改收集器。 **模拟清单重建**:`YooAsset.EditorSimulateModeHelper.SimulateBuild(string packageName)`(`EditorSimulateModeHelper.cs:6`);默认包名 `"DefaultPackage"`(`ProcedureInitPackage.cs` 用 `_resourceModule.DefaultPackageName`)。改 `AssetRaw` 资源后须重建,EditorSimulateMode 下 location 才解析得到;Play 启动会自动重建,工具内调一次便于改完即在编辑器查询。 **对照基准**:现有手工表 `Assets/AssetRaw/UIRaw/Atlas/Sheet_settings.png`(+ `.meta`)= 工具产出的逐字段对照基准。其 importer:`textureType=8`(Sprite) / `spriteMode=2`(Multiple) / `spriteMeshType=1`(FullRect) / `sRGBTexture=1` / `alphaIsTransparency=1` / `maxTextureSize=2048` / `compressionQuality=50` / `filterMode=1` / `spriteExtrude=1` / `spritePixelsToUnits=100` / `alignment=0` / `spritePivot={0.5,0.5}`;其 `spriteSheet.sprites` 实际 21 个命名子图(6 个 `border=24`:base_plate/base_plate2/base_plate3/box1/box2/button;其余 15 个 `border=0`)。**另有 `Sheet_settings_0..25` 共 26 个早期自动切残留名,只在 `internalIDToNameTable`/`nameFileIdTable`、不在真实 sprites 列表(`LoadSubAssetsAsync` count=21);工具产出不带此类残留。** |
+> | **方向约束** | 离线还原 · 去变现:工具不触网、不含任何变现逻辑,纯本地资源加工。加法式:新建独立 Editor 脚本 + 不改收集器(`Sheet_*` 落已收录目录)、不改框架、不改运行期代码、不动既有 `Sheet_settings.png`(产出 `Sheet_setting.png` 与之并排,非破坏)。 |
+> | **影响范围** | **新增代码(编辑器区)**:1 个 Editor 脚本(`Assets/Editor/UIAtlasPacker/`,菜单入口 + 打表核心 + 可选「覆盖」配置承载),不打包不热更; **新增产出(运行本工具时)**:`Sheet_<目录名>.png` + `.meta`(落 `AssetRaw/UIRaw/Atlas/`);首跑对 `setting/` → `Sheet_setting.png`; **新增测试(编辑器区)**:EditMode 测试,调打表入口 → 读回产出表断言子图 / rect / pivot / border; **不改**:收集器配置、框架代码、运行期热更代码、现有 `Sheet_settings.png`、AtlasMaker。 |
+> | **关键约束(继承现状)** | 工具逻辑(读源 → 排布 → 写 PNG → 设 importer → 读回校验)**全部 EditMode 可验**(batchmode 能跑 EditMode;工具是 Editor 脚本,测试里可直接调打表入口、再用 `AssetImporter`/`TextureImporter` 读回产出表的 `spritesheet` 断言)。唯**运行期寻址**(Play 中 `SetSubSprite` / `LoadSubAssetsAsync<Sprite>` 取子图)须 Play 模式验。验收按「逻辑可单测」与「需 Play」两档拆开([§九](#24-ui-atlas-packer::accept))。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -243,13 +232,11 @@ sequenceDiagram
 | 3 | `Assets/Editor/Tests/BlockBlast/UIAtlasPackerTests.cs`(或就近既有测试目录) | 新建测试 | §9.1:对 `setting/`(或测试夹具目录)调打表入口 → `AssetImporter.GetAtPath` 读回产出表 `spritesheet` → 断言 21 子图 + name 集合 + 各 rect 尺寸=源尺寸 + pivot{0.5,0.5} + border(6×24/15×0,对照 `Sheet_settings.png`)+ 无 `Sheet_settings_0..25` 残留名 |
 | — | 收集器 `AssetBundleCollectorSetting.asset` / 框架 / 运行期热更代码 / 现有 `Sheet_settings.png` / AtlasMaker | **不改** | `Sheet_*` 落已收录的 `UIRaw/Atlas/`,无需改收集器;工具不进运行期、不动既有表 |
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 落地须自行核实的两处工程实际(references 与 API 可能有出入)</b>
-    <ul style="margin:6px 0 0">
-      <li><b>源像素读取</b>:<code>PackTextures</code> 需源 <code>Texture2D</code> 可读(<code>isReadable</code>)。源 PNG 现状 <code>isReadable=0</code>(<code>base_plate.png.meta:27</code>)。dev 取可靠路径:临时设源 readable 读完恢复,或读 PNG 原始字节自行 <code>LoadImage</code> 到临时 <code>Texture2D</code>(不动源 importer,更干净)。grep 工程是否已有同类读图工具可复用</li>
-      <li><b>SimulateBuild 包名</b>:勘察值 <code>"DefaultPackage"</code>(<code>ProcedureInitPackage.cs</code> 用 <code>_resourceModule.DefaultPackageName</code>);Editor 工具不在运行期、拿不到 <code>_resourceModule</code> 时,直接传字符串常量。dev grep 确认无其它默认包名</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **dev 落地须自行核实的两处工程实际(references 与 API 可能有出入)**
+>
+> - **源像素读取**:`PackTextures` 需源 `Texture2D` 可读(`isReadable`)。源 PNG 现状 `isReadable=0`(`base_plate.png.meta:27`)。dev 取可靠路径:临时设源 readable 读完恢复,或读 PNG 原始字节自行 `LoadImage` 到临时 `Texture2D`(不动源 importer,更干净)。grep 工程是否已有同类读图工具可复用
+> - **SimulateBuild 包名**:勘察值 `"DefaultPackage"`(`ProcedureInitPackage.cs` 用 `_resourceModule.DefaultPackageName`);Editor 工具不在运行期、拿不到 `_resourceModule` 时,直接传字符串常量。dev grep 确认无其它默认包名
 
 <h2 id="accept">九、验收点</h2>
 
@@ -257,20 +244,19 @@ sequenceDiagram
 
 <h3 id="accept-logic">9.1 工具行为可单测(EditMode)</h3>
 
-<table class="tight">
-    <tbody><tr><th>组</th><th>#</th><th>验收点(完成定义)</th></tr>
-    <tr><td rowspan="2">编译 C</td><td>C1</td><td><code>UIAtlasPacker.cs</code> 编译 0 error(编辑器程序集);现有 EditMode 全绿(零回归——工具在 Editor 区,不碰运行期 / 热更)</td></tr>
-    <tr><td>C2</td><td>Code Review:工具只读源 importer 的 <code>spriteBorder</code>、不改源导入设置;产出落 <code>AssetRaw/UIRaw/Atlas/</code>;不触网;不改收集器 / 框架 / 既有 <code>Sheet_settings.png</code></td></tr>
-    <tr><td rowspan="3">产出结构 R</td><td>R1</td><td>对 <code>setting/</code>(21 源 PNG)跑工具 → <code>Assets/AssetRaw/UIRaw/Atlas/Sheet_setting.png</code> 生成;importer <code>textureType==Sprite</code> &amp;&amp; <code>spriteImportMode==Multiple</code> &amp;&amp; <code>spriteMeshType==FullRect</code> &amp;&amp; <code>sRGBTexture==true</code> &amp;&amp; <code>alphaIsTransparency==true</code> &amp;&amp; <code>maxTextureSize==2048</code>(对齐基准 <code>Sheet_settings.png.meta</code>)</td></tr>
-    <tr><td>R2</td><td>读回产出表子图(<code>ISpriteEditorDataProvider.GetSpriteRects()</code>,§五):正好 <b>21</b> 个,其 <code>name</code> 集合 == 21 个源文件名(去扩展名)集合;<mark>不含任何 <code>Sheet_setting_0..N</code> / <code>Sheet_settings_0..25</code> 形态的自动切残留名</mark></td></tr>
-    <tr><td>R3</td><td>每个子图 <code>SpriteMetaData.rect</code> 的 <code>width/height</code> == 对应源 PNG 的像素尺寸(rect 坐标由排布定、不要求等于现有手工表坐标);各子图 rect 互不重叠且都在表尺寸内</td></tr>
-    <tr><td rowspan="3">语义字段 S</td><td>S1</td><td>每个子图 <code>pivot == {0.5, 0.5}</code> &amp;&amp; <code>alignment == Center(0)</code></td></tr>
-    <tr><td>S2</td><td><b>border 继承 + 对照基准</b>:base_plate / base_plate2 / base_plate3 / box1 / box2 / button 六个子图 <code>border == {24,24,24,24}</code>;其余 15 个 == {0,0,0,0}。<mark>与现有 <code>Sheet_settings.png</code> 对应子图逐一相等</mark>(test 同时读两张表的子图集 <code>GetSpriteRects()</code> 按 name 配对断言 border 相等)。这是核心锚</td></tr>
-    <tr><td>S3</td><td>border 覆盖(若实现 §六)生效:目录内放覆盖配置列某子图 → 产出该子图 border == 覆盖值,其余仍继承源</td></tr>
-    <tr><td rowspan="3">校验与幂等 V</td><td>V1</td><td>对「非 <code>AssetRaw/UIRaw/Atlas/</code> 下目录」/「空目录」/「无 PNG 目录」跑 → 工具中止、不产出文件、给明确报错(§2.2)</td></tr>
-    <tr><td>V2</td><td>表已存在时重跑 → 不覆盖、中止、报「已存在」;旧表内容不变(§五·1 / §七)</td></tr>
-    <tr><td>V3</td><td>确定性:同一目录(删旧后)两次跑,产出表的子图 name→rect 映射一致(§3.2 排序)</td></tr>
-  </tbody></table>
+| 组 | # | 验收点(完成定义) |
+| --- | --- | --- |
+| 编译 C | C1 | `UIAtlasPacker.cs` 编译 0 error(编辑器程序集);现有 EditMode 全绿(零回归——工具在 Editor 区,不碰运行期 / 热更) |
+| 编译 C | C2 | Code Review:工具只读源 importer 的 `spriteBorder`、不改源导入设置;产出落 `AssetRaw/UIRaw/Atlas/`;不触网;不改收集器 / 框架 / 既有 `Sheet_settings.png` |
+| 产出结构 R | R1 | 对 `setting/`(21 源 PNG)跑工具 → `Assets/AssetRaw/UIRaw/Atlas/Sheet_setting.png` 生成;importer `textureType==Sprite` && `spriteImportMode==Multiple` && `spriteMeshType==FullRect` && `sRGBTexture==true` && `alphaIsTransparency==true` && `maxTextureSize==2048`(对齐基准 `Sheet_settings.png.meta`) |
+| 产出结构 R | R2 | 读回产出表子图(`ISpriteEditorDataProvider.GetSpriteRects()`,§五):正好 **21** 个,其 `name` 集合 == 21 个源文件名(去扩展名)集合;**不含任何 `Sheet_setting_0..N` / `Sheet_settings_0..25` 形态的自动切残留名** |
+| 产出结构 R | R3 | 每个子图 `SpriteMetaData.rect` 的 `width/height` == 对应源 PNG 的像素尺寸(rect 坐标由排布定、不要求等于现有手工表坐标);各子图 rect 互不重叠且都在表尺寸内 |
+| 语义字段 S | S1 | 每个子图 `pivot == {0.5, 0.5}` && `alignment == Center(0)` |
+| 语义字段 S | S2 | **border 继承 + 对照基准**:base_plate / base_plate2 / base_plate3 / box1 / box2 / button 六个子图 `border == {24,24,24,24}`;其余 15 个 == {0,0,0,0}。**与现有 `Sheet_settings.png` 对应子图逐一相等**(test 同时读两张表的子图集 `GetSpriteRects()` 按 name 配对断言 border 相等)。这是核心锚 |
+| 语义字段 S | S3 | border 覆盖(若实现 §六)生效:目录内放覆盖配置列某子图 → 产出该子图 border == 覆盖值,其余仍继承源 |
+| 校验与幂等 V | V1 | 对「非 `AssetRaw/UIRaw/Atlas/` 下目录」/「空目录」/「无 PNG 目录」跑 → 工具中止、不产出文件、给明确报错(§2.2) |
+| 校验与幂等 V | V2 | 表已存在时重跑 → 不覆盖、中止、报「已存在」;旧表内容不变(§五·1 / §七) |
+| 校验与幂等 V | V3 | 确定性:同一目录(删旧后)两次跑,产出表的子图 name→rect 映射一致(§3.2 排序) |
 
 > [!NOTE]
 > <b>EditMode 测试如何「读回产出表」</b>

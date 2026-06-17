@@ -7,16 +7,16 @@
 
 三套系统组成一条<mark>可自持的核心循环</mark>：**体力 → 落子 → 消除 → 元素 → 合成 → 订单交付 → 奖励**。候选块携带元素，消除时被清元素落入合成区两两合并升级；订单反向拉动玩家去消除指定元素，交付得奖励并刷新下一单。一条技巧驱动的正反馈链。
 
-<div class="callout note">
-      <b>立项信息</b>
-      <table>
-        <tbody><tr><th>类型</th><td><span class="chip">垂直切片 / Demo</span> 核心循环验证，非正式关卡内容</td></tr>
-        <tr><th>基线</th><td>已落地的元素层（候选块携带元素 → 消除掉落，<code>BlockGameState</code> 元素层）。元素生成现状与符号映射以 <a href="#10-score-element-rm-collect">10 · 得分驱动元素生成</a> 为准。</td></tr>
-        <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>（体力无购买 / 无广告复活 / 无道具内购——项目红线）</td></tr>
-        <tr><th>竞品参照</th><td>浪漫餐厅 / Gossip Harbor 的订单冷却刷新 + 锯齿波难度 + 体力模型（<b>取材不照抄</b>，数值按本作局长重算，见 <a href="#09-merge-order-energy::tradeoff">§六</a>）</td></tr>
-        <tr><th>范围优先级</th><td>订单闭环优先（订单 → 交付 → 奖励 → 刷新跑通）；锯齿波难度可做简化实现，完整规则进文档</td></tr>
-      </tbody></table>
-    </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 垂直切片 / Demo 核心循环验证，非正式关卡内容 |
+> | **基线** | 已落地的元素层（候选块携带元素 → 消除掉落，`BlockGameState` 元素层）。元素生成现状与符号映射以 [10 · 得分驱动元素生成](#10-score-element-rm-collect) 为准。 |
+> | **方向约束** | 离线还原 · **去变现**（体力无购买 / 无广告复活 / 无道具内购——项目红线） |
+> | **竞品参照** | 浪漫餐厅 / Gossip Harbor 的订单冷却刷新 + 锯齿波难度 + 体力模型（**取材不照抄**，数值按本作局长重算，见 [§六](#09-merge-order-energy::tradeoff)） |
+> | **范围优先级** | 订单闭环优先（订单 → 交付 → 奖励 → 刷新跑通）；锯齿波难度可做简化实现，完整规则进文档 |
 
 <h2 id="why">一、切片构成</h2>
 
@@ -69,15 +69,13 @@ flowchart TD
 
 消除产出的每个元素以 <span class="lv">Lv1</span> 进入**合成区**；相同（类型 + 等级）两两合并升一级，直到封顶等级。
 
-<div class="callout good">
-      <b>合成实现：自动配对库存（非空间拖拽）。</b>合成区按 <code>(类型, 等级)</code> 记数量。新元素到达 → <code>count[T][1]++</code>；只要某 <code>count[T][L] ≥ 2</code> 即 <code>count[T][L] -= 2; count[T][L+1]++</code>，向上级联到无法再合并为止。这是 <mark>2048 式自动合成</mark>，不引入空间拖拽棋盘。
-      <ul>
-        <li><b>为何不做浪漫餐厅式空间拖拽合成</b>：拖拽合成板是另一套完整交互（格子布局 / 拖放 / 占位），与 demo「订单闭环优先」的范围冲突。自动配对完整满足「相同两两合并升级」规则，开发量小、可单测，把玩家心智留在<b>方块层</b>（落子/消除决策）。空间拖拽合成列为后续增强（见 <a href="#09-merge-order-energy::tradeoff">§六</a>）。</li>
-        <li><b>封顶等级</b> <code>MaxLevel = 3</code>（<span class="lv">Lv1</span>→<span class="lv">Lv2</span>→<span class="lv">Lv3</span>）。到顶不再合并，堆积等待订单消耗。</li>
-        <li><b>等级折算基础元素</b>：<span class="lv">Lv1</span>=1，<span class="lv">Lv2</span>=2，<span class="lv">Lv3</span>=4。订单按此折算难度。</li>
-        <li><b>合成区不设硬上限阻塞</b>：自动配对使每类每级数量恒 ≤1（满 2 即合），库存天然紧凑，不会「塞满阻塞」，规避了一个数值风险。</li>
-      </ul>
-    </div>
+> [!TIP]
+> **合成实现：自动配对库存（非空间拖拽）。**合成区按 `(类型, 等级)` 记数量。新元素到达 → `count[T][1]++`；只要某 `count[T][L] ≥ 2` 即 `count[T][L] -= 2; count[T][L+1]++`，向上级联到无法再合并为止。这是 **2048 式自动合成**，不引入空间拖拽棋盘。
+>
+> - **为何不做浪漫餐厅式空间拖拽合成**：拖拽合成板是另一套完整交互（格子布局 / 拖放 / 占位），与 demo「订单闭环优先」的范围冲突。自动配对完整满足「相同两两合并升级」规则，开发量小、可单测，把玩家心智留在**方块层**（落子/消除决策）。空间拖拽合成列为后续增强（见 [§六](#09-merge-order-energy::tradeoff)）。
+> - **封顶等级** `MaxLevel = 3`（Lv1→Lv2→Lv3）。到顶不再合并，堆积等待订单消耗。
+> - **等级折算基础元素**：Lv1=1，Lv2=2，Lv3=4。订单按此折算难度。
+> - **合成区不设硬上限阻塞**：自动配对使每类每级数量恒 ≤1（满 2 即合），库存天然紧凑，不会「塞满阻塞」，规避了一个数值风险。
 
 <h3 id="order">3.2 订单（Order）</h3>
 
@@ -114,65 +112,58 @@ boss 代决 §6 要求三个风险点在设计中给出明确方案，逐条如�
 
 **问题**：某订单所需的元素类型若长时间不产出，订单<mark class="r">卡死</mark>。
 
-<div class="callout good">
-      <b>方案（两条，均确定性、无概率方差）：</b>
-      <ol>
-        <li><b>需求拉动</b>：待投放队列只压入<b>当前激活订单所需的元素类型</b>（按轮转游标均摊）。产出集中到「正被需要」的类型上，不产无用元素。</li>
-        <li><b>得分驱动数量（确定性）</b>：每次消除按 <code>MergeOrderConfig.ElementsForScore(clearScore)</code> 算出元素数（<code>MinElementsPerClear=1</code> 保底，任何成功消除至少产 1），压入队列，补牌时 FIFO 抽干。无概率注入、无保底计数器——「会消除就有产出」由保底常量直接保证。映射与边界见 <a href="#10-score-element-rm-collect::map">10·§2.3</a>。</li>
-      </ol>
-    </div>
+> [!TIP]
+> **方案（两条，均确定性、无概率方差）：**
+>
+> 1.  **需求拉动**：待投放队列只压入**当前激活订单所需的元素类型**（按轮转游标均摊）。产出集中到「正被需要」的类型上，不产无用元素。
+> 2.  **得分驱动数量（确定性）**：每次消除按 `MergeOrderConfig.ElementsForScore(clearScore)` 算出元素数（`MinElementsPerClear=1` 保底，任何成功消除至少产 1），压入队列，补牌时 FIFO 抽干。无概率注入、无保底计数器——「会消除就有产出」由保底常量直接保证。映射与边界见 [10·§2.3](#10-score-element-rm-collect::map)。
 
 <h3 id="risk2">风险 2 · 体力上限与单局落子数的匹配</h3>
 
 **问题**：体力既要在早期不卡手，又要让玩家感到它是真实约束；上限/回速不能照抄浪漫餐厅（那是跨会话挂机节奏，本作是<mark class="y">单局活跃节奏</mark>）。
 
-<div class="callout good">
-      <b>方案（按本作局长重算，给出预算数学）：</b>
-      <ul>
-        <li><b>预算下界</b>：无任何消除、无订单完成的最坏情况，起始 20 体力 = 20 次落子后软死亡——足够玩家撞出几次消除并完成首单。要求 <code>EnergyStart ≥ 完成首单所需落子数的期望</code>。</li>
-        <li><b>可持续点</b>：一个约 3 块的批次配 1 次单行消除 ≈ 净 -2 体力；每 ~6–8 次落子完成 1 单 → +8 体力 → <mark class="g">熟练玩家体力净正</mark>，单局实际由「棋盘塞满」而非体力终结——正中 boss「技巧驱动：会消除→玩得久」的定位。</li>
-        <li><b>取舍定档</b>：软上限取 <b>30</b>（demo 局长约数分钟）——高到早期不饿死、低到体力是被感知的资源。公式与各常量全部可调，dev/test 据此重配（核心不变量：<code>EnergyStart ≥ 完成首单的落子数</code>，否则首单前就饿死）。</li>
-      </ul>
-    </div>
+> [!TIP]
+> **方案（按本作局长重算，给出预算数学）：**
+>
+> - **预算下界**：无任何消除、无订单完成的最坏情况，起始 20 体力 = 20 次落子后软死亡——足够玩家撞出几次消除并完成首单。要求 `EnergyStart ≥ 完成首单所需落子数的期望`。
+> - **可持续点**：一个约 3 块的批次配 1 次单行消除 ≈ 净 -2 体力；每 ~6–8 次落子完成 1 单 → +8 体力 → **熟练玩家体力净正**，单局实际由「棋盘塞满」而非体力终结——正中 boss「技巧驱动：会消除→玩得久」的定位。
+> - **取舍定档**：软上限取 **30**（demo 局长约数分钟）——高到早期不饿死、低到体力是被感知的资源。公式与各常量全部可调，dev/test 据此重配（核心不变量：`EnergyStart ≥ 完成首单的落子数`，否则首单前就饿死）。
 
 <h3 id="risk3">风险 3 · 落错子的兜底（无广告）</h3>
 
 **问题**：落子耗体力且可能把棋盘逼进死局；一次失误代价大，而项目红线<mark class="y">禁广告复活</mark>。需要一个不依赖变现的解围阀。
 
-<div class="callout good">
-      <b>方案 · 限次免费悔棋（推荐）：</b>每局 <code>UndoCharges = 3</code> 次免费悔棋（无广告、无内购，纯次数限制，契合去变现）。
-      <ul>
-        <li><b>悔棋范围</b>：仅撤销<b>最后一次落子</b>（单步）。落子前对受影响状态打快照：棋盘 <code>BinaryBoard</code>、元素层 <code>ElementArr</code>、体力值、合成区库存、订单进度、待投放元素队列 <code>PendingElements</code>。悔棋 = 整体回滚到该快照 + 把方块退回待选槽 + 退回该次落子扣的体力。</li>
-        <li><b>更轻的备选</b>：仅当该次落子<b>未触发消除</b>（纯失误落子）时允许单步撤销，省去回滚消除/合成/订单的复杂度。若 dev 评估全量单步快照成本高，可先落地此备选版，全量快照列为增强。</li>
-        <li>悔棋次数耗尽后回归正常死局判定（复用 <code>GameOverWindow</code>）。</li>
-      </ul>
-    </div>
+> [!TIP]
+> **方案 · 限次免费悔棋（推荐）：**每局 `UndoCharges = 3` 次免费悔棋（无广告、无内购，纯次数限制，契合去变现）。
+>
+> - **悔棋范围**：仅撤销**最后一次落子**（单步）。落子前对受影响状态打快照：棋盘 `BinaryBoard`、元素层 `ElementArr`、体力值、合成区库存、订单进度、待投放元素队列 `PendingElements`。悔棋 = 整体回滚到该快照 + 把方块退回待选槽 + 退回该次落子扣的体力。
+> - **更轻的备选**：仅当该次落子**未触发消除**（纯失误落子）时允许单步撤销，省去回滚消除/合成/订单的复杂度。若 dev 评估全量单步快照成本高，可先落地此备选版，全量快照列为增强。
+> - 悔棋次数耗尽后回归正常死局判定（复用 `GameOverWindow`）。
 
 <h2 id="config">五、配置一览（可调常量）</h2>
 
 全部硬编码在配置类 `MergeOrderConfig`（不接 Luban），<mark>改数即调难度</mark>。元素生成的旋钮含义见 [10·§2.3](#10-score-element-rm-collect::map)。
 
-<table>
-      <tbody><tr><th>模块</th><th>常量</th><th>默认</th></tr>
-      <tr><td rowspan="3">合成</td><td><code>MaxLevel</code></td><td>3</td></tr>
-      <tr><td><code>LevelBaseCost</code>（Lv1/2/3）</td><td>1 / 2 / 4</td></tr>
-      <tr><td>合成区硬上限</td><td>无（自动配对天然紧凑）</td></tr>
-      <tr><td rowspan="4">订单</td><td><code>ActiveOrders</code></td><td>2</td></tr>
-      <tr><td><code>OrderReward.Energy / Score</code></td><td>+8 / 等级×数量×50</td></tr>
-      <tr><td>难度量 <code>d(单)</code></td><td>数量 × 2^(等级-1)</td></tr>
-      <tr><td><code>DemoGoalOrders</code>（通关单数）</td><td>5</td></tr>
-      <tr><td rowspan="6">体力</td><td><code>EnergyStart</code></td><td>20</td></tr>
-      <tr><td><code>EnergyCap</code>（软，奖励可溢出）</td><td>30</td></tr>
-      <tr><td><code>PlaceCost</code></td><td>1 / 块</td></tr>
-      <tr><td><code>ClearRefund</code></td><td>消除行列数</td></tr>
-      <tr><td><code>RegenPerTick / IntervalSec</code></td><td>+1 / 120s（demo 可简化）</td></tr>
-      <tr><td>耗尽兜底</td><td>软 GameOver</td></tr>
-      <tr><td rowspan="4">元素生成<br>（得分驱动）</td><td><code>ScorePerElement</code></td><td>200（每 200 分折 1 元素）</td></tr>
-      <tr><td><code>MinElementsPerClear</code></td><td>1（任何消除保底产 1）</td></tr>
-      <tr><td><code>MaxElementsPerClear</code></td><td>4（单次消除封顶）</td></tr>
-      <tr><td><code>MaxPendingElements</code></td><td>12（待投放队列上限）</td></tr>
-      <tr><td>兜底</td><td><code>UndoCharges</code></td><td>3 / 局</td></tr>
-    </tbody></table>
+| 模块 | 常量 | 默认 |
+| --- | --- | --- |
+| 合成 | `MaxLevel` | 3 |
+| 合成 | `LevelBaseCost`（Lv1/2/3） | 1 / 2 / 4 |
+| 合成 | 合成区硬上限 | 无（自动配对天然紧凑） |
+| 订单 | `ActiveOrders` | 2 |
+| 订单 | `OrderReward.Energy / Score` | +8 / 等级×数量×50 |
+| 订单 | 难度量 `d(单)` | 数量 × 2^(等级-1) |
+| 订单 | `DemoGoalOrders`（通关单数） | 5 |
+| 体力 | `EnergyStart` | 20 |
+| 体力 | `EnergyCap`（软，奖励可溢出） | 30 |
+| 体力 | `PlaceCost` | 1 / 块 |
+| 体力 | `ClearRefund` | 消除行列数 |
+| 体力 | `RegenPerTick / IntervalSec` | +1 / 120s（demo 可简化） |
+| 体力 | 耗尽兜底 | 软 GameOver |
+| 元素生成 （得分驱动） | `ScorePerElement` | 200（每 200 分折 1 元素） |
+| 元素生成 （得分驱动） | `MinElementsPerClear` | 1（任何消除保底产 1） |
+| 元素生成 （得分驱动） | `MaxElementsPerClear` | 4（单次消除封顶） |
+| 元素生成 （得分驱动） | `MaxPendingElements` | 12（待投放队列上限） |
+| 兜底 | `UndoCharges` | 3 / 局 |
 
 <h2 id="tradeoff">六、与浪漫餐厅 / Gossip Harbor 的取舍</h2>
 
@@ -258,10 +249,7 @@ flowchart TD
 | 新逻辑污染 Classic | `MergeOrderMode` 门控 + 独立窗口 + 独立状态类；回归测试硬验收 |
 | 自动合成削弱玩家合成层 agency | 玩家 agency 主要在方块层（落子/消除/先交哪单）；合成自动降低心智负担适配 demo；空间拖拽列为增强 |
 
-<div class="related">
-      <h2>相关文档</h2>
-      <div class="related-links">
-        <a href="#">← 返回总览</a>
-        <a href="#07-blockblast-code-architecture">BlockBlast 代码架构剖析</a>
-      </div>
-    </div>
+## 相关文档
+
+- [← 返回总览](#)
+- [BlockBlast 代码架构剖析](#07-blockblast-code-architecture)

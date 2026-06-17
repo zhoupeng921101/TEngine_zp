@@ -13,27 +13,26 @@
 
 把 `MergeOrderState` 的**元层进度**(虔诚币 / 神庙修复 / 经验·守护者等级 / 灵力 / 盲盒计数 / 女神 / 订单完成数 / 今日祈愿)从**单局尺度**升为**跨会话尺度**:启动加载、有意义元变更后保存,退出重进不再清零。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)/[13](#13-piety-temple-repair)),复用工程既有 `Persistence.Provider` 持久化接缝,<b>不动悔棋快照(局内 undo)</b>。
 
-<div class="callout warn">
-    <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">本篇直接兑现设计 <a href="#13-piety-temple-repair::open">13 §七 O3</a> 标注为「独立大改、延后」的跨会话存盘——那项延后项即本篇。四条边界先钉死:</p>
-    <ul style="margin:8px 0 0">
-      <li><b>只存元层进度,默认不存局内瞬态。</b>当前棋盘 / 手牌 / 进行中订单 / 合成区库存 / 悔棋栈 <b>每局重开不存</b>(断点续玩不做,详 <a href="#14-save-system::boundary">§3.1</a> 与 <a href="#14-save-system::open">§七 O1</a>)。<code>ResetForMergeOrder</code> 仍每次重建局内瞬态,只是元层不再从 0 起。</li>
-      <li><b>复用现有 <code>Persistence.Provider</code> 接缝,不自造存储框架。</b>工程已有 <code>Persistence</code>(<code>Module/BlockBlast/Persistence.cs</code>:生产 <code>PlayerPrefsProvider</code> / 测试 <code>InMemoryPersistenceProvider</code>),<code>BlockGameState</code> 与 <code>DynamicWeightDiff</code> 已按此模式存盘。本篇沿用同接缝 + 同 <code>JsonUtility</code> 序列化口径,<mark>不引入新存储栈</mark>(对照 <a href="#14-save-system::format">§3.2</a>)。</li>
-      <li><b>序列化层同步、可单测;磁盘 IO 走异步外壳。</b>纯序列化(对象↔字符串)同步、无磁盘依赖,单测往返不碰真实文件(继承 168 例 EditMode 不依赖磁盘的现状);仅<b>落盘 / 读盘</b>那一层在生产侧用 UniTask 异步(满足 CLAUDE.md「禁同步 IO」红线),详 <a href="#14-save-system::async">§3.3</a>。</li>
-      <li><b>悔棋快照不动。</b><code>MergeOrderState.Snapshot</code>(局内单步 undo,内存机制)与磁盘存档是<b>两条独立轨</b>,字段虽有重叠但语义、时机、生命周期全不同(对照 <a href="#14-save-system::snapshot-vs-disk">§2.2</a>),互不调用、互不冲突。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
+>
+> 本篇直接兑现设计 [13 §七 O3](#13-piety-temple-repair::open) 标注为「独立大改、延后」的跨会话存盘——那项延后项即本篇。四条边界先钉死:
+>
+> - **只存元层进度,默认不存局内瞬态。**当前棋盘 / 手牌 / 进行中订单 / 合成区库存 / 悔棋栈 **每局重开不存**(断点续玩不做,详 [§3.1](#14-save-system::boundary) 与 [§七 O1](#14-save-system::open))。`ResetForMergeOrder` 仍每次重建局内瞬态,只是元层不再从 0 起。
+> - **复用现有 `Persistence.Provider` 接缝,不自造存储框架。**工程已有 `Persistence`(`Module/BlockBlast/Persistence.cs`:生产 `PlayerPrefsProvider` / 测试 `InMemoryPersistenceProvider`),`BlockGameState` 与 `DynamicWeightDiff` 已按此模式存盘。本篇沿用同接缝 + 同 `JsonUtility` 序列化口径,**不引入新存储栈**(对照 [§3.2](#14-save-system::format))。
+> - **序列化层同步、可单测;磁盘 IO 走异步外壳。**纯序列化(对象↔字符串)同步、无磁盘依赖,单测往返不碰真实文件(继承 168 例 EditMode 不依赖磁盘的现状);仅**落盘 / 读盘**那一层在生产侧用 UniTask 异步(满足 CLAUDE.md「禁同步 IO」红线),详 [§3.3](#14-save-system::async)。
+> - **悔棋快照不动。**`MergeOrderState.Snapshot`(局内单步 undo,内存机制)与磁盘存档是**两条独立轨**,字段虽有重叠但语义、时机、生命周期全不同(对照 [§2.2](#14-save-system::snapshot-vs-disk)),互不调用、互不冲突。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">新系统 · 跨会话持久化</span> 出设计稿 + 验收标准,交开发落地</td></tr>
-      <tr><th>设计基线</th><td>已落地 merge-order 切片的 <code>MergeOrderState</code> 元字段(设计 11/12/13 累计) + 工程既有持久化接缝(<code>Module/BlockBlast/Persistence.cs</code> / <code>BlockGameState.Save/Load</code> / <code>DynamicWeightDiff.Save/Load</code>)。GDD 把虔诚币 / 神庙定位「长期主线」,与「整体不存盘、退出清零」的现状冲突,本篇消除该冲突。</td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>(本地单机存档,无云存档 / 无账号绑定 — 任务边界);加法式扩展,不破坏现有核心循环 + 已建系统(盲盒 / 神庙 / 女神 / 悔棋)。IO 异步(UniTask)。</td></tr>
-      <tr><th>影响范围</th><td>新增 <code>MergeMetaSave</code>(<code>[Serializable]</code> 存档数据传输对象,含 version 字段) + <code>MergeMetaPersistence</code>(序列化 / 落盘 / 读盘 / 跨天重置 / 版本迁移,纯逻辑可单测);<code>MergeOrderState</code> 加 <code>ExportMeta()</code> / <code>ImportMeta()</code> 两个纯方法 + 元变更后调 <code>RequestSave()</code>;<code>ResetForMergeOrder</code> 改为「加载存档 → 覆盖元层」而非全清元层;<code>MergeOrderWindow</code> 在 <code>OnDestroy</code> / 元动作后触发保存,app 暂停/退出兜底落盘。<b>旧路径(Classic / 不开 merge-order 时)零行为变化。</b></td></tr>
-      <tr><th>关键约束(继承现状)</th><td>序列化层不依赖真实磁盘(单测往返到 string / InMemory Provider);悔棋快照机制原样保留;<code>MergeOrderState</code> 仍是纯逻辑类(磁盘 IO 不进 <code>MergeOrderState</code>,由窗口侧/持久化类承接异步)。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 新系统 · 跨会话持久化 出设计稿 + 验收标准,交开发落地 |
+> | **设计基线** | 已落地 merge-order 切片的 `MergeOrderState` 元字段(设计 11/12/13 累计) + 工程既有持久化接缝(`Module/BlockBlast/Persistence.cs` / `BlockGameState.Save/Load` / `DynamicWeightDiff.Save/Load`)。GDD 把虔诚币 / 神庙定位「长期主线」,与「整体不存盘、退出清零」的现状冲突,本篇消除该冲突。 |
+> | **方向约束** | 离线还原 · **去变现**(本地单机存档,无云存档 / 无账号绑定 — 任务边界);加法式扩展,不破坏现有核心循环 + 已建系统(盲盒 / 神庙 / 女神 / 悔棋)。IO 异步(UniTask)。 |
+> | **影响范围** | 新增 `MergeMetaSave`(`[Serializable]` 存档数据传输对象,含 version 字段) + `MergeMetaPersistence`(序列化 / 落盘 / 读盘 / 跨天重置 / 版本迁移,纯逻辑可单测);`MergeOrderState` 加 `ExportMeta()` / `ImportMeta()` 两个纯方法 + 元变更后调 `RequestSave()`;`ResetForMergeOrder` 改为「加载存档 → 覆盖元层」而非全清元层;`MergeOrderWindow` 在 `OnDestroy` / 元动作后触发保存,app 暂停/退出兜底落盘。**旧路径(Classic / 不开 merge-order 时)零行为变化。** |
+> | **关键约束(继承现状)** | 序列化层不依赖真实磁盘(单测往返到 string / InMemory Provider);悔棋快照机制原样保留;`MergeOrderState` 仍是纯逻辑类(磁盘 IO 不进 `MergeOrderState`,由窗口侧/持久化类承接异步)。 |
 
 <h2 id="what">一、改什么与为什么</h2>
 
@@ -83,15 +82,14 @@ flowchart TD
 
 两者字段有重叠(Piety / Soul / Exp 等都在两边出现),但语义、时机、生命周期全不同,是**两条独立轨**。对照:
 
-<table>
-    <tbody><tr><th>维度</th><th>悔棋快照 <code>Snapshot</code>(现状,不动)</th><th>磁盘存档 <code>MergeMetaSave</code>(本篇新增)</th></tr>
-    <tr><td>目的</td><td>局内单步 undo:回滚到上一次落子前</td><td>跨会话:退出重进保留长期进度</td></tr>
-    <tr><td>介质</td><td>内存(<code>Stack&lt;Snapshot&gt;</code>)</td><td>磁盘沙盒文件 / PlayerPrefs</td></tr>
-    <tr><td>含局内瞬态</td><td><span class="yes">含</span>(棋盘 / 手牌 / 合成区 / 订单进度…全量)</td><td><span class="no">不含</span>(只元层进度,见 <a href="#14-save-system::boundary">§3.1</a>)</td></tr>
-    <tr><td>写时机</td><td>每次落子前压栈(<code>CaptureSnapshot</code>)</td><td>有意义元变更后 + 退出 / 暂停(<a href="#14-save-system::timing">§3.4</a>)</td></tr>
-    <tr><td>生命周期</td><td>交付 / 修复清栈;<code>ExitMergeOrder</code> 丢弃</td><td>持久,跨会话存活直到玩家清档</td></tr>
-    <tr><td>耦合</td><td colspan="2"><mark>互不调用</mark>:<code>Snapshot.Capture/Restore</code> 不读写磁盘;磁盘存档不进 <code>_undoStack</code>。悔棋只回滚局内瞬态(棋盘/库存),而元层进度的局内变化(如本局交付攒的虔诚币)随快照回滚——这是局内一致性,与磁盘存档「跨会话保留交付后已固化的进度」不矛盾:磁盘存的是<b>交付后</b>的已提交值(交付即清栈,不可悔),回滚只发生在交付之间。</td></tr>
-  </tbody></table>
+| 维度 | 悔棋快照 `Snapshot`(现状,不动) | 磁盘存档 `MergeMetaSave`(本篇新增) |
+| --- | --- | --- |
+| 目的 | 局内单步 undo:回滚到上一次落子前 | 跨会话:退出重进保留长期进度 |
+| 介质 | 内存(`Stack<Snapshot>`) | 磁盘沙盒文件 / PlayerPrefs |
+| 含局内瞬态 | 含(棋盘 / 手牌 / 合成区 / 订单进度…全量) | 不含(只元层进度,见 [§3.1](#14-save-system::boundary)) |
+| 写时机 | 每次落子前压栈(`CaptureSnapshot`) | 有意义元变更后 + 退出 / 暂停([§3.4](#14-save-system::timing)) |
+| 生命周期 | 交付 / 修复清栈;`ExitMergeOrder` 丢弃 | 持久,跨会话存活直到玩家清档 |
+| 耦合 | **互不调用**:`Snapshot.Capture/Restore` 不读写磁盘;磁盘存档不进 `_undoStack`。悔棋只回滚局内瞬态(棋盘/库存),而元层进度的局内变化(如本局交付攒的虔诚币)随快照回滚——这是局内一致性,与磁盘存档「跨会话保留交付后已固化的进度」不矛盾:磁盘存的是**交付后**的已提交值(交付即清栈,不可悔),回滚只发生在交付之间。 |  |
 
 <h2 id="numbers">三、设计正文</h2>
 
@@ -99,30 +97,29 @@ flowchart TD
 
 判据:**元层进度(跨局累积、长期语义)进盘;局内瞬态(每局重开)不进盘**。逐字段裁定(字段名经 grep `MergeOrderState.cs` 核实):
 
-<table class="tight">
-    <tbody><tr><th>字段</th><th>类型</th><th>语义</th><th>进盘?</th></tr>
-    <tr><td><code>Soul</code></td><td>int</td><td>灵力(软货币)</td><td class="yes">是</td></tr>
-    <tr><td><code>Piety</code></td><td>int</td><td>虔诚币(长期主线货币)</td><td class="yes">是</td></tr>
-    <tr><td><code>Exp</code></td><td>int</td><td>累积经验(守护者等级是其纯函数)</td><td class="yes">是</td></tr>
-    <tr><td><code>UnlockedChapter</code></td><td>int</td><td>已解锁剧情章节数</td><td class="yes">是</td></tr>
-    <tr><td><code>NextRepairIndex</code></td><td>int</td><td>下一座待修神庙序号</td><td class="yes">是</td></tr>
-    <tr><td><code>TempleRepaired[]</code></td><td>bool[12]</td><td>各厅是否已修</td><td class="yes">是</td></tr>
-    <tr><td><code>TempleDecorated[]</code></td><td>bool[12]</td><td>各厅是否已装饰</td><td class="yes">是</td></tr>
-    <tr><td><code>BlindBoxCount</code></td><td>int</td><td>盲盒持有计数</td><td class="yes">是</td></tr>
-    <tr><td><code>GoddessRating</code></td><td>int</td><td>当前档好评条计数</td><td class="yes">是</td></tr>
-    <tr><td><code>GoddessLevel</code></td><td>int</td><td>女神好感等级</td><td class="yes">是</td></tr>
-    <tr><td><code>WishUsedToday</code></td><td>int</td><td>今日已用祈愿次数(配跨天重置 §3.6)</td><td class="yes">是</td></tr>
-    <tr><td><code>CompletedOrders</code></td><td>int</td><td>累计完成单数</td><td class="yes">是</td></tr>
-    <tr><td><code>TotalScore</code></td><td>int</td><td>累计交付得分</td><td class="yes">是 <span style="color:#cdb277">(O2)</span></td></tr>
-    <tr><td>—— 以下不进盘(局内瞬态)——</td><td colspan="3"></td></tr>
-    <tr><td><code>Energy</code></td><td>int</td><td>当前体力</td><td class="no">否 <span style="color:#cdb277">(O3)</span></td></tr>
-    <tr><td><code>Inventory</code></td><td>Dict</td><td>合成区库存</td><td class="no">否(局内)</td></tr>
-    <tr><td><code>ActiveOrders</code> / <code>OrderCursor</code></td><td>—</td><td>当前激活订单 / 订单池游标</td><td class="no">否(局内)</td></tr>
-    <tr><td><code>PendingElements</code></td><td>Queue</td><td>元素预算队列</td><td class="no">否(局内)</td></tr>
-    <tr><td><code>UndoCharges</code> / <code>_undoStack</code></td><td>—</td><td>悔棋次数 / 快照栈</td><td class="no">否(局内)</td></tr>
-    <tr><td><code>ComboChain</code> / <code>AllClearArmed</code></td><td>—</td><td>连消链 / 全清武装位</td><td class="no">否(局内)</td></tr>
-    <tr><td><code>SpecialTrack</code></td><td>obj</td><td>特殊订单轨(0/1 槽 + 等待队列)</td><td class="no">否(局内)</td></tr>
-  </tbody></table>
+| 字段 | 类型 | 语义 | 进盘? |
+| --- | --- | --- | --- |
+| `Soul` | int | 灵力(软货币) | 是 |
+| `Piety` | int | 虔诚币(长期主线货币) | 是 |
+| `Exp` | int | 累积经验(守护者等级是其纯函数) | 是 |
+| `UnlockedChapter` | int | 已解锁剧情章节数 | 是 |
+| `NextRepairIndex` | int | 下一座待修神庙序号 | 是 |
+| `TempleRepaired[]` | bool[12] | 各厅是否已修 | 是 |
+| `TempleDecorated[]` | bool[12] | 各厅是否已装饰 | 是 |
+| `BlindBoxCount` | int | 盲盒持有计数 | 是 |
+| `GoddessRating` | int | 当前档好评条计数 | 是 |
+| `GoddessLevel` | int | 女神好感等级 | 是 |
+| `WishUsedToday` | int | 今日已用祈愿次数(配跨天重置 §3.6) | 是 |
+| `CompletedOrders` | int | 累计完成单数 | 是 |
+| `TotalScore` | int | 累计交付得分 | 是 (O2) |
+| —— 以下不进盘(局内瞬态)—— |  |  |  |
+| `Energy` | int | 当前体力 | 否 (O3) |
+| `Inventory` | Dict | 合成区库存 | 否(局内) |
+| `ActiveOrders` / `OrderCursor` | — | 当前激活订单 / 订单池游标 | 否(局内) |
+| `PendingElements` | Queue | 元素预算队列 | 否(局内) |
+| `UndoCharges` / `_undoStack` | — | 悔棋次数 / 快照栈 | 否(局内) |
+| `ComboChain` / `AllClearArmed` | — | 连消链 / 全清武装位 | 否(局内) |
+| `SpecialTrack` | obj | 特殊订单轨(0/1 槽 + 等待队列) | 否(局内) |
 
 <b>边界裁定的两处需注意(列入待拍板 §七):</b>
 

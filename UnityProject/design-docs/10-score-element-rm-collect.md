@@ -16,15 +16,15 @@
 
 [合成订单切片](#09-merge-order-energy)的元素产出由<mark>消除得分驱动数量</mark>：消得越狠，待选区携带的元素越多。本篇定义这套生成模型——得分函数、类型选择、配置旋钮与挂接点。
 
-<div class="callout note">
-      <b>立项信息</b>
-      <table>
-        <tbody><tr><th>类型</th><td><span class="chip">数值模型</span> 合成订单切片的元素生成模型</td></tr>
-        <tr><th>设计意图</th><td>元素生成与消除得分关联，得分越高产出越多——「会消除」直接奖励到产出上，比固定比例灵活。</td></tr>
-        <tr><th>方向约束</th><td>离线还原 · 去变现（项目红线）</td></tr>
-        <tr><th>影响范围</th><td>仅 <a href="#09-merge-order-energy">合成订单切片</a>的元素生成；合成 / 订单 / 体力 / 通关 / 悔棋系统不涉及。元素携带链路（候选块携带 → 落子转移 → 消除统计）是本模型的载体。</td></tr>
-      </tbody></table>
-    </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 数值模型 合成订单切片的元素生成模型 |
+> | **设计意图** | 元素生成与消除得分关联，得分越高产出越多——「会消除」直接奖励到产出上，比固定比例灵活。 |
+> | **方向约束** | 离线还原 · 去变现（项目红线） |
+> | **影响范围** | 仅 [合成订单切片](#09-merge-order-energy)的元素生成；合成 / 订单 / 体力 / 通关 / 悔棋系统不涉及。元素携带链路（候选块携带 → 落子转移 → 消除统计）是本模型的载体。 |
 
 <h2 id="why">一、模型一句话</h2>
 
@@ -42,17 +42,13 @@
 
 <h3 id="model">2.2 得分 → 元素预算队列</h3>
 
-<div class="flow">
-      <div class="node"><b>落子消除</b><small>触发行/列消除</small></div>
-      <div class="arrow">→</div>
-      <div class="node"><b>该次消除得分</b><small>clearScore<br>= 格数×10 + 行列数²×30</small></div>
-      <div class="arrow">→</div>
-      <div class="node"><b>得分→数量</b><small>k = f(clearScore)<br>得分越高 k 越大</small></div>
-      <div class="arrow">→</div>
-      <div class="node"><b>入元素预算队列</b><small>挑 k 个订单所需类型<br>压入 PendingElements</small></div>
-      <div class="arrow">→</div>
-      <div class="node"><b>补牌时投放</b><small>新候选块按填充格顺序<br>FIFO 抽干队列</small></div>
-    </div>
+```mermaid
+flowchart LR
+    A["<b>落子消除</b><br>触发行/列消除"] --> B["<b>该次消除得分</b><br>clearScore = 格数×10 + 行列数²×30"]
+    B --> C["<b>得分→数量</b><br>k = f(clearScore)<br>得分越高 k 越大"]
+    C --> D["<b>入元素预算队列</b><br>挑 k 个订单所需类型<br>压入 PendingElements"]
+    D --> E["<b>补牌时投放</b><br>新候选块按填充格顺序<br>FIFO 抽干队列"]
+```
 
 - **触发即得分**：每次落子若触发消除，就用**该次消除的得分** `clearScore` 算元素数 `k`。无消除 → 不入队 → 后续候选块纯方块。开局首手必纯方块（队列初始空）。
 - **预算队列承接**：算出的 `k` 个元素不立即凭空出现，而是压入 <mark><code>MergeState.PendingElements</code></mark> 队列；<b>补牌（<code>BuildPiece</code>）时</b>从队头 FIFO 抽取，按与落子转移一致的「行优先填充格顺序」写入新候选块的 `Elements`。元素始终出现在新发的候选块上，逻辑可纯单测。
@@ -65,19 +61,19 @@
 
 采用**线性系数 + 保底 + 封顶**，一个旋钮 <mark><code>ScorePerElement</code></mark> 调松紧：
 
-<div class="callout good">
-      <b>映射公式：</b>
-      <pre style="margin:8px 0;padding:10px;background:#0d1622;border-radius:8px;overflow:auto;">k = clearScore &lt;= 0
-      ? 0
-      : Clamp( CeilDiv(clearScore, ScorePerElement), MinPerClear, MaxPerClear )</pre>
-      <table>
-        <tbody><tr><th>常量</th><th>默认</th><th>含义 / 理由</th></tr>
-        <tr><td><code>ScorePerElement</code></td><td><b>200</b></td><td>每 200 分折 1 个元素。略低于一次双消的分值，使单消稳得 1、双消得 2 —— 平滑的「多消多得」直觉。<b>这是「灵活」旋钮</b>：调小更慷慨，调大更吝啬。</td></tr>
-        <tr><td><code>MinPerClear</code></td><td><b>1</b></td><td>保底：任何成功消除至少产 1 元素，让「产出→合成→订单」循环不会卡在小消除上——契合「会消除就有奖励」的意图。</td></tr>
-        <tr><td><code>MaxPerClear</code></td><td><b>4</b></td><td>单次消除封顶。四消已是常规上限；4 个 Lv1 足以喂订单又不淹没待选区（一组 3 块约 15 格，即便三次满额消除 = 12 ≤ 15）。挡住超高连消刷爆经济。</td></tr>
-        <tr><td><code>MaxPendingElements</code></td><td><b>12</b></td><td>队列总积压上限（≈一组候选块容量）。超出则不再入队——避免极端情形下元素积压速度远超候选格承接，扭曲经济。</td></tr>
-      </tbody></table>
-    </div>
+> [!TIP]
+> **映射公式：**
+>
+> k = clearScore <= 0
+>       ? 0
+>       : Clamp( CeilDiv(clearScore, ScorePerElement), MinPerClear, MaxPerClear )
+>
+> | 常量 | 默认 | 含义 / 理由 |
+> | --- | --- | --- |
+> | `ScorePerElement` | **200** | 每 200 分折 1 个元素。略低于一次双消的分值，使单消稳得 1、双消得 2 —— 平滑的「多消多得」直觉。**这是「灵活」旋钮**：调小更慷慨，调大更吝啬。 |
+> | `MinPerClear` | **1** | 保底：任何成功消除至少产 1 元素，让「产出→合成→订单」循环不会卡在小消除上——契合「会消除就有奖励」的意图。 |
+> | `MaxPerClear` | **4** | 单次消除封顶。四消已是常规上限；4 个 Lv1 足以喂订单又不淹没待选区（一组 3 块约 15 格，即便三次满额消除 = 12 ≤ 15）。挡住超高连消刷爆经济。 |
+> | `MaxPendingElements` | **12** | 队列总积压上限（≈一组候选块容量）。超出则不再入队——避免极端情形下元素积压速度远超候选格承接，扭曲经济。 |
 
 **得分公式**`clearScore = 被清格数 × 10 + 被清行列数² × 30`（复用 Classic [现有计分](#07-blockblast-code-architecture)，`lines²` 项已天然让多行消除拿更高分→更多元素）。代入典型消除：
 
@@ -231,11 +227,8 @@ sequenceDiagram
 | 误删共享设施（`MergeElement`/`MergeOrderWinWindow` 等）连累合成订单 | §三 依赖清单逐项标注依赖方；编译 0 error + 合成订单回归为硬验收。 |
 | 映射数值不合手感（太多/太少元素） | `ScorePerElement` 等全为可调常量，test 配平后一处改数即可。 |
 
-<div class="related">
-      <h2>相关文档</h2>
-      <div class="related-links">
-        <a href="#">← 返回总览</a>
-        <a href="#09-merge-order-energy">合成订单切片</a>
-        <a href="#07-blockblast-code-architecture">BlockBlast 代码架构剖析</a>
-      </div>
-    </div>
+## 相关文档
+
+- [← 返回总览](#)
+- [合成订单切片](#09-merge-order-energy)
+- [BlockBlast 代码架构剖析](#07-blockblast-code-architecture)

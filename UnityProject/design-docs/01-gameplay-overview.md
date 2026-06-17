@@ -2,10 +2,10 @@
 
 现状分析 · 经典 **8×8 拖放消除** 的六项核心机制——动态难度发牌、平方级计分、方块库、首发固定、早期屏蔽、连消钩子。这六项**不再构成独立的「纯无尽刷分」游戏**,而是<mark>下沉为融合玩法的底层引擎</mark>:游戏单入口运行,经典核心常驻于合成订单之下。本篇记录这套底层的现状。
 
-<div class="callout note" id="intro">
-      <b>本篇定位:经典核心机制的现状记录,也是融合玩法的底层引擎</b>
-      <p style="margin:8px 0 0">游戏为<mark>单入口循环</mark>:经典机制完全吸收进合成订单,<b>无独立的「纯无尽刷分」入口</b>(该入口已移除,见 <a href="#29-gameplay-fusion::remove">29·§4.2</a>)。本篇描述的六项核心(8 算法 DDA / 计分公式 / 71·39 方块库 / 首发固定 / 早期屏蔽 / 连消钩子)在代码里仍是<b>活的底层</b>——融合玩法的发牌、产图案、连消爽感都建在其上。其上的统一玩法、经典各机制的保留/被覆盖去向、逐条裁决见 <a href="#29-gameplay-fusion">29 · 玩法融合</a>(六项去向见 <a href="#29-gameplay-fusion::keep">29·§4.1</a>);合成订单的完整上层经济见 <a href="#11-core-loop-completion">11</a>(切片现状 <a href="#09-merge-order-energy">09</a>/<a href="#10-score-element-rm-collect">10</a>)。对应模块 <code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/</code>。</p>
-    </div>
+> [!NOTE]
+> **本篇定位:经典核心机制的现状记录,也是融合玩法的底层引擎**
+>
+> 游戏为**单入口循环**:经典机制完全吸收进合成订单,**无独立的「纯无尽刷分」入口**(该入口已移除,见 [29·§4.2](#29-gameplay-fusion::remove))。本篇描述的六项核心(8 算法 DDA / 计分公式 / 71·39 方块库 / 首发固定 / 早期屏蔽 / 连消钩子)在代码里仍是**活的底层**——融合玩法的发牌、产图案、连消爽感都建在其上。其上的统一玩法、经典各机制的保留/被覆盖去向、逐条裁决见 [29 · 玩法融合](#29-gameplay-fusion)(六项去向见 [29·§4.1](#29-gameplay-fusion::keep));合成订单的完整上层经济见 [11](#11-core-loop-completion)(切片现状 [09](#09-merge-order-energy)/[10](#10-score-element-rm-collect))。对应模块 `Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/`。
 
 <h2 id="loop">一、核心循环:经典底层引擎 + 融合上层</h2>
 
@@ -91,14 +91,13 @@ flowchart TD
 
 <h3 id="dda-fusion">融合后:强度信号源决定 DDA 是否激活做局</h3>
 
-<div class="callout warn">
-      <b>DDA「做局」能力在融合玩法里是否激活,取决于喂给 <code>OfferTrio</code> 的强度信号——这是一个有安全默认的范围开关</b>(<a href="#29-gameplay-fusion::v8">29·§3.8</a> / 隐患 C)。DDA 以 <code>Score</code> 为强度信号:&lt;1000 不激活、1000~15000 叠清屏窗口、≥1000 才进 8 算法权重段。合成订单局内 <code>Score</code> 恒 0,故 <code>OfferTrio(board, 0)</code> <b>永远落在「未激活 + 清屏窗口」分支</b>——8 算法权重段从不触发,DDA 的橡皮筋做局能力<mark class="y">休眠</mark>在清屏窗口。融合后:
-      <ul style="margin:8px 0 0">
-        <li><b>默认(选项甲)</b>:DDA 维持以 <code>Score</code> 为信号。该量在融合里若仍恒低 → DDA <b>继续休眠</b>在清屏窗口(= 合成订单现状,零配平、零回归)。</li>
-        <li><b>可选(选项乙)</b>:把强度信号改接<b>经营进度量</b>(如 <code>TotalScore</code> 或完成单数),让 DDA 随经营推进而升难度,与体力/订单节奏配合(需 test 配平「进度 → 难度」曲线)。</li>
-      </ul>
-      两选项都<b>不改 8 算法与权重表</b>,只改「喂给 <code>OfferTrio</code> 的强度参数」。默认取甲,乙记入 <a href="#29-gameplay-fusion::decisions">29·§七#2</a> 待拍板。
-    </div>
+> [!WARNING]
+> **DDA「做局」能力在融合玩法里是否激活,取决于喂给 `OfferTrio` 的强度信号——这是一个有安全默认的范围开关**([29·§3.8](#29-gameplay-fusion::v8) / 隐患 C)。DDA 以 `Score` 为强度信号:<1000 不激活、1000~15000 叠清屏窗口、≥1000 才进 8 算法权重段。合成订单局内 `Score` 恒 0,故 `OfferTrio(board, 0)` **永远落在「未激活 + 清屏窗口」分支**——8 算法权重段从不触发,DDA 的橡皮筋做局能力**休眠**在清屏窗口。融合后:
+>
+> - **默认(选项甲)**:DDA 维持以 `Score` 为信号。该量在融合里若仍恒低 → DDA **继续休眠**在清屏窗口(= 合成订单现状,零配平、零回归)。
+> - **可选(选项乙)**:把强度信号改接**经营进度量**(如 `TotalScore` 或完成单数),让 DDA 随经营推进而升难度,与体力/订单节奏配合(需 test 配平「进度 → 难度」曲线)。
+>
+> 两选项都**不改 8 算法与权重表**,只改「喂给 `OfferTrio` 的强度参数」。默认取甲,乙记入 [29·§七#2](#29-gameplay-fusion::decisions) 待拍板。
 
 > [!NOTE]
 > 这套系统是本作的灵魂,单独拆成一篇详解(含 8 种算法逐一拆解 + 真实权重数据,并以 <code>Score</code> 为强度信号通篇展开):→ <a href="#02-dynamic-difficulty">动态难度拆解</a>。
@@ -108,13 +107,10 @@ flowchart TD
 - **存档**:经典存档(棋盘 + 手牌 + 分数 + 最高分,键 `block_blast_save_v1`)与 `dynamicWeight` 自存(键 `block_blast_dynamic_v1`)是底层持久化。融合后并入「元层进盘 / 局内瞬态不进盘」的统一存档视图,`HighScore` 并入元层语义(跨会话长期指标),合并裁决见 [29·§3.7](#29-gameplay-fusion::v7)。
 - **UI / 美术**:核心玩法窗(`GameWindow`)已贴<mark class="g">塔罗木质换皮</mark>(设计 [27](#27-tarot-mode-hud-art),贴 `Sheet_tarot_mode` 子图);设置 / 个人信息 / 结算 / 排行榜各窗均有美术换皮(设计 [23](#23-settings-window-art)–[28](#28-rank-window-art),复用 `Sheet_settings` 等精灵表)。棋盘 / 格底 / 拖拽 ghost 等仍由代码渲染,但<b>已非「纯几何无美术」</b>。分数滚动动画保留。
 
-<div class="related">
-      <h2>相关文档</h2>
-      <div class="related-links">
-        <a href="#">← 返回总览</a>
-        <a href="#29-gameplay-fusion">29 · 玩法融合(顶层裁决)</a>
-        <a href="#11-core-loop-completion">11 · 核心玩法补全(合成订单完整设计)</a>
-        <a href="#02-dynamic-difficulty">02 · 动态难度拆解</a>
-        <a href="#09-merge-order-energy">09 · 合成订单切片</a>
-      </div>
-    </div>
+## 相关文档
+
+- [← 返回总览](#)
+- [29 · 玩法融合(顶层裁决)](#29-gameplay-fusion)
+- [11 · 核心玩法补全(合成订单完整设计)](#11-core-loop-completion)
+- [02 · 动态难度拆解](#02-dynamic-difficulty)
+- [09 · 合成订单切片](#09-merge-order-energy)

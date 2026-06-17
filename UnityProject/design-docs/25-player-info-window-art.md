@@ -15,38 +15,25 @@
 
 塔罗 UI 换皮自治线**第二个屏**:把效果图 `个人信息.png` 换皮成可运行的 `PlayerInfoWindow`。目的:兑现[设计 18 玩家信息系统](#18-player-info)遗留的表现层(boss 遗留 #22)。<mark>本次换皮 = 纯 UI 补完</mark>——数据逻辑层([设计 18](#18-player-info))已交付并经 30 例 EditMode 单测,本屏只**调用**它 + 接线,不重写数据层。基础设施**全部复用**[设计 23 设置窗](#23-settings-window-art)已确立的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
 
-<div class="callout warn">
-    <b>读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)</b>
-    <ul style="margin:8px 0 0">
-      <li><b>数据层不动,只调用。</b><code>GameLogic.BlockBlast.Player</code>(<code>PlayerInfo</code> / <code>PlayerRenameService</code> / <code>RenameResult</code> / <code>AvatarUnlockService</code> / <code>PlayerLevelConfig</code> / <code>PlayerNameGenerator</code> / <code>ClipboardUtil</code>)+ 配置 <code>AvatarConfigMgr</code> 已实装并经 EditMode 单测(<a href="#18-player-info">设计 18</a>,归档 <code>pipeline/archive/2026-06-14-player-info/</code>)。本次换皮<mark>不</mark>改这些类的逻辑;窗口只<b>调用</b>(读名/头像、调改名)。</li>
-      <li><b>基础设施全部复用设计 23,不重造。</b>切图寻址(<code>SetSubSprite(精灵表 location, 子图名)</code>)、绑定(<code>FindChildComponent</code> + <code>m_</code> 前缀)、窗口范式(<code>UIWindow</code> + <code>[Window]</code> + 遮罩 + Top 层)、运行期上下文(<code>GameContext</code> 单例)全部已在设置窗打通(<a href="#23-settings-window-art">设计 23</a> §三/§四/§五/§六)。本屏照搬,<mark>无任何新基础设施</mark>。</li>
-      <li><b>本屏无专属切图,复用 <code>Sheet_settings</code> 精灵表。</b>塔罗素材里<mark>没有「个人信息」专属切图文件夹</mark>(只有 设置/占卜/…/塔罗模式 等 12 个)。本屏的面板/标题板/输入框底/确定钮/关闭钮全部用设置窗已导入的 <code>Sheet_settings</code> 里的通用木板/框/按钮子图拼(<a href="#25-player-info-window-art::atlas">§三</a>)。缺的专属图(圆形头像框、编辑铅笔、下拉箭头)→ 占位 + TODO,不阻塞(<a href="#25-player-info-window-art::placeholder">§3.2</a>)。</li>
-      <li><b>「生日」无数据层字段 → UI 占位。</b>效果图有「生日 + 3 个下拉框」,但<mark>设计 18 数据层完全无生日概念</mark>(<code>PlayerInfo</code> 字段:Id/Name/RenameCount/Exp/CurrentAvatarId/CurrentFrameId/UnlockedAvatarIds/UnlockedFrameIds,无生日)。本次换皮安全默认 = <b>UI 占位</b>(摆 3 个下拉框对位,不绑数据、不入存档),不擅自往持久化 DTO 加字段(<a href="#25-player-info-window-art::birthday">§5.3</a>,决策 D2)。</li>
-      <li><b>UI 业务代码在热更区,资源走 YooAsset,加法式不破坏 Classic。</b>窗口脚本落 <code>GameScripts/HotFix/GameLogic/UI/</code>(热更,与 <code>SettingsWindow.cs</code> 同目录);prefab 落 <code>AssetRaw/UI/Prefabs/</code>。改动全在加法侧——主菜单加一个入口按钮(同设置窗),不动 Classic / Merge 主玩法(<a href="#25-player-info-window-art::accept">§九 验收 R</a>)。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)**
+>
+> - **数据层不动,只调用。**`GameLogic.BlockBlast.Player`(`PlayerInfo` / `PlayerRenameService` / `RenameResult` / `AvatarUnlockService` / `PlayerLevelConfig` / `PlayerNameGenerator` / `ClipboardUtil`)+ 配置 `AvatarConfigMgr` 已实装并经 EditMode 单测([设计 18](#18-player-info),归档 `pipeline/archive/2026-06-14-player-info/`)。本次换皮**不**改这些类的逻辑;窗口只**调用**(读名/头像、调改名)。
+> - **基础设施全部复用设计 23,不重造。**切图寻址(`SetSubSprite(精灵表 location, 子图名)`)、绑定(`FindChildComponent` + `m_` 前缀)、窗口范式(`UIWindow` + `[Window]` + 遮罩 + Top 层)、运行期上下文(`GameContext` 单例)全部已在设置窗打通([设计 23](#23-settings-window-art) §三/§四/§五/§六)。本屏照搬,**无任何新基础设施**。
+> - **本屏无专属切图,复用 `Sheet_settings` 精灵表。**塔罗素材里**没有「个人信息」专属切图文件夹**(只有 设置/占卜/…/塔罗模式 等 12 个)。本屏的面板/标题板/输入框底/确定钮/关闭钮全部用设置窗已导入的 `Sheet_settings` 里的通用木板/框/按钮子图拼([§三](#25-player-info-window-art::atlas))。缺的专属图(圆形头像框、编辑铅笔、下拉箭头)→ 占位 + TODO,不阻塞([§3.2](#25-player-info-window-art::placeholder))。
+> - **「生日」无数据层字段 → UI 占位。**效果图有「生日 + 3 个下拉框」,但**设计 18 数据层完全无生日概念**(`PlayerInfo` 字段:Id/Name/RenameCount/Exp/CurrentAvatarId/CurrentFrameId/UnlockedAvatarIds/UnlockedFrameIds,无生日)。本次换皮安全默认 = **UI 占位**(摆 3 个下拉框对位,不绑数据、不入存档),不擅自往持久化 DTO 加字段([§5.3](#25-player-info-window-art::birthday),决策 D2)。
+> - **UI 业务代码在热更区,资源走 YooAsset,加法式不破坏 Classic。**窗口脚本落 `GameScripts/HotFix/GameLogic/UI/`(热更,与 `SettingsWindow.cs` 同目录);prefab 落 `AssetRaw/UI/Prefabs/`。改动全在加法侧——主菜单加一个入口按钮(同设置窗),不动 Classic / Merge 主玩法([§九 验收 R](#25-player-info-window-art::accept))。
 
-<div class="callout note" id="intro">
-    <b>立项信息</b>
-    <table>
-      <tbody><tr><th>类型</th><td><span class="chip">表现层换皮 · 塔罗 UI 自治线第 2 屏 · 纯 UI 补完</span> 复用设计 23 范式,兑现遗留 #22(player-info 表现层)。出设计稿 + 验收标准,交开发落地。</td></tr>
-      <tr><th>设计基线(经 grep 核实的真实符号)</th><td>
-        <b>数据层(已实装,只调用,命名空间 <code>GameLogic.BlockBlast.Player</code>)</b>:<code>PlayerInfo</code>(字段 <code>Id</code>/<code>Name</code>/<code>RenameCount</code>/<code>Exp</code>/<code>CurrentAvatarId</code>/<code>CurrentFrameId</code>/<code>UnlockedAvatarIds[]</code>/<code>UnlockedFrameIds[]</code>;只读 <code>Level</code>;静态 <code>CreateDefault(rng)</code>/<code>ExportToMeta(dto)</code>/<code>ImportFromMeta(dto,rng,…)</code>;常量 <code>DefaultAvatarId=1</code>/<code>DefaultFrameId=101</code>);<code>PlayerRenameService.TryRename(p, newName, IReadOnlyCollection&lt;string&gt; wordList, Func&lt;int,bool&gt; trySpendDiamond)</code> → <code>RenameResult</code>(<code>Success</code>/<code>Reason</code>/<code>Cost</code>;<code>RenameReject{None,Empty,TooLong,Profanity,NotEnoughDiamond}</code>;常量 <code>MinLen=1</code>/<code>MaxLen=16</code>);<code>RenamePriceConfig.RENAME_PRICE=100</code>/<code>PriceFor(count)</code>;<code>AvatarUnlockService.StateOf/IsUnlocked/TryEquip/SyncLevelUnlocks/GrantUnlock</code>;<code>PlayerLevelConfig.LevelFor/ExpIntoLevel/ExpToNext</code>;<code>ClipboardUtil.Copy(text)</code>(可注入 <code>Sink</code>)。配置 <code>GameLogic.Config.AvatarConfigMgr</code>(<code>GetAvatar/GetByType/All/EnsureLoaded</code>)。<br>
-        <b>UI 框架 + 取图 API(与设计 23 同源,已打通)</b>:<code>UIWindow</code> + <code>[Window(UILayer, location, fullScreen, hideTimeToClose)]</code>;生命周期 <code>ScriptGenerator → OnCreate → OnRefresh</code>;绑定 <code>FindChildComponent&lt;T&gt;(path)</code>;打开 <code>GameModule.UI.ShowUIAsync&lt;T&gt;()</code> / 关闭 <code>CloseUI&lt;T&gt;()</code>;取子图 <code>Image.SetSubSprite(string location, string spriteName)</code>(<a href="#23-settings-window-art::atlas">设计 23 §三</a>实测:精灵表用单张 <code>Sheet_settings.png</code>「Sprite Mode=Multiple + 命名子精灵」,<code>location="Sheet_settings"</code>,子图名 = 源切图文件名)。<br>
-        <b>运行期上下文(已建,本次换皮扩持有)</b>:<code>GameLogic.GameContext : SimpleSingleton&lt;GameContext&gt;</code>(<code>OnInit</code> 里 <code>new SettingsService(...)</code> + <code>Load</code>;现有成员 <code>Settings</code>;现有 <code>InitSettingsWithStore(store)</code> 测试注入入口);启动接线在热更入口 <code>GameApp.StartGameLogic()</code>(<a href="#25-player-info-window-art::holder">§五</a>)。<br>
-        <b>入口现状</b>:<code>GameLogic.BlockBlastUI.MainMenuWindow</code>(code-built,<code>OnCreate</code> 里 <code>UGuiFactory.CreateButton</code>)已加过 <code>BtnSettings</code> 入口(第 58–63 行),并留有 <code>// TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow</code> 钩子(第 65–67 行)——本次换皮兑现该钩子。<br>
-        <b>分辨率</b>:UIRoot CanvasScaler 参考分辨率 <mark>1080×1920</mark>(场景 <code>main.unity</code> 已覆写,与美术基准一致);prefab 直接用 1080×1920 锚点,<mark>不</mark>套 <code>BlockLayout</code> 那套 750×1334 私有坐标系。
-      </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:窗口不含充值 / 内购 / 快捷登录(效果图也无)。改名扣钻经数据层 <code>trySpendDiamond</code> 接缝、生产默认返 true(钻石无可花费余额字段,去变现:不靠钻石卡改名,<a href="#18-player-info">设计 18</a> O8)。加法式:新建窗口 + prefab + GameContext 扩一个成员,不改框架、不改数据层逻辑、不动既有玩法窗口。</td></tr>
-      <tr><th>影响范围</th><td>
-        <b>新增资源</b>:<code>PlayerInfoWindow.prefab</code>(<code>AssetRaw/UI/Prefabs/</code>);<mark>无新切图</mark>(复用 <code>Sheet_settings</code>)。<br>
-        <b>新增代码(热更区)</b>:<code>PlayerInfoWindow.cs</code>(窗口脚本,落 <code>GameScripts/HotFix/GameLogic/UI/</code>,同 <code>SettingsWindow.cs</code>)。<br>
-        <b>改既有(最小)</b>:<code>GameContext.cs</code> 加一个 <code>Player</code> 成员 + <code>OnInit</code> 里 Load(<a href="#25-player-info-window-art::holder">§五</a>);<code>MainMenuWindow.cs</code> 兑现 TODO 钩子接入口按钮(一处约 5 行,同 <code>BtnSettings</code> 做法)。<br>
-        <b>不改</b>:<code>GameLogic.BlockBlast.Player</code> 各类逻辑、<code>AvatarConfigMgr</code>、<code>SettingsService</code>、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测、<code>MergeMetaSave</code> 任一字段(生日不入盘,<a href="#25-player-info-window-art::birthday">§5.3</a>)。
-      </td></tr>
-      <tr><th>关键约束(继承设计 23)</th><td>窗口逻辑可被反射 / 直调驱动单测(EditMode 编译 + <code>GameContext</code> 往返 + 改名贯通),但<b>真实视觉对位 / 指针点击 / 输入法改名</b>须 Play 模式人眼 + 手验。验收按「逻辑可单测(EditMode)」与「需 Play / 人眼」两档拆开(<a href="#25-player-info-window-art::accept">§九</a>)。</td></tr>
-    </tbody></table>
-  </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 表现层换皮 · 塔罗 UI 自治线第 2 屏 · 纯 UI 补完 复用设计 23 范式,兑现遗留 #22(player-info 表现层)。出设计稿 + 验收标准,交开发落地。 |
+> | **设计基线(经 grep 核实的真实符号)** | **数据层(已实装,只调用,命名空间 `GameLogic.BlockBlast.Player`)**:`PlayerInfo`(字段 `Id`/`Name`/`RenameCount`/`Exp`/`CurrentAvatarId`/`CurrentFrameId`/`UnlockedAvatarIds[]`/`UnlockedFrameIds[]`;只读 `Level`;静态 `CreateDefault(rng)`/`ExportToMeta(dto)`/`ImportFromMeta(dto,rng,…)`;常量 `DefaultAvatarId=1`/`DefaultFrameId=101`);`PlayerRenameService.TryRename(p, newName, IReadOnlyCollection<string> wordList, Func<int,bool> trySpendDiamond)` → `RenameResult`(`Success`/`Reason`/`Cost`;`RenameReject{None,Empty,TooLong,Profanity,NotEnoughDiamond}`;常量 `MinLen=1`/`MaxLen=16`);`RenamePriceConfig.RENAME_PRICE=100`/`PriceFor(count)`;`AvatarUnlockService.StateOf/IsUnlocked/TryEquip/SyncLevelUnlocks/GrantUnlock`;`PlayerLevelConfig.LevelFor/ExpIntoLevel/ExpToNext`;`ClipboardUtil.Copy(text)`(可注入 `Sink`)。配置 `GameLogic.Config.AvatarConfigMgr`(`GetAvatar/GetByType/All/EnsureLoaded`)。 **UI 框架 + 取图 API(与设计 23 同源,已打通)**:`UIWindow` + `[Window(UILayer, location, fullScreen, hideTimeToClose)]`;生命周期 `ScriptGenerator → OnCreate → OnRefresh`;绑定 `FindChildComponent<T>(path)`;打开 `GameModule.UI.ShowUIAsync<T>()` / 关闭 `CloseUI<T>()`;取子图 `Image.SetSubSprite(string location, string spriteName)`([设计 23 §三](#23-settings-window-art::atlas)实测:精灵表用单张 `Sheet_settings.png`「Sprite Mode=Multiple + 命名子精灵」,`location="Sheet_settings"`,子图名 = 源切图文件名)。 **运行期上下文(已建,本次换皮扩持有)**:`GameLogic.GameContext : SimpleSingleton<GameContext>`(`OnInit` 里 `new SettingsService(...)` + `Load`;现有成员 `Settings`;现有 `InitSettingsWithStore(store)` 测试注入入口);启动接线在热更入口 `GameApp.StartGameLogic()`([§五](#25-player-info-window-art::holder))。 **入口现状**:`GameLogic.BlockBlastUI.MainMenuWindow`(code-built,`OnCreate` 里 `UGuiFactory.CreateButton`)已加过 `BtnSettings` 入口(第 58–63 行),并留有 `// TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow` 钩子(第 65–67 行)——本次换皮兑现该钩子。 **分辨率**:UIRoot CanvasScaler 参考分辨率 **1080×1920**(场景 `main.unity` 已覆写,与美术基准一致);prefab 直接用 1080×1920 锚点,**不**套 `BlockLayout` 那套 750×1334 私有坐标系。 |
+> | **方向约束** | 离线还原 · **去变现**:窗口不含充值 / 内购 / 快捷登录(效果图也无)。改名扣钻经数据层 `trySpendDiamond` 接缝、生产默认返 true(钻石无可花费余额字段,去变现:不靠钻石卡改名,[设计 18](#18-player-info) O8)。加法式:新建窗口 + prefab + GameContext 扩一个成员,不改框架、不改数据层逻辑、不动既有玩法窗口。 |
+> | **影响范围** | **新增资源**:`PlayerInfoWindow.prefab`(`AssetRaw/UI/Prefabs/`);**无新切图**(复用 `Sheet_settings`)。 **新增代码(热更区)**:`PlayerInfoWindow.cs`(窗口脚本,落 `GameScripts/HotFix/GameLogic/UI/`,同 `SettingsWindow.cs`)。 **改既有(最小)**:`GameContext.cs` 加一个 `Player` 成员 + `OnInit` 里 Load([§五](#25-player-info-window-art::holder));`MainMenuWindow.cs` 兑现 TODO 钩子接入口按钮(一处约 5 行,同 `BtnSettings` 做法)。 **不改**:`GameLogic.BlockBlast.Player` 各类逻辑、`AvatarConfigMgr`、`SettingsService`、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测、`MergeMetaSave` 任一字段(生日不入盘,[§5.3](#25-player-info-window-art::birthday))。 |
+> | **关键约束(继承设计 23)** | 窗口逻辑可被反射 / 直调驱动单测(EditMode 编译 + `GameContext` 往返 + 改名贯通),但**真实视觉对位 / 指针点击 / 输入法改名**须 Play 模式人眼 + 手验。验收按「逻辑可单测(EditMode)」与「需 Play / 人眼」两档拆开([§九](#25-player-info-window-art::accept))。 |
 
 <h2 id="what">一、做什么与为什么</h2>
 
@@ -119,7 +106,8 @@ _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
 
 根节点照设置窗 prefab 范式:根挂 `RectTransform`(stretch 0,0→1,1)+ `Canvas` + `GraphicRaycaster`。坐标系 = 1080×1920 参考分辨率,直接用真实锚点。`m_` 前缀决定 `FindChildComponent` 绑定类型(前缀表见 tengine-dev `naming-rules`)。下方坐标为对位描述,精确像素 dev 摆图时对着 `个人信息.png` 微调。
 
-<div class="tree">PlayerInfoWindow                       (根: RectTransform 全屏 stretch + Canvas + GraphicRaycaster)
+```text
+PlayerInfoWindow                       (根: RectTransform 全屏 stretch + Canvas + GraphicRaycaster)
 ├─ m_btn_Mask                          Button  全屏遮罩(Image alpha≈0.6 深色; 点击关窗); 锚点全屏 stretch
 └─ Root                                RectTransform 居中容器(承载所有可见内容)
    ├─ m_img_TitleBg                    Image   标题木牌底; 子图 box2
@@ -140,7 +128,8 @@ _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
    │  ├─ m_drop_Month                  Dropdown 月(占位)
    │  └─ m_drop_Day                    Dropdown 日(占位)
    ├─ m_btn_Confirm                    Button  确定长条; 子图 button + 文本"确定"; 点击→保存并关
-   └─ m_text_CloseHint                 Text    "点击任意位置置关闭"(纯文本)</div>
+   └─ m_text_CloseHint                 Text    "点击任意位置置关闭"(纯文本)
+```
 
 > [!NOTE]
 > **静态节点 vs 动态节点**
@@ -318,14 +307,12 @@ namespace GameLogic.UI
     }
 }</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 注意(与设计 23 一致的两处工程实际)</b>
-    <ul style="margin:6px 0 0">
-      <li>接钮一律 <code>onClick.AddListener</code>(本工程 UIModule <mark>无 <code>RegisterButtonClick</code></mark>,设计 23 已验证)。<code>onClick</code> 监听随 GameObject 销毁自动清,无需手动 <code>RemoveAllListeners</code>。</li>
-      <li>占位反馈 <code>ShowPlaceholder</code> 临时走 <code>Log.Info</code>(工程暂无 Toast / 飘字,同设计 23);改名拒绝提示亦同——待 Toast 系统建后替换为真实弹字。<mark>占位不等于死按钮</mark>:点了要有 Log / 提示。</li>
-      <li><code>InputField</code> vs <code>TMP_InputField</code>:dev 按工程既有 UI 用的输入框类型选(grep 现有 prefab / 框架默认),<code>FindChildComponent&lt;T&gt;</code> 的 T 与 prefab 节点组件类型须一致。</li>
-    </ul>
-  </div>
+> [!WARNING]
+> **dev 注意(与设计 23 一致的两处工程实际)**
+>
+> - 接钮一律 `onClick.AddListener`(本工程 UIModule **无 `RegisterButtonClick`**,设计 23 已验证)。`onClick` 监听随 GameObject 销毁自动清,无需手动 `RemoveAllListeners`。
+> - 占位反馈 `ShowPlaceholder` 临时走 `Log.Info`(工程暂无 Toast / 飘字,同设计 23);改名拒绝提示亦同——待 Toast 系统建后替换为真实弹字。**占位不等于死按钮**:点了要有 Log / 提示。
+> - `InputField` vs `TMP_InputField`:dev 按工程既有 UI 用的输入框类型选(grep 现有 prefab / 框架默认),`FindChildComponent<T>` 的 T 与 prefab 节点组件类型须一致。
 
 <h2 id="dispatch">七、各控件处置分流表</h2>
 

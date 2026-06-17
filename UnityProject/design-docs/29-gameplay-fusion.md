@@ -11,26 +11,25 @@
 
 把两个并存入口（经典无尽 / 合成订单）融成**一套**循环：经典核心<mark>完全吸收</mark>为底层引擎，合成订单的体力 / 合成 / 订单 / 宝箱 / 女神 / 神庙是其完整经济。本篇逐条裁决 8 个冲突点，给出经典「保留 / 被覆盖」清单与代码层融合落点指引。**仅策划阶段，不改任何工程代码**。
 
-<div class="callout warn">
-      <b>读前必看 · 本篇与工程现状的关系（单一事实源 = 代码现状）</b>
-      <p style="margin:8px 0 0">本篇凡涉及已落地系统，数值 / 符号<b>对齐代码现状</b>（<code>Module/BlockBlast/</code> 与 <code>UI/BlockBlastUI/</code>），不照旧设计稿的快照。两入口的代码本就是<b>同一套「经典骨架 + 上层经济」</b>，靠 <code>BlockGameState.MergeOrderMode</code> 这个布尔门控分流——融合即把分流去掉，让经典核心常驻为底层。</p>
-      <ul style="margin:8px 0 0">
-        <li><b>「现状」</b> = 已编译落地、可在工程核实的行为。涉及它的句子可直接对照代码。</li>
-        <li><b>「本篇目标」</b> = 融合后要达成但尚未落地的改动（单入口、两窗合一、三隐患修复、存档合并）。每处<b>显式标注</b>，仿 <a href="#11-core-loop-completion">11</a> 的「现状 / 本篇新增」体例，<b>绝不把设计目标写成现状</b>。</li>
-        <li>代码层融合是后续独立的 <code>/pipeline dev</code> 任务，<b>本篇不改码</b>，只给落点指引（见 <a href="#29-gameplay-fusion::dev">§六</a>）。</li>
-      </ul>
-    </div>
+> [!WARNING]
+> **读前必看 · 本篇与工程现状的关系（单一事实源 = 代码现状）**
+>
+> 本篇凡涉及已落地系统，数值 / 符号**对齐代码现状**（`Module/BlockBlast/` 与 `UI/BlockBlastUI/`），不照旧设计稿的快照。两入口的代码本就是**同一套「经典骨架 + 上层经济」**，靠 `BlockGameState.MergeOrderMode` 这个布尔门控分流——融合即把分流去掉，让经典核心常驻为底层。
+>
+> - **「现状」** = 已编译落地、可在工程核实的行为。涉及它的句子可直接对照代码。
+> - **「本篇目标」** = 融合后要达成但尚未落地的改动（单入口、两窗合一、三隐患修复、存档合并）。每处**显式标注**，仿 [11](#11-core-loop-completion) 的「现状 / 本篇新增」体例，**绝不把设计目标写成现状**。
+> - 代码层融合是后续独立的 `/pipeline dev` 任务，**本篇不改码**，只给落点指引（见 [§六](#29-gameplay-fusion::dev)）。
 
-<div class="callout note" id="intro">
-      <b>立项信息</b>
-      <table>
-        <tbody><tr><th>类型</th><td><span class="chip">玩法融合 · 顶层裁决设计</span> 仅策划阶段，本篇不进开发</td></tr>
-        <tr><th>设计基线</th><td>经典无尽现状（<a href="#01-gameplay-overview">01</a> + <a href="#02-dynamic-difficulty">02</a>）× 合成订单现状与完整设计（<a href="#09-merge-order-energy">09</a> / <a href="#10-score-element-rm-collect">10</a> / <a href="#11-core-loop-completion">11</a>）× 代码现状（<code>BlockGameState</code> / <code>BlockScoring</code> / <code>DynamicWeightDiff</code> / <code>MergeOrderState</code> / <code>ClearSettlement</code> / <code>HandGenerationArbiter</code>，UI 三窗 <code>MainMenuWindow</code> / <code>GameWindow</code> / <code>MergeOrderWindow</code>）</td></tr>
-        <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>（无体力购买 / 无广告复活 / 无道具内购——项目红线）。融合不引入任何变现入口</td></tr>
-        <tr><th>影响范围</th><td>顶层裁决，不改任何已落地系统的内部数值。落点集中在 <b>UI 入口与窗口组织</b>（主菜单单入口、两窗合一）+ <b>三处跨模式状态隐患</b> + <b>存档结构合并</b>，纯逻辑系统（合成 / 订单 / 体力 / 结算 / 智能生成 / 宝箱 / 女神 / 神庙）维持现状</td></tr>
-        <tr><th>已锁定决策（不再讨论）</th><td>① 融合产物 = 一份统一设计文档；② 经典<b>完全吸收</b>，移除「纯无尽」独立入口；③ 单局<b>保留体力预算</b>作为约束。2026-06-16 用户确认，见 <a href="#29-gameplay-fusion::decisions">§七</a></td></tr>
-      </tbody></table>
-    </div>
+> [!NOTE]
+> **立项信息**
+>
+> | 项 | 内容 |
+> | --- | --- |
+> | **类型** | 玩法融合 · 顶层裁决设计 仅策划阶段，本篇不进开发 |
+> | **设计基线** | 经典无尽现状（[01](#01-gameplay-overview) + [02](#02-dynamic-difficulty)）× 合成订单现状与完整设计（[09](#09-merge-order-energy) / [10](#10-score-element-rm-collect) / [11](#11-core-loop-completion)）× 代码现状（`BlockGameState` / `BlockScoring` / `DynamicWeightDiff` / `MergeOrderState` / `ClearSettlement` / `HandGenerationArbiter`，UI 三窗 `MainMenuWindow` / `GameWindow` / `MergeOrderWindow`） |
+> | **方向约束** | 离线还原 · **去变现**（无体力购买 / 无广告复活 / 无道具内购——项目红线）。融合不引入任何变现入口 |
+> | **影响范围** | 顶层裁决，不改任何已落地系统的内部数值。落点集中在 **UI 入口与窗口组织**（主菜单单入口、两窗合一）+ **三处跨模式状态隐患** + **存档结构合并**，纯逻辑系统（合成 / 订单 / 体力 / 结算 / 智能生成 / 宝箱 / 女神 / 神庙）维持现状 |
+> | **已锁定决策（不再讨论）** | ① 融合产物 = 一份统一设计文档；② 经典**完全吸收**，移除「纯无尽」独立入口；③ 单局**保留体力预算**作为约束。2026-06-16 用户确认，见 [§七](#29-gameplay-fusion::decisions) |
 
 <h2 id="why">一、改什么与为什么</h2>
 
@@ -43,15 +42,14 @@
 
 代码层两者<b>共用同一 <code>BlockGameState</code> 单例、同一计分公式 <code>BlockScoring</code>、同一发牌方法 <code>RefillPieces</code></b>，靠 `MergeOrderMode` 这个 bool 门控分流。合成订单自述「方块层是唯一产出引擎」「智能生成 R4 = 经典现有 DDA，R1–R3 套在外面」——<b>合成订单本来就是「经典核心 + 上层经济」</b>。
 
-<div class="callout warn">
-      <b>问题（为何融合）：</b>
-      <ul style="margin:8px 0 0">
-        <li><b>入口分叉割裂体验</b>：玩家在主菜单二选一（浅版刷分 vs 深版经营），把同一款游戏拆成两个半成品的印象。</li>
-        <li><b>两套文档各说各话</b>：01（经典）与 11（合成订单）在 DDA、计分、连消、结束条件上重叠且口径不一，无单一裁决。</li>
-        <li><b>共享单例埋了跨模式状态隐患</b>：经典与合成订单复用 <code>BlockGameState</code> / <code>DynamicWeightDiff</code> 等全局单例，跨模式切换时部分状态未归一（详见 <a href="#29-gameplay-fusion::dev">§六</a> 三隐患），目前靠「每次进窗口重置」掩盖，融合为单窗口后须把不变量写明。</li>
-      </ul>
-      <b>目标（已拍板）：</b>融成<b>一套</b>——经典完全吸收进合成订单（不再有纯刷分独立入口），保留体力预算作单局约束。经典的 DDA / 计分公式 / 方块库 / 连消钩子全部下沉为融合玩法的底层。
-    </div>
+> [!WARNING]
+> **问题（为何融合）：**
+>
+> - **入口分叉割裂体验**：玩家在主菜单二选一（浅版刷分 vs 深版经营），把同一款游戏拆成两个半成品的印象。
+> - **两套文档各说各话**：01（经典）与 11（合成订单）在 DDA、计分、连消、结束条件上重叠且口径不一，无单一裁决。
+> - **共享单例埋了跨模式状态隐患**：经典与合成订单复用 `BlockGameState` / `DynamicWeightDiff` 等全局单例，跨模式切换时部分状态未归一（详见 [§六](#29-gameplay-fusion::dev) 三隐患），目前靠「每次进窗口重置」掩盖，融合为单窗口后须把不变量写明。
+>
+> **目标（已拍板）：**融成**一套**——经典完全吸收进合成订单（不再有纯刷分独立入口），保留体力预算作单局约束。经典的 DDA / 计分公式 / 方块库 / 连消钩子全部下沉为融合玩法的底层。
 
 <h2 id="overview">二、融合后的单一玩法（总览）</h2>
 
@@ -291,13 +289,10 @@ flowchart TD
 | 美术换皮归属含糊（`GameWindow` 已贴塔罗木质皮，合一时哪套是最终皮不清） | §5.2 显式点出换皮归属须随两窗合一一并理清，列为 dev 落地的明确子项 |
 | 范围开关被当方向问题反复上报，空停流水线 | 四项开关均有安全默认且可逆，本篇按默认推进、记入 §七 待拍板，不入 blockers |
 
-<div class="related">
-      <h2>相关文档</h2>
-      <div class="related-links">
-        <a href="#">← 返回总览</a>
-        <a href="#01-gameplay-overview">01 · 玩法总览（经典核心，已下沉为融合引擎）</a>
-        <a href="#11-core-loop-completion">11 · 核心玩法补全（合成订单完整设计）</a>
-        <a href="#02-dynamic-difficulty">02 · 动态难度拆解（DDA / R4 现状）</a>
-        <a href="#09-merge-order-energy">09 · 合成订单切片（体力 / 合成 / 订单现状）</a>
-      </div>
-    </div>
+## 相关文档
+
+- [← 返回总览](#)
+- [01 · 玩法总览(经典核心,已下沉为融合引擎)](#01-gameplay-overview)
+- [11 · 核心玩法补全(合成订单完整设计)](#11-core-loop-completion)
+- [02 · 动态难度拆解(DDA / R4 现状)](#02-dynamic-difficulty)
+- [09 · 合成订单切片(体力 / 合成 / 订单现状)](#09-merge-order-energy)
