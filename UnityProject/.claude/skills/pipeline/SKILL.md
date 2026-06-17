@@ -39,16 +39,15 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 5. test 出判定 → 走「打回循环」;全绿 → 「关单事务」
 6. 分歧点呈报用户(常规模式用户在场,直接问,不积压)
 
-## 可行性预检(plan 上报 feasibilityCheck 时)
+## 可行性预检(boss 判高风险/接法存疑时)
 
-plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可行性,避免 dev 按错接法实现一整轮再报 designFlaw 返工。**常规模式** boss 动作:
+plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位是 dev 的职责,见 pipeline-plan / conventions「design-docs 正文与代码解耦」)。对**高风险或接法明显存疑**的任务,boss 可在转 full dev 前先做一轮只读预检,避免 dev 按错接法实现一整轮再报 designFlaw 返工:
 
-1. spawn 一次 dev,简报标「可行性预检」+ 存疑接缝 + plan 要验证的问题;dev 只读评估、不实现(见 pipeline-dev「可行性预检模式」)
+1. spawn 一次 dev,简报标「可行性预检」+ 要验证的接法问题;dev 只读评估、不实现(见 pipeline-dev「可行性预检模式」)
 2. 回执可行 → 把回执并入 full dev 简报,转 dev
-3. 回执不可行 → 带 dev 给的替代接法回 plan 调整设计,**不计 dev 打回轮次**(未进实现,不是返修)
+3. 回执不可行 → 带 dev 给的替代接法,据其根因回 plan 调设计(若设计层错)或直接并入 dev 简报(若仅实现接法),**不计 dev 打回轮次**(未进实现,不是返修)
 
-> 预检只在 plan 触发 feasibilityCheck 时跑,不是每个 full 任务的固定步骤:多数任务接到已实现接缝,grep 证存在已够。
-> 自治模式由 pipeline-auto workflow 在 plan 与 dev 间插同款预检 stage:不可行返回 BLOCKED(stage=feasibility)并带替代接法,供 plan 调整后重派。
+> 预检是 boss 对高风险任务的可选早检,不是每个 full 任务的固定步骤:多数任务 dev 自行读工程定位接缝即可。
 
 ## 打回循环(确定性编号步骤;自治模式由 pipeline-auto workflow 执行同一逻辑)
 
@@ -116,7 +115,7 @@ plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可�
 
 ### 决策规则
 
-- **三段阶梯处置不确定**(各角色在环节内执行,见 agent 卡;boss 同此):①有明显安全默认(不抵触 spec/GDD 主线、可逆)→ 立即取默认,不为此调查;②无明显默认 → **先调查取证**(读码 / grep 现成链路 / 核对 GDD 原文与 design-docs)据证据拍板;③仅「调查也定不了 且 不可逆 且 抵触 GDD 原文」三者同时成立 → 记 **BLOCKED**,跳过该点继续推进不依赖它的部分
+- **三段阶梯处置不确定**(各角色在环节内执行,见 agent 卡;boss 同此):①有明显安全默认(不抵触 spec/GDD 主线、可逆)→ 立即取默认,不为此调查;②无明显默认 → **先调查取证**(读码 / grep 现成链路 / 核对 GDD 原文与 design-docs)据证据拍板(**plan 角色例外:不读码,只核 GDD + design-docs**,见其卡);③仅「调查也定不了 且 不可逆 且 抵触 GDD 原文」三者同时成立 → 记 **BLOCKED**,跳过该点继续推进不依赖它的部分
 - **决策日志**(`state/boss.md`)每条记三元组:**选择 + 依据(证据/调查结论) + 可逆性标签**(可回退到 commit X / 不可逆)。自治越激进,这份日志越是用户复核无人值守产出的主要依据
 - 边界:不 push、不 build、不发布(开发流水线不含这些动作);本地 checkpoint commit 不在此列(与启动自动基线同源)
 - 常规模式下 BLOCKED 机制不启用——用户在场,分歧直接问
