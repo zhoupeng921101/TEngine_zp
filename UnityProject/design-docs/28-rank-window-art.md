@@ -90,10 +90,10 @@
     <tr><td>(无)多榜页签</td><td>效果图<mark>只显一个榜,无页签 / 分组切换</mark></td><td>—</td><td>—</td><td class="no">默认单榜,数据层 <code>RankDef.Group</code>/<code>All()</code> 支持多榜则可选接(<a href="#28-rank-window-art::dispatch">§七</a> D1)</td></tr>
   </tbody></table>
 
-<div class="callout note" style="margin-top:8px">
-    <b>取图须 dev 读图二次核实</b>
-    <p style="margin:6px 0 0">上表「取哪张子图」是<mark>按设置窗已用子图推断</mark>的最省方案。dev 落地时对照 <code>排行榜.png</code> 与 <code>Sheet_settings</code> 各子图缩略图核实哪张木板最贴(<code>box1</code>/<code>box2</code>/<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code> 五种木板任选最贴的)。<b>子图名集合 = 设置窗那 22 张切图文件名</b>(见 <a href="#23-settings-window-art::atlas">设计 23 §三</a> / <a href="#25-player-info-window-art::effigy">设计 25 §二</a> 列出的 22 名)——<mark>榜行底 / 名次徽章 / 头像都不在其中,故占位</mark>(<a href="#28-rank-window-art::placeholder">§3.2</a>)。</p>
-  </div>
+> [!NOTE]
+> **取图须 dev 读图二次核实**
+>
+> 上表「取哪张子图」是<mark>按设置窗已用子图推断</mark>的最省方案。dev 落地时对照 <code>排行榜.png</code> 与 <code>Sheet_settings</code> 各子图缩略图核实哪张木板最贴(<code>box1</code>/<code>box2</code>/<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code> 五种木板任选最贴的)。**子图名集合 = 设置窗那 22 张切图文件名**(见 <a href="#23-settings-window-art::atlas">设计 23 §三</a> / <a href="#25-player-info-window-art::effigy">设计 25 §二</a> 列出的 22 名)——<mark>榜行底 / 名次徽章 / 头像都不在其中,故占位</mark>(<a href="#28-rank-window-art::placeholder">§3.2</a>)。
 
 <h2 id="atlas">三、美术资产接入(复用 Sheet_settings,无新切图)</h2>
 
@@ -121,10 +121,10 @@ _imgBottomBtnBg.SetSubSprite(Atlas, "button"); // 底部「再来一次」长条
 | <b>名次徽章(金银铜奖杯)</b> | 前 3 名:纯色圆 `Image`(金 / 银 / 铜)+ 文本字符(「①」/「②」/「③」或「1/2/3」,可叠「🏆」字符)。4 名起:浅色圆 + 名次数字文本。<mark>名次数字始终是真实 <code>RankEntry.Rank</code></mark>,占位的只是徽章外观。 | 待美术补「金 / 银 / 铜奖杯徽章」切图,替子图即生效 |
 | **圆头像** | 纯色块 / 纯色圆 `Image`(`color` 由 `PlayerNameTextId` 或 `IsSelf` 取稳定色,本人用醒目色)。头像 Sprite 无美术(同设计 25 头像占位)。 | 待美术补「圆头像 / 头像框」切图 + 各头像 Sprite,接真实头像资源加载 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>占位的统一原则(同设计 23 / 25)+ 本屏特别声明</b>
-    <p style="margin:6px 0 0">占位 = <b>节点摆齐 + 可交互 + 数据真实 + 留清晰 TODO</b>。榜行底 / 徽章 / 头像视觉是占位,但<mark>名次数字、玩家名、分数全部是 <code>RankService.GetBoard</code> 的真实数据</mark>——美术切图到位后替子图 / 替 Sprite 即生效,节点结构与脚本逻辑不返工。<b>本屏视觉是「结构占位、非高保真」,这是简报已声明的本屏已知限制(塔罗素材无排行榜专属切图),验收以「列表渲染对、数据贯通对、不破坏玩法」为准,不因占位图朴素判 FAIL</b>(<a href="#28-rank-window-art::accept">§九 BLOCKED 条款</a>)。</p>
-  </div>
+> [!NOTE]
+> **占位的统一原则(同设计 23 / 25)+ 本屏特别声明**
+>
+> 占位 = **节点摆齐 + 可交互 + 数据真实 + 留清晰 TODO**。榜行底 / 徽章 / 头像视觉是占位,但<mark>名次数字、玩家名、分数全部是 <code>RankService.GetBoard</code> 的真实数据</mark>——美术切图到位后替子图 / 替 Sprite 即生效,节点结构与脚本逻辑不返工。**本屏视觉是「结构占位、非高保真」,这是简报已声明的本屏已知限制(塔罗素材无排行榜专属切图),验收以「列表渲染对、数据贯通对、不破坏玩法」为准,不因占位图朴素判 FAIL**(<a href="#28-rank-window-art::accept">§九 BLOCKED 条款</a>)。
 
 <h2 id="holder">四、GameContext 扩持有 RankService(延续统一上下文,兑现末项预告)</h2>
 
@@ -196,10 +196,10 @@ private void InitRank()
    │  └─ m_text_MyScore               Text    本机成绩(SelfScore)
    └─ m_btn_Bottom                     Button  底部"再来一次"长条; 子图 button + 文本; 点击→关窗(§七 D3)</div>
 
-<div class="callout note" style="margin-top:8px">
-    <b>静态节点 vs 动态节点</b>
-    <p style="margin:6px 0 0">本窗<b>静态壳 + 动态列表</b>:标题 / 关闭 / 面板底 / 底部按钮是 prefab 摆好的静态节点(<code>OnCreate</code> 贴一次子图);运行期变的是<b>榜单列表行</b>(<code>m_scroll_List/Content</code> 下,<code>OnRefresh</code> 按 <code>Entries</code> 填充,§5.1)与<b>我的名次条</b>(<code>m_node_MyRank</code>,读 <code>Self</code>/<code>SelfRank</code>/<code>SelfScore</code>)。<mark>榜行底 / 名次徽章 / 头像</mark>无切图 → 占位(<a href="#28-rank-window-art::placeholder">§3.2</a>),名次 / 名 / 分真实。</p>
-  </div>
+> [!NOTE]
+> **静态节点 vs 动态节点**
+>
+> 本窗**静态壳 + 动态列表**:标题 / 关闭 / 面板底 / 底部按钮是 prefab 摆好的静态节点(<code>OnCreate</code> 贴一次子图);运行期变的是**榜单列表行**(<code>m_scroll_List/Content</code> 下,<code>OnRefresh</code> 按 <code>Entries</code> 填充,§5.1)与**我的名次条**(<code>m_node_MyRank</code>,读 <code>Self</code>/<code>SelfRank</code>/<code>SelfScore</code>)。<mark>榜行底 / 名次徽章 / 头像</mark>无切图 → 占位(<a href="#28-rank-window-art::placeholder">§3.2</a>),名次 / 名 / 分真实。
 
 <h3 id="row-impl">5.1 行的实现:UIWidget vs 代码生成 vs 固定槽(dev 三选一)</h3>
 
@@ -211,10 +211,10 @@ private void InitRank()
 | <b>B · 代码生成行(无池)</b> | `OnRefresh` 里清空容器子节点 → 按 `Entries` 逐条 `UGuiFactory.CreateXxx` 拼一行(同 `MainMenuWindow` code-built 风格)。容器套 `ScrollRect` 滚动。 | 不依赖 Widget 范式,纯代码;每次刷重建(条数少无性能问题);与主菜单 code-built 风格一致。 |
 | **C · 固定 N 行槽位** | prefab 预摆固定行数(如效果图可见 5–6 行 + 我的名次条),`OnRefresh` 按 `Entries` 填前 N 行、超出隐藏。不滚动或浅滚动。 | 最简,但只显前 N 名(效果图本就只显 5 行 + 我的名次,可接受);超 N 名看不到。本轮 art 受限 + 离线榜条目少,此方案足够对位效果图。 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>本轮推荐与底线</b>
-    <p style="margin:6px 0 0">推荐 <b>方案 A</b>(行 Widget + 滚动),与「条数不定」最契合;若工程 UIWidget / 对象池接线成本高,退 <b>方案 C 固定槽</b>(效果图本就只显 5 行 + 我的名次条,固定槽足以对位)。<mark>三方案验收等价</mark>:都要求「<code>Entries</code> 逐条名次 / 名 / 分渲染正确 + 我的名次条读 <code>Self</code>/<code>SelfRank</code>/<code>SelfScore</code> 正确」(<a href="#28-rank-window-art::accept">§九 V2/W3</a>)。dev 取何方案 + 实际用的 UIWidget / 池 API 记 dev 交接区。</p>
-  </div>
+> [!NOTE]
+> **本轮推荐与底线**
+>
+> 推荐 **方案 A**(行 Widget + 滚动),与「条数不定」最契合;若工程 UIWidget / 对象池接线成本高,退 **方案 C 固定槽**(效果图本就只显 5 行 + 我的名次条,固定槽足以对位)。<mark>三方案验收等价</mark>:都要求「<code>Entries</code> 逐条名次 / 名 / 分渲染正确 + 我的名次条读 <code>Self</code>/<code>SelfRank</code>/<code>SelfScore</code> 正确」(<a href="#28-rank-window-art::accept">§九 V2/W3</a>)。dev 取何方案 + 实际用的 UIWidget / 池 API 记 dev 交接区。
 
 <h3 id="row-flow">5.2 查榜 → 渲染 数据流</h3>
 
@@ -368,10 +368,10 @@ namespace GameLogic.UI
 | 关闭(点任意处) | `m_btn_Mask` 全屏遮罩 | 同上。<mark>遮罩 Button 须在节点树最底,面板内容盖其上</mark>,点面板不穿透关窗。 |
 | 关闭(底部按钮) | `m_btn_Bottom`「再来一次」 | 默认 `CloseUI`(D3)。 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>入口落主菜单(同设计 23 / 25)</b>
-    <p style="margin:6px 0 0">入口与前几屏一致先落主菜单 <code>MainMenuWindow</code>(改动面最小,加一个按钮),打通「能开 → 看榜 → 能关」闭环;玩法内 HUD 顶栏 / 结算窗的排行榜入口涉及 HUD 容器,留后续轮次。验收只要求<b>能从某个入口打开</b>(<a href="#28-rank-window-art::accept">§九 V1</a>)。</p>
-  </div>
+> [!NOTE]
+> <b>入口落主菜单(同设计 23 / 25)</b>
+>
+> 入口与前几屏一致先落主菜单 <code>MainMenuWindow</code>(改动面最小,加一个按钮),打通「能开 → 看榜 → 能关」闭环;玩法内 HUD 顶栏 / 结算窗的排行榜入口涉及 HUD 容器,留后续轮次。验收只要求**能从某个入口打开**(<a href="#28-rank-window-art::accept">§九 V1</a>)。
 
 <h2 id="accept">九、验收标准</h2>
 
@@ -400,10 +400,10 @@ namespace GameLogic.UI
 | V5 | 三种关闭都生效 | 点 X / 点遮罩空白处 / 点底部按钮 → 窗口关闭;点面板内容不穿透关窗。 |
 | R | 不破坏 Classic / Merge(零回归) | 主菜单 → CLASSIC / 合成订单 DEMO 正常进、正常玩(本轮只加按钮 + 加 GameContext 一个成员,不动玩法);既有 EditMode 单测零回归(编译 0 error,设计 22 / 23 / 25 测试照过)。 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>BLOCKED 条件</b>
-    <p style="margin:6px 0 0">(1) unityMCP 桥不可达致 EditMode / Play 跑不起 → V 组判 BLOCKED 不判 FAIL(可备选 batchmode 跑 EditMode);(2) 榜行底 / 名次徽章 / 头像 / 真实全服榜缺失 = <b>预期占位 / 已知限制</b>(本屏 art 受限 + 无网络模块,<a href="#28-rank-window-art::placeholder">§3.2</a> / <a href="#28-rank-window-art::open">§十一 BLK1</a>),不判 FAIL;(3) 邮件服务在本轮以 no-op / 临时实例接(mail 表现层 #26 未做)→ 点赞「奖进邮箱」不可真验属预期,验收只锚 <code>ClaimPraise</code> 返码 + 数据层调用(W4)。</p>
-  </div>
+> [!NOTE]
+> **BLOCKED 条件**
+>
+> (1) unityMCP 桥不可达致 EditMode / Play 跑不起 → V 组判 BLOCKED 不判 FAIL(可备选 batchmode 跑 EditMode);(2) 榜行底 / 名次徽章 / 头像 / 真实全服榜缺失 = **预期占位 / 已知限制**(本屏 art 受限 + 无网络模块,<a href="#28-rank-window-art::placeholder">§3.2</a> / <a href="#28-rank-window-art::open">§十一 BLK1</a>),不判 FAIL;(3) 邮件服务在本轮以 no-op / 临时实例接(mail 表现层 #26 未做)→ 点赞「奖进邮箱」不可真验属预期,验收只锚 <code>ClaimPraise</code> 返码 + 数据层调用(W4)。
 
 <h2 id="open">十、待拍板清单(范围开关 + BLOCKED,交 boss / 产品)</h2>
 

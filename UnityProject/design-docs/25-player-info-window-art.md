@@ -81,10 +81,10 @@
     <tr><td>⑨ 关闭提示</td><td>面板下方小字「点击任意位置置关闭」</td><td>无(文本节点)</td><td><code>Text</code></td><td class="yes">实做(纯文本)</td></tr>
   </tbody></table>
 
-<div class="callout note" style="margin-top:8px">
-    <b>取图须 dev 读图二次核实</b>
-    <p style="margin:6px 0 0">上表「取哪张子图」是<mark>按设置窗已用子图推断</mark>的最省方案。dev 落地时对照 <code>个人信息.png</code> 与 <code>Sheet_settings</code> 各子图缩略图核实哪张木板 / 框最贴效果图(<code>box1</code>/<code>box2</code>/<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code> 五种木板任选最贴的),把最终「子图名 → 节点」映射写进窗口脚本注释。<b>子图名集合 = 设置窗那 22 张切图文件名</b>(<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code>/<code>box1</code>/<code>box2</code>/<code>button</code>/<code>icon_x</code>/<code>x</code>/<code>chat</code>/<code>clear</code>/<code>exit</code>/<code>facebook</code>/<code>game</code>/<code>help</code>/<code>instagram</code>/<code>language</code>/<code>Player_music</code>/<code>printer</code>/<code>setting</code>/<code>twitter</code>/<code>Volume_up</code>/<code>youtube</code>),<mark>这些就是本屏可用的全部图</mark>——圆头像框 / 铅笔 / 下拉箭头都不在其中,故占位(<a href="#25-player-info-window-art::placeholder">§3.2</a>)。</p>
-  </div>
+> [!NOTE]
+> **取图须 dev 读图二次核实**
+>
+> 上表「取哪张子图」是<mark>按设置窗已用子图推断</mark>的最省方案。dev 落地时对照 <code>个人信息.png</code> 与 <code>Sheet_settings</code> 各子图缩略图核实哪张木板 / 框最贴效果图(<code>box1</code>/<code>box2</code>/<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code> 五种木板任选最贴的),把最终「子图名 → 节点」映射写进窗口脚本注释。**子图名集合 = 设置窗那 22 张切图文件名**(<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code>/<code>box1</code>/<code>box2</code>/<code>button</code>/<code>icon_x</code>/<code>x</code>/<code>chat</code>/<code>clear</code>/<code>exit</code>/<code>facebook</code>/<code>game</code>/<code>help</code>/<code>instagram</code>/<code>language</code>/<code>Player_music</code>/<code>printer</code>/<code>setting</code>/<code>twitter</code>/<code>Volume_up</code>/<code>youtube</code>),<mark>这些就是本屏可用的全部图</mark>——圆头像框 / 铅笔 / 下拉箭头都不在其中,故占位(<a href="#25-player-info-window-art::placeholder">§3.2</a>)。
 
 <h2 id="atlas">三、美术资产接入(复用 Sheet_settings,无新切图)</h2>
 
@@ -111,10 +111,10 @@ _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
 | **编辑铅笔 icon**(头像 / 名字各一) | 用现成图标代替(如 `setting` 齿轮 / `language` 等近形子图),或纯文本「✎」/「编辑」按钮。<mark>关键是按钮可点、点了能触发编辑</mark>,图标外观次要。 | 待美术补「编辑铅笔」切图,替子图即生效 |
 | <b>下拉箭头「▾」</b> | 用文本字符「▾」/「∨」直接当箭头(`Text` 节点),或省略(下拉框本就占位)。 | 待美术补「下拉箭头」切图(生日整体占位,优先级最低) |
 
-<div class="callout note" style="margin-top:8px">
-    <b>占位的统一原则(同设计 23)</b>
-    <p style="margin:6px 0 0">占位 = <b>节点摆齐 + 可交互 + 留清晰 TODO</b>,不是「不摆」。头像 / 铅笔 / 下拉箭头视觉是占位,但<mark>头像节点要显出当前头像区分度、铅笔按钮要可点触发编辑、生日下拉要摆出 3 个框对位</mark>——美术切图到位后替子图 / 替 Sprite 即生效,节点结构与脚本逻辑不返工。</p>
-  </div>
+> [!NOTE]
+> <b>占位的统一原则(同设计 23)</b>
+>
+> 占位 = **节点摆齐 + 可交互 + 留清晰 TODO**,不是「不摆」。头像 / 铅笔 / 下拉箭头视觉是占位,但<mark>头像节点要显出当前头像区分度、铅笔按钮要可点触发编辑、生日下拉要摆出 3 个框对位</mark>——美术切图到位后替子图 / 替 Sprite 即生效,节点结构与脚本逻辑不返工。
 
 <h2 id="tree">四、prefab 节点树(对位 个人信息.png + m_ 前缀命名)</h2>
 
@@ -143,15 +143,15 @@ _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
    ├─ m_btn_Confirm                    Button  确定长条; 子图 button + 文本"确定"; 点击→保存并关
    └─ m_text_CloseHint                 Text    "点击任意位置置关闭"(纯文本)</div>
 
-<div class="callout note" style="margin-top:8px">
-    <b>静态节点 vs 动态节点</b>
-    <p style="margin:6px 0 0">本窗<b>几乎全静态</b>(prefab 直接摆好,无列表 / 无运行期增删),适合照搬设置窗范式。运行期会变的只有:<b>头像</b>(<code>m_img_Avatar</code>,<code>OnRefresh</code> 读 <code>CurrentAvatarId</code> 刷)与<b>玩家名</b>(<code>m_text_Name</code>,改名后刷)。改名输入框 <code>m_input_Name</code> 默认隐藏(<code>SetActive(false)</code>),点编辑铅笔切到改名态显出(<a href="#25-player-info-window-art::dispatch">§七</a>)。<mark>不涉及头像三态网格</mark>(那是设计 18 完整界面的元素,效果图本屏未画,本轮不建,<a href="#25-player-info-window-art::dispatch">§七</a>)。</p>
-  </div>
+> [!NOTE]
+> **静态节点 vs 动态节点**
+>
+> 本窗**几乎全静态**(prefab 直接摆好,无列表 / 无运行期增删),适合照搬设置窗范式。运行期会变的只有:**头像**(<code>m_img_Avatar</code>,<code>OnRefresh</code> 读 <code>CurrentAvatarId</code> 刷)与**玩家名**(<code>m_text_Name</code>,改名后刷)。改名输入框 <code>m_input_Name</code> 默认隐藏(<code>SetActive(false)</code>),点编辑铅笔切到改名态显出(<a href="#25-player-info-window-art::dispatch">§七</a>)。<mark>不涉及头像三态网格</mark>(那是设计 18 完整界面的元素,效果图本屏未画,本轮不建,<a href="#25-player-info-window-art::dispatch">§七</a>)。
 
-<div class="callout note" style="margin-top:8px">
-    <b>改名交互:就地输入框 vs 独立改名弹窗?</b>
-    <p style="margin:6px 0 0">效果图只见「玩家名 + 铅笔」,未画独立改名窗。两种实现:<b>(默认推荐)就地输入框</b>——<code>m_text_Name</code>(只读显示)+ <code>m_input_Name</code>(<code>InputField</code>,默认隐藏)叠在同位,点铅笔时 <code>Name</code> 隐藏 / <code>Input</code> 显出并聚焦,确认(回车 / 点确定)调 <code>TryRename</code>,成功后切回只读。<b>(备选)</b>独立 <code>RenameWindow</code> 弹窗——但效果图无该窗、且会多一个 prefab,本轮不引入。取就地输入框为默认,验收等价(都贯通 <code>TryRename</code> + <code>RenameResult</code> 分支,<a href="#25-player-info-window-art::accept">§九 W3</a>)。</p>
-  </div>
+> [!NOTE]
+> <b>改名交互:就地输入框 vs 独立改名弹窗?</b>
+>
+> 效果图只见「玩家名 + 铅笔」,未画独立改名窗。两种实现:<b>(默认推荐)就地输入框</b>——<code>m_text_Name</code>(只读显示)+ <code>m_input_Name</code>(<code>InputField</code>,默认隐藏)叠在同位,点铅笔时 <code>Name</code> 隐藏 / <code>Input</code> 显出并聚焦,确认(回车 / 点确定)调 <code>TryRename</code>,成功后切回只读。<b>(备选)</b>独立 <code>RenameWindow</code> 弹窗——但效果图无该窗、且会多一个 prefab,本轮不引入。取就地输入框为默认,验收等价(都贯通 <code>TryRename</code> + <code>RenameResult</code> 分支,<a href="#25-player-info-window-art::accept">§九 W3</a>)。
 
 <h2 id="holder">五、GameContext 扩持有 PlayerInfo(延续统一上下文)</h2>
 
@@ -179,10 +179,10 @@ protected override void OnInit()
         : PlayerInfo.CreateDefault(rng);          // 无档：新建（新 id + 系统名 + 默认头像框）
 }</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>待 dev 核实(B1):玩家信息从哪取存档 DTO + 何时落盘</b>
-    <p style="margin:6px 0 0"><code>MergeMetaPersistence.Load</code> 是异步外壳(<a href="#14-save-system">设计 14</a>:序列化层同步 + 磁盘 IO 异步 UniTask)。<code>GameContext.OnInit</code>(<code>SimpleSingleton</code> 同步)里直接同步取 DTO 可能与异步加载时序不一致。dev 落地时按工程现状定 <b>取档时机</b>(二选一):<b>(路 A)</b><code>GameContext</code> 不在 <code>OnInit</code> 同步加载玩家档,而由 <code>GameApp.StartGameLogic()</code> 在 <code>MergeMetaPersistence</code> 加载完成后(同设置窗 AudioSink 接线那段附近)调一个 <code>GameContext.Instance.InitPlayerFromMeta(dto, rng)</code>(仿既有 <code>InitSettingsWithStore</code> 注入入口);<b>(路 B)</b>若工程已有同步可达的「当前 <code>MergeMetaSave</code> 实例 / 当前 <code>PlayerInfo</code>」(如 <code>BlockGameState</code> 或 <code>MergeOrderState</code> 已在内存持有),直接引用、不重复读盘。<mark>两路对本窗验收等价</mark>(窗口都拿到一个持久的 <code>PlayerInfo</code>);取哪路 dev 按 <code>MergeMetaPersistence</code> / <code>MergeOrderState</code> 的真实加载时序定,并把<b>改名后落盘</b>接到同一存档路径(改名改了 <code>PlayerInfo.Name</code>/<code>RenameCount</code>,须 <code>ExportToMeta</code> + 存档,否则重启丢失,<a href="#25-player-info-window-art::dispatch">§七 W3</a>)。这是本轮唯一需 dev 对齐工程加载时序的环节,非方向问题(决策 D1 已定「纳入 GameContext」,只是接线落点 dev 定)。</p>
-  </div>
+> [!WARNING]
+> **待 dev 核实(B1):玩家信息从哪取存档 DTO + 何时落盘**
+>
+> <code>MergeMetaPersistence.Load</code> 是异步外壳(<a href="#14-save-system">设计 14</a>:序列化层同步 + 磁盘 IO 异步 UniTask)。<code>GameContext.OnInit</code>(<code>SimpleSingleton</code> 同步)里直接同步取 DTO 可能与异步加载时序不一致。dev 落地时按工程现状定 **取档时机**(二选一):<b>(路 A)</b><code>GameContext</code> 不在 <code>OnInit</code> 同步加载玩家档,而由 <code>GameApp.StartGameLogic()</code> 在 <code>MergeMetaPersistence</code> 加载完成后(同设置窗 AudioSink 接线那段附近)调一个 <code>GameContext.Instance.InitPlayerFromMeta(dto, rng)</code>(仿既有 <code>InitSettingsWithStore</code> 注入入口);<b>(路 B)</b>若工程已有同步可达的「当前 <code>MergeMetaSave</code> 实例 / 当前 <code>PlayerInfo</code>」(如 <code>BlockGameState</code> 或 <code>MergeOrderState</code> 已在内存持有),直接引用、不重复读盘。<mark>两路对本窗验收等价</mark>(窗口都拿到一个持久的 <code>PlayerInfo</code>);取哪路 dev 按 <code>MergeMetaPersistence</code> / <code>MergeOrderState</code> 的真实加载时序定,并把**改名后落盘**接到同一存档路径(改名改了 <code>PlayerInfo.Name</code>/<code>RenameCount</code>,须 <code>ExportToMeta</code> + 存档,否则重启丢失,<a href="#25-player-info-window-art::dispatch">§七 W3</a>)。这是本轮唯一需 dev 对齐工程加载时序的环节,非方向问题(决策 D1 已定「纳入 GameContext」,只是接线落点 dev 定)。
 
 <h3 id="birthday">5.3 生日:数据层无字段 → UI 占位(决策 D2)</h3>
 
@@ -355,10 +355,10 @@ namespace GameLogic.UI
 | 关闭(确定) | `m_btn_Confirm` | 同上(效果图底部「确定」) |
 | 关闭(点任意处) | `m_btn_Mask` 全屏遮罩 | 同上(效果图「点击任意位置置关闭」)。<mark>遮罩 Button 须在节点树最底,面板内容盖其上</mark>,点面板不穿透关窗。 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>入口落主菜单(同设计 23)</b>
-    <p style="margin:6px 0 0">入口与设置窗一致先落主菜单 <code>MainMenuWindow</code>(改动面最小,加一个按钮),打通「能开 → 能改名 → 能关」闭环;玩法内 HUD 顶栏的玩家信息入口(效果图顶栏左上头像)涉及 HUD 容器,留后续轮次。验收只要求<b>能从某个入口打开</b>(<a href="#25-player-info-window-art::accept">§九 V1</a>)。</p>
-  </div>
+> [!NOTE]
+> <b>入口落主菜单(同设计 23)</b>
+>
+> 入口与设置窗一致先落主菜单 <code>MainMenuWindow</code>(改动面最小,加一个按钮),打通「能开 → 能改名 → 能关」闭环;玩法内 HUD 顶栏的玩家信息入口(效果图顶栏左上头像)涉及 HUD 容器,留后续轮次。验收只要求**能从某个入口打开**(<a href="#25-player-info-window-art::accept">§九 V1</a>)。
 
 <h2 id="accept">九、验收标准</h2>
 
@@ -386,10 +386,10 @@ namespace GameLogic.UI
 | V5 | 三种关闭都生效 | 点 X / 点确定 / 点遮罩空白处 → 窗口关闭;点面板内容不穿透关窗。 |
 | R | 不破坏 Classic / Merge(零回归) | 主菜单 → CLASSIC / 合成订单 DEMO 正常进、正常玩(本轮只加按钮 + 加 GameContext 一个成员,不动玩法);既有 EditMode 单测零回归(编译 0 error,设计 18 / 23 测试照过)。 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>BLOCKED 条件</b>
-    <p style="margin:6px 0 0">(1) unityMCP 桥不可达致 EditMode / Play 跑不起 → V 组判 BLOCKED 不判 FAIL(可备选 batchmode 跑 EditMode);(2) 头像 Sprite / 圆框 / 铅笔 / 下拉箭头切图缺失 = <b>预期占位</b>,不判 FAIL(本就占位,见 <a href="#25-player-info-window-art::placeholder">§3.2</a>)。</p>
-  </div>
+> [!NOTE]
+> **BLOCKED 条件**
+>
+> (1) unityMCP 桥不可达致 EditMode / Play 跑不起 → V 组判 BLOCKED 不判 FAIL(可备选 batchmode 跑 EditMode);(2) 头像 Sprite / 圆框 / 铅笔 / 下拉箭头切图缺失 = **预期占位**,不判 FAIL(本就占位,见 <a href="#25-player-info-window-art::placeholder">§3.2</a>)。
 
 <h2 id="open">十、待拍板清单(范围开关,交 boss / 产品)</h2>
 

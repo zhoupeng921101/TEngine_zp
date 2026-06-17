@@ -93,7 +93,8 @@ flowchart TD
     <tr><td>灵力(Soul)为何不在表里</td><td colspan="2">spec 货币表 num_type 只列 1–4(经验/虔诚币/钻石/体力),<b>无灵力</b>。本轮严格照 spec 填 4 行,灵力<mark>暂不登记</mark>;若后续要纳入,加一行 num_type 即可(加法式),见 <a href="#15-numeric-system::open">§七 O2</a></td></tr>
   </tbody></table>
 
-<div class="callout note"><b>加法式的回归保证:</b>不进入 merge-order、不调用注册表 / 格式化时,工程行为与本篇前完全一致。数值系统全部是新增文件 + 新增 Luban 表;唯一可能碰旧代码的是 §3.5 那处<b>可选</b>的 helper 示范接入(默认不做,见 O3)。</div>
+> [!NOTE]
+> <b>加法式的回归保证:</b>不进入 merge-order、不调用注册表 / 格式化时,工程行为与本篇前完全一致。数值系统全部是新增文件 + 新增 Luban 表;唯一可能碰旧代码的是 §3.5 那处**可选**的 helper 示范接入(默认不做,见 O3)。
 
 <h2 id="numbers">三、设计正文</h2>
 
@@ -112,8 +113,8 @@ flowchart TD
 | planner\_notes string 策划备注 | planner\_notes | string | e | 策划备注。<mark>group=e</mark>(editor-only):不导出到客户端 / 服务器运行时,仅留在表里给策划看,不占运行期体积 |
 | quality int32 数值品质(影响界面显示) | quality | num.ENumType?… | c | 品质。<mark>复用现成枚举 <code>item.EQuality</code></mark>(WHITE=1/BLUE=2/PURPLE=3/RED=4)或裸 int,二选一见下「品质字段选型」 |
 
-<div class="callout note">
-    <b>品质字段选型(dev 实现可定,默认给裸 int):</b>spec 写「quality int32」。两个安全选项:(a)<b>裸 <code>int</code></b>——完全照 spec,最省事,helper 按整数档位决定显示色;(b)复用 <code>item.EQuality</code> 枚举(已存在,语义清晰)。<mark>默认选 (a) 裸 int</mark>(严格照 spec「int32」,且品质语义在数值系统与道具系统未必同义,不强耦合 item 枚举);若 dev 认为复用枚举更稳可选 (b),不影响验收点(验收只断言「quality 值正确读出」)。</div>
+> [!NOTE]
+> <b>品质字段选型(dev 实现可定,默认给裸 int):</b>spec 写「quality int32」。两个安全选项:(a)<b>裸 <code>int</code></b>——完全照 spec,最省事,helper 按整数档位决定显示色;(b)复用 <code>item.EQuality</code> 枚举(已存在,语义清晰)。<mark>默认选 (a) 裸 int</mark>(严格照 spec「int32」,且品质语义在数值系统与道具系统未必同义,不强耦合 item 枚举);若 dev 认为复用枚举更稳可选 (b),不影响验收点(验收只断言「quality 值正确读出」)。
 
 <b>表注册(<code>\_\_tables\_\_.xlsx</code> 追加一行,与现有两表同列):</b>
 
@@ -150,7 +151,8 @@ Luban 枚举默认从 1 起递增编号(对照 `item.EQuality` WHITE=1),故 EXP=
 | 3 | DIAMOND(3) | 100003 | icon\_diamond | 4 | 200003 | diamond | 钻石,尚未实装,仅登记类型(去变现:不做购买) | —(未实装) |
 | 4 | ENERGY(4) | 100004 | icon\_energy | 2 | 200004 | energy | 体力,落子消耗 / 消除返还,局内资源 | `MergeOrderState.Energy` |
 
-<div class="callout note"><b>文本 id / 图标名是占位:</b><code>name</code>/<code>desc</code> 填占位整数(100001…/200001…),工程暂无本地化文本表,本轮不实装,helper 拿到 id 后<b>本轮直接显示 id 或 func_name 兜底</b>(文本表接入列后续轮)。<code>icon</code> 填语义化资源名占位(<code>icon_exp</code> 等),真实美术资源接入时替换。<mark>这些占位不影响验收</mark>:验收只断言「按 id 查出的 name/icon/type/quality 值 == 表里填的值」,不要求文本/美术真实存在。</div>
+> [!NOTE]
+> <b>文本 id / 图标名是占位:</b><code>name</code>/<code>desc</code> 填占位整数(100001…/200001…),工程暂无本地化文本表,本轮不实装,helper 拿到 id 后<b>本轮直接显示 id 或 func_name 兜底</b>(文本表接入列后续轮)。<code>icon</code> 填语义化资源名占位(<code>icon_exp</code> 等),真实美术资源接入时替换。<mark>这些占位不影响验收</mark>:验收只断言「按 id 查出的 name/icon/type/quality 值 == 表里填的值」,不要求文本/美术真实存在。
 
 <b>num\_id ↔ 现有字段映射是「约定」不是「代码绑定」:</b>把约定写进 `NumericConfigMgr` 的常量(如 `public const int Exp = 1; public const int Piety = 2;`),展示侧 `NumericConfigMgr.Get(NumericConfigMgr.Piety)` 拿元数据、自己从 `MergeOrderState.Piety` 拿数量。注册表**不**反向读 state(保持加法式、零耦合)。
 
@@ -238,8 +240,8 @@ Scale(abs, unit):  // abs/unit 保留 DECIMALS 位，TRUNCATE 则向零截断
 | 9999999 | M | 9999.9M | <mark>spec 上界</mark>:截断(9999999/1000000=9.999999 → 9.9?)见下注 |
 | -1500 | K | -1.5K | 负数保符号(防御性:数值理论非负,但格式化纯函数应稳) |
 
-<div class="callout note">
-    <b>截断 vs 进位的关键裁定(为何默认截断):</b>spec 把 K 档示例钉成 <code>999.9K</code>(对应 999999),M 档示例钉成 <code>999.9M</code>。若用四舍五入,<code>999999</code> 会进位成 <code>1000.0K</code>(越界看着像该进 M 却没进),破坏 spec 示例。<mark>默认 TRUNCATE=true(向零截断)</mark> 保证 999999→999.9K 与 spec 逐字一致。代入表里 9999999 按「除以 1000000 截断到 1 位」= 9.9M(spec 标 999.9M 是「M 档能显示到的量级示例」,非指 9999999 这个具体值;9999999 实际 = 9.9M,量级在 M 档内,符合 spec「1000000–9999999 显示 M」的区间定义)。<b>本轮只定义到 M 档</b>(spec 上界 9999999);超过 9999999(进 B/十亿级)spec 未规定,默认<b>继续用 M 显示</b>(如 1 亿 = 100000000 → 100M),不新增 B 档(列 <a href="#15-numeric-system::open">§七 O6</a>,有需要再加旋钮)。</div>
+> [!NOTE]
+> <b>截断 vs 进位的关键裁定(为何默认截断):</b>spec 把 K 档示例钉成 <code>999.9K</code>(对应 999999),M 档示例钉成 <code>999.9M</code>。若用四舍五入,<code>999999</code> 会进位成 <code>1000.0K</code>(越界看着像该进 M 却没进),破坏 spec 示例。<mark>默认 TRUNCATE=true(向零截断)</mark> 保证 999999→999.9K 与 spec 逐字一致。代入表里 9999999 按「除以 1000000 截断到 1 位」= 9.9M(spec 标 999.9M 是「M 档能显示到的量级示例」,非指 9999999 这个具体值;9999999 实际 = 9.9M,量级在 M 档内,符合 spec「1000000–9999999 显示 M」的区间定义)。**本轮只定义到 M 档**(spec 上界 9999999);超过 9999999(进 B/十亿级)spec 未规定,默认**继续用 M 显示**(如 1 亿 = 100000000 → 100M),不新增 B 档(列 <a href="#15-numeric-system::open">§七 O6</a>,有需要再加旋钮)。
 
 <b>为何把格式化做成与配置无关的独立纯函数:</b>显示缩写规则是全局的(不止货币,任何大数字——得分、计数都可能用),不该绑在货币注册表上。独立 `NumericFormat` 让它能被任何地方调用,且验收点(§六 F1–F9)全是纯断言,是最稳的回归锚——连配置表都不需要加载。
 

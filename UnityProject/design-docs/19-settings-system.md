@@ -109,10 +109,10 @@ flowchart TD
 | 启动加载 | `ProcedureLaunch.InitSoundSettings()` 读键应用到音频模块 | 零改动 — 本层写同键,启动即读到 |
 | 运行期切换 | <span class="no">缺</span>(无任何入口让玩家切换并落盘) | **本轮主体**:`SettingsService` 改模型 + 落盘 + 即时应用 |
 
-<div class="callout note" style="margin-top:10px">
-    <b>为什么不并入 MergeMetaSave(对比设计 18)?</b>
-    <p style="margin:6px 0 0">玩家信息(设计 18)是<b>玩法元层进度</b>,自然属于 <code>MergeMetaSave</code> 这套游戏存档;而音频开关是<b>引擎级设置</b>,框架已有专用键(<code>Constant.Setting</code>)且启动流程已在读它。把音频设置塞进 <code>MergeMetaSave</code> 反而要重新接一遍启动加载、且与框架约定分叉。<mark>就近复用框架既有约定 = 启动加载零改动 + 与框架口径一致</mark>。两套存储职责不同(游戏元进度 vs 引擎设置),不强行合并。</p>
-  </div>
+> [!NOTE]
+> <b>为什么不并入 MergeMetaSave(对比设计 18)?</b>
+>
+> 玩家信息(设计 18)是**玩法元层进度**,自然属于 <code>MergeMetaSave</code> 这套游戏存档;而音频开关是**引擎级设置**,框架已有专用键(<code>Constant.Setting</code>)且启动流程已在读它。把音频设置塞进 <code>MergeMetaSave</code> 反而要重新接一遍启动加载、且与框架约定分叉。<mark>就近复用框架既有约定 = 启动加载零改动 + 与框架口径一致</mark>。两套存储职责不同(游戏元进度 vs 引擎设置),不强行合并。
 
 <h2 id="numbers">三、设计正文</h2>
 
@@ -192,10 +192,10 @@ service.AudioSink = (musicOn, soundOn) =&gt;
 bool? lastMusic = null, lastSound = null;
 service.AudioSink = (m, s) =&gt; { lastMusic = m; lastSound = s; };</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 须 grep 核实的接缝</b>
-    <p style="margin:6px 0 0">tengine-dev references 给的 <code>GameModule.Audio</code> 便捷属性、与启动流程实际用的 <code>ModuleSystem.GetModule&lt;IAudioModule&gt;()</code>(<code>ProcedureLaunch.cs:19</code>)是两种访问路径。<code>IAudioModule.MusicEnable/SoundEnable</code> 这对布尔属性已 grep 确认存在(<code>IAudioModule.cs:43,48</code>);但 <code>GameModule.Audio</code> 在 HotFix 程序集的可达性 dev 须 grep 核实(若 HotFix 不可直达,改用 <code>ModuleSystem.GetModule&lt;IAudioModule&gt;()</code> 同 <code>ProcedureLaunch</code>)。<mark>sink 内部用哪条访问路径属 dev 实现细节,不影响本层验收</mark> —— 验收只断言 sink 被以正确的 (MusicOn, SoundOn) 调用(<a href="#19-settings-system::accept">§六 A</a>),真实音频生效走 Play 手验遗留。</p>
-  </div>
+> [!WARNING]
+> **dev 须 grep 核实的接缝**
+>
+> tengine-dev references 给的 <code>GameModule.Audio</code> 便捷属性、与启动流程实际用的 <code>ModuleSystem.GetModule&lt;IAudioModule&gt;()</code>(<code>ProcedureLaunch.cs:19</code>)是两种访问路径。<code>IAudioModule.MusicEnable/SoundEnable</code> 这对布尔属性已 grep 确认存在(<code>IAudioModule.cs:43,48</code>);但 <code>GameModule.Audio</code> 在 HotFix 程序集的可达性 dev 须 grep 核实(若 HotFix 不可直达,改用 <code>ModuleSystem.GetModule&lt;IAudioModule&gt;()</code> 同 <code>ProcedureLaunch</code>)。<mark>sink 内部用哪条访问路径属 dev 实现细节,不影响本层验收</mark> —— 验收只断言 sink 被以正确的 (MusicOn, SoundOn) 调用(<a href="#19-settings-system::accept">§六 A</a>),真实音频生效走 Play 手验遗留。
 
 <h3 id="service">3.4 设置服务 SettingsService(读 / 写 / 切换 / 提示文案)</h3>
 
@@ -317,10 +317,10 @@ sequenceDiagram
 | 8 | `Assets/Editor/Tests/BlockBlast/SettingsSystemTests.cs`(或新建 `Settings` 测试目录) | 新建测试 | 覆盖模型 / 存储往返 / 服务切换 / 信息 getter([§六](#19-settings-system::accept))。asmdef 已含 `GameLogic` + `TEngine.Runtime` 引用,直接可达 |
 | — | `ProcedureLaunch.InitSoundSettings()` / `Constant.cs` / `IAudioModule.cs` | **不改** | 本层写框架既有键,启动加载零改动即兼容;框架代码不动 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>命名空间归属</b>
-    <p style="margin:6px 0 0">设置是<mark>通用系统</mark>(非 BlockBlast 玩法专属),命名空间用 <code>GameLogic.Settings</code>。物理目录建议 <code>GameScripts/HotFix/GameLogic/Module/Settings/</code>(与 <code>BlockBlast</code> 平级),与玩法解耦。dev 落地时若工程已有更合适的通用模块目录,可调整物理位置,但命名空间保持 <code>GameLogic.Settings</code> 以表语义。</p>
-  </div>
+> [!NOTE]
+> **命名空间归属**
+>
+> 设置是<mark>通用系统</mark>(非 BlockBlast 玩法专属),命名空间用 <code>GameLogic.Settings</code>。物理目录建议 <code>GameScripts/HotFix/GameLogic/Module/Settings/</code>(与 <code>BlockBlast</code> 平级),与玩法解耦。dev 落地时若工程已有更合适的通用模块目录,可调整物理位置,但命名空间保持 <code>GameLogic.Settings</code> 以表语义。
 
 <h2 id="accept">六、验收点</h2>
 
@@ -347,10 +347,10 @@ sequenceDiagram
     <tr><td>R2</td><td>Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件,重点核「PlayerPrefs 非阻塞不触同步 IO 红线」「音频访问经 GameModule 或 ModuleSystem 正路径」)</td></tr>
   </tbody></table>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>不在本轮验收(boss 授权遗留)</b>
-    <p style="margin:6px 0 0">真实音频开 / 关实听(切开关后真听到音乐停 / 起)、设置界面 UI 视觉、各跳转按钮(协议网址打开 / 兑换码 / 新手关 / 客服)→ <mark>Play 手验遗留 + 表现层延后轮</mark>。这些依赖美术(icon)与未建系统,数据层不返工。</p>
-  </div>
+> [!WARNING]
+> <b>不在本轮验收(boss 授权遗留)</b>
+>
+> 真实音频开 / 关实听(切开关后真听到音乐停 / 起)、设置界面 UI 视觉、各跳转按钮(协议网址打开 / 兑换码 / 新手关 / 客服)→ <mark>Play 手验遗留 + 表现层延后轮</mark>。这些依赖美术(icon)与未建系统,数据层不返工。
 
 <h2 id="open">七、待拍板清单</h2>
 

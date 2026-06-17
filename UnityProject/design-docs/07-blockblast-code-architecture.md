@@ -12,9 +12,8 @@
 
 工程视角 · 看清离线还原版动态难度系统的 C# 代码是怎么分层、数据怎么流、热点在哪。数值与体感设计请看姊妹篇《[动态难度拆解](#02-dynamic-difficulty)》，本篇只讲**代码实现**。
 
-<div class="callout note">
-      <b>一句话定位：</b>这套代码的核心不是「游戏逻辑」，而是一台<b>发牌操控机</b>——根据你的分数和一个隐藏「难度账户」<mark><code>dynamicWeight</code></mark>，在 8×8 位棋盘上做<b>蒙特卡洛搜索</b>，实时决定下一组方块是帮你消除（放水）还是逼你走投无路（做局）。整个模块<mark class="g">完全 headless</mark>：除 <code>JsonUtility</code> 存档外不碰任何 Unity 运行时，可在 EditMode 直接单测。
-    </div>
+> [!NOTE]
+> <b>一句话定位：</b>这套代码的核心不是「游戏逻辑」，而是一台**发牌操控机**——根据你的分数和一个隐藏「难度账户」<mark><code>dynamicWeight</code></mark>，在 8×8 位棋盘上做**蒙特卡洛搜索**，实时决定下一组方块是帮你消除（放水）还是逼你走投无路（做局）。整个模块<mark class="g">完全 headless</mark>：除 <code>JsonUtility</code> 存档外不碰任何 Unity 运行时，可在 EditMode 直接单测。
 
 <h2 id="layers">一、分层结构</h2>
 
@@ -72,9 +71,8 @@ flowchart TD
     algo -->|"位运算盘面操作"| core
 ```
 
-<div class="callout good">
-      分层很干净：<b>Core 不知道难度存在，Algorithms 不知道调度存在，调度器只编排不实现棋盘操作</b>。依赖方向单向向下，所以每层都能独立替换与测试。
-    </div>
+> [!TIP]
+> 分层很干净：**Core 不知道难度存在，Algorithms 不知道调度存在，调度器只编排不实现棋盘操作**。依赖方向单向向下，所以每层都能独立替换与测试。
 
 <h2 id="modules">二、模块职责一览</h2>
 
@@ -130,7 +128,8 @@ sequenceDiagram
 - **满行/满列消除** `CanClearRowCols`：行掩码 == `255` 即满行；所有行 `&` 起来取满列。
 - **GameOver 判定** `CheckPutAllBlocks`：DFS 试所有摆放顺序，存在一种能全放下即未死。
 
-<div class="callout note">所有「占用 / 空」都跟颜色无关。<b>颜色只活在 <code>BlockGameState.SaveArr</code> 这层带色 2D 数组里</b>，算法层完全不关心颜色——又一处干净的关注点分离。</div>
+> [!NOTE]
+> 所有「占用 / 空」都跟颜色无关。<b>颜色只活在 <code>BlockGameState.SaveArr</code> 这层带色 2D 数组里</b>，算法层完全不关心颜色——又一处干净的关注点分离。
 
 <h3 id="p-eval">支柱 2 · BoardEvaluator —— 把「难度」变成可计算的数</h3>
 
@@ -149,9 +148,8 @@ sequenceDiagram
 2. **抽算法**（`PickAlgorithmFromTier`）：在该 tier 的 8 个 odds 里加权随机抽一种算法。
 3. **反馈调权**（`AddWeight`）：发完牌按算法查 `FactorList` 拿增量累加回 `dynamicWeight`。**同向连续**用较小的 `Consecutive`、**换向**用较大的 `Basic` —— 防难度突变。
 
-<div class="callout note">
-      代码里 <code>AddWeight</code> 有一段考古级注释：原版 TS 用 ±9999 sentinel 做 clamp，因 sentinel 比配置值还宽 → clamp 实际<b>失效</b>。还原版「修复」为按配置真实边界收敛。<mark class="g">这类与原版差异的标注贯穿全模块，是这套代码最值钱的部分之一。</mark>
-    </div>
+> [!NOTE]
+> 代码里 <code>AddWeight</code> 有一段考古级注释：原版 TS 用 ±9999 sentinel 做 clamp，因 sentinel 比配置值还宽 → clamp 实际**失效**。还原版「修复」为按配置真实边界收敛。<mark class="g">这类与原版差异的标注贯穿全模块，是这套代码最值钱的部分之一。</mark>
 
 <h2 id="priority">五、调度决策优先级（代码视角）</h2>
 

@@ -93,10 +93,10 @@
 | `Combo` (int) | 连击数(瞬态,消除清零) | 瞬态、非「资源」语义,不接资源条 |
 | — | <mark>无体力 / 金币 / 钻石 / 心 / 宝石 / 提示次数字段</mark> | 资源条要的「货币 / 资源」语义无数据源 |
 
-<div class="callout warn" style="margin-top:8px">
-    <b>结论：3 资源条多数无数据源 → 占位（决策 D1）</b>
-    <p style="margin:6px 0 0">Classic <code>BlockGameState</code> 只有得分语义字段(<code>Score</code> / <code>HighScore</code> / <code>Combo</code>),<mark>没有效果图资源条暗示的「3 种可累积资源(金币 / 宝石 / 钻石 之类)」</mark>。切图里有 <code>gemstone</code>(宝石)/ <code>gemstone2</code> / <code>potion</code>(药水)等资源图标,但<b>它们各代表什么资源、从哪累积、加号点了干什么,均无 spec 定义、无数据源</b>。本轮安全默认 = <b>资源条作视觉占位</b>:摆出 3 条对位效果图骨架,数字位 ——「接得上的接(如一条接 <code>HighScore</code>)、接不上的摆静态占位数字(如 "0" 或 "—")」,加号「+」点击 → <code>Log</code>「待建」+ TODO,<mark>不接任何货币系统、不擅自定义资源语义、不接购买</mark>(去变现)。这些资源条代表什么、是否真做,列待裁决交 boss / 产品(<a href="#27-tarot-mode-hud-art::open">§十 D1</a>),本轮按占位推进不阻塞。</p>
-  </div>
+> [!WARNING]
+> <b>结论：3 资源条多数无数据源 → 占位（决策 D1）</b>
+>
+> Classic <code>BlockGameState</code> 只有得分语义字段(<code>Score</code> / <code>HighScore</code> / <code>Combo</code>),<mark>没有效果图资源条暗示的「3 种可累积资源(金币 / 宝石 / 钻石 之类)」</mark>。切图里有 <code>gemstone</code>(宝石)/ <code>gemstone2</code> / <code>potion</code>(药水)等资源图标,但**它们各代表什么资源、从哪累积、加号点了干什么,均无 spec 定义、无数据源**。本轮安全默认 = **资源条作视觉占位**:摆出 3 条对位效果图骨架,数字位 ——「接得上的接(如一条接 <code>HighScore</code>)、接不上的摆静态占位数字(如 "0" 或 "—")」,加号「+」点击 → <code>Log</code>「待建」+ TODO,<mark>不接任何货币系统、不擅自定义资源语义、不接购买</mark>(去变现)。这些资源条代表什么、是否真做,列待裁决交 boss / 产品(<a href="#27-tarot-mode-hud-art::open">§十 D1</a>),本轮按占位推进不阻塞。
 
 <h2 id="effigy">三之补 · 效果图拆解（对位基准）</h2>
 
@@ -113,10 +113,10 @@
 | ⑦ 候选块（3 块） | 底部一行 3 候选方块(彩色) | <mark>动态生成,本轮不碰</mark>(`RenderSlots` + `BlockLayout.ColorOf` 纯色块保留) | ✓ 动态,保留不动 |
 | ⑧ 3 动作按钮 | 底部 3 木条按钮「更换 / 删除 / 提示」 | `Rectangle`(条底)+ `magic_book`/`hammer`/图标 + 文本;<mark>新机制 → stub 占位</mark>([§六](#27-tarot-mode-hud-art::stub)) | 新增静态 + stub |
 
-<div class="callout note" style="margin-top:8px">
-    <b>切图与功能的对应须 dev 读图二次核实</b>
-    <p style="margin:6px 0 0">16 张切图的命名(<code>chess</code> / <code>chessboard</code> / <code>Rectangle</code> / <code>resourcebar2</code> / <code>magic_book</code> / <code>hammer</code> 等)与效果图各区块的对应,上表是<mark>按图名 + 缩略推断</mark>。dev 落地时对照 <code>tarot_mode.png</code> 与各子图缩略图逐一核实,把最终「子图名 → 区块」映射写进 <code>GameWindow.cs</code> 注释。子图名取<b>切图文件名(不含扩展名)</b>。</p>
-  </div>
+> [!NOTE]
+> **切图与功能的对应须 dev 读图二次核实**
+>
+> 16 张切图的命名(<code>chess</code> / <code>chessboard</code> / <code>Rectangle</code> / <code>resourcebar2</code> / <code>magic_book</code> / <code>hammer</code> 等)与效果图各区块的对应,上表是<mark>按图名 + 缩略推断</mark>。dev 落地时对照 <code>tarot_mode.png</code> 与各子图缩略图逐一核实,把最终「子图名 → 区块」映射写进 <code>GameWindow.cs</code> 注释。子图名取<b>切图文件名(不含扩展名)</b>。
 
 <h2 id="atlas">四、美术资产接入（首个用打表工具产新精灵表）</h2>
 
@@ -140,10 +140,10 @@
 
 产出 `Assets/AssetRaw/UIRaw/Atlas/Sheet_tarot_mode.png`(+ `.meta`),16 个命名子图(子图名 = 源文件名去扩展名),`spriteMode=Multiple` / pivot 居中 / border 从源继承 / `SimulateBuild` 重建模拟清单使运行期可寻址。落点在收集器 `UIRaw` 组(`AddressByFileName` + `PackDirectory`)已收录树下,<mark>无需改收集器</mark>,`location = "Sheet_tarot_mode"`。打表工具**不覆盖已存在文件**(设计 24);若 `Sheet_tarot_mode.png` 已存在(重跑),先删旧表再跑。
 
-<div class="callout note" style="margin-top:8px">
-    <b>dev 落地第一步：先验寻址跑通，再铺满整窗</b>
-    <p style="margin:6px 0 0">同<a href="#23-settings-window-art::atlas">设计 23</a> 经验:<b>打表后先在 Play 模式取任意一张子图显示出来</b>(如给棋盘外框贴 <code>chess</code>),确认 <code>SetSubSprite("Sheet_tarot_mode", "chess")</code> 取得到(<code>GetAssetInfo</code> 不返 invalid、子图非 null),再逐节点铺满。避免摆完整窗才发现寻址不通。设计 23 / 25 / 26 已实证 <code>Sheet_settings</code> 寻址链路通,本屏只是换一张新表(同范式),风险点收敛在「打表工具对 16 张新切图产出正确 + 新表能被 YooAsset 当 SubAssets 加载」—— 这正是本屏作为「首个用打表工具产新表的真实屏」要验的核心。</p>
-  </div>
+> [!NOTE]
+> **dev 落地第一步：先验寻址跑通，再铺满整窗**
+>
+> 同<a href="#23-settings-window-art::atlas">设计 23</a> 经验:**打表后先在 Play 模式取任意一张子图显示出来**(如给棋盘外框贴 <code>chess</code>),确认 <code>SetSubSprite("Sheet_tarot_mode", "chess")</code> 取得到(<code>GetAssetInfo</code> 不返 invalid、子图非 null),再逐节点铺满。避免摆完整窗才发现寻址不通。设计 23 / 25 / 26 已实证 <code>Sheet_settings</code> 寻址链路通,本屏只是换一张新表(同范式),风险点收敛在「打表工具对 16 张新切图产出正确 + 新表能被 YooAsset 当 SubAssets 加载」—— 这正是本屏作为「首个用打表工具产新表的真实屏」要验的核心。
 
 <h3 id="map">4.3 子图映射（dev 读图核实）</h3>
 
@@ -256,10 +256,10 @@ for (int i = 0; i &lt; 3; i++) {
     // TODO(设计27 §六)：更换/删除/提示是新玩法功能，真机制本范围外，待产品定义后另开轮
 }</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>stub 不等于无反馈，但绝不碰玩法逻辑</b>
-    <p style="margin:6px 0 0">3 按钮点击要有「待建」<code>Log</code>(或 Toast),不能死按钮;但<mark>绝不在本轮顺手实现「更换 / 删除 / 提示」机制</mark> —— 那要动 <code>OperaArr</code> / <code>SaveArr</code> / 资源扣费 + 落子合法性,溢出「纯 UI 补完」、且会改玩法逻辑(违零回归)。真机制是独立新玩法功能,待产品定义(花什么资源 / 几次 / 规则)后另开轮(<a href="#27-tarot-mode-hud-art::open">§十 D5</a>)。本轮只摆视觉 + 留接线点。</p>
-  </div>
+> [!WARNING]
+> **stub 不等于无反馈，但绝不碰玩法逻辑**
+>
+> 3 按钮点击要有「待建」<code>Log</code>(或 Toast),不能死按钮;但<mark>绝不在本轮顺手实现「更换 / 删除 / 提示」机制</mark> —— 那要动 <code>OperaArr</code> / <code>SaveArr</code> / 资源扣费 + 落子合法性,溢出「纯 UI 补完」、且会改玩法逻辑(违零回归)。真机制是独立新玩法功能,待产品定义(花什么资源 / 几次 / 规则)后另开轮(<a href="#27-tarot-mode-hud-art::open">§十 D5</a>)。本轮只摆视觉 + 留接线点。
 
 <h2 id="flow">七、换皮范围与零回归边界（结构图）</h2>
 
@@ -344,10 +344,10 @@ for (int i = 0; i &lt; 3; i++) {
     <tr><td>R5</td><td><b>合成订单玩法不受影响</b>:<code>MergeOrderWindow.cs</code> 本轮未改(git diff 仅 <code>GameWindow.cs</code> + 资源);<code>MergeOrderMode</code> 门控独立,Classic 换皮不触碰合成订单分支</td></tr>
   </tbody></table>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>R 组怎么 test：以静态核对 + 编译为主</b>
-    <p style="margin:6px 0 0"><code>GameWindow</code> 的玩法依赖 <code>BlockGameState.Instance</code> 运行期单例 + <code>UIWindow</code> 生命周期 + 拖拽指针事件,EditMode 反射驱动 <code>OnCreate</code> / 模拟拖拽落子成本高。<mark>R 组主验收 = 编译 0 error(换皮未破坏类型 / 调用)+ test 逐条静态核对</mark>:① 所有 <code>Render*</code> / 拖拽 / 落子 / ghost / GameOver / <code>OnUpdate</code> 逻辑行未改;② <code>BlockLayout</code> 坐标常量未改;③ 数据层无新字段;④ 退出回调目标未改;⑤ git diff 仅 <code>GameWindow.cs</code> 视觉部分 + 资源。这是「视觉换皮不碰玩法」的可核对证据。R1–R5 是硬验收 —— 任一处玩法逻辑被改即不通过(换皮越界)。<b>整局可玩</b>(摆块→落子→消除→连击→补块→GameOver→分数滚动)须 Play / 人眼手验(MCP 不能模拟拖拽落子),归 §9.2 V4。</p>
-  </div>
+> [!WARNING]
+> **R 组怎么 test：以静态核对 + 编译为主**
+>
+> <code>GameWindow</code> 的玩法依赖 <code>BlockGameState.Instance</code> 运行期单例 + <code>UIWindow</code> 生命周期 + 拖拽指针事件,EditMode 反射驱动 <code>OnCreate</code> / 模拟拖拽落子成本高。<mark>R 组主验收 = 编译 0 error(换皮未破坏类型 / 调用)+ test 逐条静态核对</mark>:① 所有 <code>Render*</code> / 拖拽 / 落子 / ghost / GameOver / <code>OnUpdate</code> 逻辑行未改;② <code>BlockLayout</code> 坐标常量未改;③ 数据层无新字段;④ 退出回调目标未改;⑤ git diff 仅 <code>GameWindow.cs</code> 视觉部分 + 资源。这是「视觉换皮不碰玩法」的可核对证据。R1–R5 是硬验收 —— 任一处玩法逻辑被改即不通过(换皮越界)。**整局可玩**(摆块→落子→消除→连击→补块→GameOver→分数滚动)须 Play / 人眼手验(MCP 不能模拟拖拽落子),归 §9.2 V4。
 
 <h3 id="accept-play">9.2 视觉对位 / 真机（需 Play / 人眼，手验遗留）</h3>
 
@@ -376,10 +376,10 @@ for (int i = 0; i &lt; 3; i++) {
 | B2 | 大分数 / 资源条数字是否用位图数字 | **沿用 Text**([§5.5](#27-tarot-mode-hud-art::digits))—— 零依赖够用 | 要位图数字须先确认 `image` 切图是数字条并逐位拼,额外工作量,后续增强 |
 | B3 | 背景 / 棋盘外框 / 各底用哪张子图 | dev 读图选最贴效果图者([§4.3](#27-tarot-mode-hud-art::map) 推断 chessboard/chess/Rectangle/resourcebar2) | 视觉为准,dev 落地核实 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>自治分流说明</b>
-    <p style="margin:6px 0 0">D1–B3 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线<b>取默认推进、记 decisions、不入 blockers</b>(不停机)。其中 <b>D1</b>(资源条语义)与 <b>D5</b>(动作按钮机制)是最值得 boss / 产品复核的两项 —— 安全默认都是占位 / stub,真做需产品定义资源 / 机制含义,但<mark>本轮不因它们停机</mark>(占位 + stub 即可交付完整静态壳换皮)。<b>本轮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b></p>
-  </div>
+> [!NOTE]
+> **自治分流说明**
+>
+> D1–B3 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(资源条语义)与 **D5**(动作按钮机制)是最值得 boss / 产品复核的两项 —— 安全默认都是占位 / stub,真做需产品定义资源 / 机制含义,但<mark>本轮不因它们停机</mark>(占位 + stub 即可交付完整静态壳换皮)。<b>本轮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
 
 <h2 id="risk">十一、风险表</h2>
 

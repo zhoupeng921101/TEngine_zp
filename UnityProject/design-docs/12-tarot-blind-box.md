@@ -140,9 +140,8 @@ int r = RandomSource.Range(0, total);      // [0, total)
 | NeededHigh | `AddDirect(type, level, 1)` | 缺口里**最高等级**的那一项的(类型,等级) | 无缺口 → 降级 PatternHigh(见 §3.2) |
 | 体力 | `MergeOrderState.RefundEnergy(BoxEnergyGain)` | — | 受体力软上限 `EnergyCap` 约束,不溢出(与消除返还同规则) |
 
-<div class="callout note">
-    <b>为什么图案用 <code>AddDirect</code> 而非进待选区:</b>盲盒产的是「图案/收集物」,语义上属合成区(收集区)资源,直接进 <code>Inventory</code> 供合成/交付,与多消里程碑直发、全清奖、宝箱图案奖完全同源(都走 AddDirect)。不进待选区(待选区是「带元素的待落方块」,是另一条注入路径,设计 10 的 PendingElements 队列)。这条边界让盲盒产物与现有图案经济无缝合流。
-  </div>
+> [!NOTE]
+> <b>为什么图案用 <code>AddDirect</code> 而非进待选区:</b>盲盒产的是「图案/收集物」,语义上属合成区(收集区)资源,直接进 <code>Inventory</code> 供合成/交付,与多消里程碑直发、全清奖、宝箱图案奖完全同源(都走 AddDirect)。不进待选区(待选区是「带元素的待落方块」,是另一条注入路径,设计 10 的 PendingElements 队列)。这条边界让盲盒产物与现有图案经济无缝合流。
 
 <b>开盒前置:</b> `BlindBoxCount > 0` 才可开;开盒后 `BlindBoxCount -= 1`。计数无硬上限(GDD 未限,持有式攒多少都行);若需防溢出可设软上限旋钮 `BoxHoldCap`(默认很大,如 99,达上限后获取不再增——见 §七待拍板)。
 
@@ -163,9 +162,8 @@ int r = RandomSource.Range(0, total);      // [0, total)
 | 3 连消后断链,再 4 连消 | 2,3,4 \| 断 \| 2,3,4,5 | 第一段第 3 手 +1、第二段第 3 手 +1,共 +2 |
 | 全程无连消(每手孤立消除) | 每手都是 2,然后链断回 1 | 不发(没达到阈值 4) |
 
-<div class="callout note">
-    <b>ComboChain 的现状语义核对(已 grep 核实):</b> <code>ClearSettlement.Settle</code> 中有消除时 <code>m.ComboChain += 1</code>,无消除时归 1。开局 <code>Reset()</code> 置 1。倍率表 <code>ComboMultPermille</code> 用 5 档封顶 ×2.0,但 <code>ComboChain</code> 字段本身不封顶(<code>ComboMultPermilleFor</code> 内部 clamp 索引)。因此「<code>ComboChain == 4</code>」判定是稳的:第 4 连消那一手恰好 ComboChain 从 3 自增到 4。<b>旋钮:</b> <code>BoxComboThreshold</code>,调小更易出、调大更难。
-  </div>
+> [!NOTE]
+> <b>ComboChain 的现状语义核对(已 grep 核实):</b> <code>ClearSettlement.Settle</code> 中有消除时 <code>m.ComboChain += 1</code>,无消除时归 1。开局 <code>Reset()</code> 置 1。倍率表 <code>ComboMultPermille</code> 用 5 档封顶 ×2.0,但 <code>ComboChain</code> 字段本身不封顶(<code>ComboMultPermilleFor</code> 内部 clamp 索引)。因此「<code>ComboChain == 4</code>」判定是稳的:第 4 连消那一手恰好 ComboChain 从 3 自增到 4。<b>旋钮:</b> <code>BoxComboThreshold</code>,调小更易出、调大更难。
 
 <h3 id="special">3.5 特殊订单附赠</h3>
 
@@ -180,9 +178,8 @@ GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.D
 
 <b>实现位置抉择:</b> `DeliverSpecial` 内按 `SpecialTrack.Occupied.Kind` 查表 `BlindBoxCount += 表[kind]`。注意 `DeliverSpecial` 末尾有 `_undoStack.Clear()`(交付是已提交动作,悔棋不倒回)——附赠的盲盒计数随交付一起固化,不被悔棋倒回,符合「已交付」语义。
 
-<div class="callout note">
-    <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但<b>尚未接入任何 UI 窗口</b>(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是<b>数据层逻辑</b>,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="#11-core-loop-completion::concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,<b>不在本轮范围</b>。本轮只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
-  </div>
+> [!NOTE]
+> <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但**尚未接入任何 UI 窗口**(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是**数据层逻辑**,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="#11-core-loop-completion::concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,**不在本轮范围**。本轮只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
 
 <h2 id="hook">四、挂接点 / dev 改动清单</h2>
 
@@ -209,9 +206,8 @@ glyph + 纯色,零美术,接现有 `MergeOrderWindow`。两块:
 
 开盒结果展示用内联弹字而非模态窗口的理由:盲盒开得频繁,模态窗口每次都要点关闭会拖慢节奏;内联弹字与现有连消/多消反馈同一套表现语言,一致且零额外 prefab。若后续要做「开盒动画/仪式感」,那是表现层增强,本轮不做(见 §七)。
 
-<div class="callout note">
-    <b>刷新调用:</b>开盒/获得后须调现有 <code>RefreshSynthesis()</code>(图案进了合成区)+ <code>RefreshEnergy()</code>(可能加了体力)+ 新增 <code>RefreshBlindBox()</code>(计数与按钮态)。与现有 <code>OnDeliverClicked</code> 末尾的批量刷新同体例。
-  </div>
+> [!NOTE]
+> <b>刷新调用:</b>开盒/获得后须调现有 <code>RefreshSynthesis()</code>(图案进了合成区)+ <code>RefreshEnergy()</code>(可能加了体力)+ 新增 <code>RefreshBlindBox()</code>(计数与按钮态)。与现有 <code>OnDeliverClicked</code> 末尾的批量刷新同体例。
 
 <h2 id="accept">六、验收点(test 可逐条核对)</h2>
 

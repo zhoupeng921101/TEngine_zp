@@ -201,10 +201,10 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<div class="callout note" style="margin-top:8px">
-    <b>聚合口径:榜级字段冲突怎么办?</b>
-    <p style="margin:6px 0 0">同 <code>id</code> 各行的榜级字段(name/group/method/condition/praise/valid_*/mail/count_max/show_max)<b>应填一致</b>;桥接<mark>取该 id 首行的值</mark>(按 row_id 升序后第一行),后续行只取 <code>rank_min/rank_max/reward/show_reward/reward_daily</code> 三个名次档字段。这与 16 礼包子项 / 20 兑换码奖励子表的「主行定主属性、子行定明细」同源。配置规范:同榜各行榜级字段务必一致(planner 约定),桥接不做冲突告警(本轮),后续可加 Luban 校验器。</p>
-  </div>
+> [!NOTE]
+> <b>聚合口径:榜级字段冲突怎么办?</b>
+>
+> 同 <code>id</code> 各行的榜级字段(name/group/method/condition/praise/valid_*/mail/count_max/show_max)**应填一致**;桥接<mark>取该 id 首行的值</mark>(按 row_id 升序后第一行),后续行只取 <code>rank_min/rank_max/reward/show_reward/reward_daily</code> 三个名次档字段。这与 16 礼包子项 / 20 兑换码奖励子表的「主行定主属性、子行定明细」同源。配置规范:同榜各行榜级字段务必一致(planner 约定),桥接不做冲突告警(本轮),后续可加 Luban 校验器。
 
 <h3 id="query">3.3 榜单查询 + 排序并列(RankService 第一部分)</h3>
 
@@ -522,15 +522,15 @@ sequenceDiagram
 | 8 | `Assets/Editor/Tests/BlockBlast/RankSystemTests.cs` | 新建测试 | 覆盖配置聚合 / 查榜排序并列 / 入榜+上限过滤 / 我的名次 / 结算时机四档 / 结算发邮件 / 幂等防重 / 每日+点赞跨天 / 红点 / 持久化往返 / 接缝([§六](#22-rank-system::accept))。结算用注入 fake/真 `MailboxService` 断言「发了带哪个奖励库的邮件」。asmdef 已含 `GameLogic`+`GameProto`+`TEngine.Runtime` 引用,直接可达 |
 | — | `IMailService`/`MailboxService`/`MailDraft`(21)· `GiftOpener`/`ItemGrant`(16)· `Persistence` · 框架代码 | **不改** | 结算发奖调 21、奖励展开由 21 领取链走 16、持久化复用既有接缝,<mark>只调用不修改</mark> |
 
-<div class="callout note" style="margin-top:8px">
-    <b>命名空间归属</b>
-    <p style="margin:6px 0 0">排行榜是<mark>通用系统</mark>(非 BlockBlast 玩法专属),模型 / 服务 / 接缝命名空间用 <code>GameLogic.Rank</code>(同 21 <code>GameLogic.Mail</code> / 20 <code>GameLogic.Redeem</code> 做法);配置桥接 <code>RankConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>MailConfigMgr</code> 并列)。物理目录 <code>GameScripts/HotFix/GameLogic/Module/Rank/</code>。发奖入口 <code>IMailService</code> 仍在 <code>GameLogic.Mail</code>(复用,不搬)。</p>
-  </div>
+> [!NOTE]
+> **命名空间归属**
+>
+> 排行榜是<mark>通用系统</mark>(非 BlockBlast 玩法专属),模型 / 服务 / 接缝命名空间用 <code>GameLogic.Rank</code>(同 21 <code>GameLogic.Mail</code> / 20 <code>GameLogic.Redeem</code> 做法);配置桥接 <code>RankConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>MailConfigMgr</code> 并列)。物理目录 <code>GameScripts/HotFix/GameLogic/Module/Rank/</code>。发奖入口 <code>IMailService</code> 仍在 <code>GameLogic.Mail</code>(复用,不搬)。
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 须按 numeric/item/redeem/mail 先例处理配置验收</b>
-    <p style="margin:6px 0 0">运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../rank.bytes)</code> → <code>new TbRank(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code> / <code>MailSystemTests</code> 的 Luban 直读条);纯逻辑(桥接聚合 / 排序 / 结算时机 / 结算编排 / 领取 / 红点 / 持久化)经 <code>InitForTest</code> + <code>InMemoryRankPersistence</code> + 注入 <code>NowProvider</code> + 注入 <code>IMailService</code> + 注入 <code>IRankSource</code> 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。</p>
-  </div>
+> [!WARNING]
+> **dev 须按 numeric/item/redeem/mail 先例处理配置验收**
+>
+> 运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../rank.bytes)</code> → <code>new TbRank(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code> / <code>MailSystemTests</code> 的 Luban 直读条);纯逻辑(桥接聚合 / 排序 / 结算时机 / 结算编排 / 领取 / 红点 / 持久化)经 <code>InitForTest</code> + <code>InMemoryRankPersistence</code> + 注入 <code>NowProvider</code> + 注入 <code>IMailService</code> + 注入 <code>IRankSource</code> 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。
 
 <h2 id="accept">六、验收点</h2>
 
@@ -564,10 +564,10 @@ sequenceDiagram
     <tr><td>R2</td><td>Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件;重点核「无真实网络 / HTTP 调用」「PlayerPrefs/JsonUtility 非阻塞不触同步 IO」「结算发奖复用 21 <code>IMailService</code> 不另造发奖、不碰 MergeOrderState」「持久化复用既有 Provider 不另造存储栈」「邮件系统 21 零改动」)</td></tr>
   </tbody></table>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>不在本轮验收(boss 授权遗留)</b>
-    <p style="margin:6px 0 0">真实全服排名(无网络模块)、真实他人玩家数据(离线无,陪榜配置生成)、排行榜界面 + 名次列表 + 我的名次条 + 点赞按钮 + 奖励预览 + 头像框 UI 视觉、排行榜 icon 红点显示、主界面入口接线、结算的自动触发时机(登录检查 / 后台 tick 由表现层 / 流程层接) → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(服务器),数据层不返工。</p>
-  </div>
+> [!WARNING]
+> <b>不在本轮验收(boss 授权遗留)</b>
+>
+> 真实全服排名(无网络模块)、真实他人玩家数据(离线无,陪榜配置生成)、排行榜界面 + 名次列表 + 我的名次条 + 点赞按钮 + 奖励预览 + 头像框 UI 视觉、排行榜 icon 红点显示、主界面入口接线、结算的自动触发时机(登录检查 / 后台 tick 由表现层 / 流程层接) → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(服务器),数据层不返工。
 
 <h2 id="open">七、待拍板清单</h2>
 

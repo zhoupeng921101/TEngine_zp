@@ -33,9 +33,8 @@ flowchart TD
     h4 --> o3
 ```
 
-<div class="callout note">
-      <b>三出口取代经典「无处可落即唯一结束」</b>:融合后结束条件为三条并列——<b>① 通关</b>(完成目标订单数)<b>② 软 GameOver</b>(体力耗尽且无单可交付,先给「自然恢复 / 祈愿兑体力 / 领奖含体力」三出路缓冲)<b>③ 硬 GameOver</b>(无处可落,由智能生成防卡死兜底后仍兜不住时触发)。经典的「剩余手牌无合法落点 → GameOver」被覆盖为<mark>三条出口之一</mark>(③)。完整结束模型见 <a href="#11-core-loop-completion::energy-empty">11·§7.3</a>,融合裁决见 <a href="#29-gameplay-fusion::v2">29·§3.2</a>。
-    </div>
+> [!NOTE]
+> <b>三出口取代经典「无处可落即唯一结束」</b>:融合后结束条件为三条并列——<b>① 通关</b>(完成目标订单数)<b>② 软 GameOver</b>(体力耗尽且无单可交付,先给「自然恢复 / 祈愿兑体力 / 领奖含体力」三出路缓冲)<b>③ 硬 GameOver</b>(无处可落,由智能生成防卡死兜底后仍兜不住时触发)。经典的「剩余手牌无合法落点 → GameOver」被覆盖为<mark>三条出口之一</mark>(③)。完整结束模型见 <a href="#11-core-loop-completion::energy-empty">11·§7.3</a>,融合裁决见 <a href="#29-gameplay-fusion::v2">29·§3.2</a>。
 
 窗口流转:主菜单 `MainMenuWindow`(单入口「开始游戏」)→ 游戏窗 → 结算 `GameOverWindow` / 通关 `MergeOrderWinWindow`。两窗合一与单入口化属融合落地项,见 [29·§五](#29-gameplay-fusion::dev)。
 
@@ -56,9 +55,8 @@ flowchart TD
 | 2 行/列 | +120 | 值得等 |
 | 3 行/列 | <mark class="g">+270</mark> | 大爽点 |
 
-<div class="callout note">
-      <b>Combo 连消倍率链</b>:连续落子都有消除则 Combo +1,断了清零,连击弹字上屏(COMBO×N / PERFECT)。连消链长驱动<mark>显示分倍率</mark> ×1.0/1.2/1.5/1.8/2.0(封顶),<b>只乘显示分,不参与元素产出与全清判定</b>;<code>BlockGameState.Combo</code> 在融合后降为<b>纯视觉镜像量</b>(驱动弹字),连消倍率由 <code>MergeOrderState.ComboChain</code> + <code>ClearSettlement</code> 这条已实现的链承担。机制见 <a href="#11-core-loop-completion::combo-table">11·§5.3</a>,融合裁决(死钩子点亮)见 <a href="#29-gameplay-fusion::v5">29·§3.5</a>。
-    </div>
+> [!NOTE]
+> **Combo 连消倍率链**:连续落子都有消除则 Combo +1,断了清零,连击弹字上屏(COMBO×N / PERFECT)。连消链长驱动<mark>显示分倍率</mark> ×1.0/1.2/1.5/1.8/2.0(封顶),**只乘显示分,不参与元素产出与全清判定**;<code>BlockGameState.Combo</code> 在融合后降为**纯视觉镜像量**(驱动弹字),连消倍率由 <code>MergeOrderState.ComboChain</code> + <code>ClearSettlement</code> 这条已实现的链承担。机制见 <a href="#11-core-loop-completion::combo-table">11·§5.3</a>,融合裁决(死钩子点亮)见 <a href="#29-gameplay-fusion::v5">29·§3.5</a>。
 
 <h2 id="blocks">三、方块库</h2>
 
@@ -68,9 +66,8 @@ flowchart TD
 - 新手**首发固定** `[9, 39, 24]`(2×2 方块、L 形、大 L,`GameConfigBB.FirstHand`),保证开局好上手。
 - **早期屏蔽**:分数 &lt; 10000 时,剔除特别难放的大形状(`EarlyGameBlockedIds` / `EarlyGameBlockScoreThreshold`),降低前期挫败。
 
-<div class="callout note">
-      <b>早期屏蔽的阈值口径随融合计分归一一并理清</b>:早期屏蔽以 <code>BlockGameState.Score</code> 为阈值。合成订单局内该量恒 0 → 早期屏蔽在融合玩法里<b>可能全程生效</b>(始终剔大形状)。融合后须确认早期屏蔽以哪个分量为阈值,避免「分数恒 0 → 永久屏蔽」与「分数随交付增长 → 中途解屏」两种行为含糊。裁决见 <a href="#29-gameplay-fusion::v6">29·§3.6</a>(连带项随 <a href="#29-gameplay-fusion::v3">§3.3</a> 计分口径定)。
-    </div>
+> [!NOTE]
+> **早期屏蔽的阈值口径随融合计分归一一并理清**:早期屏蔽以 <code>BlockGameState.Score</code> 为阈值。合成订单局内该量恒 0 → 早期屏蔽在融合玩法里**可能全程生效**(始终剔大形状)。融合后须确认早期屏蔽以哪个分量为阈值,避免「分数恒 0 → 永久屏蔽」与「分数随交付增长 → 中途解屏」两种行为含糊。裁决见 <a href="#29-gameplay-fusion::v6">29·§3.6</a>(连带项随 <a href="#29-gameplay-fusion::v3">§3.3</a> 计分口径定)。
 
 <h2 id="dda">四、最大特色:动态难度调度(融合发牌底层 R4)</h2>
 
@@ -103,7 +100,8 @@ flowchart TD
       两选项都<b>不改 8 算法与权重表</b>,只改「喂给 <code>OfferTrio</code> 的强度参数」。默认取甲,乙记入 <a href="#29-gameplay-fusion::decisions">29·§七#2</a> 待拍板。
     </div>
 
-<div class="callout note">这套系统是本作的灵魂,单独拆成一篇详解(含 8 种算法逐一拆解 + 真实权重数据,并以 <code>Score</code> 为强度信号通篇展开):→ <a href="#02-dynamic-difficulty">动态难度拆解</a>。</div>
+> [!NOTE]
+> 这套系统是本作的灵魂,单独拆成一篇详解(含 8 种算法逐一拆解 + 真实权重数据,并以 <code>Score</code> 为强度信号通篇展开):→ <a href="#02-dynamic-difficulty">动态难度拆解</a>。
 
 <h2 id="misc">五、其它</h2>
 

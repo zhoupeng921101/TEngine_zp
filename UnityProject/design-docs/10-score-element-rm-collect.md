@@ -58,7 +58,8 @@
 - **预算队列承接**：算出的 `k` 个元素不立即凭空出现，而是压入 <mark><code>MergeState.PendingElements</code></mark> 队列；<b>补牌（<code>BuildPiece</code>）时</b>从队头 FIFO 抽取，按与落子转移一致的「行优先填充格顺序」写入新候选块的 `Elements`。元素始终出现在新发的候选块上，逻辑可纯单测。
 - **队列天然满足两个边界**：无消除 → 队列不增长 → 候选块干净；得分高 → `k` 大 → 队列积压多 → 后续候选块携带更多元素。
 
-<div class="callout note"><b>投放时机</b>：采用<mark>补牌时抽干队列</mark>，玩家感知为「狠消一手 → 下一批候选块明显更多元素」。备选「消除当下立即注入到待选区现有未落子块」反馈更即时，但要改两处注入点、且现有未落子块容量有限（0–2 块），列为后续 UX 增强（见 <a href="#10-score-element-rm-collect::decide">§六</a>）。</div>
+> [!NOTE]
+> **投放时机**：采用<mark>补牌时抽干队列</mark>，玩家感知为「狠消一手 → 下一批候选块明显更多元素」。备选「消除当下立即注入到待选区现有未落子块」反馈更即时，但要改两处注入点、且现有未落子块容量有限（0–2 块），列为后续 UX 增强（见 <a href="#10-score-element-rm-collect::decide">§六</a>）。
 
 <h3 id="map">2.3 得分 → 元素数量映射</h3>
 
@@ -89,13 +90,15 @@
 | 四消 | ≈29–32 | ≈780 | ⌈780/200⌉=4 → **4** |
 | 五消及以上（极罕见） | 36+ | 1100+ | ⌈5.5⌉=6 → 封顶 **4** |
 
-<div class="callout note"><b>边界处理小结</b>：0 分 → 0 元素（满足「开局/无消除纯方块」）；超高连消 → 封顶 4（不刷爆）；单消 → 保底 1（小消除不空手）。整段是<mark>单调递增、确定性</mark>（无随机），逐档可单测。</div>
+> [!NOTE]
+> **边界处理小结**：0 分 → 0 元素（满足「开局/无消除纯方块」）；超高连消 → 封顶 4（不刷爆）；单消 → 保底 1（小消除不空手）。整段是<mark>单调递增、确定性</mark>（无随机），逐档可单测。
 
 <h3 id="type">2.4 元素类型选择：需求拉动 + 轮转均摊</h3>
 
 队列里这 `k` 个元素是**什么类型**，由<mark>需求拉动</mark>决定：只从 `MergeState.NeededTypes()`（当前激活订单所需类型并集）里取，保证产出对订单有用。多个所需类型时按**轮转游标**均摊（`_needRotor` 取模递增），让双订单都被喂到。
 
-<div class="callout good"><b>不设保底计数器</b>：本模型是确定性生成 + 轮转均摊，任何消除都必产 ≥1 且类型轮流覆盖所需，<b>结构上不会饿死某类型</b>，无需额外保底。</div>
+> [!TIP]
+> **不设保底计数器**：本模型是确定性生成 + 轮转均摊，任何消除都必产 ≥1 且类型轮流覆盖所需，**结构上不会饿死某类型**，无需额外保底。
 
 <h3 id="drop">2.5 得分量与玩家可见分的隔离</h3>
 
@@ -186,7 +189,8 @@ sequenceDiagram
 | `UI/BlockBlastUI/MergeOrderWindow.cs` | `PlaceAndResolve` 消除分支：`clearedCells`（`ClearRowsAndCols` 返回）→ `BlockScoring.ClearScore` → `MergeOrderConfig.ElementsForScore` → `_merge.EnqueueScoreElements(k)`，位于补牌（`RefillPieces`）**之前**，使紧随的补牌抽干队列。合成区摄入 / 返体力 / 连击弹字 / 通关 / 软死亡判定各自独立。 |
 | `Editor/Tests/BlockBlast/MergeOrderTests.cs` | 覆盖 §五 各验收点的 EditMode 用例（映射逐档 / 无消除纯方块 / 入队投放 / 轮转均摊 / 积压封顶 / 悔棋回滚队列 / off 零触）。 |
 
-<div class="callout note"><b>回归红线</b>：合成订单切片全部由 <code>MergeOrderMode</code> 门控；off 时 Classic 落子 / 消除 / 补块 / 存档<mark>逐字节不变</mark>。得分驱动生成的队列 / 抽干逻辑只在 <code>MergeOrderMode &amp;&amp; MergeState!=null</code> 路径生效。Classic 回归测试必须全绿。</div>
+> [!NOTE]
+> **回归红线**：合成订单切片全部由 <code>MergeOrderMode</code> 门控；off 时 Classic 落子 / 消除 / 补块 / 存档<mark>逐字节不变</mark>。得分驱动生成的队列 / 抽干逻辑只在 <code>MergeOrderMode &amp;&amp; MergeState!=null</code> 路径生效。Classic 回归测试必须全绿。
 
 <h2 id="accept">五、验收点（给 test 逐条核对）</h2>
 
@@ -208,7 +212,8 @@ sequenceDiagram
 - **Classic 不回归**：Classic 计分（经 `BlockScoring` 共用公式后）逐数字不变。
 - **编译通过**：全工程 0 error、无悬空引用、无孤儿 .meta。
 
-<div class="callout note"><b>运行验证</b>：dev/test 子会话无 Unity MCP，编译 + EditMode 全量单测由 boss 经命令行 batchmode 补跑。Play 手验（拖拽落子时元素随得分出现在新候选块的目视确认）列人工遗留。</div>
+> [!NOTE]
+> **运行验证**：dev/test 子会话无 Unity MCP，编译 + EditMode 全量单测由 boss 经命令行 batchmode 补跑。Play 手验（拖拽落子时元素随得分出现在新候选块的目视确认）列人工遗留。
 
 <h2 id="decide">六、可调旋钮（交 boss/用户）</h2>
 

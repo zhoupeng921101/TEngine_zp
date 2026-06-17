@@ -97,7 +97,8 @@ flowchart TD
 | <span class="verdict">融合后取定</span> | **以合成订单的多结束模型为准**，统一为三条出口并列：<b>① 通关</b>（完成目标单数）<b>② 软 GameOver</b>（体力耗尽 + 无单可交付，先给「三出路」缓冲，见 [11·§7.3](#11-core-loop-completion::energy-empty)）<b>③ 硬 GameOver</b>（无处可落，由智能生成防卡死兜底后仍兜不住时触发）。经典「无处可落即唯一结束」被覆盖为**三条之一** |
 | 落点 | **设计层裁决**：融合窗口沿用 `MergeOrderWindow` 已实现的三出口判定逻辑；「无处可落」的兜底由智能生成 R2 防卡死降低触发率（见 [§3.4](#29-gameplay-fusion::v4) / [11·§八](#11-core-loop-completion::gen-algo)），不改判定本身 |
 
-<div class="callout note"><b>体力与结束的关系（保留体力预算·已拍板）</b>：融合保留体力作单局约束，故「软 GameOver = 体力耗尽」是结束模型的一等出口，不退化为经典的纯落点死局。三出路缓冲（自然恢复 / 祈愿兑体力 / 领奖含体力）保证体力耗尽不等于立即结束。</div>
+> [!NOTE]
+> <b>体力与结束的关系（保留体力预算·已拍板）</b>：融合保留体力作单局约束，故「软 GameOver = 体力耗尽」是结束模型的一等出口，不退化为经典的纯落点死局。三出路缓冲（自然恢复 / 祈愿兑体力 / 领奖含体力）保证体力耗尽不等于立即结束。
 
 <h3 id="v3">3.3 计分语义</h3>
 
@@ -127,7 +128,8 @@ flowchart TD
 | <span class="verdict">融合后取定</span> | **点亮经典死钩子 = 采用合成订单已实现的连消倍率链**（`ComboChain` + `ClearSettlement`）。融合后玩家只在**一条**连消语义下：连消链长 → 显示分倍率（×1.0/1.2/1.5/1.8/2.0 封顶，见 [11·§5.3](#11-core-loop-completion::combo-table)）。**铁律**：倍率<mark>只乘显示分，不参与元素产出与全清判定</mark>（[11·§5.5](#11-core-loop-completion::settle) 已编码保证）。`BlockGameState.Combo` 降为**纯视觉镜像量**（弹字用），不再是独立的「待启用钩子」 |
 | 落点 | **设计层裁决**：连消逻辑归一到 `ClearSettlement`（已实现）；融合窗口沿用 `MergeOrderWindow` 已有的 `settle.ComboChain` → `Combo` 镜像 + 弹字。经典 `GameWindow` 里「`Combo` 纯计数」的旧路径随两窗合一被覆盖 |
 
-<div class="callout good"><b>「死钩子点亮」的准确含义</b>：连消进入<b>显示分</b>而非元素经济。这是刻意隔离——会连消的玩家拿高分爽感，但图案经济不被连消通胀（否则连消变成刷图案捷径，<a href="#11-core-loop-completion::economy">11·§六</a> 经济平衡失效）。融合<b>不</b>把连消塞进 <code>ClearScore</code> 公式（那会同时污染元素产出），而是沿用 <code>ClearSettlement</code> 的「baseScore 喂经济 / displayScore 给爽感」两分账。</div>
+> [!TIP]
+> <b>「死钩子点亮」的准确含义</b>：连消进入**显示分**而非元素经济。这是刻意隔离——会连消的玩家拿高分爽感，但图案经济不被连消通胀（否则连消变成刷图案捷径，<a href="#11-core-loop-completion::economy">11·§六</a> 经济平衡失效）。融合**不**把连消塞进 <code>ClearScore</code> 公式（那会同时污染元素产出），而是沿用 <code>ClearSettlement</code> 的「baseScore 喂经济 / displayScore 给爽感」两分账。
 
 <h3 id="v6">3.6 方块库 / 早期屏蔽</h3>
 
@@ -180,11 +182,13 @@ flowchart TD
 | <mark class="r">「无处可落即唯一 GameOver」单一结束模型</mark> | **被覆盖**为三出口之一 | 通关 / 体力软 GameOver / 无处可落硬 GameOver（[§3.2](#29-gameplay-fusion::v2)，防卡死兜底降低硬死率） |
 | `GameWindow` 里「`Combo` 纯计数、未进分」的旧路径 | **随两窗合一被覆盖** | `ClearSettlement` 的连消倍率链（[§3.5](#29-gameplay-fusion::v5)） |
 
-<div class="callout note"><b>命名不连带改动</b>：「移除纯无尽独立入口」指<b>玩法 / 入口下线</b>，不等于消灭历史命名。<code>GameWindow</code>、<code>BlockGameState</code> 等符号即便职责变化，是否改名是独立的低优先级整理项，不在本融合范围（改名要连带动 UI <code>location</code> 字符串 / prefab / <code>[Window]</code> / 调用点，对已交付窗口是真风险）。</div>
+> [!NOTE]
+> **命名不连带改动**：「移除纯无尽独立入口」指**玩法 / 入口下线**，不等于消灭历史命名。<code>GameWindow</code>、<code>BlockGameState</code> 等符号即便职责变化，是否改名是独立的低优先级整理项，不在本融合范围（改名要连带动 UI <code>location</code> 字符串 / prefab / <code>[Window]</code> / 调用点，对已交付窗口是真风险）。
 
 <h2 id="dev">五、代码层融合落点指引（供后续 /pipeline dev，本篇不改码）</h2>
 
-<div class="callout warn"><b>本节是给后续 dev 的指引，不是本篇的改动</b>。所有符号名经 grep 核实于代码现状；改动分四组，每组标注「现状 → 本篇目标」。融合落地另起 <code>/pipeline dev</code> 任务。</div>
+> [!WARNING]
+> **本节是给后续 dev 的指引，不是本篇的改动**。所有符号名经 grep 核实于代码现状；改动分四组，每组标注「现状 → 本篇目标」。融合落地另起 <code>/pipeline dev</code> 任务。
 
 <h3 id="dev-entry">5.1 主菜单单入口化（<code>MainMenuWindow</code>）</h3>
 
@@ -202,23 +206,26 @@ flowchart TD
 
 三隐患都源于经典与合成订单**复用全局单例**。现状靠「每次进窗口重置」掩盖；融合为单窗口后须把不变量写明，避免日后再分叉时复发。
 
-<div class="callout warn">
-      <b>隐患 A · <code>Combo</code> / <code>Score</code> 在单窗口下的角色归一</b>
-      <p style="margin:8px 0 0"><b>现状（不是当前的活 bug）</b>：<code>BlockGameState.Combo</code> / <code>Score</code> 是窗口间共享的单例字段。两窗的 <code>OnCreate</code> 都在<b>进入时</b>把它们清零（<code>GameWindow</code> 直接 <code>Score=0;Combo=0</code>；<code>MergeOrderWindow</code> 经 <code>ResetForMergeOrder</code> 清零），故跨窗口切换<b>未表现出残留 bug</b>——下一个窗口的进入重置掩盖了上一个窗口的退出未清。<code>ExitMergeOrder</code> 本身<b>不</b>清 <code>Combo</code> / <code>Score</code>。</p>
-      <p style="margin:8px 0 0"><b>本篇目标</b>：融合为单窗口后，「进入即重置」仍须是<b>显式不变量</b>（融合窗口的进入路径必须清零局内瞬态分量）。同时确定三个分量的最终角色：<code>ClearScore</code>（驱动量，不可见）/ <code>TotalScore</code>（经营成绩）/ <code>HighScore</code>（跨会话）；<code>Combo</code> 降为视觉镜像。<b>连带项</b>：早期屏蔽阈值（<a href="#29-gameplay-fusion::v6">§3.6</a>）依赖的「<code>Score</code> 口径」随此一并定。</p>
-    </div>
+> [!WARNING]
+> <b>隐患 A · <code>Combo</code> / <code>Score</code> 在单窗口下的角色归一</b>
+>
+> <b>现状（不是当前的活 bug）</b>：<code>BlockGameState.Combo</code> / <code>Score</code> 是窗口间共享的单例字段。两窗的 <code>OnCreate</code> 都在**进入时**把它们清零（<code>GameWindow</code> 直接 <code>Score=0;Combo=0</code>；<code>MergeOrderWindow</code> 经 <code>ResetForMergeOrder</code> 清零），故跨窗口切换**未表现出残留 bug**——下一个窗口的进入重置掩盖了上一个窗口的退出未清。<code>ExitMergeOrder</code> 本身**不**清 <code>Combo</code> / <code>Score</code>。
+>
+> **本篇目标**：融合为单窗口后，「进入即重置」仍须是**显式不变量**（融合窗口的进入路径必须清零局内瞬态分量）。同时确定三个分量的最终角色：<code>ClearScore</code>（驱动量，不可见）/ <code>TotalScore</code>（经营成绩）/ <code>HighScore</code>（跨会话）；<code>Combo</code> 降为视觉镜像。**连带项**：早期屏蔽阈值（<a href="#29-gameplay-fusion::v6">§3.6</a>）依赖的「<code>Score</code> 口径」随此一并定。
 
-<div class="callout warn">
-      <b>隐患 B · <code>dynamicWeight</code> 跨模式 / 跨局 / 跨启动残留</b>
-      <p style="margin:8px 0 0"><b>现状（真实残留）</b>：<code>DynamicWeightDiff._dynamicWeight</code> <b>持久化到磁盘</b>（键 <code>block_blast_dynamic_v1</code>），<code>Init</code> 时 <code>Load</code> 回来。两窗 <code>OnCreate</code> 都只调 <code>BeginGame()</code>（仅清 <code>refillIndex</code> / 清屏窗口 / 冷却），<b>都不调 <code>Reset()</code></b>（<code>Reset</code> 才清 <code>_dynamicWeight</code>）。结果：<code>_dynamicWeight</code> <b>跨局、跨经典↔合成订单、跨 app 重启持续累积</b>——上一局做局到 -200，下一局（哪怕换模式）从 -200 继续。</p>
-      <p style="margin:8px 0 0"><b>本篇目标</b>：融合 <code>BeginGame</code> 时<b>明确 <code>dynamicWeight</code> 的归一策略</b>——是每局重置（调 <code>Reset()</code>，每局公平起步）还是<b>刻意</b>跨局累积（橡皮筋长期记忆玩家水平）。这是个设计取舍（不是必须改成重置），但<b>必须在融合时显式选定并写明</b>，不能继续靠「两窗都恰好不 <code>Reset</code>」的隐式现状。</p>
-    </div>
+> [!WARNING]
+> <b>隐患 B · <code>dynamicWeight</code> 跨模式 / 跨局 / 跨启动残留</b>
+>
+> <b>现状（真实残留）</b>：<code>DynamicWeightDiff._dynamicWeight</code> **持久化到磁盘**（键 <code>block_blast_dynamic_v1</code>），<code>Init</code> 时 <code>Load</code> 回来。两窗 <code>OnCreate</code> 都只调 <code>BeginGame()</code>（仅清 <code>refillIndex</code> / 清屏窗口 / 冷却），<b>都不调 <code>Reset()</code></b>（<code>Reset</code> 才清 <code>_dynamicWeight</code>）。结果：<code>_dynamicWeight</code> **跨局、跨经典↔合成订单、跨 app 重启持续累积**——上一局做局到 -200，下一局（哪怕换模式）从 -200 继续。
+>
+> **本篇目标**：融合 <code>BeginGame</code> 时<b>明确 <code>dynamicWeight</code> 的归一策略</b>——是每局重置（调 <code>Reset()</code>，每局公平起步）还是**刻意**跨局累积（橡皮筋长期记忆玩家水平）。这是个设计取舍（不是必须改成重置），但**必须在融合时显式选定并写明**，不能继续靠「两窗都恰好不 <code>Reset</code>」的隐式现状。
 
-<div class="callout warn">
-      <b>隐患 C · DDA 对「无分压」场景的适配</b>
-      <p style="margin:8px 0 0"><b>现状（休眠）</b>：合成订单局内 <code>Score</code> 恒 0，<code>OfferTrio(board, 0)</code> 永远走「未激活 + 清屏窗口」分支，DDA 的 8 算法权重段从不触发（见 <a href="#29-gameplay-fusion::v8">§3.8</a>）。即合成订单里 DDA「做局」能力休眠。</p>
-      <p style="margin:8px 0 0"><b>本篇目标</b>：随 <a href="#29-gameplay-fusion::v8">§3.8</a> 的范围开关定——<b>默认选项甲</b>（DDA 维持以 <code>Score</code> 为信号、在融合玩法里继续休眠在清屏窗口，零回归）；<b>可选项乙</b>（DDA 强度信号改接经营进度量，让做局随经营推进激活，需 test 配平「进度 → 难度」曲线）。见待拍板 <a href="#29-gameplay-fusion::decisions">§七 #2</a>。</p>
-    </div>
+> [!WARNING]
+> **隐患 C · DDA 对「无分压」场景的适配**
+>
+> <b>现状（休眠）</b>：合成订单局内 <code>Score</code> 恒 0，<code>OfferTrio(board, 0)</code> 永远走「未激活 + 清屏窗口」分支，DDA 的 8 算法权重段从不触发（见 <a href="#29-gameplay-fusion::v8">§3.8</a>）。即合成订单里 DDA「做局」能力休眠。
+>
+> **本篇目标**：随 <a href="#29-gameplay-fusion::v8">§3.8</a> 的范围开关定——**默认选项甲**（DDA 维持以 <code>Score</code> 为信号、在融合玩法里继续休眠在清屏窗口，零回归）；**可选项乙**（DDA 强度信号改接经营进度量，让做局随经营推进激活，需 test 配平「进度 → 难度」曲线）。见待拍板 <a href="#29-gameplay-fusion::decisions">§七 #2</a>。
 
 <h3 id="dev-save">5.4 存档结构合并</h3>
 
@@ -232,7 +239,8 @@ flowchart TD
 
 <h2 id="accept">六、验收标准（给后续 test / dev 逐条核对）</h2>
 
-<div class="callout note"><b>验收性质</b>：本篇为<b>设计文档</b>，验收分两类——<b>(A) 文档自检项</b>（本篇产出即可核对）；<b>(B) 落地核验项</b>（后续 <code>/pipeline dev</code> 实现融合后按此核验）。本阶段<b>不含代码改动</b>。</div>
+> [!NOTE]
+> **验收性质**：本篇为**设计文档**，验收分两类——<b>(A) 文档自检项</b>（本篇产出即可核对）；<b>(B) 落地核验项</b>（后续 <code>/pipeline dev</code> 实现融合后按此核验）。本阶段**不含代码改动**。
 
 <h3 id="acc-a">6.1 文档自检项（A，本篇即核）</h3>
 
@@ -262,7 +270,8 @@ flowchart TD
 | 3 | <b><code>dynamicWeight</code> 跨局归一策略</b>（[§6.3 隐患 B](#29-gameplay-fusion::dev)） | **默认每局重置**：融合 `BeginGame` 调 `Reset()`，每局公平起步（消除现状「跨局 / 跨模式 / 跨重启累积」的隐式行为，最可预测） | 刻意跨局累积：保留橡皮筋长期记忆玩家水平（需说明跨会话存储语义） | 小。单处 `BeginGame` 行为；不改 8 算法 / 权重表 |
 | 4 | **融合后「玩家可见主分数」口径**（[§3.3](#29-gameplay-fusion::v3) / [§6.3 隐患 A](#29-gameplay-fusion::dev)） | **默认沿用合成订单现状**：经营成绩用 `TotalScore`（交付累计）作主可见量，`ClearScore` 保持为不可见驱动量。最贴合「合成订单为主体」的融合方向 | 恢复经典「消除即时刷大分数」为主可见量（需把 `ClearScore` 接回 `Score` 显示，并重定 DDA 信号） | 中。决定 HUD 主数字与 DDA 信号；牵动隐患 A / C |
 
-<div class="callout note">四项默认<b>组合自洽</b>：以合成订单为主体（#4 默认）、DDA 维持现状信号在融合里休眠（#2 默认）、<code>dynamicWeight</code> 每局重置消除残留（#3 默认）、R1–R3 暂不接（#1 默认）——构成「最小变更、零回归、行为可预测」的安全融合基线。任一项改备选都是<b>局部增量</b>，不返工已落地系统。</div>
+> [!NOTE]
+> 四项默认**组合自洽**：以合成订单为主体（#4 默认）、DDA 维持现状信号在融合里休眠（#2 默认）、<code>dynamicWeight</code> 每局重置消除残留（#3 默认）、R1–R3 暂不接（#1 默认）——构成「最小变更、零回归、行为可预测」的安全融合基线。任一项改备选都是**局部增量**，不返工已落地系统。
 
 <h2 id="confirm">八、拍板决策记录</h2>
 

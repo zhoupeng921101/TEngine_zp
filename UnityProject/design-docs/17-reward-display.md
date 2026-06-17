@@ -67,9 +67,8 @@
 | [盲盒 / 宝箱](#11-core-loop-completion) | `ChestReward`(`ChestSystem.cs`) | `Kind {Soul,Energy,Pattern,UndoCharge,WishCharge}` / `Amount` / `PatternLevel` | Soul/Energy→映射到 num\_id 查 `NumericConfigMgr`;Pattern→查 `MergeElementVisual`;Undo/Wish→功能性占位(无 num\_id) |
 | [数值系统](#15-numeric-system) | num\_id + 数量(裸值) | num\_id / amount | 直接查 `NumericConfigMgr.Get(num_id)` 拿 Icon/Name/Quality |
 
-<div class="callout">
-    <b>Soul(灵力)的 num_id 映射:</b><code>ChestRewardKind.Soul</code> 是灵力,数值系统现有约定常量是 <code>Exp=1 / Piety=2 / Diamond=3 / Energy=4</code>(<code>NumericConfigMgr</code>),<b>没有「灵力 / Soul」这一项</b>。核实:盲盒的 Soul 在既有发奖里落到哪个货币字段——经 grep,<code>ChestSystem</code> 只产出 <code>ChestReward</code>,真实发放由窗口对接 <code>MergeOrderState</code>(<code>ChestSystem.cs</code> 类注释)。<mark>灵力↔num_id 的映射现状未在 num 表登记</mark>。本层处理:<code>ChestRewardKind</code> → 展示元数据走一张<b>本层内的小映射表</b>(§3.2,Soul→图标名/名称 id/品质,不强依赖 num 表),而非假设一个不存在的 num_id。这张表是展示层私有约定,列入 <a href="#17-reward-display::open">§七 O6</a> 供 boss 确认是否补进 num 表统一。
-  </div>
+> [!NOTE]
+> <b>Soul(灵力)的 num_id 映射:</b><code>ChestRewardKind.Soul</code> 是灵力,数值系统现有约定常量是 <code>Exp=1 / Piety=2 / Diamond=3 / Energy=4</code>(<code>NumericConfigMgr</code>),**没有「灵力 / Soul」这一项**。核实:盲盒的 Soul 在既有发奖里落到哪个货币字段——经 grep,<code>ChestSystem</code> 只产出 <code>ChestReward</code>,真实发放由窗口对接 <code>MergeOrderState</code>(<code>ChestSystem.cs</code> 类注释)。<mark>灵力↔num_id 的映射现状未在 num 表登记</mark>。本层处理:<code>ChestRewardKind</code> → 展示元数据走一张**本层内的小映射表**(§3.2,Soul→图标名/名称 id/品质,不强依赖 num 表),而非假设一个不存在的 num_id。这张表是展示层私有约定,列入 <a href="#17-reward-display::open">§七 O6</a> 供 boss 确认是否补进 num 表统一。
 
 <h3 id="layers">2.2 归一层 + 显示层结构</h3>
 
@@ -194,9 +193,8 @@ public enum RewardBadge {
 | Undo/Wish(功能性次数) | Badge=Function,图标名占位,CountText="x{n}" | 这类是「次数」非实物,无品质语义,品质退化白 |
 | Gift\*(礼包) | Badge=Gift,图标名礼包占位,CountText 按 Times(开 N 次) | 礼包本身是一个待开的盒,展示为「礼包 ×Times」 |
 
-<div class="callout">
-    <b>盲盒 Pattern 的默认图案:</b><code>ChestReward.Pattern</code> 只带 <code>PatternLevel</code>(1–3)<b>不带具体图案种类</b>(盲盒奖池设计只到「给个 LvN 图案」,见 <code>ChestSystem.cs</code> 奖池 <code>new ChestReward(ChestRewardKind.Pattern, 1, 3)</code>)。归一时若无具体图案,展示用一个<b>代表性图案</b>(默认 Diamond ◆)+ 等级文案;若调用方已知具体图案,改用 <code>FromPattern(具体图案, level, count)</code> 直接转。这条列入 <a href="#17-reward-display::open">§七 O7</a>(是否给盲盒 Pattern 补具体图案种类)。
-  </div>
+> [!NOTE]
+> <b>盲盒 Pattern 的默认图案:</b><code>ChestReward.Pattern</code> 只带 <code>PatternLevel</code>(1–3)**不带具体图案种类**(盲盒奖池设计只到「给个 LvN 图案」,见 <code>ChestSystem.cs</code> 奖池 <code>new ChestReward(ChestRewardKind.Pattern, 1, 3)</code>)。归一时若无具体图案,展示用一个**代表性图案**(默认 Diamond ◆)+ 等级文案;若调用方已知具体图案,改用 <code>FromPattern(具体图案, level, count)</code> 直接转。这条列入 <a href="#17-reward-display::open">§七 O7</a>(是否给盲盒 Pattern 补具体图案种类)。
 
 <h3 id="quality">3.3 6 档品质色(单一事实源)</h3>
 
@@ -223,9 +221,8 @@ public enum RewardBadge {
     }
 }</pre>
 
-<div class="callout warn">
-    <b>与既有 4 档 <code>NumericDisplay.QualityColor</code> 的关系:</b>既有 helper(<a href="#15-numeric-system">设计 15</a> 实装)是 4 档,色序<mark>白(1)/蓝(2)/紫(3)/红(4)</mark>——与本层 6 档(白/绿/蓝/紫/橙/红)在 2/3/4 档<b>色值不同</b>(它的 2=蓝,本层 2=绿)。本层是品质色的<b>新单一事实源</b>,凡走 <code>RewardView</code> 的展示一律用本层 6 档。既有 <code>NumericDisplay.QualityColor</code> <b>本轮不删不改</b>(它还被 <code>NumericDisplay.FormatWith</code> 自用,且未确认是否有 UI 直接引用),但<mark>不再扩展、不被本层调用</mark>;将来收编 <code>NumericDisplay</code> 到本层(让数值显示也走 RewardView)是独立正名任务(<a href="#17-reward-display::open">§七 O3</a>)。<b>本轮交付里两份品质色并存,本层 6 档是权威,旧 4 档冻结待收编。</b>
-  </div>
+> [!WARNING]
+> <b>与既有 4 档 <code>NumericDisplay.QualityColor</code> 的关系:</b>既有 helper(<a href="#15-numeric-system">设计 15</a> 实装)是 4 档,色序<mark>白(1)/蓝(2)/紫(3)/红(4)</mark>——与本层 6 档(白/绿/蓝/紫/橙/红)在 2/3/4 档**色值不同**(它的 2=蓝,本层 2=绿)。本层是品质色的**新单一事实源**,凡走 <code>RewardView</code> 的展示一律用本层 6 档。既有 <code>NumericDisplay.QualityColor</code> **本轮不删不改**(它还被 <code>NumericDisplay.FormatWith</code> 自用,且未确认是否有 UI 直接引用),但<mark>不再扩展、不被本层调用</mark>;将来收编 <code>NumericDisplay</code> 到本层(让数值显示也走 RewardView)是独立正名任务(<a href="#17-reward-display::open">§七 O3</a>)。<b>本轮交付里两份品质色并存,本层 6 档是权威,旧 4 档冻结待收编。</b>
 
 <b>图案品质映射(<code>PatternQuality(level)</code>):</b>图案无独立品质字段,按等级映射展示品质——Lv1→3(精英蓝)/ Lv2→4(史诗紫)/ Lv3→5(传说橙),越高越亮。这是展示约定,可调,列 [§七 O7](#17-reward-display::open)。
 

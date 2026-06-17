@@ -2,13 +2,11 @@
 
 现状分析 · 游戏最核心、最值钱的系统。它让发牌「会读心」:你顺的时候偷偷加码,你快死的时候悄悄放水,永远把你按在「就差一点」的心流区。
 
-<div class="callout note">
-      <b>这套 DDA 是融合发牌的底层引擎(R4)</b>:8 算法与权重表即融合玩法的发牌底层。本篇通篇以 <code>Score</code> 为强度信号(决定 DDA 是否激活做局);融合后<mark>DDA 用哪个分量作强度信号</mark>是一个有安全默认的范围开关——默认以 <code>Score</code> 为信号(该量在融合里若恒低则 DDA 休眠在清屏窗口),可选改接经营进度量(让做局随经营推进激活)。信号源裁决与默认见 <a href="#29-gameplay-fusion::v8">29·§3.8</a> 与 <a href="#29-gameplay-fusion::decisions">29·§七#2</a>。
-    </div>
+> [!NOTE]
+> <b>这套 DDA 是融合发牌的底层引擎(R4)</b>:8 算法与权重表即融合玩法的发牌底层。本篇通篇以 <code>Score</code> 为强度信号(决定 DDA 是否激活做局);融合后<mark>DDA 用哪个分量作强度信号</mark>是一个有安全默认的范围开关——默认以 <code>Score</code> 为信号(该量在融合里若恒低则 DDA 休眠在清屏窗口),可选改接经营进度量(让做局随经营推进激活)。信号源裁决与默认见 <a href="#29-gameplay-fusion::v8">29·§3.8</a> 与 <a href="#29-gameplay-fusion::decisions">29·§七#2</a>。
 
-<div class="callout note">
-      <b>一句话原理:</b> 系统维护一个隐藏变量 <code>dynamicWeight</code>(可理解为「最近有多惯着你」的累加器)。喂你简单块 → 这个值升高 → 触发「做局」档发难块;喂你难块 → 值降低 → 触发「放水」档发简单块。<b>一根自动收紧又松开的橡皮筋。</b>
-    </div>
+> [!NOTE]
+> <b>一句话原理:</b> 系统维护一个隐藏变量 <code>dynamicWeight</code>(可理解为「最近有多惯着你」的累加器)。喂你简单块 → 这个值升高 → 触发「做局」档发难块;喂你难块 → 值降低 → 触发「放水」档发简单块。<b>一根自动收紧又松开的橡皮筋。</b>
 
 <h2 id="dispatch">一、调度总链路</h2>
 
@@ -69,9 +67,8 @@ flowchart TD
 | Diff 困难难题 | <span class="chip bad">做局</span> | −40 | −15 |
 | StraightDeathDiff 死亡难题 | <span class="chip bad">做局</span> | −80 | −30 |
 
-<div class="callout note">
-      「同向连续」增量比首次小:连续放水/连续做局时<b>力度衰减</b>,防止权重一路冲到底,让橡皮筋更柔和。权重最终会被 clamp 到配置表覆盖的真实区间内。
-    </div>
+> [!NOTE]
+> 「同向连续」增量比首次小:连续放水/连续做局时**力度衰减**,防止权重一路冲到底,让橡皮筋更柔和。权重最终会被 clamp 到配置表覆盖的真实区间内。
 
 <h3 id="weight-loop">闭环是怎么转起来的</h3>
 
@@ -120,9 +117,8 @@ flowchart LR
 | 6 | ClearAll 清盘 Plus | <span class="chip good">放水</span> | 棋盘格≥10 时,找一组能**一次清空全盘**的方块(大爽点) | 120 |
 | 7 | AllCombination 全组合 | <span class="chip good">放水</span> | 穷举落点找能消最多行列的组合(比 Fill 更激进) | 150 |
 
-<div class="callout note">
-      采样次数 = 算法的「努力程度」。<b>死亡难题 320 次</b>采样最舍得算力,因为「逼死你」比「放水」更难找到合适组合。这些数字目前<mark class="y">硬编码</mark>在 <code>BlockAlgorithms.cs</code>,<b>是一个可外置到配置表的调参入口</b>。
-    </div>
+> [!NOTE]
+> 采样次数 = 算法的「努力程度」。**死亡难题 320 次**采样最舍得算力,因为「逼死你」比「放水」更难找到合适组合。这些数字目前<mark class="y">硬编码</mark>在 <code>BlockAlgorithms.cs</code>,**是一个可外置到配置表的调参入口**。
 
 <h2 id="config">四、配置表结构(weightcfg)</h2>
 
@@ -162,7 +158,8 @@ odds 是相对权重(不必归一)。注意 **Easy 和 Intuition 这两列几乎
 
 <h2 id="review">五、策划视角点评 &amp; 可调参数</h2>
 
-<div class="callout good"><b>设计亮点:</b> 用一个隐藏标量 + 一张二维表(分数 × 权重)就实现了<mark class="g">平滑、自适应、玩家无感的动态难度</mark>,且把「难/易」拆成 8 种可独立调权的具体手法,调参空间极大。</div>
+> [!TIP]
+> <b>设计亮点:</b> 用一个隐藏标量 + 一张二维表(分数 × 权重)就实现了<mark class="g">平滑、自适应、玩家无感的动态难度</mark>,且把「难/易」拆成 8 种可独立调权的具体手法,调参空间极大。
 
 <div class="callout warn"><b>可优化 / 可调点:</b>
       <ul>

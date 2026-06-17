@@ -116,10 +116,10 @@ flowchart TD
 | `LocalConfigRedeemValidator` | <b>本轮做(默认)</b> | 本地 Luban `redeemcode` 配置表 | 离线可用:策划在配置表里登记码 → 奖励。运营码也写进表随热更下发([§3.1](#20-redeem-code-system::config)) |
 | `RemoteRedeemValidator` | <span class="no">stub + TODO</span> | (未来)后端接口 | 留空实现 + 抛 `NotImplementedException` 或返「校验源不可用」结果。未来上服务器时在此实现一次,`RedeemService` 零改动换注入([§七 O1](#20-redeem-code-system::open)) |
 
-<div class="callout note" style="margin-top:10px">
-    <b>为什么离线游戏还要做兑换码 + 服务器接缝?</b>
-    <p style="margin:6px 0 0">兑换码的常见用途是<b>运营发放</b>(节日礼包、公告补偿、玩家反馈奖励),与变现无关——离线还原版同样可用:策划把码与奖励写进配置表,随热更下发,玩家输码即得。<mark>服务器接缝是为了不让「未来可能上线的后端校验」与离线实现耦合</mark>:接口边界一次划清,本地实现先用,远程实现日后补,服务层与发奖层都不必返工。这与去变现方向不冲突——本系统不发可购买物,只发运营配置的奖励。</p>
-  </div>
+> [!NOTE]
+> <b>为什么离线游戏还要做兑换码 + 服务器接缝?</b>
+>
+> 兑换码的常见用途是**运营发放**(节日礼包、公告补偿、玩家反馈奖励),与变现无关——离线还原版同样可用:策划把码与奖励写进配置表,随热更下发,玩家输码即得。<mark>服务器接缝是为了不让「未来可能上线的后端校验」与离线实现耦合</mark>:接口边界一次划清,本地实现先用,远程实现日后补,服务层与发奖层都不必返工。这与去变现方向不冲突——本系统不发可购买物,只发运营配置的奖励。
 
 <h3 id="additive">2.3 加法式接入(复用既有发奖 + 持久化接缝)</h3>
 
@@ -157,10 +157,10 @@ flowchart TD
 | item\_id | int | c,s | 奖励道具 id(指向 `item.TbItemDef`,设计 16)。道具自己的 `use_effect` 决定落点(货币 / 图案 / 礼包) |
 | num | int | c,s | 奖励数量(传给 `ItemGrant.Resolve(def, num)`) |
 
-<div class="callout note" style="margin-top:8px">
-    <b>为什么奖励复用「道具 id × 数量」而非自定义奖励结构?</b>
-    <p style="margin:6px 0 0">道具系统(设计 16)已把「一件东西怎么发」收进 <code>item.TbItemDef.use_effect</code>:1=货币 / 2=图案 / 3=自选礼包 / 4=随机礼包 / 其余=纯持有。兑换码奖励只要引用道具 id,<mark>发什么、怎么落,全交给道具系统既有逻辑</mark>——不必在兑换码侧重新定义奖励类型,也避免两套奖励结构漂移。这与礼包(<code>gift_random</code>/<code>gift_select</code> 的 <code>item_id</code>)同构。</p>
-  </div>
+> [!NOTE]
+> <b>为什么奖励复用「道具 id × 数量」而非自定义奖励结构?</b>
+>
+> 道具系统(设计 16)已把「一件东西怎么发」收进 <code>item.TbItemDef.use_effect</code>:1=货币 / 2=图案 / 3=自选礼包 / 4=随机礼包 / 其余=纯持有。兑换码奖励只要引用道具 id,<mark>发什么、怎么落,全交给道具系统既有逻辑</mark>——不必在兑换码侧重新定义奖励类型,也避免两套奖励结构漂移。这与礼包(<code>gift_random</code>/<code>gift_select</code> 的 <code>item_id</code>)同构。
 
 <h3 id="poco">3.2 运行期 POCO + 桥接(RedeemCodeDef / RedeemReward)</h3>
 
@@ -400,15 +400,15 @@ sequenceDiagram
 | 8 | `Assets/Editor/Tests/BlockBlast/RedeemCodeSystemTests.cs` | 新建测试 | 覆盖配置桥接 / 校验器 / 去重往返 / 服务结果码 / 发奖产出([§六](#20-redeem-code-system::accept))。asmdef 已含 `GameLogic`+`GameProto`+`TEngine.Runtime` 引用,直接可达 |
 | — | `ItemGrant` / `ItemConfigMgr` / `Persistence` / 框架代码 | **不改** | 发奖 / 持久化复用既有接缝,只调用不修改 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>命名空间归属</b>
-    <p style="margin:6px 0 0">兑换码是<mark>通用系统</mark>(非 BlockBlast 玩法专属),服务 / 校验 / 去重命名空间用 <code>GameLogic.Redeem</code>(同 19 <code>GameLogic.Settings</code> 做法);配置桥接 <code>RedeemConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>ItemConfigMgr</code>/<code>NumericConfigMgr</code> 并列)。物理目录建议 <code>GameScripts/HotFix/GameLogic/Module/Redeem/</code>。发奖落点 <code>GrantPayload</code> 仍在 <code>GameLogic.BlockBlast.Item</code>(复用,不搬)。</p>
-  </div>
+> [!NOTE]
+> **命名空间归属**
+>
+> 兑换码是<mark>通用系统</mark>(非 BlockBlast 玩法专属),服务 / 校验 / 去重命名空间用 <code>GameLogic.Redeem</code>(同 19 <code>GameLogic.Settings</code> 做法);配置桥接 <code>RedeemConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>ItemConfigMgr</code>/<code>NumericConfigMgr</code> 并列)。物理目录建议 <code>GameScripts/HotFix/GameLogic/Module/Redeem/</code>。发奖落点 <code>GrantPayload</code> 仍在 <code>GameLogic.BlockBlast.Item</code>(复用,不搬)。
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 须按 numeric/item 先例处理配置验收</b>
-    <p style="margin:6px 0 0">运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../redeemcode.bytes)</code> → <code>new TbRedeemCode(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code>);纯逻辑(桥接 / 校验 / 去重 / 服务)经 <code>InitForTest</code> 注入 POCO 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。</p>
-  </div>
+> [!WARNING]
+> **dev 须按 numeric/item 先例处理配置验收**
+>
+> 运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../redeemcode.bytes)</code> → <code>new TbRedeemCode(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code>);纯逻辑(桥接 / 校验 / 去重 / 服务)经 <code>InitForTest</code> 注入 POCO 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。
 
 <h2 id="accept">六、验收点</h2>
 
@@ -437,10 +437,10 @@ sequenceDiagram
     <tr><td>R2</td><td>Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件;重点核「无真实网络 / HTTP 调用」「PlayerPrefs 非阻塞不触同步 IO」「发奖复用 16 不复制落点」)</td></tr>
   </tbody></table>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>不在本轮验收(boss 授权遗留)</b>
-    <p style="margin:6px 0 0">真实服务器校验(无网络模块)、兑换码输入窗口 + 结果弹窗 UI 视觉、奖励展示真实 Sprite、设置界面兑换码入口按钮接线 → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(远程校验),数据层不返工。</p>
-  </div>
+> [!WARNING]
+> <b>不在本轮验收(boss 授权遗留)</b>
+>
+> 真实服务器校验(无网络模块)、兑换码输入窗口 + 结果弹窗 UI 视觉、奖励展示真实 Sprite、设置界面兑换码入口按钮接线 → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(远程校验),数据层不返工。
 
 <h2 id="open">七、待拍板清单</h2>
 

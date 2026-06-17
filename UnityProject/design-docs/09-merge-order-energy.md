@@ -31,7 +31,8 @@
 | 资源约束 | 落子耗体力、消除返还、订单奖励补充——技巧驱动「会消除 → 玩得久」 |
 | 胜负 | 完成 N 单胜（demo 终点）/ 棋盘塞满 **或** 体力耗尽 GameOver |
 
-<div class="callout good"><b>被清元素的去向</b>：被清元素路由进合成区，成为合成与订单经济的输入。「消除→统计被清元素」逻辑是 <code>BlockGameState.HarvestClearedElements</code>，输出本次被清元素列表供合成区摄入。</div>
+> [!TIP]
+> **被清元素的去向**：被清元素路由进合成区，成为合成与订单经济的输入。「消除→统计被清元素」逻辑是 <code>BlockGameState.HarvestClearedElements</code>，输出本次被清元素列表供合成区摄入。
 
 <h2 id="loop">二、核心循环</h2>
 
@@ -85,7 +86,10 @@ flowchart TD
 - <b>交付（手动）</b>：当合成区满足某单要求（库存有 ≥数量 的对应 `(类型,等级)`），该单「交付」按钮点亮；点击 → 扣除对应合成物 → 发奖 → 该订单槽刷新下一单。手动交付保留玩家「先交哪单」的取舍，且交付时机清晰可测。
 - **奖励**：`体力 +8`（可溢出体力上限）+ `分数 = 等级 × 数量 × 50`（示例）。奖励数值为可调常量。
 - **锯齿波难度刷新**：保证<mark class="g">「难单之后必出简单单」</mark>，每次会话都有够得着的目标。难度量 `d(单) = 数量 × 2^(等级-1)`（= 折算基础元素数）。刷新时下一单难度在「低 / 高」之间交替振荡（锯齿波）。
-        <div class="callout note"><b>demo 简化实现</b>：用一张<b>手编循环订单池</b>预先编排好锯齿波节奏（如 易→易→中→易→难→易…），<code>NextOrder()</code> 顺序取下一项。完整的程序化锯齿波（依玩家进度动态算 <code>d</code> 并约束相邻单一高一低）规则写在本节，dev 先实现循环池版本即可满足闭环验收。</div>
+
+> [!NOTE]
+> **demo 简化实现**：用一张**手编循环订单池**预先编排好锯齿波节奏（如 易→易→中→易→难→易…），<code>NextOrder()</code> 顺序取下一项。完整的程序化锯齿波（依玩家进度动态算 <code>d</code> 并约束相邻单一高一低）规则写在本节，dev 先实现循环池版本即可满足闭环验收。
+
 - **体力瓶作为合成链产物**（浪漫餐厅模型，本作改造）：部分订单奖励可发一个「体力瓶」合成物，体力瓶本身可在合成区合并（瓶×2 → 大瓶），「使用」时回大额体力。**demo 范围内简化为奖励直接给体力**；体力瓶作为可合成奖励物列为文档化的后续项，避免拖累闭环。
 
 <h3 id="energy">3.3 体力（Energy）</h3>
@@ -217,7 +221,8 @@ flowchart TD
 | 复用 `UI/BlockBlastUI/GameOverWindow.cs` | 棋盘塞满 / 体力耗尽兜底；体力耗尽可传变体标题「精力耗尽」。 |
 | `UI/BlockBlastUI/MainMenuWindow.cs` | 加「合成订单 Demo」入口按钮 → 打开 `MergeOrderWindow`。 |
 
-<div class="callout note"><b>回归红线</b>：本切片全部新逻辑由 <code>MergeOrderMode</code> 门控。off 时 <code>BlockGameState</code> 的 Classic 落子/消除/补块/存档与现状<mark class="y">逐字节一致</mark>。Classic 回归测试必须通过。</div>
+> [!NOTE]
+> **回归红线**：本切片全部新逻辑由 <code>MergeOrderMode</code> 门控。off 时 <code>BlockGameState</code> 的 Classic 落子/消除/补块/存档与现状<mark class="y">逐字节一致</mark>。Classic 回归测试必须通过。
 
 <h2 id="scope">八、Demo 范围</h2>
 

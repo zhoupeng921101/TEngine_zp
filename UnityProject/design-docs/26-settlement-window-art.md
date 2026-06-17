@@ -81,10 +81,10 @@
 | ⑤ 重试按钮 | 黄色长条「重试」 | `button` 子图 + 文本「重试」 | ✓ `BtnAgain`(回调不动) |
 | ⑥ 返回按钮 | 木色长条「返回」 | `button` 子图 + 文本「返回」 | ✓ `BtnMenu`(回调不动) |
 
-<div class="callout note" style="margin-top:8px">
-    <b>注意：效果图无右上角 X 关闭按钮</b>
-    <p style="margin:6px 0 0">与设置窗 / 个人信息窗不同,结算窗<mark>没有 X 关闭、也没有「点遮罩关闭」</mark> —— 玩家必须从「重试 / 返回」二选一离开(结算是强制选择,不能随手关掉回到死局)。既有窗口本就<b>无遮罩点击关窗、无 X</b>(读 <code>GameOverWindow.cs</code> 确认),换皮<mark>保持这一交互</mark>:遮罩 <code>Mask</code> 是纯 Image(不挂 Button),不加 X。</p>
-  </div>
+> [!NOTE]
+> **注意：效果图无右上角 X 关闭按钮**
+>
+> 与设置窗 / 个人信息窗不同,结算窗<mark>没有 X 关闭、也没有「点遮罩关闭」</mark> —— 玩家必须从「重试 / 返回」二选一离开(结算是强制选择,不能随手关掉回到死局)。既有窗口本就**无遮罩点击关窗、无 X**(读 <code>GameOverWindow.cs</code> 确认),换皮<mark>保持这一交互</mark>:遮罩 <code>Mask</code> 是纯 Image(不挂 Button),不加 X。
 
 <h3 id="effigy-win">2.2 恭喜通关.png</h3>
 
@@ -100,10 +100,10 @@
 | ⑥ 下一关按钮 | 黄色长条「下一关」 | `button` + 文本「下一关」 | ✓ `BtnAgain`(回调不动,见下注) |
 | ⑦ 返回按钮 | 木色长条「返回」 | `button` + 文本「返回」 | ✓ `BtnMenu`(回调不动) |
 
-<div class="callout note" style="margin-top:8px">
-    <b>「下一关」按钮的文案 vs 回调语义（不改回调）</b>
-    <p style="margin:6px 0 0">效果图按钮写「下一关」,但既有 <code>BtnAgain</code> 回调是 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code>(<mark>重新进入合成订单 DEMO，重入即 ResetForMergeOrder</mark>,即「再来一局」)。合成订单 DEMO <b>无关卡序列概念</b>,「下一关」= 重新开一局。本轮<mark>只换文案显示、不改回调目标</mark>:文案取「再玩一局」/「下一关」(<a href="#26-settlement-window-art::open">§十一 B3</a> 待 boss 定文案,默认沿用「再来一局」语义安全),回调仍 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code> 不动。把按钮文案改成「下一关」却让它重开同一局,是<b>语义误导</b> —— 故默认偏向保「再来一局」文案,文案最终由 boss 拍。</p>
-  </div>
+> [!NOTE]
+> <b>「下一关」按钮的文案 vs 回调语义（不改回调）</b>
+>
+> 效果图按钮写「下一关」,但既有 <code>BtnAgain</code> 回调是 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code>(<mark>重新进入合成订单 DEMO，重入即 ResetForMergeOrder</mark>,即「再来一局」)。合成订单 DEMO **无关卡序列概念**,「下一关」= 重新开一局。本轮<mark>只换文案显示、不改回调目标</mark>:文案取「再玩一局」/「下一关」(<a href="#26-settlement-window-art::open">§十一 B3</a> 待 boss 定文案,默认沿用「再来一局」语义安全),回调仍 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code> 不动。把按钮文案改成「下一关」却让它重开同一局,是**语义误导** —— 故默认偏向保「再来一局」文案,文案最终由 boss 拍。
 
 <h2 id="way">三、reskin 方式：路 A（轻量换皮）选定</h2>
 
@@ -128,10 +128,10 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
     GameModule.UI.ShowUIAsync&lt;GameWindow&gt;();
 });</pre>
 
-<div class="callout note" style="margin-top:8px">
-    <b>贴子图后底色用白（让木纹原色透出）</b>
-    <p style="margin:6px 0 0">既有 <code>CreateImage</code> 给的是纯色(如 <code>0x222244</code> 深蓝)。<mark>换皮后该色须改 <code>Color.white</code></mark>(或保留 alpha 的白),否则木纹子图会被深色 <code>Image.color</code> 染暗。同理按钮 <code>bgColor</code> 改白。文本节点(标题 / 分数 / 按钮 label)的色按效果图调(标题深棕 <code>#b86a45</code> 系 / 分数白或深色),字体仍用 <code>UGuiFactory</code> 内置字体(本轮不引美术字体)。</p>
-  </div>
+> [!NOTE]
+> <b>贴子图后底色用白（让木纹原色透出）</b>
+>
+> 既有 <code>CreateImage</code> 给的是纯色(如 <code>0x222244</code> 深蓝)。<mark>换皮后该色须改 <code>Color.white</code></mark>(或保留 alpha 的白),否则木纹子图会被深色 <code>Image.color</code> 染暗。同理按钮 <code>bgColor</code> 改白。文本节点(标题 / 分数 / 按钮 label)的色按效果图调(标题深棕 <code>#b86a45</code> 系 / 分数白或深色),字体仍用 <code>UGuiFactory</code> 内置字体(本轮不引美术字体)。
 
 <h2 id="atlas">四、美术资产接入（复用 Sheet_settings，无新资源）</h2>
 
@@ -187,10 +187,10 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 | `BtnAgain`(PLAY AGAIN) | 换皮 / 改文案 | 底 `SetSubSprite(Atlas,"button")` + 底色白;label 改「重试」;<mark>onClick 回调一字不改</mark>(`CloseUI<GameOverWindow>` + `ShowUIAsync<GameWindow>`) |
 | `BtnMenu`(Back to Menu) | 换皮 / 改文案 | 底贴 `button`(或保透明,效果图「返回」是实心长条 → 贴 button);label 改「返回」;<mark>onClick 回调不改</mark>(`ShowUIAsync<MainMenuWindow>`) |
 
-<div class="callout warn" style="margin-top:8px">
-    <b>零回归红线（GameOverWindow 被两条路径复用）</b>
-    <p style="margin:6px 0 0"><code>GameOverWindow</code> 被 <mark>Classic(传 <code>previousHigh</code>)与 订单结束(传 <code>0</code>)</mark>两条路径调用。换皮<b>必须保留 <code>UserData is int p ? p : 0</code> 的解析</b> —— 订单结束传 <code>0</code> 时 <code>previousHigh=0</code>,<code>isNewBest = finalScore&gt;0 &amp;&amp; finalScore&gt;0</code> 仍成立。<mark>不得改 finalScore / high / isNewBest 的计算</mark>,否则两条路径的「新纪录」表现都会回归。验收 <a href="#26-settlement-window-art::regress">R1 / R2</a> 专核两条路径。</p>
-  </div>
+> [!WARNING]
+> <b>零回归红线（GameOverWindow 被两条路径复用）</b>
+>
+> <code>GameOverWindow</code> 被 <mark>Classic(传 <code>previousHigh</code>)与 订单结束(传 <code>0</code>)</mark>两条路径调用。换皮<b>必须保留 <code>UserData is int p ? p : 0</code> 的解析</b> —— 订单结束传 <code>0</code> 时 <code>previousHigh=0</code>,<code>isNewBest = finalScore&gt;0 &amp;&amp; finalScore&gt;0</code> 仍成立。<mark>不得改 finalScore / high / isNewBest 的计算</mark>,否则两条路径的「新纪录」表现都会回归。验收 <a href="#26-settlement-window-art::regress">R1 / R2</a> 专核两条路径。
 
 <h2 id="win">六、MergeOrderWinWindow 换皮（对位 恭喜通关.png）</h2>
 
@@ -282,10 +282,10 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
     <tr><td>R4</td><td><b>回调目标零回归</b>:三个按钮 onClick 目标窗未改 —— 重试→<code>GameWindow</code>;GameOver 返回→<code>MainMenuWindow</code>;再来一局→<code>MergeOrderWindow</code>;通关返回→<code>MainMenuWindow</code>(代码静态核对 §七图各条线)</td></tr>
   </tbody></table>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>R 组怎么 test：以静态核对 + 编译为主</b>
-    <p style="margin:6px 0 0">两窗的结算计算依赖 <code>BlockGameState.Instance</code> 运行期单例 + <code>UIWindow</code> 生命周期,EditMode 反射驱动 <code>OnCreate</code> 成本高。<mark>R 组主验收 = 编译 0 error(换皮未破坏类型 / 调用)+ test 逐条静态核对</mark>:① 两窗 <code>UserData</code> 解析行未改;② 结算计算行未改;③ 三处调用点传参未改;④ 三个按钮回调目标未改。这是「视觉换皮不碰逻辑」的可核对证据。R1–R4 是硬验收 —— 任一处逻辑被改即不通过(换皮越界)。</p>
-  </div>
+> [!WARNING]
+> **R 组怎么 test：以静态核对 + 编译为主**
+>
+> 两窗的结算计算依赖 <code>BlockGameState.Instance</code> 运行期单例 + <code>UIWindow</code> 生命周期,EditMode 反射驱动 <code>OnCreate</code> 成本高。<mark>R 组主验收 = 编译 0 error(换皮未破坏类型 / 调用)+ test 逐条静态核对</mark>:① 两窗 <code>UserData</code> 解析行未改;② 结算计算行未改;③ 三处调用点传参未改;④ 三个按钮回调目标未改。这是「视觉换皮不碰逻辑」的可核对证据。R1–R4 是硬验收 —— 任一处逻辑被改即不通过(换皮越界)。
 
 <h3 id="accept-play">8.2 视觉对位 / 真机（需 Play / 人眼，手验遗留）</h3>
 
@@ -323,10 +323,10 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 | B4 | 木板子图选哪张(box1 / base\_plate / …) | dev 读图选最贴效果图者([§4.2](#26-settlement-window-art::atlas-map) 推断 box1 / box2 / button) | 视觉为准,dev 落地核实 |
 | B5 | 「重试 / 下一关」黄条 vs「返回」木条是否用不同子图 | <b>同一张 <code>button</code></b>(切图无黄 / 木分态)+ 文本区分 | 切图若有黄 / 木两态按钮则分用;无则同图(默认) |
 
-<div class="callout note" style="margin-top:8px">
-    <b>自治分流说明</b>
-    <p style="margin:6px 0 0">D1–B5 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线<b>取默认推进、记 decisions、不入 blockers</b>(不停机)。其中 <b>D1</b>(装饰图标语义)是最值得 boss 关单复核的一项 —— 安全默认是装饰占位,真做与否需产品定义这些统计含义,但<mark>本轮不因它停机</mark>(占位即可交付完整换皮)。<b>本轮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b></p>
-  </div>
+> [!NOTE]
+> **自治分流说明**
+>
+> D1–B5 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(装饰图标语义)是最值得 boss 关单复核的一项 —— 安全默认是装饰占位,真做与否需产品定义这些统计含义,但<mark>本轮不因它停机</mark>(占位即可交付完整换皮)。<b>本轮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
 
 <h2 id="risk">十一、风险表</h2>
 

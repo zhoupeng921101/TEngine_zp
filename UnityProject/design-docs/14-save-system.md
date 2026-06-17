@@ -163,8 +163,8 @@ public sealed class MergeMetaSave
 | 生产(默认推荐) | YooAsset 沙盒 JSON 文件 | 路径 `{sandboxRoot}/blockblast_merge_meta_v1.json`。<mark>异步读写(UniTask)</mark>,满足红线;沙盒根取 TEngine/YooAsset 既有沙盒目录(dev 用 `unity_reflect` 核实确切 API,见 §五挂接点 O4) |
 | 生产(降级备选) | `PlayerPrefsProvider` | 若沙盒文件 API 接入成本高,可先沿用现有 `Persistence.Provider`(PlayerPrefs,与 BlockGameState 同款)兜底,键 `block_blast_merge_meta_v1`。PlayerPrefs 非阻塞 IO,不触红线;路径升级为独立轮次,见 [§七 O4](#14-save-system::open) |
 
-<div class="callout note">
-    <b>键 / 文件名带版本后缀 <code>_v1</code>:</b>与现有 <code>block_blast_save_v1</code> / <code>block_blast_dynamic_v1</code> 同款。后缀是「存储位置版本」(改它 = 旧档作废、全新位置),与 DTO 内 <code>version</code> 字段(同位置内的结构演进,走 §3.5 迁移)<mark>是两个层级</mark>:小改字段升 <code>version</code> 迁移,破坏性大改才换 <code>_v2</code> 文件名。</div>
+> [!NOTE]
+> <b>键 / 文件名带版本后缀 <code>_v1</code>:</b>与现有 <code>block_blast_save_v1</code> / <code>block_blast_dynamic_v1</code> 同款。后缀是「存储位置版本」(改它 = 旧档作废、全新位置),与 DTO 内 <code>version</code> 字段(同位置内的结构演进,走 §3.5 迁移)<mark>是两个层级</mark>:小改字段升 <code>version</code> 迁移,破坏性大改才换 <code>_v2</code> 文件名。
 
 <h3 id="async">3.3 异步 IO 与同步序列化的分界</h3>
 
@@ -173,8 +173,8 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 - <b>同步(纯逻辑,不碰磁盘):</b>`MergeOrderState.ExportMeta()` → DTO、`ImportMeta(DTO)` ← 覆盖字段、`MergeMetaPersistence.Serialize(DTO)` → string、`Deserialize(string)` → DTO、版本迁移、跨天判定。这些是内存内对象转换,<mark>单测直接同步断言,无需 async</mark>。
 - <b>异步(UniTask,落盘/读盘外壳):</b>`SaveAsync()` / `LoadAsync()` 包住「序列化 + 写文件」「读文件 + 反序列化」。写文件用 UniTask 异步文件 API(或把同步 PlayerPrefs 调用包进 `UniTask.RunOnThreadPool` / 直接 PlayerPrefs 非阻塞);读同理。失败(IO 异常 / 文件不存在 / 解析失败)吞掉并返回「无存档」走缺省,仿现有 `BlockGameState.Load` 的 try-catch 兜底。
 
-<div class="callout warn">
-    <b>测试与磁盘解耦(硬约束):</b>单测<mark>只测同步序列化层 + InMemory Provider 往返</mark>,不测真实文件 IO(EditMode 不应碰沙盒文件,且 UniTask 异步在 EditMode 测试中麻烦)。验收锚点(§六)全部落在 <code>ExportMeta</code>/<code>ImportMeta</code>/<code>Serialize</code>/<code>Deserialize</code>/迁移/跨天这些<b>同步纯方法</b>上。异步落盘外壳由 dev 在工程内编译通过即可,不强求单测覆盖(异步文件 IO 的正确性靠 PlayMode / 人工冒烟,非本轮 EditMode 验收范围)。</div>
+> [!WARNING]
+> <b>测试与磁盘解耦(硬约束):</b>单测<mark>只测同步序列化层 + InMemory Provider 往返</mark>,不测真实文件 IO(EditMode 不应碰沙盒文件,且 UniTask 异步在 EditMode 测试中麻烦)。验收锚点(§六)全部落在 <code>ExportMeta</code>/<code>ImportMeta</code>/<code>Serialize</code>/<code>Deserialize</code>/迁移/跨天这些**同步纯方法**上。异步落盘外壳由 dev 在工程内编译通过即可,不强求单测覆盖(异步文件 IO 的正确性靠 PlayMode / 人工冒烟,非本轮 EditMode 验收范围)。
 
 <b>MergeOrderState 仍是纯逻辑类:</b>`ExportMeta`/`ImportMeta` 是纯方法(无 IO、无 UniTask);异步 IO 留在 `MergeMetaPersistence`(存储层)与窗口侧。`MergeOrderState` 不 `using` UniTask,保持可在纯 C# 单测里直接 new 出来跑(继承现状)。
 

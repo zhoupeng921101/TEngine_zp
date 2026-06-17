@@ -272,7 +272,27 @@
     ids.forEach(function (id) { const el = document.getElementById(id); if (el) tocObserver.observe(el); });
   }
 
+  // marked 扩展:GFM 提示块 `> [!NOTE]/[!WARNING]/[!TIP]` → callout div(marked 不原生支持)
+  // 向后兼容:正文里现存的裸 <div class="callout"> 不经此,marked 原样透传,继续按 CSS 渲染
+  function setupMarkedAlerts() {
+    if (!window.marked || !marked.use) return;
+    const map = { NOTE: 'note', WARNING: 'warn', WARN: 'warn', CAUTION: 'warn', TIP: 'good', GOOD: 'good', IMPORTANT: 'note' };
+    marked.use({
+      renderer: {
+        blockquote(token) {
+          const inner = this.parser.parse(token.tokens);
+          const m = inner.match(/^\s*<p>\[!(\w+)\]/i);
+          if (!m) return '<blockquote>' + inner + '</blockquote>\n';
+          const cls = map[m[1].toUpperCase()] || 'note';
+          const body = inner.replace(/^\s*<p>\[!\w+\][ \t]*(<br\s*\/?>)?\s*/i, '<p>').replace(/<p>\s*<\/p>/g, '');
+          return '<div class="callout ' + cls + '">' + body + '</div>\n';
+        }
+      }
+    });
+  }
+
   // ---------- 启动 ----------
+  setupMarkedAlerts();
   buildSidebar();
   buildCards();
   window.addEventListener('hashchange', route);

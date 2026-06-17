@@ -152,9 +152,8 @@ flowchart TD
 | compensate\_email | int | c,s | 补偿邮件(邮件 id) | stub O5(邮件未建) |
 | jump\_list | (array#sep=,),int | c,s | 获取跳转列表 | 进表不接 UI O7 |
 
-<div class="callout">
-    <b>字段补充说明(为何拆 use_value / use_num / use_level):</b>spec 把「使用效果」浓缩成一个 <code>UseEffect</code>(1–4)+「参数」字段,但实际「获取 5000 经验」「获取 3 个 Lv2 钻石图案」需要<b>目标 id + 数量 + 等级</b>三段信息,单一「参数」字段表达不下。拆成 <code>use_value</code>(目标 id)/ <code>use_num</code>(数量)/ <code>use_level</code>(图案等级)三列,语义清晰、Luban 可校验。spec 原「参数」字段(<code>param</code>)保留,语义收窄为「礼包奖励数量 / 开启次数」(UseEffect=3/4 时用),避免与 use_num 混淆。<b>这是设计补充,非偏离 spec——spec 字段全部保留,只是把过载的「参数」拆清。</b>列入 <a href="#16-item-system::open">§七 O2</a> 供 boss 确认。
-  </div>
+> [!NOTE]
+> <b>字段补充说明(为何拆 use_value / use_num / use_level):</b>spec 把「使用效果」浓缩成一个 <code>UseEffect</code>(1–4)+「参数」字段,但实际「获取 5000 经验」「获取 3 个 Lv2 钻石图案」需要**目标 id + 数量 + 等级**三段信息,单一「参数」字段表达不下。拆成 <code>use_value</code>(目标 id)/ <code>use_num</code>(数量)/ <code>use_level</code>(图案等级)三列,语义清晰、Luban 可校验。spec 原「参数」字段(<code>param</code>)保留,语义收窄为「礼包奖励数量 / 开启次数」(UseEffect=3/4 时用),避免与 use_num 混淆。<b>这是设计补充,非偏离 spec——spec 字段全部保留,只是把过载的「参数」拆清。</b>列入 <a href="#16-item-system::open">§七 O2</a> 供 boss 确认。
 
 <h3 id="enum">3.3 品质 / 类型枚举 + 样例数据</h3>
 

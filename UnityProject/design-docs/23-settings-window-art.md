@@ -78,10 +78,10 @@
 | ④ 上面板(社交 + 4 长条) | 大木板:左上「关注我们」+ 5 个社交圆标一行;下方 4 个长条按钮(联系我们 / 更多游戏 / 语言切换 / 退出登录) | 底板 `base_plate` / `base_plate2`;社交 `facebook` `twitter` `x` `youtube` `instagram`;长条底 `button`;条内图标 `chat`(联系)`game`(更多游戏)`language`(语言)`exit`(退出) | `Image` ×N + `Button` ×9 |
 | ⑤ 下面板(5 图标按钮) | 小木板:一排 5 个图标按钮(清除存档 / 音效设置 / 通知设置 / 帮助设置 / 隐私设置) | 底板 `base_plate3` / `box1` / `box2`;图标 `clear`(清存档)`Player_music` 或 `Volume_up`(音效)`printer` 或 `chat`(通知)`help`(帮助)`setting`(隐私 / 兜底) | `Button` ×5(其中音效用 `Toggle` 或双态 `Image`) |
 
-<div class="callout note" style="margin-top:8px">
-    <b>切图与功能的对应须 dev 读图二次核实</b>
-    <p style="margin:6px 0 0">22 张切图的命名(<code>chat</code> / <code>game</code> / <code>printer</code> / <code>Volume_up</code> 等)与效果图上 9 个功能位的对应,上表是<mark>按图名推断</mark>。dev 落地时<b>对照 <code>setting.png</code> 与切图缩略图逐一核实</b>(哪张是哪个按钮的面),把最终「子图名 → 功能位」映射写进 prefab 节点 + 窗口脚本注释。子图名取<b>切图文件名(不含扩展名)</b>——<code>SetSubSprite</code> 的 <code>spriteName</code> 即图集内每张子图的精灵名,等于源 PNG 文件名。</p>
-  </div>
+> [!NOTE]
+> **切图与功能的对应须 dev 读图二次核实**
+>
+> 22 张切图的命名(<code>chat</code> / <code>game</code> / <code>printer</code> / <code>Volume_up</code> 等)与效果图上 9 个功能位的对应,上表是<mark>按图名推断</mark>。dev 落地时<b>对照 <code>setting.png</code> 与切图缩略图逐一核实</b>(哪张是哪个按钮的面),把最终「子图名 → 功能位」映射写进 prefab 节点 + 窗口脚本注释。子图名取<b>切图文件名(不含扩展名)</b>——<code>SetSubSprite</code> 的 <code>spriteName</code> 即图集内每张子图的精灵名,等于源 PNG 文件名。
 
 <h2 id="atlas">三、美术资产接入(每屏一图集 + SetSubSprite)</h2>
 
@@ -178,15 +178,15 @@ prefab 与图集分别被两个现有组收录,dev 落地后在收集器界面�
       ├─ m_btn_Help                    Button  图标按钮"帮助设置"; 子图 help
       └─ m_btn_Privacy                 Button  图标按钮"隐私设置"; 子图 setting(兜底)</div>
 
-<div class="callout note" style="margin-top:8px">
-    <b>静态节点 vs 动态节点</b>
-    <p style="margin:6px 0 0">本窗<b>全是静态节点</b>(prefab 直接摆好,无列表 / 无运行期增删)——这是它适合当「第一个换皮试验」的原因之一,不涉及 <code>AdjustIconNum</code> / Widget 列表复用。唯一会运行期变的是<b>音效开关态</b>(<code>m_toggle_Sound</code> 的勾选 / 图标),由 <code>OnRefresh</code> 读 <code>SettingsService.Audio.SoundOn</code> 刷新(<a href="#23-settings-window-art::window">§六</a>)。</p>
-  </div>
+> [!NOTE]
+> **静态节点 vs 动态节点**
+>
+> 本窗**全是静态节点**(prefab 直接摆好,无列表 / 无运行期增删)——这是它适合当「第一个换皮试验」的原因之一,不涉及 <code>AdjustIconNum</code> / Widget 列表复用。唯一会运行期变的是**音效开关态**(<code>m_toggle_Sound</code> 的勾选 / 图标),由 <code>OnRefresh</code> 读 <code>SettingsService.Audio.SoundOn</code> 刷新(<a href="#23-settings-window-art::window">§六</a>)。
 
-<div class="callout note" style="margin-top:8px">
-    <b>音效开关用 Toggle 还是双态 Image?</b>
-    <p style="margin:6px 0 0">效果图下排「音效设置」是一个图标按钮,不是标准 Toggle 外观。两种实现:<b>(默认推荐)</b> 用 <code>m_toggle_Sound</code>(<code>Toggle</code>),<code>onValueChanged</code> 接 <code>SettingsService.SetSound</code>,勾选态用图标颜色 / 替换子图体现(开 <code>Volume_up</code>、关一个带斜杠的静音图——切图若无静音版则降级为开图 + 半透明)。<b>(备选)</b> 用 <code>m_btn_Sound</code>(<code>Button</code>)+ 点击 <code>ToggleSound()</code> + 自己刷图标。两者验收等价(都经 <code>SettingsService</code> 持久化),Toggle 更贴框架范式,取 Toggle 为默认。dev 落地时若切图缺静音态图,在脚本里以 <code>color</code> 区分开 / 关并留 TODO 待美术补静音图。</p>
-  </div>
+> [!NOTE]
+> <b>音效开关用 Toggle 还是双态 Image?</b>
+>
+> 效果图下排「音效设置」是一个图标按钮,不是标准 Toggle 外观。两种实现:<b>(默认推荐)</b> 用 <code>m_toggle_Sound</code>(<code>Toggle</code>),<code>onValueChanged</code> 接 <code>SettingsService.SetSound</code>,勾选态用图标颜色 / 替换子图体现(开 <code>Volume_up</code>、关一个带斜杠的静音图——切图若无静音版则降级为开图 + 半透明)。<b>(备选)</b> 用 <code>m_btn_Sound</code>(<code>Button</code>)+ 点击 <code>ToggleSound()</code> + 自己刷图标。两者验收等价(都经 <code>SettingsService</code> 持久化),Toggle 更贴框架范式,取 Toggle 为默认。dev 落地时若切图缺静音态图,在脚本里以 <code>color</code> 区分开 / 关并留 TODO 待美术补静音图。
 
 <h2 id="holder">五、SettingsService 运行期持有者(基础设施决定)</h2>
 
@@ -238,10 +238,10 @@ GameContext.Instance.Settings.AudioSink = (musicOn, soundOn) =&gt;
 };
 GameContext.Instance.Settings.Apply();   // 把已加载的态立即应用一次（可选；§六 OnRefresh 也会应用）</pre>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>待拍板(B1):GameContext 是否本轮就引入,还是先用方案 A 最小化?</b>
-    <p style="margin:6px 0 0">引入 <code>GameContext</code> 是个会被后续多个系统依赖的基础设施决定。<b>安全默认 = 引入 B</b>(它很薄、可逆——后续不想要可把成员摊回各单例),已按默认在本稿铺开。但这是「影响后续多系统的基础设施」,<mark>boss / 用户若倾向先用方案 A(只给 SettingsService 套单例)把试验做最小,再观察是否值得抽 GameContext</mark>,可改 —— 列入待拍板交 boss 复核(<a href="#23-settings-window-art::open">§十一 B1</a>)。两者对本窗验收等价(窗口都能拿到一个持久的 <code>SettingsService</code>)。</p>
-  </div>
+> [!WARNING]
+> <b>待拍板(B1):GameContext 是否本轮就引入,还是先用方案 A 最小化?</b>
+>
+> 引入 <code>GameContext</code> 是个会被后续多个系统依赖的基础设施决定。**安全默认 = 引入 B**(它很薄、可逆——后续不想要可把成员摊回各单例),已按默认在本稿铺开。但这是「影响后续多系统的基础设施」,<mark>boss / 用户若倾向先用方案 A(只给 SettingsService 套单例)把试验做最小,再观察是否值得抽 GameContext</mark>,可改 —— 列入待拍板交 boss 复核(<a href="#23-settings-window-art::open">§十一 B1</a>)。两者对本窗验收等价(窗口都能拿到一个持久的 <code>SettingsService</code>)。
 
 <h2 id="window">六、窗口脚本设计(SettingsWindow)</h2>
 
@@ -345,10 +345,10 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 | 关闭(X) | 右上角 `m_btn_Close` | `CloseUI<SettingsWindow>()` |
 | 关闭(遮罩) | `m_btn_Mask` 全屏遮罩点击 | 同上。<mark>遮罩 Button 须在节点树最底(z 序最先),面板内容盖在其上</mark>,点面板不穿透关窗。 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>为什么入口先落主菜单而非玩法 HUD</b>
-    <p style="margin:6px 0 0">主菜单 <code>MainMenuWindow</code> 改动面最小(加一个按钮),先打通「能开 → 能关 → 能切音效」的闭环;玩法内顶栏 HUD 入口(效果图顶栏齿轮)涉及 HUD 容器,留后续轮次或本轮 dev 行有余力时一并接。验收只要求<b>能从某个入口打开</b>(<a href="#23-settings-window-art::accept">§九 V1</a>)。</p>
-  </div>
+> [!NOTE]
+> **为什么入口先落主菜单而非玩法 HUD**
+>
+> 主菜单 <code>MainMenuWindow</code> 改动面最小(加一个按钮),先打通「能开 → 能关 → 能切音效」的闭环;玩法内顶栏 HUD 入口(效果图顶栏齿轮)涉及 HUD 容器,留后续轮次或本轮 dev 行有余力时一并接。验收只要求**能从某个入口打开**(<a href="#23-settings-window-art::accept">§九 V1</a>)。
 
 <h2 id="accept">九、验收点</h2>
 
@@ -377,10 +377,10 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 | V4 | 不破坏 Classic / Merge 主玩法:开 / 关设置窗前后,玩法窗正常,棋盘 / 落子 / 得分无异常 | 玩法渲染可截图;拖拽落子手感沿用既有手验遗留 |
 | V5 | 占位按钮点击有「待建」反馈、不报错 / 不死按钮;协议 / 隐私按钮能 `OpenURL` 打开占位页 | 反馈 Toast 可截图;OpenURL 真机验 |
 
-<div class="callout warn" style="margin-top:8px">
-    <b>本轮的「链路打通」标志(给 boss 关单判据)</b>
-    <p style="margin:6px 0 0">V2 是本轮成败的核心:只要 <mark>SetSubSprite 能从 Atlas_settings 取到子图并显示在窗口上</mark>(哪怕只截图证明一两张图正确贴出),就证明「切图 → 图集 → 收集器寻址 → SetSubSprite → 显示」整条链路通,模板成立。其余按钮接线 / 占位是模板的填充内容,链路通了即可复制到后续界面。</p>
-  </div>
+> [!WARNING]
+> <b>本轮的「链路打通」标志(给 boss 关单判据)</b>
+>
+> V2 是本轮成败的核心:只要 <mark>SetSubSprite 能从 Atlas_settings 取到子图并显示在窗口上</mark>(哪怕只截图证明一两张图正确贴出),就证明「切图 → 图集 → 收集器寻址 → SetSubSprite → 显示」整条链路通,模板成立。其余按钮接线 / 占位是模板的填充内容,链路通了即可复制到后续界面。
 
 <h2 id="hook">十、dev 改动清单</h2>
 

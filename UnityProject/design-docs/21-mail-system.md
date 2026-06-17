@@ -143,10 +143,10 @@ spec 的 5 条 demo 行(`id 1–5` / title=mailName\_1..5 / desc=mailDesc\_1..5 
 | max\_count | int | 100 | 收件箱总上限 N:超过按发件时间删最早(spec「未领取数>N 删最早 / 总上限 N」) |
 | retain\_days | int | 30 | 默认保留天数(spec「保留期默认一月」)。邮件自身 expire\_days>0 时优先用邮件的;否则用本值 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>为什么奖励复用「礼包随机库 id」而非道具 id 列表?</b>
-    <p style="margin:6px 0 0">spec 的邮件配置表第 5 列原文是「<code>Reward表id(奖励随机库表id)</code>」——指向<mark>一个随机奖励库</mark>,不是单个道具。道具系统(设计 16)已有 <code>gift_random</code> 礼包随机库:一个 index 对应一组带权重的 <code>GiftEntry(ItemId/Num/Rate)</code>。邮件附件直接引用库 id,领取时经 <code>GiftOpener.OpenRandom(reward_id, 1, rng)</code> 抽出实物,再经 <code>ItemGrant</code> 落点。<mark>发什么、按什么权重、怎么落,全交给道具系统既有逻辑</mark>——不必在邮件侧重定义奖励结构,也避免两套漂移。这与兑换码(设计 20)走「道具 id × 数量」是<b>同源不同入口</b>:邮件走库表(spec 如此),兑换码走道具项,二者最终都汇到 <code>ItemGrant</code>。</p>
-  </div>
+> [!NOTE]
+> <b>为什么奖励复用「礼包随机库 id」而非道具 id 列表?</b>
+>
+> spec 的邮件配置表第 5 列原文是「<code>Reward表id(奖励随机库表id)</code>」——指向<mark>一个随机奖励库</mark>,不是单个道具。道具系统(设计 16)已有 <code>gift_random</code> 礼包随机库:一个 index 对应一组带权重的 <code>GiftEntry(ItemId/Num/Rate)</code>。邮件附件直接引用库 id,领取时经 <code>GiftOpener.OpenRandom(reward_id, 1, rng)</code> 抽出实物,再经 <code>ItemGrant</code> 落点。<mark>发什么、按什么权重、怎么落,全交给道具系统既有逻辑</mark>——不必在邮件侧重定义奖励结构,也避免两套漂移。这与兑换码(设计 20)走「道具 id × 数量」是**同源不同入口**:邮件走库表(spec 如此),兑换码走道具项,二者最终都汇到 <code>ItemGrant</code>。
 
 <h3 id="poco">3.2 运行期 POCO + 桥接(MailDef / MailGlobalConfig / MailConfigMgr)</h3>
 
@@ -514,15 +514,15 @@ sequenceDiagram
 | 8 | `Assets/Editor/Tests/BlockBlast/MailSystemTests.cs` | 新建测试 | 覆盖配置桥接 / 收件 / 排序 / 读 / 领单+一键 / 删 / 清理超N+过期 / 红点 / 持久化往返 / 发奖产出([§六](#21-mail-system::accept))。asmdef 已含 `GameLogic`+`GameProto`+`TEngine.Runtime` 引用,直接可达 |
 | — | `GiftOpener` / `ItemGrant` / `ItemConfigMgr` / `Persistence` / 框架代码 | **不改** | 发奖 / 持久化复用既有接缝,只调用不修改 |
 
-<div class="callout note" style="margin-top:8px">
-    <b>命名空间归属</b>
-    <p style="margin:6px 0 0">邮件是<mark>通用系统</mark>(非 BlockBlast 玩法专属),模型 / 服务 / 接缝命名空间用 <code>GameLogic.Mail</code>(同 20 <code>GameLogic.Redeem</code> 做法);配置桥接 <code>MailConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>ItemConfigMgr</code> 并列)。物理目录建议 <code>GameScripts/HotFix/GameLogic/Module/Mail/</code>。发奖落点 <code>GiftOpener</code>/<code>ItemGrant</code>/<code>GrantPayload</code> 仍在 <code>GameLogic.BlockBlast.Item</code>(复用,不搬)。</p>
-  </div>
+> [!NOTE]
+> **命名空间归属**
+>
+> 邮件是<mark>通用系统</mark>(非 BlockBlast 玩法专属),模型 / 服务 / 接缝命名空间用 <code>GameLogic.Mail</code>(同 20 <code>GameLogic.Redeem</code> 做法);配置桥接 <code>MailConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>ItemConfigMgr</code> 并列)。物理目录建议 <code>GameScripts/HotFix/GameLogic/Module/Mail/</code>。发奖落点 <code>GiftOpener</code>/<code>ItemGrant</code>/<code>GrantPayload</code> 仍在 <code>GameLogic.BlockBlast.Item</code>(复用,不搬)。
 
-<div class="callout warn" style="margin-top:8px">
-    <b>dev 须按 numeric/item/redeem 先例处理配置验收</b>
-    <p style="margin:6px 0 0">运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../mail.bytes)</code> → <code>new TbMail(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code>);纯逻辑(桥接 / 模型 / 服务 / 持久化 / 清理)经 <code>InitForTest</code> + <code>InMemoryMailPersistence</code> + 注入 <code>NowProvider</code> 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。<b>导表须带环境变量 <code>DOTNET_ROLL_FORWARD=Major</code></b>(本机无 .NET 7 runtime,见 boss 遗留 #18)。</p>
-  </div>
+> [!WARNING]
+> **dev 须按 numeric/item/redeem 先例处理配置验收**
+>
+> 运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../mail.bytes)</code> → <code>new TbMail(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code>);纯逻辑(桥接 / 模型 / 服务 / 持久化 / 清理)经 <code>InitForTest</code> + <code>InMemoryMailPersistence</code> + 注入 <code>NowProvider</code> 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。<b>导表须带环境变量 <code>DOTNET_ROLL_FORWARD=Major</code></b>(本机无 .NET 7 runtime,见 boss 遗留 #18)。
 
 <h2 id="accept">六、验收点</h2>
 
@@ -557,10 +557,10 @@ sequenceDiagram
     <tr><td>R2</td><td>Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件;重点核「无真实网络 / HTTP 调用」「PlayerPrefs/JsonUtility 非阻塞不触同步 IO」「发奖复用 16 不复制落点」「持久化复用既有 Provider 不另造存储栈」)</td></tr>
   </tbody></table>
 
-<div class="callout warn" style="margin-top:8px">
-    <b>不在本轮验收(boss 授权遗留)</b>
-    <p style="margin:6px 0 0">真实服务器后台发删/定时邮件(无网络模块)、区服多选(离线单区)、邮件界面+详情+无邮件态+全部删除二次确认 UI 视觉、红点显示、邮件 icon、奖励展示真实 Sprite、主界面邮件入口接线 → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(服务器),数据层不返工。</p>
-  </div>
+> [!WARNING]
+> <b>不在本轮验收(boss 授权遗留)</b>
+>
+> 真实服务器后台发删/定时邮件(无网络模块)、区服多选(离线单区)、邮件界面+详情+无邮件态+全部删除二次确认 UI 视觉、红点显示、邮件 icon、奖励展示真实 Sprite、主界面邮件入口接线 → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(服务器),数据层不返工。
 
 <h2 id="open">七、待拍板清单</h2>
 

@@ -54,7 +54,8 @@ flowchart LR
 2. 窗口里**点对应组件按钮** → 组件挂上(控件自动补 Image 作 targetGraphic)
 3. 在 **Inspector** 里连具体引用(spriteState、fill/handle、content…)
 
-<div class="callout note"><b>为什么不自动连:</b>角色识别要么靠命名(不可靠),要么靠缩略图手点(每控件多步)。直接在 Inspector 连这些引用,是程序<mark class="g">最熟、最快、最可控</mark>的路径——工具只省「挂组件 + 补 targetGraphic」这点重复劳动即可。</div>
+> [!NOTE]
+> <b>为什么不自动连:</b>角色识别要么靠命名(不可靠),要么靠缩略图手点(每控件多步)。直接在 Inspector 连这些引用,是程序<mark class="g">最熟、最快、最可控</mark>的路径——工具只省「挂组件 + 补 targetGraphic」这点重复劳动即可。
 
 <h2 id="rules">四、挂载规则</h2>
 

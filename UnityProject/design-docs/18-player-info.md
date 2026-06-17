@@ -117,7 +117,8 @@ flowchart TD
     <tr><td>钻石扣费</td><td colspan="2">扣减经数值路径尝试;钻石<span class="no">无</span>余额字段(item-system 现状)时为 no-op,逻辑层照样可测(<a href="#18-player-info::name">§3.2</a>)</td></tr>
   </tbody></table>
 
-<div class="callout note"><b>加法式的回归保证:</b>不进入玩家信息服务、不读玩家字段时,既有玩法行为与本篇前完全一致。玩家信息全部是新增文件 + 新增表 + DTO 加字段(JsonUtility 旧档缺字段自动给缺省,ImportMeta 逐字段保底)。唯一碰旧文件的是 <code>MergeMetaSave</code>(加字段)与 <code>ExportMeta/ImportMeta</code>(加拷贝行)——若选 <a href="#18-player-info::persist">§3.8</a> 的「独立子对象」做法,连这两处都只是新增,既有字段一行不动。</div>
+> [!NOTE]
+> <b>加法式的回归保证:</b>不进入玩家信息服务、不读玩家字段时,既有玩法行为与本篇前完全一致。玩家信息全部是新增文件 + 新增表 + DTO 加字段(JsonUtility 旧档缺字段自动给缺省,ImportMeta 逐字段保底)。唯一碰旧文件的是 <code>MergeMetaSave</code>(加字段)与 <code>ExportMeta/ImportMeta</code>(加拷贝行)——若选 <a href="#18-player-info::persist">§3.8</a> 的「独立子对象」做法,连这两处都只是新增,既有字段一行不动。
 
 <h2 id="numbers">三、设计正文</h2>
 
@@ -154,7 +155,8 @@ public const int DefaultFrameId  = 101; // 初始默认头像框（表里框类�
 
 <b>首次创建(无存档时):</b>`PlayerInfo.CreateDefault(rng)` = 新 id + 生成系统名 + RenameCount=0 + Exp=0 + 默认头像/框 + 已解锁集合含默认头像/框(初始即拥有)。
 
-<div class="callout note"><b>已解锁集合为何用 <code>int[]</code> 而非 <code>HashSet</code>:</b>与 <code>MergeMetaSave</code> 同源约束——JsonUtility <b>不</b>序列化 <code>HashSet</code>/<code>Dictionary</code>,但序列化 <code>int[]</code>。运行期服务内部可临时转 <code>HashSet</code> 做查重(<code>Contains</code>),落盘前转回 <code>int[]</code>。这是设计 14「Dictionary 不进盘故无需拍平」的同款落法,避免引入新的拍平字段。</div>
+> [!NOTE]
+> <b>已解锁集合为何用 <code>int[]</code> 而非 <code>HashSet</code>:</b>与 <code>MergeMetaSave</code> 同源约束——JsonUtility **不**序列化 <code>HashSet</code>/<code>Dictionary</code>,但序列化 <code>int[]</code>。运行期服务内部可临时转 <code>HashSet</code> 做查重(<code>Contains</code>),落盘前转回 <code>int[]</code>。这是设计 14「Dictionary 不进盘故无需拍平」的同款落法,避免引入新的拍平字段。
 
 <h3 id="name">3.2 名字生成器 + 改名逻辑</h3>
 
@@ -203,9 +205,11 @@ RenameResult TryRename(PlayerInfo p, string newName, IReadOnlyCollection&lt;stri
 | <b>(a) 默认 · 固定价常量</b> | `const int RENAME_PRICE = 100`(钻石),首次后每次同价 | 0次→免费;1次→100;2次→100;N次→100 |
 | (b) 分档递增 | 读配置档位(如 100/200/500…) | 0→免费;1→100;2→200;3+→500(示意) |
 
-<div class="callout note"><b>默认选 (a) 固定价 100:</b>spec 只说「读配置价格」,未给具体数值或递增规则;固定价是最小可用、可单测、可后续改成分档(把常量换成查表即可)。<mark>价格放进配置常量</mark>(<code>RenamePriceConfig.RENAME_PRICE</code>),后续要分档或接 Luban 表是局部替换,不动 <code>TryRename</code> 逻辑。验收只断言「首次 cost=0、之后 cost=配置价、扣费失败则不改名」,不绑死具体数字。</div>
+> [!NOTE]
+> <b>默认选 (a) 固定价 100:</b>spec 只说「读配置价格」,未给具体数值或递增规则;固定价是最小可用、可单测、可后续改成分档(把常量换成查表即可)。<mark>价格放进配置常量</mark>(<code>RenamePriceConfig.RENAME_PRICE</code>),后续要分档或接 Luban 表是局部替换,不动 <code>TryRename</code> 逻辑。验收只断言「首次 cost=0、之后 cost=配置价、扣费失败则不改名」,不绑死具体数字。
 
-<div class="callout warn"><b>钻石扣费的真实现状(经 grep 核实,逻辑可测但生产为 no-op):</b>钻石 <code>num_id=3</code> 在工程<mark>无可花费余额字段</mark>——<code>ItemGrant.ApplyNumeric</code> 对钻石走 default 分支返 <code>false</code>(item-system 关单遗留 #19 同此现状),<code>MergeOrderState</code> 无 Diamond 字段。故 <code>trySpendDiamond</code> 的生产实现当前<b>无真实余额可扣</b>:可选(a)生产侧暂返 <code>true</code>(改名直接成功,等价「钻石未实装则不拦」,符合去变现:不靠钻石设付费墙);或(b)返 <code>false</code>(改名收费档一律拒)。<mark>默认 (a)</mark>——去变现方向下不该用钻石卡改名;待钻石实装为可花费余额(后续轮),把 <code>trySpendDiamond</code> 接到真实扣减即可,<code>TryRename</code> 逻辑不返工。<b>单测</b>用 stub 回调(可控返 true/false)断言两条分支,不依赖钻石实装。</div>
+> [!WARNING]
+> <b>钻石扣费的真实现状(经 grep 核实,逻辑可测但生产为 no-op):</b>钻石 <code>num_id=3</code> 在工程<mark>无可花费余额字段</mark>——<code>ItemGrant.ApplyNumeric</code> 对钻石走 default 分支返 <code>false</code>(item-system 关单遗留 #19 同此现状),<code>MergeOrderState</code> 无 Diamond 字段。故 <code>trySpendDiamond</code> 的生产实现当前**无真实余额可扣**:可选(a)生产侧暂返 <code>true</code>(改名直接成功,等价「钻石未实装则不拦」,符合去变现:不靠钻石设付费墙);或(b)返 <code>false</code>(改名收费档一律拒)。<mark>默认 (a)</mark>——去变现方向下不该用钻石卡改名;待钻石实装为可花费余额(后续轮),把 <code>trySpendDiamond</code> 接到真实扣减即可,<code>TryRename</code> 逻辑不返工。**单测**用 stub 回调(可控返 true/false)断言两条分支,不依赖钻石实装。
 
 <h3 id="profanity">3.3 屏蔽字匹配</h3>
 
@@ -228,7 +232,8 @@ bool IsClean(string name, IReadOnlyCollection&lt;string&gt; wordList):
 | "Fuckyou" | 脏 | 子串含 "fuck"(大小写不敏感) |
 | "" / 空表 | clean | 空词表永远通过(真实词表未接时不误拦,见下注) |
 
-<div class="callout note"><b>子串匹配是默认起点,够用且可单测:</b>更复杂的「变形 / 拼音 / 间隔符绕过」匹配是后续增强(真实词表到位后按需),本轮的可注入接缝使后续替换匹配策略不动调用方。<mark>空词表 = 不拦</mark>是刻意的安全默认:本轮无真实词表,若空表当「全拦/全过」需明确——选「全过」使改名不被空词表卡死(去变现 / 不阻塞玩家),真实词表接入后自然生效。词表来源(Luban 表 / 文本资源 / 远程)列 <a href="#18-player-info::open">§七 O6</a>。</div>
+> [!NOTE]
+> <b>子串匹配是默认起点,够用且可单测:</b>更复杂的「变形 / 拼音 / 间隔符绕过」匹配是后续增强(真实词表到位后按需),本轮的可注入接缝使后续替换匹配策略不动调用方。<mark>空词表 = 不拦</mark>是刻意的安全默认:本轮无真实词表,若空表当「全拦/全过」需明确——选「全过」使改名不被空词表卡死(去变现 / 不阻塞玩家),真实词表接入后自然生效。词表来源(Luban 表 / 文本资源 / 远程)列 <a href="#18-player-info::open">§七 O6</a>。
 
 <h3 id="level">3.4 等级 / 经验曲线</h3>
 
@@ -263,7 +268,8 @@ int ExpToNext(int exp):                // 升下一级还差多少（经验槽�
 | 300 | 3 | 50 | 150 | 3 级内积累 50 |
 | 极大值 | 60 | 余值 | 0 | 封顶:等级停 60,ExpToNext=0 |
 
-<div class="callout note"><b>经验来源本轮不接(只给容器 + 换算):</b>spec 要「等级 + 经验槽 + 等级奖励预览 tips」。本轮交付经验<b>容器</b>(<code>PlayerInfo.Exp</code>)+ <b>换算</b>(等级 / 槽进度,供经验槽 UI 用)+ <b>加经验接口</b>(<code>PlayerExpService.AddExp(p, n)</code>,只增不减)。<mark>「玩什么加多少经验」</mark>(消除得分 / 完成订单 / 每日…)是经济接线,本轮不接(无明确 spec 规则,且接哪个事件属后续运营),列 <a href="#18-player-info::open">§七 O7</a>。「等级奖励预览」的奖励内容(每级给什么)也是经济数据,本轮给<b>数据结构占位</b>(<code>LevelReward</code> 接口 + 空实现),真实奖励表延后。</div>
+> [!NOTE]
+> <b>经验来源本轮不接(只给容器 + 换算):</b>spec 要「等级 + 经验槽 + 等级奖励预览 tips」。本轮交付经验**容器**(<code>PlayerInfo.Exp</code>)+ **换算**(等级 / 槽进度,供经验槽 UI 用)+ **加经验接口**(<code>PlayerExpService.AddExp(p, n)</code>,只增不减)。<mark>「玩什么加多少经验」</mark>(消除得分 / 完成订单 / 每日…)是经济接线,本轮不接(无明确 spec 规则,且接哪个事件属后续运营),列 <a href="#18-player-info::open">§七 O7</a>。「等级奖励预览」的奖励内容(每级给什么)也是经济数据,本轮给**数据结构占位**(<code>LevelReward</code> 接口 + 空实现),真实奖励表延后。
 
 <h3 id="schema">3.5 Luban 头像&amp;头像框表 schema</h3>
 
@@ -277,7 +283,8 @@ int ExpToNext(int exp):                // 升下一级还差多少（经验槽�
 | 解锁文字(关联多语言表) | unlock\_text | int | c | 解锁说明文本 id(指向多语言表,本轮存 id,文本表延后)。<mark>存 int id</mark>,同 num.name/item.name 现状 |
 | 解锁条件(1等级/2活动发放) | unlock\_cond | avatar.EUnlockCond | cs | <mark>用枚举</mark>:LEVEL=1 / EVENT=2。条件参数见下 `unlock_param` |
 
-<div class="callout note"><b>补一个 <code>unlock_param</code> 字段(spec 隐含,落地必需):</b>「解锁条件 = 1等级」必须知道<b>哪一级</b>解锁。spec 字段只列「解锁条件(类型)」未列参数,但 LEVEL 解锁离不开门槛值。故补 <code>unlock_param int</code>(group=cs):LEVEL 时 = 解锁所需等级;EVENT 时 = 活动 id(本轮不判,留值)。这是「spec 字段隐含必需参数」的补全(同设计 15 给 num 表补 <code>func_name</code> 贴 spec 的做法),非擅自扩需求。验收只断言「按 id 查出的 unlock_param == 表填值」。</div>
+> [!NOTE]
+> <b>补一个 <code>unlock_param</code> 字段(spec 隐含,落地必需):</b>「解锁条件 = 1等级」必须知道**哪一级**解锁。spec 字段只列「解锁条件(类型)」未列参数,但 LEVEL 解锁离不开门槛值。故补 <code>unlock_param int</code>(group=cs):LEVEL 时 = 解锁所需等级;EVENT 时 = 活动 id(本轮不判,留值)。这是「spec 字段隐含必需参数」的补全(同设计 15 给 num 表补 <code>func_name</code> 贴 spec 的做法),非擅自扩需求。验收只断言「按 id 查出的 unlock_param == 表填值」。
 
 <b>枚举(<code>\_\_enums\_\_.xlsx</code> 追加,仿 <code>item.EItemQuality</code> / <code>num.ENumType</code>,值 = spec 数字):</b>
 
@@ -307,7 +314,8 @@ avatar.TbAvatar   Avatar       true                    avatar.xlsx  id      map 
          102   FRAME              frm_gold       300102        LEVEL                 10     # 10 级解锁
          103   FRAME              frm_event      300103        EVENT                 9002   # 活动发放</pre>
 
-<div class="callout note"><b>id 段约定 + 占位说明:</b>头像与框共表,约定<mark>头像 id 用 1–100 段、框用 101+ 段</mark>(便于人读;运行期靠 <code>type</code> 字段区分,不靠 id 段——id 段只是编排习惯)。<code>image</code>/<code>unlock_text</code> 填语义化占位(<code>avt_robot</code>/<code>300001</code>),真实美术/文本接入时替换;<mark>占位不影响验收</mark>(验收只断言「按 id 查出的字段值 == 表填值」,不要求美术/文本真实存在)。初始默认头像 = id 1(机器人,对应 spec「初始默认机器人」),默认框 = id 101。</div>
+> [!NOTE]
+> <b>id 段约定 + 占位说明:</b>头像与框共表,约定<mark>头像 id 用 1–100 段、框用 101+ 段</mark>(便于人读;运行期靠 <code>type</code> 字段区分,不靠 id 段——id 段只是编排习惯)。<code>image</code>/<code>unlock_text</code> 填语义化占位(<code>avt_robot</code>/<code>300001</code>),真实美术/文本接入时替换;<mark>占位不影响验收</mark>(验收只断言「按 id 查出的字段值 == 表填值」,不要求美术/文本真实存在)。初始默认头像 = id 1(机器人,对应 spec「初始默认机器人」),默认框 = id 101。
 
 导表后生成 `GameConfig.Avatar`(行)+ `GameConfig.avatar.TbAvatar`(表,含 `GetOrDefault(int)`/`DataList`/`DataMap`)+ 二进制 `Assets/AssetRaw/Configs/bytes/avatar_tbavatar.bytes`;`Tables.cs` 自动加 `TbAvatar` 懒加载(loader key `"avatar_tbavatar"`)。<mark>这些是生成代码,dev 不手改</mark>,跑导表脚本产出。
 
@@ -347,7 +355,8 @@ bool TryEquip(PlayerInfo p, AvatarEntry e):
 | 3 | EVENT/9001 | 否 | **Locked** | 活动发放本轮不判 → 未解锁(留钩子 O3) |
 | 3 | EVENT/9001 | 是 | **Unlocked** | 已被(将来)活动写进集合 → 视为已解锁 |
 
-<div class="callout note"><b>活动发放(type 2)本轮只留钩子:</b><code>IsUnlocked</code> 对 EVENT 条件返「集合含才算解锁」——即真实「发放」动作 = 把 id 加进 <code>UnlockedAvatarIds</code>(将来活动系统调用)。本轮无活动系统,故 EVENT 项除非被手动/测试写进集合,否则恒 Locked。<mark>表字段 + 判定分支齐备,只缺「谁来发放」的调用方</mark>,接活动系统时补一个 <code>GrantAvatar(p, id)</code> 调用即可,判定逻辑不返工(列 <a href="#18-player-info::open">§七 O3</a>)。</div>
+> [!NOTE]
+> <b>活动发放(type 2)本轮只留钩子:</b><code>IsUnlocked</code> 对 EVENT 条件返「集合含才算解锁」——即真实「发放」动作 = 把 id 加进 <code>UnlockedAvatarIds</code>(将来活动系统调用)。本轮无活动系统,故 EVENT 项除非被手动/测试写进集合,否则恒 Locked。<mark>表字段 + 判定分支齐备,只缺「谁来发放」的调用方</mark>,接活动系统时补一个 <code>GrantAvatar(p, id)</code> 调用即可,判定逻辑不返工(列 <a href="#18-player-info::open">§七 O3</a>)。
 
 <h3 id="clipboard">3.7 id 复制剪贴板工具</h3>
 
@@ -374,7 +383,8 @@ spec:「id 界面可点按钮复制到剪贴板」。Unity 标准 API 是 `GUIUt
 | <b>(a) 默认 · 平铺进 MergeMetaSave</b> | DTO 直接加 `playerId/playerName/renameCount/playerExp/curAvatarId/curFrameId/unlockedAvatarIds[]/unlockedFrameIds[]` 字段;`ExportMeta` 拷出、`ImportMeta` 拷入 + 逐字段保底 | 最贴现状(DTO 已扁平),JsonUtility 友好;旧档缺字段自动给缺省 + ImportMeta 夹值。改动集中在 3 个既有文件 |
 | (b) 嵌套子对象 | DTO 加一个 `PlayerInfo player` 子对象字段(\[Serializable\] 嵌套 JsonUtility 支持) | 玩家字段聚团、既有字段一行不动;但 `PlayerInfo` 含 `Level` 计算属性(不序列化,OK)与 `int[]`(OK) |
 
-<div class="callout note"><b>默认选 (a) 平铺:</b>与 <code>MergeMetaSave</code> 现有 15 个平铺字段同口径(设计 14 刻意扁平、避免 JsonUtility 嵌套坑),一致性最高、回归面最小。<code>CurrentVersion</code> <mark>不必升</mark>(同设计 14:「新增字段不必升版,JsonUtility 给缺省 + ImportMeta 逐字段保底」)。<b>逐字段保底(ImportMeta)</b>:旧档 / 篡改时——<code>playerId</code> 空 → 现场生成新 id;<code>playerName</code> 空 → 生成系统名;<code>renameCount&lt;0</code> → 夹 0;<code>playerExp&lt;0</code> → 夹 0;<code>curAvatarId/curFrameId</code> 不在表内或 0 → 退默认 1/101;<code>unlockedAvatarIds/FrameIds</code> null → 重建为含默认头像/框的数组。这套与设计 14 的「ImportMeta 对任意输入产出合法不变量」红线一致。</div>
+> [!NOTE]
+> <b>默认选 (a) 平铺:</b>与 <code>MergeMetaSave</code> 现有 15 个平铺字段同口径(设计 14 刻意扁平、避免 JsonUtility 嵌套坑),一致性最高、回归面最小。<code>CurrentVersion</code> <mark>不必升</mark>(同设计 14:「新增字段不必升版,JsonUtility 给缺省 + ImportMeta 逐字段保底」)。<b>逐字段保底(ImportMeta)</b>:旧档 / 篡改时——<code>playerId</code> 空 → 现场生成新 id;<code>playerName</code> 空 → 生成系统名;<code>renameCount&lt;0</code> → 夹 0;<code>playerExp&lt;0</code> → 夹 0;<code>curAvatarId/curFrameId</code> 不在表内或 0 → 退默认 1/101;<code>unlockedAvatarIds/FrameIds</code> null → 重建为含默认头像/框的数组。这套与设计 14 的「ImportMeta 对任意输入产出合法不变量」红线一致。
 
 <b>首次游玩(无存档):</b>`Load` 返 null → 调用方对玩家信息走 `PlayerInfo.CreateDefault(rng)`(新 id + 系统名 + 默认头像框 + 解锁集合含默认)。这与设计 14「无存档走缺省重置」同分支,只是缺省内容多了玩家信息构造。
 
@@ -421,7 +431,8 @@ sequenceDiagram
 | **T1** | EditMode 测试 | 新建 `PlayerInfoTests.cs`(落 `Assets/Editor/Tests/BlockBlast/`,加进 `BlockBlast.Tests.asmdef` 覆盖范围)。配置表(C 类)= `AssetDatabase` 直读 `avatar_tbavatar.bytes`(仿 `ItemSystemTests`);其余 = 纯逻辑 new / 静态调用 / `InitForTest` 注入 |
 | **X** | 不碰(零回归) | `ItemGrant.cs` / `NumericConfigMgr.cs` / `ItemConfigMgr.cs` / `RewardDisplay.cs` / 既有玩法逻辑 / 任何 UI 窗口 / 既有 `MergeMetaSave` 字段(只加不改) |
 
-<div class="callout note"><b>命名空间提示:</b>玩家信息逻辑落 <code>GameLogic.BlockBlast.Player</code>(或沿用 <code>GameLogic.BlockBlast</code>),配置管理器落 <code>GameLogic.Config</code>(同 <code>NumericConfigMgr</code>/<code>ItemConfigMgr</code>),POCO <code>AvatarEntry</code> 跟随。测试 asmdef 已引用 <code>GameLogic</code>/<code>GameProto</code>,无需改引用,新增 <code>.cs</code> 自动纳入。</div>
+> [!NOTE]
+> <b>命名空间提示:</b>玩家信息逻辑落 <code>GameLogic.BlockBlast.Player</code>(或沿用 <code>GameLogic.BlockBlast</code>),配置管理器落 <code>GameLogic.Config</code>(同 <code>NumericConfigMgr</code>/<code>ItemConfigMgr</code>),POCO <code>AvatarEntry</code> 跟随。测试 asmdef 已引用 <code>GameLogic</code>/<code>GameProto</code>,无需改引用,新增 <code>.cs</code> 自动纳入。
 
 <h2 id="accept">六、验收点</h2>
 
@@ -459,7 +470,8 @@ test 逐条核对。**C 类**(配置直读)需 `avatar_tbavatar.bytes` 已导出
 | Z1 | 全链纯逻辑无 ConfigSystem | N/R/P/L/U(非 C)/D/S/B 全部 new/InitForTest/直调跑通(即证未触 YooAsset/Unity 运行时) |
 | Z2 | 既有 EditMode 零回归 | EditMode 全量跑,既有 251 例全绿,新增另计;编译 0 error |
 
-<div class="callout warn"><b>BLOCKED 条件:</b>(1) 导表工具链不可达(本机缺 .NET 7 / DOTNET_ROLL_FORWARD 未配,见遗留 #18)致 <code>avatar_tbavatar.bytes</code> 无法导出 → C1/C2 判 BLOCKED 不判 FAIL,其余纯逻辑验收正常跑;(2) unityMCP 桥不可达致 EditMode 跑不起来(no_session)→ 判 BLOCKED,可备选 batchmode 跑 EditMode(boss memory)。</div>
+> [!WARNING]
+> <b>BLOCKED 条件:</b>(1) 导表工具链不可达(本机缺 .NET 7 / DOTNET_ROLL_FORWARD 未配,见遗留 #18)致 <code>avatar_tbavatar.bytes</code> 无法导出 → C1/C2 判 BLOCKED 不判 FAIL,其余纯逻辑验收正常跑;(2) unityMCP 桥不可达致 EditMode 跑不起来(no_session)→ 判 BLOCKED,可备选 batchmode 跑 EditMode(boss memory)。
 
 <h2 id="open">七、待拍板清单</h2>
 
