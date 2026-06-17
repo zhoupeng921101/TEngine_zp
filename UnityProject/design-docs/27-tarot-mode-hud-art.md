@@ -14,16 +14,16 @@
 
 # 主玩法 HUD 美术换皮 · 表现层
 
-塔罗 UI 换皮自治线<b>第四屏（centerpiece，风险最高）</b>:把效果图 `tarot_mode.png` 换皮成<mark>已在运行的 Classic 主玩法窗 <code>GameWindow</code></mark> 的静态 HUD 外壳。<mark>本轮 = 纯 UI 补完（只换静态视觉壳）</mark>:棋盘渲染 / 落子拖拽 / 消除 / 补充 / ghost / GameOver 等动态玩法逻辑**一行不动**,只把 `UGuiFactory` 的纯色背景 / 棋盘外框 / 分数面板换成贴 `Sheet_tarot_mode` 木质子图,并对位效果图补出**静态顶栏（头像 + 3 资源条 + 齿轮）+ 3 动作按钮（更换 / 删除 / 提示）的视觉占位**。取图链路复用[设计 23](#23-settings-window-art)、换皮手法复用[设计 26 路 A](#26-settlement-window-art)(对在跑 code-built 窗的 `UGuiFactory` Image 链 `SetSubSprite`);<b>本屏是首个用<a href="#24-ui-atlas-packer">设计 24 打表工具</a>产新精灵表 <code>Sheet\_tarot\_mode</code> 的真实换皮屏</b>(前三屏复用 `Sheet_settings`,本屏有专属切图)。
+塔罗 UI 换皮自治线<b>第四屏（centerpiece，风险最高）</b>:把效果图 `tarot_mode.png` 换皮成<mark>已在运行的 Classic 主玩法窗 <code>GameWindow</code></mark> 的静态 HUD 外壳。<mark>本次换皮 = 纯 UI 补完（只换静态视觉壳）</mark>:棋盘渲染 / 落子拖拽 / 消除 / 补充 / ghost / GameOver 等动态玩法逻辑**一行不动**,只把 `UGuiFactory` 的纯色背景 / 棋盘外框 / 分数面板换成贴 `Sheet_tarot_mode` 木质子图,并对位效果图补出**静态顶栏（头像 + 3 资源条 + 齿轮）+ 3 动作按钮（更换 / 删除 / 提示）的视觉占位**。取图链路复用[设计 23](#23-settings-window-art)、换皮手法复用[设计 26 路 A](#26-settlement-window-art)(对在跑 code-built 窗的 `UGuiFactory` Image 链 `SetSubSprite`);<b>本屏是首个用<a href="#24-ui-atlas-packer">设计 24 打表工具</a>产新精灵表 <code>Sheet\_tarot\_mode</code> 的真实换皮屏</b>(前三屏复用 `Sheet_settings`,本屏有专属切图)。
 
 <div class="callout warn">
     <b>读前必看 · 五条边界（本屏触及在跑玩法窗，守「不破坏 Classic / Merge」是硬约束）</b>
     <ul style="margin:8px 0 0">
-      <li><b>tarot_mode = Classic <code>GameWindow</code> 的再主题，不是合成订单 <code>MergeOrderWindow</code>。</b>(经读图 + 读代码核实,<a href="#27-tarot-mode-hud-art::which">§二</a>)效果图结构 = 8×8 棋盘 + 3 候选块 + 大居中分数 + <mark>无订单卡 / 无合成区 / 无体力条</mark>,与 <code>GameWindow.cs</code>(Classic,435 行)逐项匹配;<code>MergeOrderWindow.cs</code>(799 行)有双订单卡 / 合成 token 行 / 体力条 / 虔诚币 / 神庙 / 盲盒,效果图全无。<mark>本轮只改 <code>GameWindow.cs</code> 的 <code>BuildStaticUI</code> 视觉部分</mark>,不碰 <code>MergeOrderWindow</code>。</li>
-      <li><b>动态玩法逻辑绝不碰，只 reskin 静态 HUD 外壳。</b>棋盘渲染(<code>RenderBoard</code>)/ 候选槽(<code>RenderSlots</code>)/ 落子拖拽回调(<code>OnPieceBegin/Drag/End</code>)/ 消除补充(<code>PlaceAndResolve</code>)/ ghost 高亮(<code>UpdateGhost</code>)/ GameOver(<code>TriggerGameOver</code>)/ 分数滚动(<code>OnUpdate</code>)/ <code>BlockLayout</code> 棋盘坐标映射 —— 全部<mark>保留不动</mark>。本轮只动 <code>BuildStaticUI</code> 里「背景 / 棋盘外框 / 格子背景 / 分数面板 / 退出钮」这些<b>静态视觉构建行</b>,以及新增静态顶栏 / 动作按钮节点(<a href="#27-tarot-mode-hud-art::regress">§九 R 组</a>零回归硬验收)。</li>
-      <li><b>顶栏 3 资源条 + 3 动作按钮（更换/删除/提示）= 视觉占位 + stub 钩子，不是真机制。</b>Classic <code>GameWindow</code> 的数据层 <code>BlockGameState</code> 经 grep 只有 <code>Score</code> / <code>HighScore</code> / <code>Combo</code>(<a href="#27-tarot-mode-hud-art::data">§三</a>),<mark>没有体力 / 货币 / 钻石等资源字段</mark>,也<mark>没有「更换候选块 / 删除棋子 / 提示落点」这三个新机制</mark>。本轮:3 资源条接得上的字段就接(分数 / 最高分),接不上就摆数字占位;3 动作按钮摆视觉 + 点击给 <code>Log</code>「待建」+ TODO,<b>真机制是新玩法功能、本范围外</b>(<a href="#27-tarot-mode-hud-art::stub">§六</a>)。</li>
+      <li><b>tarot_mode = Classic <code>GameWindow</code> 的再主题，不是合成订单 <code>MergeOrderWindow</code>。</b>(经读图 + 读代码核实,<a href="#27-tarot-mode-hud-art::which">§二</a>)效果图结构 = 8×8 棋盘 + 3 候选块 + 大居中分数 + <mark>无订单卡 / 无合成区 / 无体力条</mark>,与 <code>GameWindow.cs</code>(Classic,435 行)逐项匹配;<code>MergeOrderWindow.cs</code>(799 行)有双订单卡 / 合成 token 行 / 体力条 / 虔诚币 / 神庙 / 盲盒,效果图全无。<mark>本次换皮只改 <code>GameWindow.cs</code> 的 <code>BuildStaticUI</code> 视觉部分</mark>,不碰 <code>MergeOrderWindow</code>。</li>
+      <li><b>动态玩法逻辑绝不碰，只 reskin 静态 HUD 外壳。</b>棋盘渲染(<code>RenderBoard</code>)/ 候选槽(<code>RenderSlots</code>)/ 落子拖拽回调(<code>OnPieceBegin/Drag/End</code>)/ 消除补充(<code>PlaceAndResolve</code>)/ ghost 高亮(<code>UpdateGhost</code>)/ GameOver(<code>TriggerGameOver</code>)/ 分数滚动(<code>OnUpdate</code>)/ <code>BlockLayout</code> 棋盘坐标映射 —— 全部<mark>保留不动</mark>。本次换皮只动 <code>BuildStaticUI</code> 里「背景 / 棋盘外框 / 格子背景 / 分数面板 / 退出钮」这些<b>静态视觉构建行</b>,以及新增静态顶栏 / 动作按钮节点(<a href="#27-tarot-mode-hud-art::regress">§九 R 组</a>零回归硬验收)。</li>
+      <li><b>顶栏 3 资源条 + 3 动作按钮（更换/删除/提示）= 视觉占位 + stub 钩子，不是真机制。</b>Classic <code>GameWindow</code> 的数据层 <code>BlockGameState</code> 经 grep 只有 <code>Score</code> / <code>HighScore</code> / <code>Combo</code>(<a href="#27-tarot-mode-hud-art::data">§三</a>),<mark>没有体力 / 货币 / 钻石等资源字段</mark>,也<mark>没有「更换候选块 / 删除棋子 / 提示落点」这三个新机制</mark>。本次换皮:3 资源条接得上的字段就接(分数 / 最高分),接不上就摆数字占位;3 动作按钮摆视觉 + 点击给 <code>Log</code>「待建」+ TODO,<b>真机制是新玩法功能、本范围外</b>(<a href="#27-tarot-mode-hud-art::stub">§六</a>)。</li>
       <li><b>取路 A（轻量换皮），不取路 B（prefab 重构）。</b>同<a href="#26-settlement-window-art::way">设计 26 §三</a>:<code>GameWindow</code> 已用 <code>UGuiFactory</code> 跑通,<code>CreateImage</code> 返回 <code>Image</code> 可直接链 <code>.SetSubSprite</code>、<code>CreateButton</code> 经 <code>out Image bgImage</code> 给按钮底图引用。保留窗口结构 + 全部玩法逻辑,只换静态视觉。<mark>不</mark>改成 prefab + <code>FindChildComponent</code>(重写在跑的核心玩法窗 = 回归面最大,与「纯 UI 补完」相悖)。</li>
-      <li><b>本屏首次用打表工具产新精灵表，UI 代码在热更区。</b>16 张切图(<code>塔罗模式\</code>)→ 导入 ASCII 目录 <code>AssetRaw/UIRaw/Atlas/tarot_mode/</code> → 跑<a href="#24-ui-atlas-packer">设计 24 打表工具</a>产 <code>Sheet_tarot_mode.png</code> → 运行期 <code>SetSubSprite("Sheet_tarot_mode", 子图名)</code> 取图(<a href="#27-tarot-mode-hud-art::atlas">§四</a>)。<code>GameWindow.cs</code> 在 <code>GameScripts/HotFix/GameLogic/UI/BlockBlastUI/</code>(热更),本轮只改它一个 <code>.cs</code> 的视觉部分 + 新增切图 / 精灵表资源。<mark>不动数据层、不动 MergeOrderWindow、不动收集器</mark>。</li>
+      <li><b>本屏首次用打表工具产新精灵表，UI 代码在热更区。</b>16 张切图(<code>塔罗模式\</code>)→ 导入 ASCII 目录 <code>AssetRaw/UIRaw/Atlas/tarot_mode/</code> → 跑<a href="#24-ui-atlas-packer">设计 24 打表工具</a>产 <code>Sheet_tarot_mode.png</code> → 运行期 <code>SetSubSprite("Sheet_tarot_mode", 子图名)</code> 取图(<a href="#27-tarot-mode-hud-art::atlas">§四</a>)。<code>GameWindow.cs</code> 在 <code>GameScripts/HotFix/GameLogic/UI/BlockBlastUI/</code>(热更),本次换皮只改它一个 <code>.cs</code> 的视觉部分 + 新增切图 / 精灵表资源。<mark>不动数据层、不动 MergeOrderWindow、不动收集器</mark>。</li>
     </ul>
   </div>
 
@@ -32,23 +32,23 @@
     <table>
       <tbody><tr><th>类型</th><td><span class="chip">表现层换皮 · 塔罗 UI 自治线第 4 屏（centerpiece）· 纯 UI 补完（只换静态视觉壳）</span> 复用设计 23 取图链路 + 设计 26 路 A 手法 + 设计 24 打表工具,给在跑 Classic 主玩法窗换静态 HUD 皮。出设计稿 + 验收标准,交开发落地。</td></tr>
       <tr><th>设计基线（经 grep / 读图核实的真实符号 / 现状）</th><td>
-        <b>被换皮窗口（code-built，本轮只改静态视觉，玩法逻辑不动）</b>:<code>GameLogic.BlockBlastUI.GameWindow</code>(<code>[Window(UILayer.UI, "GameWindow", fullScreen:true)]</code>,435 行)。<br>
-        <b>静态视觉构建（本轮改这里）</b>:<code>BuildStaticUI()</code>(:86–132)摆 <code>Bg</code> 全屏背景(纯色 <code>BlockLayout.BgColor</code>)、<code>BoardOuter</code> 棋盘外框(<code>BoardOuterColor</code>)、64 个 <code>cellbg_r_c</code> 格子背景(<code>BoardCellBgColor</code>)、<code>BestLabel</code>+<code>Best</code> 最高分文本、<code>Score</code> 大分数文本、<code>Exit</code> 退出钮(透明底 "×")。<br>
-        <b>动态玩法逻辑（本轮绝不动）</b>:<code>RenderBoard</code>(:147)逐格贴 <code>BlockLayout.ColorOf</code> 方块色;<code>RenderSlots</code>(:177)建 3 候选槽 + <code>BlockPieceDragger</code> 拖拽;<code>OnPieceEnd</code>(:248)+ <code>PlaceAndResolve</code>(:274)落子 / 消除 / 补充 / 弹字 / GameOver;<code>UpdateGhost</code>(:340)落点高亮;<code>InitGhostPool</code> / <code>ComputeGridPos</code> / <code>UpdateBest</code> / <code>OnUpdate</code> 分数滚动。<br>
-        <b>数据层（grep 核实，本轮只读不写）</b>:<code>GameLogic.BlockBlast.BlockGameState</code>(<code>SimpleSingleton</code>)字段仅 <code>SaveArr</code>(棋盘)/ <code>OperaArr</code>(3 候选块)/ <code>Score</code>(当前分)/ <code>HighScore</code>(Classic 最高分)/ <code>Combo</code>(连击)+ merge-order 门控字段(<code>ElementArr</code>/<code>MergeOrderMode</code>/<code>MergeState</code>,Classic 下不用)。<mark>无体力 / 货币 / 钻石 / 心 / 提示次数等资源字段</mark>。<br>
-        <b>构建工厂 + 坐标系（本轮沿用）</b>:<code>UGuiFactory.CreateImage(parent,name,designCx,designCy,w,h,color)</code> → 返回 <code>Image</code>(可链 <code>.SetSubSprite</code>);<code>CreateButton(...,out Image bgImage,out Text label)</code> → <code>out bgImage</code> 即按钮底图;<code>CreateContentPanel</code> 建 750×1334 固定面板 localScale 放大到 1080 参考宽(<code>BlockLayout.ContentScale</code>)。坐标 = <b>750×1334 设计系</b>(左上原点 Y 下正,经 <code>DesignToAnchored</code> 转锚点);棋盘原点 / 格尺寸 / 候选槽位由 <code>BlockLayout</code> 常量定(本轮不动)。<br>
+        <b>被换皮窗口（code-built，本次换皮只改静态视觉，玩法逻辑不动）</b>:<code>GameLogic.BlockBlastUI.GameWindow</code>(<code>[Window(UILayer.UI, "GameWindow", fullScreen:true)]</code>,435 行)。<br>
+        <b>静态视觉构建（本次换皮改这里）</b>:<code>BuildStaticUI()</code>(:86–132)摆 <code>Bg</code> 全屏背景(纯色 <code>BlockLayout.BgColor</code>)、<code>BoardOuter</code> 棋盘外框(<code>BoardOuterColor</code>)、64 个 <code>cellbg_r_c</code> 格子背景(<code>BoardCellBgColor</code>)、<code>BestLabel</code>+<code>Best</code> 最高分文本、<code>Score</code> 大分数文本、<code>Exit</code> 退出钮(透明底 "×")。<br>
+        <b>动态玩法逻辑（本次换皮绝不动）</b>:<code>RenderBoard</code>(:147)逐格贴 <code>BlockLayout.ColorOf</code> 方块色;<code>RenderSlots</code>(:177)建 3 候选槽 + <code>BlockPieceDragger</code> 拖拽;<code>OnPieceEnd</code>(:248)+ <code>PlaceAndResolve</code>(:274)落子 / 消除 / 补充 / 弹字 / GameOver;<code>UpdateGhost</code>(:340)落点高亮;<code>InitGhostPool</code> / <code>ComputeGridPos</code> / <code>UpdateBest</code> / <code>OnUpdate</code> 分数滚动。<br>
+        <b>数据层（grep 核实，本次换皮只读不写）</b>:<code>GameLogic.BlockBlast.BlockGameState</code>(<code>SimpleSingleton</code>)字段仅 <code>SaveArr</code>(棋盘)/ <code>OperaArr</code>(3 候选块)/ <code>Score</code>(当前分)/ <code>HighScore</code>(Classic 最高分)/ <code>Combo</code>(连击)+ merge-order 门控字段(<code>ElementArr</code>/<code>MergeOrderMode</code>/<code>MergeState</code>,Classic 下不用)。<mark>无体力 / 货币 / 钻石 / 心 / 提示次数等资源字段</mark>。<br>
+        <b>构建工厂 + 坐标系（本次换皮沿用）</b>:<code>UGuiFactory.CreateImage(parent,name,designCx,designCy,w,h,color)</code> → 返回 <code>Image</code>(可链 <code>.SetSubSprite</code>);<code>CreateButton(...,out Image bgImage,out Text label)</code> → <code>out bgImage</code> 即按钮底图;<code>CreateContentPanel</code> 建 750×1334 固定面板 localScale 放大到 1080 参考宽(<code>BlockLayout.ContentScale</code>)。坐标 = <b>750×1334 设计系</b>(左上原点 Y 下正,经 <code>DesignToAnchored</code> 转锚点);棋盘原点 / 格尺寸 / 候选槽位由 <code>BlockLayout</code> 常量定(本次换皮不动)。<br>
         <b>取图 API（设计 23 实测打通）</b>:<code>Image.SetSubSprite(string location, string spriteName)</code>(<code>SetSpriteExtensions.cs:43</code>);<code>location="Sheet_tarot_mode"</code>(本屏打表产出的单张 Multiple 精灵表,<mark>非 SpriteAtlas v2</mark> —— v2 不向 YooAsset 暴露子精灵,设计 23 §3.3 实测),子图名 = 源切图文件名。<br>
         <b>打表工具（设计 24 已落地）</b>:<code>UIAtlasPackerTool.UIAtlasPacker.Pack(string folderPath, bool simulateBuild=true)</code>(<code>Assets/Editor/UIAtlasPacker/UIAtlasPacker.cs:92</code>);菜单 <code>Tools/UI/打表(散切图 -&gt; Multiple 精灵表)</code>(:31,选中目录后点);产出落 <code>Assets/AssetRaw/UIRaw/Atlas/</code>,<mark>不覆盖已存在文件</mark>。<br>
         <b>本屏切图源（16 张，<code>C:\Users\pc\Downloads\塔罗\塔罗\塔罗模式\</code>）</b>:<code>Rectangle</code> · <code>advertisement</code> · <code>blue</code> · <code>chess</code> · <code>chessboard</code> · <code>gemstone</code> · <code>gemstone2</code> · <code>hammer</code> · <code>icon_setting</code> · <code>image</code> · <code>magic_book</code> · <code>mask</code> · <code>potion</code> · <code>resourcebar2</code> · <code>tarot_mode</code> · <code>temple</code>。子图名 = 文件名去扩展名(<a href="#27-tarot-mode-hud-art::map">§4.3</a> 给映射推断)。
       </td></tr>
-      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:主玩法 HUD 无内购 / 资源购买 / 看广告(效果图顶栏资源条带「+」加号是<mark>视觉占位</mark>,本轮点击 → <code>Log</code>「待建」,<b>不接任何购买 / 充值</b>);切图里 <code>advertisement</code>(广告)子图不投放(<a href="#27-tarot-mode-hud-art::open">§十 D3</a>)。加法 / 改既有都最小:只改 <code>GameWindow.cs</code> 静态视觉构建 + 新增切图 / 精灵表,不改框架、不改数据层、不改任何玩法逻辑。</td></tr>
+      <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:主玩法 HUD 无内购 / 资源购买 / 看广告(效果图顶栏资源条带「+」加号是<mark>视觉占位</mark>,本次换皮点击 → <code>Log</code>「待建」,<b>不接任何购买 / 充值</b>);切图里 <code>advertisement</code>(广告)子图不投放(<a href="#27-tarot-mode-hud-art::open">§十 D3</a>)。加法 / 改既有都最小:只改 <code>GameWindow.cs</code> 静态视觉构建 + 新增切图 / 精灵表,不改框架、不改数据层、不改任何玩法逻辑。</td></tr>
       <tr><th>影响范围</th><td>
         <b>新增资源</b>:切图 16 张(<code>AssetRaw/UIRaw/Atlas/tarot_mode/</code>,ASCII 目录)+ 打表产出 <code>Sheet_tarot_mode.png</code> + <code>.meta</code>(落 <code>AssetRaw/UIRaw/Atlas/</code>,被收集器 <code>UIRaw</code> 组自动收录)。<br>
         <b>新增代码</b>:<mark>无新文件 / 无新窗口类</mark>(路 A 不重构)。<br>
         <b>改既有（最小，仅静态视觉）</b>:<code>GameWindow.cs</code> 的 <code>BuildStaticUI</code> —— 背景 / 棋盘外框 / 格子背景 / 分数文本区改贴 <code>Sheet_tarot_mode</code> 子图 + 底色白;新增静态顶栏(头像 + 3 资源条 + 齿轮)+ 3 动作按钮(更换 / 删除 / 提示)节点 + stub 钩子。<br>
         <b>不改</b>:<code>GameWindow</code> 的所有 <code>Render*</code> / 拖拽 / 落子 / 消除 / ghost / GameOver / <code>OnUpdate</code> 逻辑;<code>BlockLayout</code> 棋盘坐标映射;<code>BlockGameState</code> / <code>MergeOrderState</code> 数据层;<code>MergeOrderWindow</code> / Classic 触发链;收集器配置;打表工具本身。
       </td></tr>
-      <tr><th>关键约束（零回归是硬验收）</th><td>这是<b>正在被玩家用来玩 Classic 的核心玩法窗</b>。换皮后:① 编译 0 error + 现有 EditMode 全绿;② Classic 整局可进可玩 —— 摆块 / 落子 / 消除 / 连击弹字 / 补块 / GameOver / 分数滚动 / 最高分全部正常,棋盘坐标对位不偏;③ 合成订单 <code>MergeOrderWindow</code> 完全不受影响(本轮不碰它,门控独立)。任一玩法回归即不通过。视觉对位 / 真机拖拽落子须 Play / 人眼手验(<a href="#27-tarot-mode-hud-art::accept">§九</a>两档拆开)。</td></tr>
+      <tr><th>关键约束（零回归是硬验收）</th><td>这是<b>正在被玩家用来玩 Classic 的核心玩法窗</b>。换皮后:① 编译 0 error + 现有 EditMode 全绿;② Classic 整局可进可玩 —— 摆块 / 落子 / 消除 / 连击弹字 / 补块 / GameOver / 分数滚动 / 最高分全部正常,棋盘坐标对位不偏;③ 合成订单 <code>MergeOrderWindow</code> 完全不受影响(本次换皮不碰它,门控独立)。任一玩法回归即不通过。视觉对位 / 真机拖拽落子须 Play / 人眼手验(<a href="#27-tarot-mode-hud-art::accept">§九</a>两档拆开)。</td></tr>
     </tbody></table>
   </div>
 
@@ -56,16 +56,16 @@
 
 现状:Classic 主玩法窗 `GameWindow` <mark>已实装且在跑</mark> —— 玩家从主菜单进 Classic 就是它:8×8 棋盘 + 3 候选块 + 大分数 + BEST,全是 `UGuiFactory` 的纯色木纹色块 + 内置字体,零美术。前三屏换皮([设置窗](#23-settings-window-art) / [个人信息窗](#25-player-info-window-art) / [结算窗](#26-settlement-window-art))已把塔罗木质风格铺到弹窗与结算,但**玩家停留时间最长的主玩法界面仍是纯色占位** —— 这是整条换皮线的 centerpiece。
 
-本轮给主玩法 HUD 换上塔罗木质皮。**与前三屏的两点差异**:① 它触及<mark>核心玩法窗</mark>(前三屏是弹窗 / 结算,玩死才弹;主玩法窗每局全程在跑),「不破坏 Classic」的零回归约束最重;② 它是<mark>首个有专属切图、要用打表工具产新精灵表的换皮屏</mark>(前三屏复用 `Sheet_settings`),把[设计 24 打表工具](#24-ui-atlas-packer)从「只验过 `setting/`」推到「真实生产一屏」。
+给主玩法 HUD 换上塔罗木质皮。**与前三屏的两点差异**:① 它触及<mark>核心玩法窗</mark>(前三屏是弹窗 / 结算,玩死才弹;主玩法窗每局全程在跑),「不破坏 Classic」的零回归约束最重;② 它是<mark>首个有专属切图、要用打表工具产新精灵表的换皮屏</mark>(前三屏复用 `Sheet_settings`),把[设计 24 打表工具](#24-ui-atlas-packer)从「只验过 `setting/`」推到「真实生产一屏」。
 
-| # | 本轮交付的 | 落法 | 性质 |
+| # | 本次换皮交付的 | 落法 | 性质 |
 | --- | --- | --- | --- |
 | 1 | 切图导入 + 打表产 `Sheet_tarot_mode` | 16 张切图导入 ASCII 目录 `tarot_mode/` → 跑设计 24 打表工具 → 产 `Sheet_tarot_mode.png`([§四](#27-tarot-mode-hud-art::atlas)) | <span class="pill-new">新精灵表（首用打表工具产）</span> |
 | 2 | `GameWindow` 静态 HUD 换皮(对位 tarot\_mode.png) | 背景 / 棋盘外框 / 格子背景 / 分数面板改贴 `Sheet_tarot_mode` 木质子图 + 底色白([§五](#27-tarot-mode-hud-art::board)) | <span class="pill-cur">改既有静态视觉</span> |
 | 3 | 静态顶栏(头像 + 3 资源条 + 齿轮)视觉占位 + 入口接线 | 新增静态节点对位顶栏;资源条接得上的接(分数 / 最高分)、接不上摆占位;齿轮 → 开设置窗([§5.3](#27-tarot-mode-hud-art::topbar)) | <span class="pill-cur">视觉占位 + 接线</span> |
 | 4 | 3 动作按钮(更换 / 删除 / 提示)视觉占位 + stub 钩子 | 新增按钮节点 + 点击 → `Log`「待建」+ TODO,真机制本范围外([§六](#27-tarot-mode-hud-art::stub)) | <span class="pill-no">stub 占位</span> |
 
-<b>不做（本轮明确排除）:</b><span class="pill-no">改任何玩法逻辑</span>(棋盘渲染 / 落子 / 消除 / 补充 / ghost / GameOver / 分数滚动不动);<span class="pill-no">改 <code>BlockLayout</code> 棋盘坐标映射</span>(格尺寸 / 原点 / 候选槽位不动,防对位偏移);<span class="pill-no">真做更换 / 删除 / 提示机制</span>(新玩法功能,本范围外,stub);<span class="pill-no">给资源条接真货币 / 资源系统</span>(数据层无字段,占位);<span class="pill-no">改成 prefab 重构</span>(路 A 不重构);<span class="pill-no">动 MergeOrderWindow / 合成订单玩法</span>(本轮不碰);<span class="pill-no">投放广告 / 资源购买</span>(去变现)。
+<b>不做（本次换皮明确排除）:</b><span class="pill-no">改任何玩法逻辑</span>(棋盘渲染 / 落子 / 消除 / 补充 / ghost / GameOver / 分数滚动不动);<span class="pill-no">改 <code>BlockLayout</code> 棋盘坐标映射</span>(格尺寸 / 原点 / 候选槽位不动,防对位偏移);<span class="pill-no">真做更换 / 删除 / 提示机制</span>(新玩法功能,本范围外,stub);<span class="pill-no">给资源条接真货币 / 资源系统</span>(数据层无字段,占位);<span class="pill-no">改成 prefab 重构</span>(路 A 不重构);<span class="pill-no">动 MergeOrderWindow / 合成订单玩法</span>(本次换皮不碰);<span class="pill-no">投放广告 / 资源购买</span>(去变现)。
 
 <h2 id="which">二、调查结论：tarot_mode = 哪个窗？（给证据）</h2>
 
@@ -77,10 +77,10 @@
 | 3 候选块（底部一行） | ✓ `RenderSlots` 建 3 槽 | ✓ 同构 | 两者都有 |
 | 大居中分数（"23333"） | ✓ `Score` 大文本 84px 居中 + `OnUpdate` 滚动 | ✗ 无大居中分数(顶部是体力 / 完成单数 / 标题「合成订单 DEMO」) | **指向 GameWindow** |
 | 订单卡 / 合成 token 行 / 体力条 | ✗ 无(Classic 无这些系统) | ✓ 双订单卡 + 合成 token 行 + 体力条 + 虔诚币 + 神庙 + 盲盒 | **效果图全无 → 指向 GameWindow** |
-| 顶栏 3 资源条 + 头像 + 齿轮 | ✗ 当前只有 BEST + 大分数 + 退出 × | ✗ 当前是体力 / 单数 / 盲盒 / 虔诚币 / 神庙 / 悔棋 / 退出 | 两窗当前都无此顶栏(本轮新增静态占位) |
-| 3 动作按钮（更换 / 删除 / 提示） | ✗ 无 | ✗ 无(有的是悔棋 / 开盒 / 交付,语义不同) | 两窗都无 → 新机制,本轮 stub 占位 |
+| 顶栏 3 资源条 + 头像 + 齿轮 | ✗ 当前只有 BEST + 大分数 + 退出 × | ✗ 当前是体力 / 单数 / 盲盒 / 虔诚币 / 神庙 / 悔棋 / 退出 | 两窗当前都无此顶栏(本次换皮新增静态占位) |
+| 3 动作按钮（更换 / 删除 / 提示） | ✗ 无 | ✗ 无(有的是悔棋 / 开盒 / 交付,语义不同) | 两窗都无 → 新机制,本次换皮 stub 占位 |
 
-**判定依据**:效果图<mark>有「大居中分数」、无「订单卡 / 合成区 / 体力条」</mark> —— 这正是 Classic `GameWindow` 的特征(大分数是它的核心 HUD,而合成订单窗顶部是体力 / 单数 / 标题、无大居中分数)。故 <b>tarot\_mode = Classic <code>GameWindow</code> 的再主题</b>,本轮改 `GameWindow.cs`。这也决定**回归面 = Classic 整局玩法**(合成订单窗本轮不碰,其门控 `MergeOrderMode` 独立、Classic 下短路)。
+**判定依据**:效果图<mark>有「大居中分数」、无「订单卡 / 合成区 / 体力条」</mark> —— 这正是 Classic `GameWindow` 的特征(大分数是它的核心 HUD,而合成订单窗顶部是体力 / 单数 / 标题、无大居中分数)。故 <b>tarot\_mode = Classic <code>GameWindow</code> 的再主题</b>,本次换皮改 `GameWindow.cs`。这也决定**回归面 = Classic 整局玩法**(合成订单窗本次换皮不碰,其门控 `MergeOrderMode` 独立、Classic 下短路)。
 
 <h2 id="data">三、顶栏 3 资源条 = 什么？（对照数据层）</h2>
 
@@ -96,7 +96,7 @@
 > [!WARNING]
 > <b>结论：3 资源条多数无数据源 → 占位（决策 D1）</b>
 >
-> Classic <code>BlockGameState</code> 只有得分语义字段(<code>Score</code> / <code>HighScore</code> / <code>Combo</code>),<mark>没有效果图资源条暗示的「3 种可累积资源(金币 / 宝石 / 钻石 之类)」</mark>。切图里有 <code>gemstone</code>(宝石)/ <code>gemstone2</code> / <code>potion</code>(药水)等资源图标,但**它们各代表什么资源、从哪累积、加号点了干什么,均无 spec 定义、无数据源**。本轮安全默认 = **资源条作视觉占位**:摆出 3 条对位效果图骨架,数字位 ——「接得上的接(如一条接 <code>HighScore</code>)、接不上的摆静态占位数字(如 "0" 或 "—")」,加号「+」点击 → <code>Log</code>「待建」+ TODO,<mark>不接任何货币系统、不擅自定义资源语义、不接购买</mark>(去变现)。这些资源条代表什么、是否真做,列待裁决交 boss / 产品(<a href="#27-tarot-mode-hud-art::open">§十 D1</a>),本轮按占位推进不阻塞。
+> Classic <code>BlockGameState</code> 只有得分语义字段(<code>Score</code> / <code>HighScore</code> / <code>Combo</code>),<mark>没有效果图资源条暗示的「3 种可累积资源(金币 / 宝石 / 钻石 之类)」</mark>。切图里有 <code>gemstone</code>(宝石)/ <code>gemstone2</code> / <code>potion</code>(药水)等资源图标,但**它们各代表什么资源、从哪累积、加号点了干什么,均无 spec 定义、无数据源**。本次换皮安全默认 = **资源条作视觉占位**:摆出 3 条对位效果图骨架,数字位 ——「接得上的接(如一条接 <code>HighScore</code>)、接不上的摆静态占位数字(如 "0" 或 "—")」,加号「+」点击 → <code>Log</code>「待建」+ TODO,<mark>不接任何货币系统、不擅自定义资源语义、不接购买</mark>(去变现)。这些资源条代表什么、是否真做,列待裁决交 boss / 产品(<a href="#27-tarot-mode-hud-art::open">§十 D1</a>),本次换皮按占位推进不阻塞。
 
 <h2 id="effigy">三之补 · 效果图拆解（对位基准）</h2>
 
@@ -110,7 +110,7 @@
 | ④ 顶栏齿轮 | 右上圆齿轮(设置入口) | `icon_setting` → 接 `ShowUIAsync<SettingsWindow>`([设计 23](#23-settings-window-art) 已建,**真接线**) | 替既有 `Exit` ×(见 [§5.4](#27-tarot-mode-hud-art::exit)) |
 | ⑤ 大分数 | 顶栏下大白字「23333」 | 沿用既有 `Score` 大文本([§5.5](#27-tarot-mode-hud-art::digits):位图数字 `image` 为可选增强);字号 / 色对位效果图 | ✓ `Score`(保留 / 微调) |
 | ⑥ 棋盘外框 + 格子背景 | 木质圆角外框 + 8×8 浅格 | `chess`(外框)+ `Rectangle` / `blue`(格底),或保既有纯色微调([§五](#27-tarot-mode-hud-art::board)) | ✓ `BoardOuter` + `cellbg_*`(换皮) |
-| ⑦ 候选块（3 块） | 底部一行 3 候选方块(彩色) | <mark>动态生成,本轮不碰</mark>(`RenderSlots` + `BlockLayout.ColorOf` 纯色块保留) | ✓ 动态,保留不动 |
+| ⑦ 候选块（3 块） | 底部一行 3 候选方块(彩色) | <mark>动态生成,本次换皮不碰</mark>(`RenderSlots` + `BlockLayout.ColorOf` 纯色块保留) | ✓ 动态,保留不动 |
 | ⑧ 3 动作按钮 | 底部 3 木条按钮「更换 / 删除 / 提示」 | `Rectangle`(条底)+ `magic_book`/`hammer`/图标 + 文本;<mark>新机制 → stub 占位</mark>([§六](#27-tarot-mode-hud-art::stub)) | 新增静态 + stub |
 
 > [!NOTE]
@@ -168,7 +168,7 @@
 
 <h3 id="board-existing">5.1 既有静态节点逐项处置</h3>
 
-| 既有节点（BuildStaticUI） | 本轮处置 | 具体改动 |
+| 既有节点（BuildStaticUI） | 本次换皮处置 | 具体改动 |
 | --- | --- | --- |
 | `Bg`(全屏背景纯色 `BgColor`) | 换皮 | 色改 `Color.white` + `bg.SetSubSprite(Atlas,"chessboard")`(或木纹底子图);若无整屏背景图则保纯色微调 |
 | `BoardOuter`(棋盘外框纯色 `BoardOuterColor`) | 换皮 | 色改白 + `SetSubSprite(Atlas,"chess")`(木质外框,九宫格);<mark>位置 / 尺寸不动</mark>(`BlockLayout.BoardOriginX/Y` + `BoardPixels`,改了会偏移落子对位) |
@@ -190,7 +190,7 @@
 
 <h3 id="topbar">5.3 新增静态顶栏（头像 + 3 资源条 + 齿轮）</h3>
 
-效果图顶栏在既有 `GameWindow` 里**不存在**(它当前只有 BEST + 大分数 + ×)。本轮新增静态节点对位顶栏,全是 `UGuiFactory.CreateImage` / `CreateButton` 摆在 `_content` 上(750 设计系坐标,对着效果图微调):
+效果图顶栏在既有 `GameWindow` 里**不存在**(它当前只有 BEST + 大分数 + ×)。本次换皮新增静态节点对位顶栏,全是 `UGuiFactory.CreateImage` / `CreateButton` 摆在 `_content` 上(750 设计系坐标,对着效果图微调):
 
 <pre class="code">// BuildStaticUI 末尾新增（静态顶栏，全部 SetSubSprite 取 Sheet_tarot_mode 子图）
 private const string Atlas = "Sheet_tarot_mode";
@@ -226,17 +226,17 @@ gear.onClick.AddListener(() =&gt; GameModule.UI.ShowUIAsync&lt;SettingsWindow&gt
 既有 `Exit` 钮("×")是<mark>玩家离开主玩法窗回主菜单的唯一入口</mark>(回调 `CloseUI<GameWindow>` + `ShowUIAsync<MainMenuWindow>`)。效果图右上是齿轮(设置)而非 ×。处置:
 
 - **默认**:齿轮接设置窗(§5.3);<mark>退出钮保留</mark>但挪位(如齿轮左侧小返回钮,或顶栏头像旁),回调**一字不改**。不能因对位效果图把退出入口删掉(否则进了 Classic 出不来)。
-- **备选**:设置窗里本就有「返回主菜单 / 退出」路径(设计 23),若产品确认「主玩法只留齿轮、退出走设置窗」,则退出钮可并入设置窗 —— 但本轮安全默认**保留独立退出钮**(改动小、不依赖设置窗有退出项),退出交互归属列 [§十 D4](#27-tarot-mode-hud-art::open) 交 boss。
+- **备选**:设置窗里本就有「返回主菜单 / 退出」路径(设计 23),若产品确认「主玩法只留齿轮、退出走设置窗」,则退出钮可并入设置窗 —— 但本次换皮安全默认**保留独立退出钮**(改动小、不依赖设置窗有退出项),退出交互归属列 [§十 D4](#27-tarot-mode-hud-art::open) 交 boss。
 
 <h3 id="digits">5.5 分数数字：默认沿用 Text，位图为可选增强</h3>
 
-同[设计 26 §4.4](#26-settlement-window-art::digits):**默认**大分数 / 资源条数字沿用既有 `UGuiFactory.CreateText`(内置字体,零依赖、已在跑),换皮只改字号 / 色对位效果图。切图 `image` 若是位图数字条,要用须先确认它是「单张含 0–9 的精灵 / 或已是子图」并逐位拼,<mark>属额外工作量、非本轮必需</mark>,列可选增强([§十 B2](#27-tarot-mode-hud-art::open))。**取默认 Text**(安全默认):分数视觉够用,先把换皮主体落地。
+同[设计 26 §4.4](#26-settlement-window-art::digits):**默认**大分数 / 资源条数字沿用既有 `UGuiFactory.CreateText`(内置字体,零依赖、已在跑),换皮只改字号 / 色对位效果图。切图 `image` 若是位图数字条,要用须先确认它是「单张含 0–9 的精灵 / 或已是子图」并逐位拼,<mark>属额外工作量、非本次换皮必需</mark>,列可选增强([§十 B2](#27-tarot-mode-hud-art::open))。**取默认 Text**(安全默认):分数视觉够用,先把换皮主体落地。
 
 <h2 id="stub">六、3 动作按钮（更换 / 删除 / 提示）= 视觉占位 + stub 钩子</h2>
 
 效果图底部一行 3 木条按钮「更换 / 删除 / 提示」。这是<mark>三个新玩法机制</mark>,Classic `GameWindow` 与数据层 `BlockGameState` 均无:
 
-| 按钮 | 推测机制 | 现状（grep 核实） | 本轮处置 |
+| 按钮 | 推测机制 | 现状（grep 核实） | 本次换皮处置 |
 | --- | --- | --- | --- |
 | **更换** | 更换当前 3 候选块(花资源重摇) | 无(`RefillPieces` 是落完自动补,无手动重摇 + 无资源扣费) | 视觉占位 + stub |
 | **删除** | 删除棋盘某棋子 / 某候选块(花资源) | 无(无单格删除机制) | 视觉占位 + stub |
@@ -259,11 +259,11 @@ for (int i = 0; i &lt; 3; i++) {
 > [!WARNING]
 > **stub 不等于无反馈，但绝不碰玩法逻辑**
 >
-> 3 按钮点击要有「待建」<code>Log</code>(或 Toast),不能死按钮;但<mark>绝不在本轮顺手实现「更换 / 删除 / 提示」机制</mark> —— 那要动 <code>OperaArr</code> / <code>SaveArr</code> / 资源扣费 + 落子合法性,溢出「纯 UI 补完」、且会改玩法逻辑(违零回归)。真机制是独立新玩法功能,待产品定义(花什么资源 / 几次 / 规则)后另开轮(<a href="#27-tarot-mode-hud-art::open">§十 D5</a>)。本轮只摆视觉 + 留接线点。
+> 3 按钮点击要有「待建」<code>Log</code>(或 Toast),不能死按钮;但<mark>绝不在本次换皮顺手实现「更换 / 删除 / 提示」机制</mark> —— 那要动 <code>OperaArr</code> / <code>SaveArr</code> / 资源扣费 + 落子合法性,溢出「纯 UI 补完」、且会改玩法逻辑(违零回归)。真机制是独立新玩法功能,待产品定义(花什么资源 / 几次 / 规则)后另开轮(<a href="#27-tarot-mode-hud-art::open">§十 D5</a>)。本次换皮只摆视觉 + 留接线点。
 
 <h2 id="flow">七、换皮范围与零回归边界（结构图）</h2>
 
-下图标出 `GameWindow` 哪些部分本轮换皮(静态 HUD)、哪些绝不碰(动态玩法)。给 dev / test 作零回归核对基准。
+下图标出 `GameWindow` 哪些部分本次换皮(静态 HUD)、哪些绝不碰(动态玩法)。给 dev / test 作零回归核对基准。
 
 <div class="diagram">
   <svg viewBox="0 0 760 440" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Consolas,monospace" font-size="12">
@@ -275,9 +275,9 @@ for (int i = 0; i &lt; 3; i++) {
     <!-- GameWindow 容器 -->
     <rect x="20" y="20" width="720" height="400" rx="10" fill="#141d2e" stroke="#3a4760"></rect>
     <text x="40" y="44" fill="#cdd8f0" font-size="13">GameWindow（Classic 主玩法窗，在跑）</text>
-    <!-- 换皮区（黄=本轮改） -->
+    <!-- 换皮区（黄=本次换皮改） -->
     <rect x="40" y="60" width="330" height="150" rx="8" fill="#3a2a1c" stroke="#ffcf5c"></rect>
-    <text x="55" y="82" fill="#ffe7a8" font-size="12">★ 本轮换皮（静态 HUD 外壳）</text>
+    <text x="55" y="82" fill="#ffe7a8" font-size="12">★ 本次换皮（静态 HUD 外壳）</text>
     <text x="55" y="104" fill="#d8c08f" font-size="11">BuildStaticUI：</text>
     <text x="65" y="124" fill="#d8c08f" font-size="11">· Bg / BoardOuter / cellbg 贴木质子图</text>
     <text x="65" y="142" fill="#d8c08f" font-size="11">· Score / Best 文本微调</text>
@@ -306,15 +306,15 @@ for (int i = 0; i &lt; 3; i++) {
     <path d="M205,210 L205,226" stroke="#8fa3c8" fill="none" marker-end="url(#arr)"></path>
     <text x="210" y="222" fill="#8fa3c8" font-size="10">无数据/机制处降级为</text>
     <!-- 图例 -->
-    <text x="40" y="358" fill="#8fa3c8" font-size="11">黄=本轮换皮（静态 HUD）　紫=占位/stub（无数据源·无机制）　绿=绝不碰（动态玩法·零回归硬约束）</text>
+    <text x="40" y="358" fill="#8fa3c8" font-size="11">黄=本次换皮（静态 HUD）　紫=占位/stub（无数据源·无机制）　绿=绝不碰（动态玩法·零回归硬约束）</text>
     <text x="40" y="378" fill="#8fa3c8" font-size="11">★ 换皮只动 BuildStaticUI 视觉构建行 + 新增静态节点；所有 Render*/拖拽/落子/坐标映射保留不动</text>
-    <text x="40" y="398" fill="#8fa3c8" font-size="11">资源条加号/动作按钮一律占位 stub，绝不在本轮实现真机制或接购买（去变现 + 纯 UI 补完）</text>
+    <text x="40" y="398" fill="#8fa3c8" font-size="11">资源条加号/动作按钮一律占位 stub，绝不在本次换皮实现真机制或接购买（去变现 + 纯 UI 补完）</text>
   </svg>
   </div>
 
 <h2 id="hook">八、dev 改动清单</h2>
 
-符号名经 grep / 读图核实(真实存在标「✓」)。<mark>本轮无新代码文件、无新窗口类</mark>,只改一个在跑窗口的静态视觉构建 + 新增切图 / 精灵表资源。
+符号名经 grep / 读图核实(真实存在标「✓」)。<mark>本次换皮无新代码文件、无新窗口类</mark>,只改一个在跑窗口的静态视觉构建 + 新增切图 / 精灵表资源。
 
 | # | 文件 / 资源 | 动作 | 说明 |
 | --- | --- | --- | --- |
@@ -324,12 +324,12 @@ for (int i = 0; i &lt; 3; i++) {
 | 4 | 测试:`Assets/Editor/Tests/...` GameWindow 静态换皮回归 | 新建 / 补 | §9.1 R 组:静态核对玩法逻辑行未改 + 编译 0 error |
 | — | ✓ `BlockLayout.cs` | **不改** | 棋盘原点 / 格尺寸 / 候选槽位 / 坐标映射常量不动(动了落子对位偏移 = 玩法回归) |
 | — | ✓ `BlockGameState.cs` / `MergeOrderState.cs` | **不改** | 不动数据层;不为资源条 / 动作按钮加字段 |
-| — | ✓ `MergeOrderWindow.cs` | **不改** | 合成订单玩法本轮不碰(门控独立,Classic 下短路) |
+| — | ✓ `MergeOrderWindow.cs` | **不改** | 合成订单玩法本次换皮不碰(门控独立,Classic 下短路) |
 | — | ✓ 收集器 `AssetBundleCollectorSetting.asset` | **不改** | `Sheet_tarot_mode` 落已收录 `UIRaw/Atlas` 树,自动收 |
 
 <h2 id="accept">九、验收点</h2>
 
-拆两档:<b>回归（硬：不破坏对应玩法 + Classic + Merge，编译零回归）</b>与 <b>视觉（Play 对位 tarot\_mode.png + 切图贴对 + 玩法仍可进可玩）</b>。<mark>回归是本轮硬验收</mark>(主玩法窗在跑)。
+拆两档:<b>回归（硬：不破坏对应玩法 + Classic + Merge，编译零回归）</b>与 <b>视觉（Play 对位 tarot\_mode.png + 切图贴对 + 玩法仍可进可玩）</b>。<mark>回归是本次换皮硬验收</mark>(主玩法窗在跑)。
 
 <h3 id="regress">9.1 回归 / 编译（EditMode + 静态核对，硬验收）</h3>
 
@@ -341,7 +341,7 @@ for (int i = 0; i &lt; 3; i++) {
     <tr><td>R2</td><td><b>棋盘坐标映射未改</b>:<code>BlockLayout</code> 的 <code>BoardOriginX/Y</code> / <code>BoardPixels</code> / <code>CellSize</code> / <code>CellCenterDesign</code> / <code>SlotCenterX</code> / <code>SlotY</code> / <code>SlotSpacing</code> 等常量未动(换皮节点的 position/size 沿用既有值);落子 grid 计算路径不变</td></tr>
     <tr><td>R3</td><td><b>数据层未改</b>:<code>BlockGameState</code> 无新增字段;<code>OperaArr</code> / <code>SaveArr</code> / <code>Score</code> / <code>HighScore</code> / <code>Combo</code> 读写路径不变;资源条 / 动作按钮未往数据层加任何状态</td></tr>
     <tr><td>R4</td><td><b>退出回调目标未改</b>:退出入口回调仍 <code>CloseUI&lt;GameWindow&gt;</code> + <code>ShowUIAsync&lt;MainMenuWindow&gt;</code>(代码静态核对);齿轮新增的 <code>ShowUIAsync&lt;SettingsWindow&gt;</code> 是叠层、不关本窗、不丢局</td></tr>
-    <tr><td>R5</td><td><b>合成订单玩法不受影响</b>:<code>MergeOrderWindow.cs</code> 本轮未改(git diff 仅 <code>GameWindow.cs</code> + 资源);<code>MergeOrderMode</code> 门控独立,Classic 换皮不触碰合成订单分支</td></tr>
+    <tr><td>R5</td><td><b>合成订单玩法不受影响</b>:<code>MergeOrderWindow.cs</code> 本次换皮未改(git diff 仅 <code>GameWindow.cs</code> + 资源);<code>MergeOrderMode</code> 门控独立,Classic 换皮不触碰合成订单分支</td></tr>
   </tbody></table>
 
 > [!WARNING]
@@ -359,18 +359,18 @@ for (int i = 0; i &lt; 3; i++) {
 | V4 | <b>Classic 整局可进可玩（零回归实玩）</b>:从主菜单进 Classic → 摆块 / 落子 / 消除 / 连击弹字 / 补块 / GameOver / 分数滚动 / 最高分全部正常 | 玩到整局须真机 / 手验(MCP 不模拟拖拽落子) |
 | V5 | **齿轮 / 退出 / 加号 / 动作按钮交互**:齿轮 → 开设置窗(不丢局);退出 → 回主菜单;加号 / 更换 / 删除 / 提示 → Log 待建(不报错、不动玩法) | 点击须真机 / 手验(MCP 不模拟点击) |
 | V6 | 资源条占位 / 动作按钮 stub 不报错、不挡棋盘 / 候选块 / 落子区、不穿帮 | 可截图核版面 |
-| V7 | **合成订单窗不受影响**:从主菜单进合成订单 → 正常(本轮未碰) | 可 ShowUIAsync 截图 + 手验 |
+| V7 | **合成订单窗不受影响**:从主菜单进合成订单 → 正常(本次换皮未碰) | 可 ShowUIAsync 截图 + 手验 |
 
 <h2 id="open">十、待拍板清单（范围开关，交 boss / 用户）</h2>
 
 自治模式。有安全默认的按默认推进(记 decisions 供 boss 关单复核);<mark>无安全默认 / 抵触 spec / 不可逆</mark>的才入 blockers。下表均有安全默认 → **不入 blockers**。
 
-| # | 开关 | 本轮默认（安全默认） | 备选 / 改动触发 |
+| # | 开关 | 本次换皮默认（安全默认） | 备选 / 改动触发 |
 | --- | --- | --- | --- |
 | **D1** | 顶栏 3 资源条代表什么 / 数据源 / 加号干什么(数据层无资源字段) | **视觉占位**([§5.3](#27-tarot-mode-hud-art::topbar))—— 摆 3 条对位骨架,第 1 条接 `HighScore`、其余数字占位,图标用 gemstone/potion 占位,加号 → Log 待建(去变现不接购买);不擅自定义资源语义 | 若产品定义 3 资源各是什么(金币 / 宝石 / 提示券…)+ 数据源 + 加号行为 → 后续轮真做(加货币系统 + 接数字位)。<mark>资源语义无 spec 定义,提请 boss / 产品复核</mark> |
-| **D5** | 3 动作按钮(更换 / 删除 / 提示)真机制 | **stub 占位**([§六](#27-tarot-mode-hud-art::stub))—— 摆视觉 + 点击 Log 待建 + TODO;真机制本范围外 | 更换 / 删除 / 提示是新玩法功能(花什么资源 / 几次 / 规则未定),产品定义后另开轮真做。<mark>本轮不实现(违纯 UI 补完 + 零回归)</mark> |
+| **D5** | 3 动作按钮(更换 / 删除 / 提示)真机制 | **stub 占位**([§六](#27-tarot-mode-hud-art::stub))—— 摆视觉 + 点击 Log 待建 + TODO;真机制本范围外 | 更换 / 删除 / 提示是新玩法功能(花什么资源 / 几次 / 规则未定),产品定义后另开轮真做。<mark>本次换皮不实现(违纯 UI 补完 + 零回归)</mark> |
 | D2 | 顶栏头像数据源(Classic 无 PlayerInfo 接入) | **占位圆图**(用 mask / 通用子图)—— 不为头像把 PlayerInfo 接进 Classic `GameWindow` | 若要真头像:接 [设计 18](#18-player-info) 默认头像(`GameContext.Instance.Player`),属接数据层、可后续做 |
-| D3 | 切图 `advertisement`(广告)是否投放 | **不投放**([§4.3](#27-tarot-mode-hud-art::map))—— 去变现方向,不接广告 | 切图自带但本轮不用;若产品要广告位则违去变现方向,须 boss 拍(默认不投) |
+| D3 | 切图 `advertisement`(广告)是否投放 | **不投放**([§4.3](#27-tarot-mode-hud-art::map))—— 去变现方向,不接广告 | 切图自带但本次换皮不用;若产品要广告位则违去变现方向,须 boss 拍(默认不投) |
 | D4 | 退出入口归属(独立退出钮 vs 并入设置窗) | **保留独立退出钮**([§5.4](#27-tarot-mode-hud-art::exit))—— 挪位但回调不改,不依赖设置窗有退出项 | 产品若定「主玩法只留齿轮、退出走设置窗」则可并入(但设置窗须有退出主菜单项);默认保独立钮更稳 |
 | B1 | 棋盘格底是否换皮(64 格) | **外框 + 背景换皮，格底保纯色**([§5.2](#27-tarot-mode-hud-art::board-cellbg) 方案 A) | dev 视效果可连格底也换(方案 B);视觉为准,坐标常量一律不动 |
 | B2 | 大分数 / 资源条数字是否用位图数字 | **沿用 Text**([§5.5](#27-tarot-mode-hud-art::digits))—— 零依赖够用 | 要位图数字须先确认 `image` 切图是数字条并逐位拼,额外工作量,后续增强 |
@@ -379,13 +379,13 @@ for (int i = 0; i &lt; 3; i++) {
 > [!NOTE]
 > **自治分流说明**
 >
-> D1–B3 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(资源条语义)与 **D5**(动作按钮机制)是最值得 boss / 产品复核的两项 —— 安全默认都是占位 / stub,真做需产品定义资源 / 机制含义,但<mark>本轮不因它们停机</mark>(占位 + stub 即可交付完整静态壳换皮)。<b>本轮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
+> D1–B3 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(资源条语义)与 **D5**(动作按钮机制)是最值得 boss / 产品复核的两项 —— 安全默认都是占位 / stub,真做需产品定义资源 / 机制含义,但<mark>本次换皮不因它们停机</mark>(占位 + stub 即可交付完整静态壳换皮)。<b>本次换皮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
 
 <h2 id="risk">十一、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| **换皮越界改了玩法逻辑**:dev 在改视觉时顺手动了 `Render*` / 落子 / ghost / GameOver / `OnUpdate`,造成 Classic 整局回归(主玩法窗在跑,这是本轮第一风险) | §五逐节点标「玩法逻辑行保留不动」;§7 结构图明分换皮区 / 不碰区;§9.1 R 组硬验收逐条静态核对 + git diff 仅 `GameWindow.cs` 视觉;§八清单明列「不改」项 |
+| **换皮越界改了玩法逻辑**:dev 在改视觉时顺手动了 `Render*` / 落子 / ghost / GameOver / `OnUpdate`,造成 Classic 整局回归(主玩法窗在跑,这是本次换皮第一风险) | §五逐节点标「玩法逻辑行保留不动」;§7 结构图明分换皮区 / 不碰区;§9.1 R 组硬验收逐条静态核对 + git diff 仅 `GameWindow.cs` 视觉;§八清单明列「不改」项 |
 | **动了 BlockLayout 坐标常量致落子对位偏移**:为对位效果图改了棋盘原点 / 格尺寸 / 候选槽位,落子 / ghost 不再贴格 | §5.2 / R2:换皮节点 position/size 沿用既有 `BlockLayout` 值,坐标常量一律不动;V3 Play 验落子对位不偏 |
 | **为对位捏造资源 / 机制**:dev 为摆 3 资源条 / 3 动作按钮去加货币字段 / 实现更换删除提示,溢出范围 + 动逻辑 | §三 D1 / §六 D5:资源条 / 动作按钮是占位 + stub,不绑数据 / 不实现机制;真做须产品定义后另开轮 |
 | **贴图后被纯色 Image.color 染暗**:沿用既有 `CreateImage` 深色却又贴子图,木纹被染黑 | §5.1:换皮节点 `color` 改 `Color.white` 让木纹原色透出;按钮 `bgColor` 同改白(同设计 26 经验) |

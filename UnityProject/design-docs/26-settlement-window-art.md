@@ -14,16 +14,16 @@
 
 # 结算窗美术换皮 · 表现层
 
-塔罗 UI 换皮自治线**第三屏**:把效果图 `游戏结束.png` / `恭喜通关.png` 换皮成两个<mark>已在运行</mark>的 code-built 结算窗 —— `GameOverWindow`(游戏结束)与 `MergeOrderWinWindow`(恭喜通关)。<mark>本轮 = 纯 UI 补完(视觉换皮)</mark>:这两个窗的结算逻辑、`UserData` 取参、重开 / 回主菜单回调全部**保留不动**,只把 `UGuiFactory` 的纯色 Image / 文本换成贴 `Sheet_settings` 木板 + 按钮子图。基础设施**全部复用**[设计 23](#23-settings-window-art) 的 `Image.SetSubSprite(精灵表, 子图名)` 取图链路。<b>不重新发明任何基础设施、不动任何结算逻辑。</b>
+塔罗 UI 换皮自治线**第三屏**:把效果图 `游戏结束.png` / `恭喜通关.png` 换皮成两个<mark>已在运行</mark>的 code-built 结算窗 —— `GameOverWindow`(游戏结束)与 `MergeOrderWinWindow`(恭喜通关)。<mark>本次换皮 = 纯 UI 补完(视觉换皮)</mark>:这两个窗的结算逻辑、`UserData` 取参、重开 / 回主菜单回调全部**保留不动**,只把 `UGuiFactory` 的纯色 Image / 文本换成贴 `Sheet_settings` 木板 + 按钮子图。基础设施**全部复用**[设计 23](#23-settings-window-art) 的 `Image.SetSubSprite(精灵表, 子图名)` 取图链路。<b>不重新发明任何基础设施、不动任何结算逻辑。</b>
 
 <div class="callout warn">
-    <b>读前必看 · 五条边界（本轮与前两屏的关键差异：这两个窗在跑，零回归是硬约束）</b>
+    <b>读前必看 · 五条边界（本次换皮与前两屏的关键差异：这两个窗在跑，零回归是硬约束）</b>
     <ul style="margin:8px 0 0">
       <li><b>被换皮的两个窗是 code-built、且正在被多条玩法路径调用 —— 不能改触发 / 传参 / 重开。</b><code>GameOverWindow</code> 被 Classic(<code>GameWindow.cs:336</code> 传 <code>previousHigh</code>)与 合成订单结束(<code>MergeOrderWindow.cs:731</code> 传 <code>0</code>)<b>两条路径</b>调用;<code>MergeOrderWinWindow</code> 被通关(<code>MergeOrderWindow.cs:718</code> 传结算行 <code>List&lt;string&gt;</code>)调用。换皮<mark>不得改动这三处调用点的传参语义、不得改 <code>UserData</code> 解析、不得改 PLAY AGAIN / 重试 / 返回 的回调目标窗</mark>(<a href="#26-settlement-window-art::regress">§九 R 组</a>零回归硬验收)。</li>
       <li><b>取路 A（轻量换皮），不取路 B（prefab 重构）。</b>这两个窗已用 <code>UGuiFactory</code> 跑通,<code>CreateImage</code> 返回的就是 <code>Image</code>,<mark>可直接对返回值调 <code>.SetSubSprite</code> 换贴图</mark> —— 保留窗口结构 + 结算逻辑,只把纯色块换成木板 / 按钮子图,改动最小、风险最低。<b>不</b>改成 prefab + <code>FindChildComponent</code>(那会重写两个在跑窗口,风险高、收益低,与「纯 UI 补完」相悖)。路 A/B 取舍论证见 <a href="#26-settlement-window-art::way">§三</a>。</li>
       <li><b>无结算专属切图，全部复用 <code>Sheet_settings</code>；分数文本沿用既有 <code>Text</code>，digits 位图为可选增强。</b>塔罗素材<mark>没有「游戏结束 / 恭喜通关」专属切图目录</mark>(只有 设置/占卜/… 12 个),木板 / 按钮全用设置窗已导入的 <code>Sheet_settings</code> 子图拼。效果图三图标(星 / 心 / 草)、太阳奖励格无对应子图、也<b>无数据层来源</b> → 装饰占位(<a href="#26-settlement-window-art::decor">§4.3</a>)。数字默认沿用既有 <code>UGuiFactory.CreateText</code>(零依赖、已在跑);位图数字 digits 因<mark>未打表</mark>属可选增强(<a href="#26-settlement-window-art::digits">§4.4</a>)。</li>
-      <li><b>效果图的三图标 / 太阳格无数据源 → 不为对位而捏造统计字段。</b>效果图「星 60 / 心 60 / 草 60」「两个太阳格」在数据层<mark>无对应字段</mark>(<code>BlockGameState</code> 只有 <code>Score</code> / <code>HighScore</code> / <code>Combo</code>,无星 / 心 / 草 / 太阳统计)。本轮安全默认 = <b>把这些当装饰层</b>:要么作纯装饰图标(数字位接已得的 <code>Score</code> 或省略),要么整组省略只保「分数 + 按钮」核心。<mark>不擅自往结算逻辑加统计字段</mark>(决策 D1,<a href="#26-settlement-window-art::decor">§4.3</a>)。</li>
-      <li><b>UI 代码在热更区，加法 / 改既有都最小，不破坏 Classic / Merge。</b>两个窗口脚本就在 <code>GameScripts/HotFix/GameLogic/UI/BlockBlastUI/</code>(热更),本轮只改这两个 <code>.cs</code> 文件的 <code>OnCreate</code> 视觉部分。<mark>不新建 prefab、不动 GameContext、不动数据层、不动三处调用点</mark>(<a href="#26-settlement-window-art::regress">§九 R</a>)。</li>
+      <li><b>效果图的三图标 / 太阳格无数据源 → 不为对位而捏造统计字段。</b>效果图「星 60 / 心 60 / 草 60」「两个太阳格」在数据层<mark>无对应字段</mark>(<code>BlockGameState</code> 只有 <code>Score</code> / <code>HighScore</code> / <code>Combo</code>,无星 / 心 / 草 / 太阳统计)。本次换皮安全默认 = <b>把这些当装饰层</b>:要么作纯装饰图标(数字位接已得的 <code>Score</code> 或省略),要么整组省略只保「分数 + 按钮」核心。<mark>不擅自往结算逻辑加统计字段</mark>(决策 D1,<a href="#26-settlement-window-art::decor">§4.3</a>)。</li>
+      <li><b>UI 代码在热更区，加法 / 改既有都最小，不破坏 Classic / Merge。</b>两个窗口脚本就在 <code>GameScripts/HotFix/GameLogic/UI/BlockBlastUI/</code>(热更),本次换皮只改这两个 <code>.cs</code> 文件的 <code>OnCreate</code> 视觉部分。<mark>不新建 prefab、不动 GameContext、不动数据层、不动三处调用点</mark>(<a href="#26-settlement-window-art::regress">§九 R</a>)。</li>
     </ul>
   </div>
 
@@ -32,14 +32,14 @@
     <table>
       <tbody><tr><th>类型</th><td><span class="chip">表现层换皮 · 塔罗 UI 自治线第 3 屏 · 纯 UI 补完（视觉换皮）</span> 复用设计 23 取图链路,把两个在跑 code-built 结算窗换皮。出设计稿 + 验收标准,交开发落地。</td></tr>
       <tr><th>设计基线（经 grep / 读图核实的真实符号 / 现状）</th><td>
-        <b>被换皮窗口（code-built，本轮只改视觉，逻辑不动）</b>:<br>
+        <b>被换皮窗口（code-built，本次换皮只改视觉，逻辑不动）</b>:<br>
         ① <code>GameLogic.BlockBlastUI.GameOverWindow</code>(<code>[Window(Top, "GameOverWindow", fullScreen:true)]</code>,72 行)。<code>OnCreate</code> 读 <code>UserData is int</code> = <code>previousHigh</code>;<code>BlockGameState.Instance.Score</code> / <code>.HighScore</code> 算 <code>finalScore</code> / <code>high</code> / <code>isNewBest</code>;<code>UGuiFactory.CreateContentPanel/CreateImage/CreateText/CreateButton</code> 摆:遮罩 + 卡片 + "GAME OVER" + (新纪录)徽章 + SCORE 标签 + 分数 + BEST 标签 + 最高分 + "PLAY AGAIN" 钮 + "Back to Menu" 钮。回调:PLAY AGAIN → <code>CloseUI&lt;GameOverWindow&gt;</code> + <code>ShowUIAsync&lt;GameWindow&gt;</code>;Back → <code>CloseUI</code> + <code>ShowUIAsync&lt;MainMenuWindow&gt;</code>。<br>
         ② <code>GameLogic.BlockBlastUI.MergeOrderWinWindow</code>(<code>[Window(Top, "MergeOrderWinWindow", fullScreen:true)]</code>,61 行)。<code>OnCreate</code> 读 <code>UserData as List&lt;string&gt;</code> = 结算行;摆:遮罩 + 卡片 + "通关！" + 逐行结算文本 + "再来一局" 钮 + "返回主菜单" 钮。回调:再来一局 → <code>CloseUI</code> + <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code>(重入即 ResetForMergeOrder);返回 → <code>CloseUI</code> + <code>ShowUIAsync&lt;MainMenuWindow&gt;</code>。<br>
-        <b>调用点（三处，本轮不改）</b>:<code>GameWindow.cs:336</code> <code>ShowUIAsync&lt;GameOverWindow&gt;(previousHigh)</code>(Classic);<code>MergeOrderWindow.cs:731</code> <code>ShowUIAsync&lt;GameOverWindow&gt;(0)</code>(订单结束);<code>MergeOrderWindow.cs:718</code> <code>ShowUIAsync&lt;MergeOrderWinWindow&gt;(lines)</code>(通关)。<br>
-        <b>构建工厂 + 坐标系（本轮沿用）</b>:<code>UGuiFactory.CreateImage(parent,name,designCx,designCy,w,h,color)</code> → 返回 <code>Image</code>(可链 <code>.SetSubSprite</code>);<code>CreateButton(...,out Image bgImage,out Text label)</code> → <code>out bgImage</code> 即按钮底图,可 <code>SetSubSprite</code>;<code>CreateContentPanel</code> 建 750×1334 固定面板、localScale 放大到 1080 参考宽(<code>BlockLayout.ContentScale=1.44</code>)。坐标 = <b>750×1334 设计系</b>(左上原点 Y 下正,经 <code>DesignToAnchored</code> 转锚点)。<br>
+        <b>调用点（三处，本次换皮不改）</b>:<code>GameWindow.cs:336</code> <code>ShowUIAsync&lt;GameOverWindow&gt;(previousHigh)</code>(Classic);<code>MergeOrderWindow.cs:731</code> <code>ShowUIAsync&lt;GameOverWindow&gt;(0)</code>(订单结束);<code>MergeOrderWindow.cs:718</code> <code>ShowUIAsync&lt;MergeOrderWinWindow&gt;(lines)</code>(通关)。<br>
+        <b>构建工厂 + 坐标系（本次换皮沿用）</b>:<code>UGuiFactory.CreateImage(parent,name,designCx,designCy,w,h,color)</code> → 返回 <code>Image</code>(可链 <code>.SetSubSprite</code>);<code>CreateButton(...,out Image bgImage,out Text label)</code> → <code>out bgImage</code> 即按钮底图,可 <code>SetSubSprite</code>;<code>CreateContentPanel</code> 建 750×1334 固定面板、localScale 放大到 1080 参考宽(<code>BlockLayout.ContentScale=1.44</code>)。坐标 = <b>750×1334 设计系</b>(左上原点 Y 下正,经 <code>DesignToAnchored</code> 转锚点)。<br>
         <b>取图 API（设计 23 实测打通）</b>:<code>Image.SetSubSprite(string location, string spriteName)</code>(<code>SetSpriteExtensions.cs:43</code>);<code>location="Sheet_settings"</code>(单张 Multiple 模式精灵表,<mark>非 SpriteAtlas v2</mark> —— v2 不向 YooAsset 暴露子精灵,设计 23 §3.3 实测),子图名 = 源切图文件名。<br>
         <b>可用子图（22 张，源 <code>AssetRaw/UIRaw/Atlas/setting/</code>）</b>:木板 <code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code>/<code>box1</code>/<code>box2</code>;按钮底 <code>button</code>;关闭 <code>icon_x</code>/<code>x</code>;图标 <code>chat</code>/<code>clear</code>/<code>exit</code>/<code>game</code>/<code>help</code>/<code>language</code>/<code>printer</code>/<code>setting</code>/<code>Player_music</code>/<code>Volume_up</code>;社交 <code>facebook</code>/<code>twitter</code>/<code>youtube</code>/<code>instagram</code>。<mark>星 / 心 / 草 / 太阳 / 奖杯均不在其中</mark> → 装饰占位。<br>
-        <b>数字图集</b>:<code>AssetRaw/UIRaw/Atlas/numbers/digits_white/</code> · <code>digits_yellow/</code> 各 0..9 散 PNG,<mark>未打成精灵表</mark>(无 <code>Sheet_digits*</code>)→ 本轮默认不用、分数沿用 <code>Text</code>(<a href="#26-settlement-window-art::digits">§4.4</a>)。
+        <b>数字图集</b>:<code>AssetRaw/UIRaw/Atlas/numbers/digits_white/</code> · <code>digits_yellow/</code> 各 0..9 散 PNG,<mark>未打成精灵表</mark>(无 <code>Sheet_digits*</code>)→ 本次换皮默认不用、分数沿用 <code>Text</code>(<a href="#26-settlement-window-art::digits">§4.4</a>)。
       </td></tr>
       <tr><th>方向约束</th><td>离线还原 · <b>去变现</b>:结算窗无内购 / 复活付费 / 看广告续命(效果图也无)。加法 / 改既有都最小:只改两个窗口脚本的视觉构建,不改框架、不改数据层、不改结算逻辑 / 触发 / 重开路径。</td></tr>
       <tr><th>影响范围</th><td>
@@ -56,15 +56,15 @@
 
 现状:这两个结算窗<mark>已实装且在跑</mark> —— Classic 玩死会弹 `GameOverWindow`(SCORE / BEST / NEW BEST 纯色卡片),合成订单 DEMO 通关弹 `MergeOrderWinWindow`(「通关！」+ 结算行纯色卡片)。它们功能完整,缺的只是**美术**:全是 `UGuiFactory` 的纯色方块 + 内置字体,与塔罗木质风格([设计 23 设置窗](#23-settings-window-art) / [设计 25 个人信息窗](#25-player-info-window-art))不一致。
 
-本轮把它们换皮成木质风格,复用[设计 23](#23-settings-window-art) 已打通的 `SetSubSprite` 取图链路。**与前两屏的本质差异**:设置窗 / 个人信息窗是「数据层已建、UI 从零造」(新建 prefab + 新窗口类);本轮两个窗<mark>UI 早已存在且在跑</mark> —— 不是从零造,而是给在跑窗口**换贴图**。这决定了取路 A(轻量换皮)而非路 B(prefab 重构),并把「零回归」抬为硬约束([§九 R](#26-settlement-window-art::regress))。
+把它们换皮成木质风格,复用[设计 23](#23-settings-window-art) 已打通的 `SetSubSprite` 取图链路。**与前两屏的本质差异**:设置窗 / 个人信息窗是「数据层已建、UI 从零造」(新建 prefab + 新窗口类);本次换皮两个窗<mark>UI 早已存在且在跑</mark> —— 不是从零造,而是给在跑窗口**换贴图**。这决定了取路 A(轻量换皮)而非路 B(prefab 重构),并把「零回归」抬为硬约束([§九 R](#26-settlement-window-art::regress))。
 
-| # | 本轮交付的 | 落法 | 性质 |
+| # | 本次换皮交付的 | 落法 | 性质 |
 | --- | --- | --- | --- |
 | 1 | `GameOverWindow` 换皮(对位 游戏结束.png) | 遮罩 / 卡片 / 按钮底改贴 `Sheet_settings` 木板 + button 子图;标题 / 分数文本沿用或微调([§五](#26-settlement-window-art::over)) | <span class="pill-cur">改既有视觉</span> |
 | 2 | `MergeOrderWinWindow` 换皮(对位 恭喜通关.png) | 同上,标题改「恭喜通关」风格,结算行 / 按钮换皮([§六](#26-settlement-window-art::win)) | <span class="pill-cur">改既有视觉</span> |
 | 3 | 效果图装饰元素的处置(星 / 心 / 草 / 太阳格) | 无数据源 / 无切图 → 装饰占位 或 省略,不捏造统计字段([§4.3](#26-settlement-window-art::decor),决策 D1) | <span class="pill-no">装饰占位</span> |
 
-<b>不做（本轮明确排除）:</b><span class="pill-no">改结算逻辑</span>(分数 / 新纪录判定 / 结算行不动);<span class="pill-no">改触发 / 传参 / 重开路径</span>(三处调用点不动,回调目标窗不动);<span class="pill-no">新建 prefab / 新窗口类</span>(路 A 不重构);<span class="pill-no">为对位效果图加星 / 心 / 草 / 太阳统计字段</span>(无数据源,装饰占位);<span class="pill-no">复活 / 看广告续命 / 内购</span>(去变现);<span class="pill-no">导入新切图 / 新图集</span>(复用 Sheet\_settings)。
+<b>不做（本次换皮明确排除）:</b><span class="pill-no">改结算逻辑</span>(分数 / 新纪录判定 / 结算行不动);<span class="pill-no">改触发 / 传参 / 重开路径</span>(三处调用点不动,回调目标窗不动);<span class="pill-no">新建 prefab / 新窗口类</span>(路 A 不重构);<span class="pill-no">为对位效果图加星 / 心 / 草 / 太阳统计字段</span>(无数据源,装饰占位);<span class="pill-no">复活 / 看广告续命 / 内购</span>(去变现);<span class="pill-no">导入新切图 / 新图集</span>(复用 Sheet\_settings)。
 
 <h2 id="effigy">二、效果图拆解（对位基准）</h2>
 
@@ -103,13 +103,13 @@
 > [!NOTE]
 > <b>「下一关」按钮的文案 vs 回调语义（不改回调）</b>
 >
-> 效果图按钮写「下一关」,但既有 <code>BtnAgain</code> 回调是 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code>(<mark>重新进入合成订单 DEMO，重入即 ResetForMergeOrder</mark>,即「再来一局」)。合成订单 DEMO **无关卡序列概念**,「下一关」= 重新开一局。本轮<mark>只换文案显示、不改回调目标</mark>:文案取「再玩一局」/「下一关」(<a href="#26-settlement-window-art::open">§十一 B3</a> 待 boss 定文案,默认沿用「再来一局」语义安全),回调仍 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code> 不动。把按钮文案改成「下一关」却让它重开同一局,是**语义误导** —— 故默认偏向保「再来一局」文案,文案最终由 boss 拍。
+> 效果图按钮写「下一关」,但既有 <code>BtnAgain</code> 回调是 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code>(<mark>重新进入合成订单 DEMO，重入即 ResetForMergeOrder</mark>,即「再来一局」)。合成订单 DEMO **无关卡序列概念**,「下一关」= 重新开一局。本次换皮<mark>只换文案显示、不改回调目标</mark>:文案取「再玩一局」/「下一关」(<a href="#26-settlement-window-art::open">§十一 B3</a> 待 boss 定文案,默认沿用「再来一局」语义安全),回调仍 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code> 不动。把按钮文案改成「下一关」却让它重开同一局,是**语义误导** —— 故默认偏向保「再来一局」文案,文案最终由 boss 拍。
 
 <h2 id="way">三、reskin 方式：路 A（轻量换皮）选定</h2>
 
 | 路 | 做法 | 利 | 弊 | 取舍 |
 | --- | --- | --- | --- | --- |
-| <b>A. 轻量换皮（选定）</b> | 保留两窗 code-built 结构 + 结算逻辑,把 `UGuiFactory.CreateImage` 的纯色卡片 / 遮罩 / 按钮底 改为贴 `Sheet_settings` 子图(对返回的 `Image` / `out bgImage` 调 `.SetSubSprite`),文本字号 / 色微调 | <mark>改动最小、风险最低</mark>;不动结算逻辑 / 传参 / 回调;无新 prefab / 新类;零回归面最小 | 仍是 750 设计坐标系(非 prefab 锚点),与设置窗 prefab 范式不统一(但本轮不追求统一,追求零回归) | 取此 |
+| <b>A. 轻量换皮（选定）</b> | 保留两窗 code-built 结构 + 结算逻辑,把 `UGuiFactory.CreateImage` 的纯色卡片 / 遮罩 / 按钮底 改为贴 `Sheet_settings` 子图(对返回的 `Image` / `out bgImage` 调 `.SetSubSprite`),文本字号 / 色微调 | <mark>改动最小、风险最低</mark>;不动结算逻辑 / 传参 / 回调;无新 prefab / 新类;零回归面最小 | 仍是 750 设计坐标系(非 prefab 锚点),与设置窗 prefab 范式不统一(但本次换皮不追求统一,追求零回归) | 取此 |
 | B. prefab 重构 | 改成 prefab + `FindChildComponent` 绑定(对齐设置窗范式) | 范式统一 | <mark>要重写两个在跑窗口</mark>:重建节点树 + 重接结算逻辑 + 重接三处调用 + 重接回调 —— 回归面大、收益低,与「纯 UI 补完」相悖 | 不取 |
 
 **取路 A** 的关键依据:`UGuiFactory.CreateImage` 返回 `Image` 引用、`CreateButton` 经 `out Image bgImage` 给出按钮底图引用 —— 两者都能<mark>直接链 <code>.SetSubSprite("Sheet\_settings", 子图名)</code></mark> 换皮,无需重建节点。窗口的结算计算 / `UserData` 解析 / 按钮 `onClick` 回调**一行不改**,只换视觉表现。这正是简报「低风险优先」与「逻辑保留不动」的最直接落法。
@@ -131,13 +131,13 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 > [!NOTE]
 > <b>贴子图后底色用白（让木纹原色透出）</b>
 >
-> 既有 <code>CreateImage</code> 给的是纯色(如 <code>0x222244</code> 深蓝)。<mark>换皮后该色须改 <code>Color.white</code></mark>(或保留 alpha 的白),否则木纹子图会被深色 <code>Image.color</code> 染暗。同理按钮 <code>bgColor</code> 改白。文本节点(标题 / 分数 / 按钮 label)的色按效果图调(标题深棕 <code>#b86a45</code> 系 / 分数白或深色),字体仍用 <code>UGuiFactory</code> 内置字体(本轮不引美术字体)。
+> 既有 <code>CreateImage</code> 给的是纯色(如 <code>0x222244</code> 深蓝)。<mark>换皮后该色须改 <code>Color.white</code></mark>(或保留 alpha 的白),否则木纹子图会被深色 <code>Image.color</code> 染暗。同理按钮 <code>bgColor</code> 改白。文本节点(标题 / 分数 / 按钮 label)的色按效果图调(标题深棕 <code>#b86a45</code> 系 / 分数白或深色),字体仍用 <code>UGuiFactory</code> 内置字体(本次换皮不引美术字体)。
 
 <h2 id="atlas">四、美术资产接入（复用 Sheet_settings，无新资源）</h2>
 
 <h3 id="atlas-reuse">4.1 复用设置窗精灵表</h3>
 
-本轮<mark>不导入任何新切图、不建新图集、不动打表工具</mark>。`Sheet_settings.png`(单张 Multiple 精灵表,22 命名子精灵)已被设置窗导入、收集器收录、运行期 `SetSubSprite` 寻址打通([设计 23 §三](#23-settings-window-art::atlas)实测)。两窗的木板 / 按钮底直接复用其子图。`location="Sheet_settings"`,子图名 = 切图文件名(不含扩展名)。
+本次换皮<mark>不导入任何新切图、不建新图集、不动打表工具</mark>。`Sheet_settings.png`(单张 Multiple 精灵表,22 命名子精灵)已被设置窗导入、收集器收录、运行期 `SetSubSprite` 寻址打通([设计 23 §三](#23-settings-window-art::atlas)实测)。两窗的木板 / 按钮底直接复用其子图。`location="Sheet_settings"`,子图名 = 切图文件名(不含扩展名)。
 
 <h3 id="atlas-map">4.2 子图映射（dev 读图核实）</h3>
 
@@ -152,22 +152,22 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 
 <h3 id="decor">4.3 效果图装饰元素的处置（星 / 心 / 草 / 太阳格 → 装饰占位，决策 D1）</h3>
 
-效果图的「三图标行(星 / 心 / 草各 60)」与「奖励格行(2 太阳)」是本轮最需要拿捏的取舍:它们既<mark>无对应切图</mark>(Sheet\_settings 无星 / 心 / 草 / 太阳),又<mark>无数据层来源</mark>(`BlockGameState` 经 grep 只有 `Score` / `HighScore` / `Combo`,无这些统计)。三个处置:
+效果图的「三图标行(星 / 心 / 草各 60)」与「奖励格行(2 太阳)」是本次换皮最需要拿捏的取舍:它们既<mark>无对应切图</mark>(Sheet\_settings 无星 / 心 / 草 / 太阳),又<mark>无数据层来源</mark>(`BlockGameState` 经 grep 只有 `Score` / `HighScore` / `Combo`,无这些统计)。三个处置:
 
-| 方案 | 做法 | 代价 | 本轮取舍 |
+| 方案 | 做法 | 代价 | 本次换皮取舍 |
 | --- | --- | --- | --- |
 | <b>A. 装饰占位（默认）</b> | 三图标 / 太阳格作纯装饰:用通用子图(或纯色块)摆出位置对位效果图,数字位接已得的 `finalScore`(或固定占位),<mark>不绑统计、不入逻辑</mark>;太阳格摆框占位 | 零数据层 / 零逻辑改动,可逆,对位效果图骨架 | 取此 |
 | B. 整组省略 | 不摆三图标 / 太阳格,只保「标题 + 分数文本 + 按钮」核心(更接近既有窗口) | 更省、零回归;但与效果图骨架差距大 | 备选(切图 / 美术补不上时退此) |
 | C. 真做统计 | 给结算加星 / 心 / 草 / 太阳的统计字段 + 数据源 | <mark>动结算逻辑 + 数据层 + 三处调用传参</mark> —— 超出「纯 UI 补完」,且无 spec 定义这些统计是什么 | 不取 |
 
-<b>取 A（装饰占位，决策 D1，安全默认）</b>。理由:① 本轮是「纯 UI 补完(视觉换皮)」,加统计会动结算逻辑 + 传参,溢出范围、且违「零回归」;② 这些图标语义无 spec 定义(星 / 心 / 草到底统计什么?太阳是什么奖励?未知)—— 擅自赋义是替产品定需求;③ 占位可逆 —— 日后产品定义了这些统计,在数据层加字段 + 接数字位即可,装饰节点已摆好。<mark>这三图标 / 太阳格代表什么、是否要真做统计,列待裁决交 boss / 产品</mark>([§十一 D1](#26-settlement-window-art::open)),本轮按装饰占位推进不阻塞。**dev 落地时 A 与 B 二选一以视觉效果为准**(占位图勉强 / 不如不摆则退 B),不阻塞验收。
+<b>取 A（装饰占位，决策 D1，安全默认）</b>。理由:① 本次换皮是「纯 UI 补完(视觉换皮)」,加统计会动结算逻辑 + 传参,溢出范围、且违「零回归」;② 这些图标语义无 spec 定义(星 / 心 / 草到底统计什么?太阳是什么奖励?未知)—— 擅自赋义是替产品定需求;③ 占位可逆 —— 日后产品定义了这些统计,在数据层加字段 + 接数字位即可,装饰节点已摆好。<mark>这三图标 / 太阳格代表什么、是否要真做统计,列待裁决交 boss / 产品</mark>([§十一 D1](#26-settlement-window-art::open)),本次换皮按装饰占位推进不阻塞。**dev 落地时 A 与 B 二选一以视觉效果为准**(占位图勉强 / 不如不摆则退 B),不阻塞验收。
 
 <h3 id="digits">4.4 分数数字：默认沿用 Text，digits 位图为可选增强</h3>
 
 简报提到位图数字图集 `digits_white` / `digits_yellow` 可拼分数。但勘察发现:这两个目录是<mark>散 PNG，未打成精灵表</mark>(无 `Sheet_digits*`)。而 `SetSubSprite` 的前提是「单张 Multiple 精灵表」(SpriteAtlas v2 不暴露子精灵,设计 23 §3.3 实测)。故:
 
 - <b>默认（安全）</b>:分数 / 数字沿用既有 `UGuiFactory.CreateText`(内置字体,零依赖、已在跑)。换皮只改字号 / 色对位效果图,不引位图数字。
-- <b>可选增强（B2）</b>:若要位图数字,须先把 `digits_white/` / `digits_yellow/` 用[设计 24 打表工具](#24-ui-atlas-packer)打成 `Sheet_digits_white` / `Sheet_digits_yellow` Multiple 精灵表(子图名 = `digits_white_0`…),再逐位 `SetSubSprite` 拼。<mark>这是额外打表工作量,非本轮必需</mark>,列待拍板([§十一 B2](#26-settlement-window-art::open))。
+- <b>可选增强（B2）</b>:若要位图数字,须先把 `digits_white/` / `digits_yellow/` 用[设计 24 打表工具](#24-ui-atlas-packer)打成 `Sheet_digits_white` / `Sheet_digits_yellow` Multiple 精灵表(子图名 = `digits_white_0`…),再逐位 `SetSubSprite` 拼。<mark>这是额外打表工作量,非本次换皮必需</mark>,列待拍板([§十一 B2](#26-settlement-window-art::open))。
 
 **取默认 Text**(B2 决策,安全默认):分数文本视觉够用、零额外打表,先把换皮主体落地;位图数字作后续美术增强。
 
@@ -175,7 +175,7 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 
 逐节点对照既有 `GameOverWindow.OnCreate`(72 行)给「保留 / 换皮 / 新增装饰 / 删」标注。<mark>逻辑行(读 UserData / 算 finalScore / 接 onClick)一律保留不动</mark>,只动视觉构建行。
 
-| 既有节点 | 本轮处置 | 具体改动 |
+| 既有节点 | 本次换皮处置 | 具体改动 |
 | --- | --- | --- |
 | `Mask`(遮罩纯色) | 保留 | 沿用纯色 `Image`(alpha≈0.55);<mark>不挂 Button</mark>(结算无遮罩关窗,§2.1 注)。色可微调更深 |
 | `Card`(纯色卡片) | 换皮 | 色改 `Color.white` + `card.SetSubSprite(Atlas,"box1")`;尺寸 / 位置按效果图微调(对位木板) |
@@ -196,7 +196,7 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 
 同 §五口径。既有 `MergeOrderWinWindow.OnCreate`(61 行):遮罩 + 卡片 + "通关！" + <mark>逐行结算文本列表</mark>(`UserData as List<string>`,2 行:完成订单数 / 累计得分)+ 再来一局 + 返回主菜单。
 
-| 既有节点 | 本轮处置 | 具体改动 |
+| 既有节点 | 本次换皮处置 | 具体改动 |
 | --- | --- | --- |
 | `Mask` | 保留 | 纯色 `Image`,不挂 Button(同 §五) |
 | `Card` | 换皮 | 色改白 + `SetSubSprite(Atlas,"box1")`;尺寸对位效果图(通关窗略高,容奖励格行) |
@@ -207,9 +207,9 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 | `BtnAgain`(再来一局) | 换皮 / 文案待定 | 底贴 `button` + 白底;label 默认「再来一局」(效果图「下一关」语义误导,§2.2 注,文案待 boss [B3](#26-settlement-window-art::open));<mark>onClick 回调不改</mark>(`ShowUIAsync<MergeOrderWindow>`) |
 | `BtnMenu`(返回主菜单) | 换皮 / 改文案 | 底贴 `button`;label 改「返回」;<mark>onClick 回调不改</mark>(`ShowUIAsync<MainMenuWindow>`) |
 
-<h2 id="flow">七、结算窗触发与回调（本轮全部保留，零回归参照）</h2>
+<h2 id="flow">七、结算窗触发与回调（本次换皮全部保留，零回归参照）</h2>
 
-下图标出三条触发路径与回调跳转 —— <mark>本轮换皮不改这张图的任何一条线</mark>,仅给两个结算窗节点换贴图。给 dev / test 作零回归核对基准。
+下图标出三条触发路径与回调跳转 —— <mark>本次换皮不改这张图的任何一条线</mark>,仅给两个结算窗节点换贴图。给 dev / test 作零回归核对基准。
 
 <div class="diagram">
   <svg viewBox="0 0 760 430" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,Consolas,monospace" font-size="12">
@@ -235,11 +235,11 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
     <rect x="320" y="100" width="200" height="68" rx="8" fill="#3a2a1c" stroke="#ffcf5c"></rect>
     <text x="420" y="126" fill="#ffe7a8" text-anchor="middle">GameOverWindow</text>
     <text x="420" y="144" fill="#d8c08f" text-anchor="middle" font-size="11">UserData is int → previousHigh</text>
-    <text x="420" y="160" fill="#d8c08f" text-anchor="middle" font-size="11">★ 本轮换皮（逻辑不动）</text>
+    <text x="420" y="160" fill="#d8c08f" text-anchor="middle" font-size="11">★ 本次换皮（逻辑不动）</text>
     <rect x="320" y="290" width="200" height="68" rx="8" fill="#2a3a1c" stroke="#5bd6a0"></rect>
     <text x="420" y="316" fill="#c8e7a8" text-anchor="middle">MergeOrderWinWindow</text>
     <text x="420" y="334" fill="#a8d88f" text-anchor="middle" font-size="11">UserData as List&lt;string&gt; → 结算行</text>
-    <text x="420" y="350" fill="#a8d88f" text-anchor="middle" font-size="11">★ 本轮换皮（逻辑不动）</text>
+    <text x="420" y="350" fill="#a8d88f" text-anchor="middle" font-size="11">★ 本次换皮（逻辑不动）</text>
     <!-- 回调目标 -->
     <rect x="600" y="40" width="140" height="48" rx="8" fill="#1c2740" stroke="#6c8cff"></rect>
     <text x="670" y="68" fill="#cdd8f0" text-anchor="middle">GameWindow</text>
@@ -262,13 +262,13 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
     <text x="528" y="270" fill="#5bd6a0" font-size="10">返回→MainMenu</text>
     <!-- 图例 -->
     <text x="20" y="410" fill="#8fa3c8" font-size="11">蓝=Classic / 通用窗　绿=合成订单 DEMO 路径　黄=GameOver 回调</text>
-    <text x="20" y="426" fill="#8fa3c8" font-size="11">实线=触发调用(ShowUIAsync)　虚线=按钮 onClick 回调　★=本轮换皮节点(逻辑保留不动)</text>
+    <text x="20" y="426" fill="#8fa3c8" font-size="11">实线=触发调用(ShowUIAsync)　虚线=按钮 onClick 回调　★=本次换皮节点(逻辑保留不动)</text>
   </svg>
   </div>
 
 <h2 id="accept">八、验收点</h2>
 
-拆两档:<b>逻辑回归可单测 / 编译(EditMode,test 直接跑)</b>与 <b>视觉对位 / 真机点击(需 Play / 人眼)</b>。<mark>零回归是本轮硬验收</mark>(两窗在跑)。
+拆两档:<b>逻辑回归可单测 / 编译(EditMode,test 直接跑)</b>与 <b>视觉对位 / 真机点击(需 Play / 人眼)</b>。<mark>零回归是本次换皮硬验收</mark>(两窗在跑)。
 
 <h3 id="regress">8.1 逻辑回归 / 编译（EditMode，硬验收）</h3>
 
@@ -300,7 +300,7 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 
 <h2 id="hook">九、dev 改动清单</h2>
 
-符号名经 grep / 读图核实(真实存在标「✓」)。<mark>本轮无新文件、无新资源</mark>,只改两个在跑窗口的视觉构建。
+符号名经 grep / 读图核实(真实存在标「✓」)。<mark>本次换皮无新文件、无新资源</mark>,只改两个在跑窗口的视觉构建。
 
 | # | 文件 | 动作 | 说明 |
 | --- | --- | --- | --- |
@@ -315,7 +315,7 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 
 自治模式。有安全默认的按默认推进(记 decisions 供 boss 关单复核);<mark>无安全默认 / 抵触 spec / 不可逆</mark>的才入 blockers。下表均有安全默认 → **不入 blockers**。
 
-| # | 开关 | 本轮默认（安全默认） | 备选 / 改动触发 |
+| # | 开关 | 本次换皮默认（安全默认） | 备选 / 改动触发 |
 | --- | --- | --- | --- |
 | **D1** | 效果图三图标(星 / 心 / 草)+ 太阳奖励格:无数据源 / 无切图,怎么处置 | **装饰占位**([§4.3](#26-settlement-window-art::decor) 方案 A)—— 摆位对位骨架、不绑统计、不动逻辑;占位图勉强则退方案 B 省略 | 若产品定义了星 / 心 / 草 / 太阳各代表什么统计 + 提供数据源 → 后续轮真做(方案 C)。<mark>这些图标语义无 spec 定义,提请 boss / 产品复核</mark> |
 | B2 | 分数是否用位图数字 digits | **沿用 Text**([§4.4](#26-settlement-window-art::digits))—— digits 未打表,Text 零依赖够用 | 要位图数字则先用设计 24 工具把 digits\_white/yellow 打成 Sheet,额外工作量,后续增强 |
@@ -326,15 +326,15 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 > [!NOTE]
 > **自治分流说明**
 >
-> D1–B5 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(装饰图标语义)是最值得 boss 关单复核的一项 —— 安全默认是装饰占位,真做与否需产品定义这些统计含义,但<mark>本轮不因它停机</mark>(占位即可交付完整换皮)。<b>本轮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
+> D1–B5 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(装饰图标语义)是最值得 boss 关单复核的一项 —— 安全默认是装饰占位,真做与否需产品定义这些统计含义,但<mark>本次换皮不因它停机</mark>(占位即可交付完整换皮)。<b>本次换皮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
 
 <h2 id="risk">十一、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| **换皮越界改了结算逻辑**:dev 在改视觉时顺手动了 UserData 解析 / finalScore 计算 / 回调目标,造成两窗在跑路径回归 | §五 / §六逐节点标「逻辑行保留不动」;§8.1 R 组硬验收逐条静态核对;§九清单明列「不改」项。这是本轮第一风险(窗在跑) |
+| **换皮越界改了结算逻辑**:dev 在改视觉时顺手动了 UserData 解析 / finalScore 计算 / 回调目标,造成两窗在跑路径回归 | §五 / §六逐节点标「逻辑行保留不动」;§8.1 R 组硬验收逐条静态核对;§九清单明列「不改」项。这是本次换皮第一风险(窗在跑) |
 | **贴图后被纯色 Image.color 染暗**:沿用既有 `CreateImage` 的深色却又贴子图,木纹被染黑 | §三注:换皮节点的 `color` 改 `Color.white`,让木纹原色透出;按钮 `bgColor` 同改白 |
 | **为对位效果图捏造统计**:dev 为摆「星 60 / 心 60 / 草 60」去加数据层统计字段,溢出范围 + 动逻辑 | §4.3 决策 D1:三图标 / 太阳格是装饰占位,不绑统计;数字位接已得 `finalScore` 或省略;真做须 boss / 产品定义后另开轮 |
 | **误把结算窗加上 X / 遮罩关窗**:照搬设置窗范式给结算窗加 X / 点遮罩关,破坏「结算强制选择」交互 | §2.1 注:结算窗本无 X、无遮罩关窗(读既有代码确认),换皮保持 —— 遮罩 `Mask` 是纯 Image 不挂 Button |
-| **digits 寻址不通**:dev 误以为 digits 已打表,直接 `SetSubSprite("Sheet_digits_white",...)` 取不到 | §4.4:digits 未打表,本轮默认**不用**位图数字、沿用 Text;要用须先打表(B2 后续增强) |
-| **误引 prefab 范式重构**:dev 想统一范式把两窗改成 prefab + FindChildComponent,扩大回归面 | §三:本轮取路 A 轻量换皮,不重构;两窗保持 code-built + UGuiFactory,只对返回的 Image 链 SetSubSprite |
+| **digits 寻址不通**:dev 误以为 digits 已打表,直接 `SetSubSprite("Sheet_digits_white",...)` 取不到 | §4.4:digits 未打表,本次换皮默认**不用**位图数字、沿用 Text;要用须先打表(B2 后续增强) |
+| **误引 prefab 范式重构**:dev 想统一范式把两窗改成 prefab + FindChildComponent,扩大回归面 | §三:本次换皮取路 A 轻量换皮,不重构;两窗保持 code-built + UGuiFactory,只对返回的 Image 链 SetSubSprite |
