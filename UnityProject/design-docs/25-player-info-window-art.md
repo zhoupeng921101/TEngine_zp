@@ -13,7 +13,7 @@
 
 # 个人信息窗美术换皮 · 表现层
 
-塔罗 UI 换皮自治线<b>第二个屏</b>:把效果图 `个人信息.png` 换皮成可运行的 `PlayerInfoWindow`。目的:兑现[设计 18 玩家信息系统](#18-player-info)遗留的表现层(boss 遗留 #22)。<mark>本轮 = 纯 UI 补完</mark>——数据逻辑层([设计 18](#18-player-info))已交付并经 30 例 EditMode 单测,本屏只<b>调用</b>它 + 接线,不重写数据层。基础设施<b>全部复用</b>[设计 23 设置窗](#23-settings-window-art)已确立的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
+塔罗 UI 换皮自治线**第二个屏**:把效果图 `个人信息.png` 换皮成可运行的 `PlayerInfoWindow`。目的:兑现[设计 18 玩家信息系统](#18-player-info)遗留的表现层(boss 遗留 #22)。<mark>本轮 = 纯 UI 补完</mark>——数据逻辑层([设计 18](#18-player-info))已交付并经 30 例 EditMode 单测,本屏只**调用**它 + 接线,不重写数据层。基础设施**全部复用**[设计 23 设置窗](#23-settings-window-art)已确立的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
 
 <div class="callout warn">
     <b>读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)</b>
@@ -50,9 +50,9 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:[设计 18](#18-player-info) 的玩家信息<b>数据层已交付但无任何窗口能触达</b>——玩家无处看自己的名字 / 头像、无处改名。[设计 23](#23-settings-window-art) 已把「切图 → 精灵表 → prefab → `SetSubSprite` → 热更」整条换皮链路打通并固化成模板,并建好 `GameContext` 运行期上下文。本轮是<mark>模板的第二次应用</mark>:照搬设置窗的全套范式,把个人信息窗补出来,顺带把 `GameContext` 从「只持有 Settings」扩成「也持有 Player」(兑现设计 23 §五「player-info / item / mail / rank 后续逐个挂入」的预告)。
+现状:[设计 18](#18-player-info) 的玩家信息**数据层已交付但无任何窗口能触达**——玩家无处看自己的名字 / 头像、无处改名。[设计 23](#23-settings-window-art) 已把「切图 → 精灵表 → prefab → `SetSubSprite` → 热更」整条换皮链路打通并固化成模板,并建好 `GameContext` 运行期上下文。本轮是<mark>模板的第二次应用</mark>:照搬设置窗的全套范式,把个人信息窗补出来,顺带把 `GameContext` 从「只持有 Settings」扩成「也持有 Player」(兑现设计 23 §五「player-info / item / mail / rank 后续逐个挂入」的预告)。
 
-<b>本屏比设计 18 的完整 spec 简</b>:设计 18 的玩家信息界面 spec 含「改名 / id 复制 / 等级经验槽 / 头像框三态网格页签」;<mark>效果图 <code>个人信息.png</code> 是简化版</mark>——只有「头像 + 编辑铅笔 / 玩家名 + 编辑铅笔 / 生日 + 3 下拉 / 确定按钮 / 点击任意处关闭」,无等级槽、无头像网格页签、无 id 复制位,却多了一个数据层没有的「生日」。<b>本轮以效果图为对位基准</b>(简报指定),按效果图的元素摆节点;设计 18 spec 里效果图未出现的元素(等级槽 / 头像网格 / id 复制)属后续屏 / 后续轮,本轮不强加([§七](#25-player-info-window-art::dispatch))。
+**本屏比设计 18 的完整 spec 简**:设计 18 的玩家信息界面 spec 含「改名 / id 复制 / 等级经验槽 / 头像框三态网格页签」;<mark>效果图 <code>个人信息.png</code> 是简化版</mark>——只有「头像 + 编辑铅笔 / 玩家名 + 编辑铅笔 / 生日 + 3 下拉 / 确定按钮 / 点击任意处关闭」,无等级槽、无头像网格页签、无 id 复制位,却多了一个数据层没有的「生日」。**本轮以效果图为对位基准**(简报指定),按效果图的元素摆节点;设计 18 spec 里效果图未出现的元素(等级槽 / 头像网格 / id 复制)属后续屏 / 后续轮,本轮不强加([§七](#25-player-info-window-art::dispatch))。
 
 | # | 本轮交付的 | 落法 | 性质 |
 | --- | --- | --- | --- |
@@ -66,7 +66,7 @@
 
 <h2 id="effigy">二、效果图拆解(对位基准)</h2>
 
-美术基准 `个人信息.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的<b>模态弹窗</b>:半透明深色遮罩 + 居中木牌面板。自上而下:
+美术基准 `个人信息.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木牌面板。自上而下:
 
 <table class="tight">
     <tbody><tr><th>区块</th><th>效果图内容</th><th>取图(<code>Sheet_settings</code> 子图 / 占位)</th><th>节点类型</th><th>处置</th></tr>
@@ -99,7 +99,7 @@ _imgClose.SetSubSprite(Atlas, "icon_x");     // 关闭圆按钮
 _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
 // …各节点贴，子图名以 §二 dev 读图核实后的映射为准</pre>
 
-<b>不写法</b>(同设计 23):<span class="no">不</span>用 `LoadAssetAsync<Sprite>`(违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图。静态图在 `OnCreate` 贴一次,会运行期变的只有头像 / 玩家名,由 `OnRefresh` 刷([§六](#25-player-info-window-art::window))。
+**不写法**(同设计 23):<span class="no">不</span>用 `LoadAssetAsync<Sprite>`(违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图。静态图在 `OnCreate` 贴一次,会运行期变的只有头像 / 玩家名,由 `OnRefresh` 刷([§六](#25-player-info-window-art::window))。
 
 <h3 id="placeholder">3.2 三处缺图的占位策略</h3>
 
@@ -107,8 +107,8 @@ _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
 
 | 缺的图 | 占位做法 | TODO(待美术补) |
 | --- | --- | --- |
-| <b>圆形头像 + 描边框</b> | 头像本体:`Image` 节点贴当前头像(<mark>头像 Sprite 也无美术</mark>,设计 18 O2)→ 退一层占位:纯色圆 `Image`(`color` 由 `CurrentAvatarId` 取一个稳定色)或显一张通用图(如 `setting` 子图临时代替)。圆框:用一张半透明描边色块 / 设置窗 `box*` 缩成圆角代替,或省略(留节点占位)。 | 待美术补「圆头像框」切图 + 各头像 Sprite,接 `AvatarConfigMgr.GetAvatar(id).Image` 资源名加载 |
-| <b>编辑铅笔 icon</b>(头像 / 名字各一) | 用现成图标代替(如 `setting` 齿轮 / `language` 等近形子图),或纯文本「✎」/「编辑」按钮。<mark>关键是按钮可点、点了能触发编辑</mark>,图标外观次要。 | 待美术补「编辑铅笔」切图,替子图即生效 |
+| **圆形头像 + 描边框** | 头像本体:`Image` 节点贴当前头像(<mark>头像 Sprite 也无美术</mark>,设计 18 O2)→ 退一层占位:纯色圆 `Image`(`color` 由 `CurrentAvatarId` 取一个稳定色)或显一张通用图(如 `setting` 子图临时代替)。圆框:用一张半透明描边色块 / 设置窗 `box*` 缩成圆角代替,或省略(留节点占位)。 | 待美术补「圆头像框」切图 + 各头像 Sprite,接 `AvatarConfigMgr.GetAvatar(id).Image` 资源名加载 |
+| **编辑铅笔 icon**(头像 / 名字各一) | 用现成图标代替(如 `setting` 齿轮 / `language` 等近形子图),或纯文本「✎」/「编辑」按钮。<mark>关键是按钮可点、点了能触发编辑</mark>,图标外观次要。 | 待美术补「编辑铅笔」切图,替子图即生效 |
 | <b>下拉箭头「▾」</b> | 用文本字符「▾」/「∨」直接当箭头(`Text` 节点),或省略(下拉框本就占位)。 | 待美术补「下拉箭头」切图(生日整体占位,优先级最低) |
 
 <div class="callout note" style="margin-top:8px">
@@ -193,7 +193,7 @@ protected override void OnInit()
 | <b>UI 占位(默认)</b> | 摆 3 个下拉框对位效果图,<mark>不绑数据、不入存档</mark>,值固定显「3」(同效果图),点击 → Log / Toast「生日待接数据层」+ TODO | 零数据层改动,可逆,与 spec 无抵触 | 取此 |
 | 加生日字段进盘 | 给 `PlayerInfo` 加 birthYear/Month/Day 字段 + `MergeMetaSave` 加 3 字段 + `ExportToMeta`/`ImportFromMeta` 加拷贝 + 保底夹值 + 单测 | <mark>改动数据层 + 持久化 DTO + 保底逻辑 + 数据层单测</mark>——超出「纯 UI 补完」范围,且 spec 未要求 | 不取(本轮) |
 
-<b>取 UI 占位</b>(决策 D2,安全默认)。理由:① 本轮任务是「纯 UI 补完」,加生日字段会动数据层 + 持久化 + 保底,溢出范围;② spec 未要求生日,擅自入盘是替产品定需求;③ 占位可逆——日后若产品要真生日,在数据层加字段是局部增量(同设计 18 加字段做法),UI 节点已摆好、替占位为绑定即可,不返工。<mark>生日是否要真做、是否入存档,列待裁决交 boss / 产品</mark>([§十一 D2](#25-player-info-window-art::open)),本轮按占位推进不阻塞。
+**取 UI 占位**(决策 D2,安全默认)。理由:① 本轮任务是「纯 UI 补完」,加生日字段会动数据层 + 持久化 + 保底,溢出范围;② spec 未要求生日,擅自入盘是替产品定需求;③ 占位可逆——日后若产品要真生日,在数据层加字段是局部增量(同设计 18 加字段做法),UI 节点已摆好、替占位为绑定即可,不返工。<mark>生日是否要真做、是否入存档,列待裁决交 boss / 产品</mark>([§十一 D2](#25-player-info-window-art::open)),本轮按占位推进不阻塞。
 
 <h2 id="window">六、窗口脚本设计(PlayerInfoWindow)</h2>
 
@@ -362,7 +362,7 @@ namespace GameLogic.UI
 
 <h2 id="accept">九、验收标准</h2>
 
-拆两档:<b>H/W 组 = 逻辑可 EditMode 单测</b>(编译 + `GameContext` 往返 + 改名贯通,不依赖 Play / 真实视觉);<b>V 组 = 需 Play / 人眼</b>(对位 + 指针 + 开关闭)。占位项验收 = 「点击不报错 + 有 Log / 提示 + 节点摆齐」,不要求真功能。
+拆两档:**H/W 组 = 逻辑可 EditMode 单测**(编译 + `GameContext` 往返 + 改名贯通,不依赖 Play / 真实视觉);**V 组 = 需 Play / 人眼**(对位 + 指针 + 开关闭)。占位项验收 = 「点击不报错 + 有 Log / 提示 + 节点摆齐」,不要求真功能。
 
 <h3 id="accept-hw">9.1 H/W 组 — EditMode 可单测(test 直调断言)</h3>
 

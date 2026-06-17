@@ -16,7 +16,7 @@
 
 # 通用奖励展示
 
-把游戏里<b>三种异构奖励产出</b>(道具系统 `GrantPayload` / 盲盒 `ChestReward` / 数值系统裸 num+数量)<mark>归一成一个统一的展示结构 <code>RewardView</code></mark>(图标资源名 + 名称文本 id + 数量显示文本 + 品质色 + 角标),让任何 UI(开箱三选一、礼包开启、订单交付、道具领取)<b>用同一套显示逻辑渲染奖励</b>。这是 xlsx 系统底层批次<b>第三刀</b>:补的是奖励的<b>展示归一层</b>——产出逻辑各系统已实现,本篇只做「拿到任意奖励 → 怎么显示」。<b>加法式</b>:新增纯逻辑 helper + POCO,<mark>不改任何既有产出 / 发奖路径</mark>,旧路径零行为变化。
+把游戏里**三种异构奖励产出**(道具系统 `GrantPayload` / 盲盒 `ChestReward` / 数值系统裸 num+数量)<mark>归一成一个统一的展示结构 <code>RewardView</code></mark>(图标资源名 + 名称文本 id + 数量显示文本 + 品质色 + 角标),让任何 UI(开箱三选一、礼包开启、订单交付、道具领取)**用同一套显示逻辑渲染奖励**。这是 xlsx 系统底层批次**第三刀**:补的是奖励的**展示归一层**——产出逻辑各系统已实现,本篇只做「拿到任意奖励 → 怎么显示」。**加法式**:新增纯逻辑 helper + POCO,<mark>不改任何既有产出 / 发奖路径</mark>,旧路径零行为变化。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -44,14 +44,14 @@
 
 现状:游戏里「发奖」这件事已经齐全——道具系统能产出 `GrantPayload`、盲盒能产出 `ChestReward`、数值系统能加各种货币。但<b>「把一份奖励显示给玩家看」这件事散在各处、各写一套</b>:开箱窗口要自己把 `ChestReward.Kind` 翻成「灵力 / 体力 / 图案」文案、自己挑图标、自己定颜色;将来礼包开启窗口、订单交付结算面板又要把 `GrantPayload` 翻一遍、各挑各的图标和颜色。同一个「灵力 +200」在开箱里和在订单结算里可能长得不一样,且每加一个新发奖入口就得重写一份显示逻辑。
 
-本系统补的正是这一层<b>展示归一</b>:不管奖励从哪来(道具 / 盲盒 / 裸货币),先归一成一个统一的 `RewardView`(图标资源名 + 名称文本 id + 数量显示文本 + 品质色 + 类型角标),任何 UI 拿到 `RewardView` 用同一套渲染。三件事:
+本系统补的正是这一层**展示归一**:不管奖励从哪来(道具 / 盲盒 / 裸货币),先归一成一个统一的 `RewardView`(图标资源名 + 名称文本 id + 数量显示文本 + 品质色 + 类型角标),任何 UI 拿到 `RewardView` 用同一套渲染。三件事:
 
 | # | 做什么 | 本篇落法 | 状态 |
 | --- | --- | --- | --- |
 | 1 | 定义统一展示结构 | POCO `RewardView`:IconName / NameTextId / CountText / QualityColor / Badge / RawAmount([§3.1](#17-reward-display::view)) | <span class="pill-new">新增结构</span> |
 | 2 | 各奖励源 → RewardView 转换 | `RewardDisplay.From(GrantPayload)` / `From(ChestReward)` / `FromNumeric(num_id, amount)` / `FromItem(itemId, count)` / `FromPattern(MergeElement, level, count)`([§3.2](#17-reward-display::convert)) | <span class="pill-new">新增转换</span> |
 | 3 | 统一品质色 + 数量文本 + 图标名 | 6 档权威品质色 `QualityColor(q)`([§3.3](#17-reward-display::quality))+ 数量文本 `CountText(n)`(复用 `NumericFormat`,[§3.4](#17-reward-display::count))+ 图标 / 名称解析([§3.5](#17-reward-display::icon)) | <span class="pill-new">新增 helper</span> |
-| 4 | 列表项渲染示范 | Widget 骨架 `RewardItemWidget.SetData(RewardView)`(UI 接法示范,<b>本轮不挂 prefab、不投放</b>,[§3.6](#17-reward-display::widget)) | <span class="pill-stub">骨架·不投放</span> |
+| 4 | 列表项渲染示范 | Widget 骨架 `RewardItemWidget.SetData(RewardView)`(UI 接法示范,**本轮不挂 prefab、不投放**,[§3.6](#17-reward-display::widget)) | <span class="pill-stub">骨架·不投放</span> |
 
 <b>不做(本轮明确排除):</b><span class="pill-no">价格 / 充值显示</span>(去变现);<span class="pill-no">真实 Sprite 加载</span>(无美术,只产出图标资源名,真实 `SetSprite` 交调用方接 UI 时做,[§七 O1](#17-reward-display::open));<span class="pill-no">奖励弹窗 / 三选一面板 / 结算面板等具体 UI 投放</span>(本轮交付纯逻辑 helper + Widget 骨架,具体窗口投放是独立后续,[§七 O2](#17-reward-display::open));<span class="pill-no">名称文本表查询(多语言)</span>(文本表本轮未接,`RewardView` 给名称文本 id,真实查表 / 显示交后续,与 `NumericDisplay` 现状一致,[§七 O4](#17-reward-display::open));<span class="pill-no">奖励获取动画 / 飞图标 / 数字滚动等表现</span>(表现层独立,[§七 O5](#17-reward-display::open));<span class="pill-no">改既有产出 / 发奖逻辑</span>(本层只读不写)。
 
@@ -73,7 +73,7 @@
 
 <h3 id="layers">2.2 归一层 + 显示层结构</h3>
 
-系统两层:<b>归一层</b>(各源 → `RewardView`,纯逻辑)+ <b>显示层</b>(`RewardView` → UI,本轮只到 Widget 骨架)。归一层吃既有产出结构 + 既有元数据注册表,产出与 Unity UI 无关的 `RewardView`(故可纯单测);显示层把 `RewardView` 喂给 Widget。结构图:
+系统两层:**归一层**(各源 → `RewardView`,纯逻辑)+ **显示层**(`RewardView` → UI,本轮只到 Widget 骨架)。归一层吃既有产出结构 + 既有元数据注册表,产出与 Unity UI 无关的 `RewardView`(故可纯单测);显示层把 `RewardView` 喂给 Widget。结构图:
 
 ```mermaid
 flowchart TD
@@ -105,7 +105,7 @@ flowchart TD
 
 <h3 id="view">3.1 RewardView 归一结构</h3>
 
-`RewardView` 是展示用的归一结构,字段只为「渲染一项奖励」服务。<b>不含产出语义</b>(不知道这奖励落哪个系统——那是产出层的事),只含「显示成什么样」。
+`RewardView` 是展示用的归一结构,字段只为「渲染一项奖励」服务。**不含产出语义**(不知道这奖励落哪个系统——那是产出层的事),只含「显示成什么样」。
 
 <pre class="code">// 归一展示结构（POCO，唯一 Unity 类型是 Color 值类型，可 EditMode 单测构造）
 public readonly struct RewardView {
@@ -200,7 +200,7 @@ public enum RewardBadge {
 
 <h3 id="quality">3.3 6 档品质色(单一事实源)</h3>
 
-本层定一份<b>权威的 6 档品质色</b>,与[道具系统 `EItemQuality`](#16-item-system)(1 普通白 / 2 高级绿 / 3 精英蓝 / 4 史诗紫 / 5 传说橙 / 6 神话红)一一对应。色值取自文档调色板,确保设计稿与运行期一致:
+本层定一份**权威的 6 档品质色**,与[道具系统 `EItemQuality`](#16-item-system)(1 普通白 / 2 高级绿 / 3 精英蓝 / 4 史诗紫 / 5 传说橙 / 6 神话红)一一对应。色值取自文档调色板,确保设计稿与运行期一致:
 
 | quality | 名称 | 色 | RGB(运行期 `Color`) | 对应 EItemQuality |
 | --- | --- | --- | --- | --- |
@@ -271,7 +271,7 @@ public static string PatternCountText(int level, long count) {
 
 <h3 id="widget">3.6 列表项 Widget(UI 接法,本轮 stub)</h3>
 
-给一份列表项 Widget 骨架作 UI 接法<b>示范</b>,<mark>本轮不挂 prefab、不投放到任何窗口</mark>(无美术 + UI 投放是独立后续,[§七 O2](#17-reward-display::open))。它展示「拿到 `RewardView` 怎么贴到控件」,供后续接 UI 时照搬。仿 ui-patterns 的 UIWidget 模板:
+给一份列表项 Widget 骨架作 UI 接法**示范**,<mark>本轮不挂 prefab、不投放到任何窗口</mark>(无美术 + UI 投放是独立后续,[§七 O2](#17-reward-display::open))。它展示「拿到 `RewardView` 怎么贴到控件」,供后续接 UI 时照搬。仿 ui-patterns 的 UIWidget 模板:
 
 <pre class="code">// 列表项 Widget 骨架（UI 接法示范，本轮不挂 prefab、不投放）
 public class RewardItemWidget : UIWidget {
@@ -293,7 +293,7 @@ public class RewardItemWidget : UIWidget {
     }
 }</pre>
 
-列表渲染用既有 `AdjustIconNum<RewardItemWidget>`(ui-patterns:列表数量管理)。这部分代码本轮<b>可写可不写</b>——若 dev 写了,因无 prefab 它不会被实例化,只作编译通过的接法示范;验收<b>不要求</b>它跑起来([§六 Z 类](#17-reward-display::accept)),只要求归一层纯逻辑全绿。是否本轮就写骨架列 [§七 O2](#17-reward-display::open)。
+列表渲染用既有 `AdjustIconNum<RewardItemWidget>`(ui-patterns:列表数量管理)。这部分代码本轮**可写可不写**——若 dev 写了,因无 prefab 它不会被实例化,只作编译通过的接法示范;验收**不要求**它跑起来([§六 Z 类](#17-reward-display::accept)),只要求归一层纯逻辑全绿。是否本轮就写骨架列 [§七 O2](#17-reward-display::open)。
 
 <h2 id="flow">四、归一 + 渲染时序</h2>
 
@@ -327,14 +327,14 @@ sequenceDiagram
 | C1 | 归一结构 POCO | 新建 `RewardView`(readonly struct)+ `RewardBadge`(enum)。建议位置 `GameLogic/UI/BlockBlastUI/`(与 `NumericDisplay.cs` ✓ 同目录,均属展示层)或 `GameLogic/Module/BlockBlast/Reward/` |
 | C2 | 归一 helper | 新建静态 `RewardDisplay`:`From(GrantPayload)` / `From(ChestReward)` / `FromNumeric` / `FromItem` / `FromPattern` / `GiftView` / `FunctionView` / `ChestCurrencyView` + `QualityColor(int)` 6 档 + `CountText(long)` / `PatternCountText` + `PatternQuality(int)`。读既有:`NumericConfigMgr.Get` ✓(`NumericConfigMgr.cs:55`)/ `ItemConfigMgr.GetItem` ✓ / `NumericFormat.Abbreviate` ✓(`NumericFormat.cs:26`) |
 | C3 | ChestRewardKind 展示映射 | 在 `RewardDisplay` 内置 `ChestRewardKind` → 展示元数据的私有映射(Soul / Energy / Pattern / UndoCharge / WishCharge),读既有 `ChestReward` ✓(`ChestSystem.cs:24`)只取字段不改 |
-| C4 | 列表项 Widget 骨架 | (可选,O2)新建 `RewardItemWidget : UIWidget`,`ScriptGenerator` + `SetData(RewardView)`。仿 ui-patterns UIWidget 模板;<b>不挂 prefab、不投放</b>,编译通过即可。`Image.SetSprite` ✓(框架内置) |
+| C4 | 列表项 Widget 骨架 | (可选,O2)新建 `RewardItemWidget : UIWidget`,`ScriptGenerator` + `SetData(RewardView)`。仿 ui-patterns UIWidget 模板;**不挂 prefab、不投放**,编译通过即可。`Image.SetSprite` ✓(框架内置) |
 | T1 | 单测 | 新建 `RewardDisplayTests.cs`(仿 `NumericSystemTests.cs` ✓ 位置 `Assets/Editor/Tests/BlockBlast/`):转换(V 类)+ 品质色(Q 类)+ 数量文本(N 类)+ 边界降级(B 类)。涉及注册表查询用 `NumericConfigMgr.InitForTest` ✓ / `ItemConfigMgr.InitForTest` ✓ 注入 |
 
-<b>不碰的文件(零回归保证):</b>`ItemGrant.cs` / `GrantPayload`、`ChestSystem.cs` / `ChestReward`、`NumericConfigMgr.cs` / `NumericEntry`、`ItemConfigMgr.cs` / `ItemDef`、`MergeElementVisual.cs`、`NumericDisplay.cs`(旧 4 档品质色不删不改,§3.3)——全部<b>只读不写</b>。现有 EditMode 全量应零回归(本系统不改任何既有代码路径)。
+<b>不碰的文件(零回归保证):</b>`ItemGrant.cs` / `GrantPayload`、`ChestSystem.cs` / `ChestReward`、`NumericConfigMgr.cs` / `NumericEntry`、`ItemConfigMgr.cs` / `ItemDef`、`MergeElementVisual.cs`、`NumericDisplay.cs`(旧 4 档品质色不删不改,§3.3)——全部**只读不写**。现有 EditMode 全量应零回归(本系统不改任何既有代码路径)。
 
 <h2 id="accept">六、验收点</h2>
 
-每条可被 test 逐条核对。全部为纯逻辑:转换 / 格式化 / 品质色直接调,涉及注册表查询用 `InitForTest` 注入(绕 ConfigSystem)。<b>无配置表 .bytes 依赖、无 YooAsset、无 Unity 运行时</b>(故无 BLOCKED 风险——下方 Z3 说明)。
+每条可被 test 逐条核对。全部为纯逻辑:转换 / 格式化 / 品质色直接调,涉及注册表查询用 `InitForTest` 注入(绕 ConfigSystem)。**无配置表 .bytes 依赖、无 YooAsset、无 Unity 运行时**(故无 BLOCKED 风险——下方 Z3 说明)。
 
 | # | 验收点 | 完成定义(test 可核对) |
 | --- | --- | --- |
@@ -356,18 +356,18 @@ sequenceDiagram
 | B2 | itemId 查无降级不抛 | `FromItem(999999, 1)` → 降级(icon null / name 0 / 白),不抛 |
 | Z1 | 全链纯逻辑无 ConfigSystem | V/Q/N/B 类全部直调 / `InitForTest` 跑通(本身即证未触 YooAsset / Unity 运行时) |
 | Z2 | 既有 EditMode 零回归 | EditMode 全量跑,既有用例全绿,新增项另计 |
-| Z3 | 无 BLOCKED 路径 | 本系统不依赖 Luban 导表 / .bytes(只读运行期注册表,单测走 InitForTest);故 Luban 工具链不可达<b>不影响本系统验收</b>(与 16 不同,本系统无 C 类配置直读测试) |
+| Z3 | 无 BLOCKED 路径 | 本系统不依赖 Luban 导表 / .bytes(只读运行期注册表,单测走 InitForTest);故 Luban 工具链不可达**不影响本系统验收**(与 16 不同,本系统无 C 类配置直读测试) |
 
-<b>BLOCKED 条件:</b>本系统纯逻辑,理论无 BLOCKED。唯一可能:unityMCP 桥不可达致 EditMode 无法跑(no\_session)→ test 判 <b>BLOCKED</b> 不判 FAIL,交接区写清卡点(见 unity-check 条)。可备选 batchmode 跑 EditMode(boss memory 第 11 条)。
+<b>BLOCKED 条件:</b>本系统纯逻辑,理论无 BLOCKED。唯一可能:unityMCP 桥不可达致 EditMode 无法跑(no\_session)→ test 判 **BLOCKED** 不判 FAIL,交接区写清卡点(见 unity-check 条)。可备选 batchmode 跑 EditMode(boss memory 第 11 条)。
 
 <h2 id="open">七、待拍板清单</h2>
 
-有安全默认的已在 decisions 自行拍板(归一结构字段 / 6 档品质色 / 复用 NumericFormat / Soul 走私有映射等);此处集中列<b>范围开关</b>交 boss / 用户裁决——均不阻塞本轮交付,默认按「本轮不做 / 按下方默认」推进。
+有安全默认的已在 decisions 自行拍板(归一结构字段 / 6 档品质色 / 复用 NumericFormat / Soul 走私有映射等);此处集中列**范围开关**交 boss / 用户裁决——均不阻塞本轮交付,默认按「本轮不做 / 按下方默认」推进。
 
 | # | 事项 | 本轮默认 | 后续选项 |
 | --- | --- | --- | --- |
 | O1 | 真实 Sprite 加载 | 不做,只产出图标资源名;真实 `SetSprite` 交接 UI 时做(无美术,资源名占位) | 有美术后,Widget SetData 内 SetSprite 直接生效,无须改归一层 |
-| O2 | 本轮是否写 `RewardItemWidget` 骨架 | <b>可选</b>:写则编译通过的接法示范(不挂 prefab、不投放、不验收跑通) | 不写则只交归一层 helper + POCO + 单测;接 UI 时再补 Widget。<b>建议写</b>(给后续接 UI 留模板,成本低) |
+| O2 | 本轮是否写 `RewardItemWidget` 骨架 | **可选**:写则编译通过的接法示范(不挂 prefab、不投放、不验收跑通) | 不写则只交归一层 helper + POCO + 单测;接 UI 时再补 Widget。**建议写**(给后续接 UI 留模板,成本低) |
 | O3 | 收编旧 4 档 `NumericDisplay.QualityColor` | 本轮不动(旧 helper 还被 NumericDisplay 自用;本层 6 档是新权威,两份并存) | 独立正名任务:让 NumericDisplay 也走 RewardView / RewardDisplay.QualityColor,删旧 4 档(需先核 UI 引用) |
 | O4 | 名称多语言文本表查询 | 不接,`RewardView` 给 NameTextId;Widget 临时显 id(与 NumericDisplay 现状一致) | 文本表系统建好后,Widget SetData 内查表显真名,归一层不变 |
 | O5 | 奖励获取动画 / 飞图标 / 数字滚动 | 不做(表现层独立) | 表现层后续轮,基于 RewardView 驱动 |

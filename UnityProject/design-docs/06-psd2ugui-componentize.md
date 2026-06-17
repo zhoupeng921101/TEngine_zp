@@ -1,6 +1,6 @@
 # PSD2UGUI 组件化工具
 
-工具 / 管线 · 给「PSD 直解导入」生成的扁平节点,在 Unity 端<b>一键挂上对应 UGUI 组件</b>;spriteState / fill·handle / content 等引用在 Inspector 里连。
+工具 / 管线 · 给「PSD 直解导入」生成的扁平节点,在 Unity 端**一键挂上对应 UGUI 组件**;spriteState / fill·handle / content 等引用在 Inspector 里连。
 
 <div class="callout note">
       <b>它解决什么:</b>
@@ -15,11 +15,11 @@
 
 | 原则 | 含义 |
 | --- | --- |
-| <b>薄工具</b> | 只做「挂组件 + 控件补 targetGraphic」;不猜角色、不自动连引用,具体在 Inspector 收尾。 |
-| <b>选区驱动</b> | 作用于 Hierarchy 当前选中节点,支持多选批量挂。 |
-| <b>幂等</b> | 节点已有该组件则跳过,不重复挂。 |
-| <b>不破坏</b> | 只加组件,走 `Undo`,可整体撤销。 |
-| <b>透明</b> | 控制台打印给谁挂了什么、targetGraphic 连了哪个。 |
+| **薄工具** | 只做「挂组件 + 控件补 targetGraphic」;不猜角色、不自动连引用,具体在 Inspector 收尾。 |
+| **选区驱动** | 作用于 Hierarchy 当前选中节点,支持多选批量挂。 |
+| **幂等** | 节点已有该组件则跳过,不重复挂。 |
+| **不破坏** | 只加组件,走 `Undo`,可整体撤销。 |
+| **透明** | 控制台打印给谁挂了什么、targetGraphic 连了哪个。 |
 
 <h2 id="palette">二、调色板组件</h2>
 
@@ -35,7 +35,7 @@ TabGroup(项目自定义 CustomTab)后续补一颗按钮即可,同样是「挂�
 
 <h2 id="model">三、工作模型:挂组件 + Inspector 连引用</h2>
 
-放弃了「缩略图角色指派 / 自动连 spriteState / 删状态节点 / 几何推断」那一整套——<mark class="y">美术命名不可靠</mark>、自动猜角色脆且收益有限。改为<b>极简流</b>,全链路如下:
+放弃了「缩略图角色指派 / 自动连 spriteState / 删状态节点 / 几何推断」那一整套——<mark class="y">美术命名不可靠</mark>、自动猜角色脆且收益有限。改为**极简流**,全链路如下:
 
 ```mermaid
 flowchart LR
@@ -50,9 +50,9 @@ flowchart LR
 
 对应的操作只有三步:
 
-1. Hierarchy <b>选中节点</b>(可多选)
-2. 窗口里<b>点对应组件按钮</b> → 组件挂上(控件自动补 Image 作 targetGraphic)
-3. 在 <b>Inspector</b> 里连具体引用(spriteState、fill/handle、content…)
+1. Hierarchy **选中节点**(可多选)
+2. 窗口里**点对应组件按钮** → 组件挂上(控件自动补 Image 作 targetGraphic)
+3. 在 **Inspector** 里连具体引用(spriteState、fill/handle、content…)
 
 <div class="callout note"><b>为什么不自动连:</b>角色识别要么靠命名(不可靠),要么靠缩略图手点(每控件多步)。直接在 Inspector 连这些引用,是程序<mark class="g">最熟、最快、最可控</mark>的路径——工具只省「挂组件 + 补 targetGraphic」这点重复劳动即可。</div>
 
@@ -60,23 +60,23 @@ flowchart LR
 
 | 类别 | 挂载行为 |
 | --- | --- |
-| <b>控件</b>(Button/Toggle/Slider/Scrollbar/InputField,均 `Selectable`) | 节点若没有任何 `Graphic` → 先补一个 `Image`;再挂控件;`targetGraphic` 为空则自动指向该 Graphic。 |
-| <b>布局 / 滚动 / 图形</b> | 直接挂;节点已有同类型则跳过(幂等)。 |
-| <b>重命名(所有类别)</b> | 挂组件时按所选组件给节点加 <b>生成器命名前缀</b> 并<b>去掉 <code>@\*</code> 标签</b>,使节点能被项目 UI 脚本生成器绑定。 |
+| **控件**(Button/Toggle/Slider/Scrollbar/InputField,均 `Selectable`) | 节点若没有任何 `Graphic` → 先补一个 `Image`;再挂控件;`targetGraphic` 为空则自动指向该 Graphic。 |
+| **布局 / 滚动 / 图形** | 直接挂;节点已有同类型则跳过(幂等)。 |
+| <b>重命名(所有类别)</b> | 挂组件时按所选组件给节点加 **生成器命名前缀** 并<b>去掉 <code>@\*</code> 标签</b>,使节点能被项目 UI 脚本生成器绑定。 |
 
 <h3 id="rules-naming">命名规则(已实现,对齐项目生成器)</h3>
 
 前缀<b>实时读自 <code>ScriptGeneratorSetting</code></b>(UI 代码生成器的 `uiElementRegex` = <mark>单一来源</mark>):Button→`m_btn`、Image→`m_img`、Text→`m_text`、ScrollRect→`m_scroll`、Toggle→`m_toggle`、Slider→`m_slider`、Grid→`m_grid` 等。
 
-挂组件时 = <b>前缀 + "\_" + 基名</b>,去 `@*` + 替换旧前缀(取<b>最长</b>匹配,`m_scrollBar` 不会被 `m_scroll` 误吞;剥离后残留分隔下划线也清掉,不会出双下划线)。例:`buy@PNG` + Button → `m_btn_buy`;`m_btn_buy` + Image → `m_img_buy`。
+挂组件时 = <b>前缀 + "\_" + 基名</b>,去 `@*` + 替换旧前缀(取**最长**匹配,`m_scrollBar` 不会被 `m_scroll` 误吞;剥离后残留分隔下划线也清掉,不会出双下划线)。例:`buy@PNG` + Button → `m_btn_buy`;`m_btn_buy` + Image → `m_img_buy`。
 
 生成器 `ScriptGenerator.cs` 用 `name.StartsWith(uiElementRegex)` 绑定 → <mark class="g">节点名直接可用</mark>。不在规则里的组件(RectMask2D/LayoutElement/ContentSizeFitter)不改名。
 
 <h3 id="rules-translate">中文基名 → 英文(MyMemory,免 key + 缓存)</h3>
 
-基名含中文时,先查本地术语表缓存 `TranslationCache.json`;缺失则调 <b>MyMemory</b>(免 key/免费)翻译并写回缓存;失败/离线保留中文。窗口有开关可关。例:`购买@PNG` + Button → `m_btn_Buy`(缓存命中后即时)。
+基名含中文时,先查本地术语表缓存 `TranslationCache.json`;缺失则调 **MyMemory**(免 key/免费)翻译并写回缓存;失败/离线保留中文。窗口有开关可关。例:`购买@PNG` + Button → `m_btn_Buy`(缓存命中后即时)。
 
-<mark class="y">翻译质量不完美</mark>(如 设置→SettingsIni、BUY 大写),缓存是<b>可手编 JSON</b>,改一次永久生效。
+<mark class="y">翻译质量不完美</mark>(如 设置→SettingsIni、BUY 大写),缓存是**可手编 JSON**,改一次永久生效。
 
 <h2 id="inspector">五、挂完在 Inspector 连什么(速查)</h2>
 
@@ -93,11 +93,11 @@ flowchart LR
 
 入口 = 停靠式 `EditorWindow「PSD2UGUI 组件化」`(菜单 <mark><code>QuickTool / PSD2UGUI 组件化</code></mark>)。
 
-- <b>顶部</b>:选中节点的对象引用字段(跟随 Hierarchy;多选显示数量)。
-- <b>分组按钮</b>:控件 / 布局·滚动 / 图形,点哪个挂哪个。
-- <b>多选批量</b>:对选中的所有节点各挂一份。
-- <b>Undo</b>:每次挂载进一个 Undo group,可撤销。
-- <b>报告</b>:控制台打印挂载结果。
+- **顶部**:选中节点的对象引用字段(跟随 Hierarchy;多选显示数量)。
+- **分组按钮**:控件 / 布局·滚动 / 图形,点哪个挂哪个。
+- **多选批量**:对选中的所有节点各挂一份。
+- **Undo**:每次挂载进一个 Undo group,可撤销。
+- **报告**:控制台打印挂载结果。
 
 <div class="related">
       <h2>相关文档</h2>

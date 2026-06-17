@@ -15,7 +15,7 @@
 
 # 排行榜窗美术换皮 · 表现层
 
-塔罗 UI 换皮自治线<b>末屏(第五屏)</b>:把效果图 `排行榜.png` 换皮成可运行的 `RankWindow`。目的:兑现[设计 22 排行榜底层系统](#22-rank-system)遗留的表现层(boss 遗留 #27)。<mark>本轮 = 纯 UI 补完</mark>——数据逻辑层([设计 22](#22-rank-system))已交付并经 EditMode 单测(归档 `pipeline/archive/2026-06-14-rank-system/`),本屏只<b>调用</b>它 + 接线,不重写数据层。基础设施<b>全部复用</b>[设计 23 设置窗](#23-settings-window-art)已确立、并经[设计 25 个人信息窗](#25-player-info-window-art)二次验证的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
+塔罗 UI 换皮自治线<b>末屏(第五屏)</b>:把效果图 `排行榜.png` 换皮成可运行的 `RankWindow`。目的:兑现[设计 22 排行榜底层系统](#22-rank-system)遗留的表现层(boss 遗留 #27)。<mark>本轮 = 纯 UI 补完</mark>——数据逻辑层([设计 22](#22-rank-system))已交付并经 EditMode 单测(归档 `pipeline/archive/2026-06-14-rank-system/`),本屏只**调用**它 + 接线,不重写数据层。基础设施**全部复用**[设计 23 设置窗](#23-settings-window-art)已确立、并经[设计 25 个人信息窗](#25-player-info-window-art)二次验证的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
 
 <div class="callout warn">
     <b>读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)</b>
@@ -56,9 +56,9 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:[设计 22](#22-rank-system) 的排行榜<b>数据层已交付但无任何窗口能触达</b>——玩家无处看榜、无处看自己的名次、无处领点赞奖。[设计 23](#23-settings-window-art) 已把整条换皮链路打通并固化成模板,[设计 25](#25-player-info-window-art) 复验了模板 + 兑现 `GameContext` 扩持有的预告。本轮是<mark>模板的第五次应用(末屏)</mark>:照搬范式把排行榜窗补出来,顺带把 `GameContext` 从「持有 Settings + Player」扩成「也持有 Rank」(兑现设计 23 §五「item / mail / rank 后续逐个挂入」的 rank 那一项)。
+现状:[设计 22](#22-rank-system) 的排行榜**数据层已交付但无任何窗口能触达**——玩家无处看榜、无处看自己的名次、无处领点赞奖。[设计 23](#23-settings-window-art) 已把整条换皮链路打通并固化成模板,[设计 25](#25-player-info-window-art) 复验了模板 + 兑现 `GameContext` 扩持有的预告。本轮是<mark>模板的第五次应用(末屏)</mark>:照搬范式把排行榜窗补出来,顺带把 `GameContext` 从「持有 Settings + Player」扩成「也持有 Rank」(兑现设计 23 §五「item / mail / rank 后续逐个挂入」的 rank 那一项)。
 
-<b>本屏比设计 22 的完整数据层简,且 art 受限</b>:数据层支持多榜分组 / 名次档奖励预览 / 每日 + 点赞双奖 / 结算邮件;<mark>效果图 <code>排行榜.png</code> 是简化版</mark>——只有「标题板『排行榜』+ 关闭 X + 5 行榜单(前 3 名金银铜奖杯徽章,4/5 名纯数字)+『我的排名』分隔 + 我的名次条(999)+ 底部『再来一次』按钮」,<b>无点赞按钮、无奖励预览、无多榜页签</b>。<b>本轮以效果图为对位基准</b>(简报指定):按效果图摆节点、接真实数据;数据层有但效果图未画的元素(点赞按钮 / 奖励预览 / 页签)按「数据支持则可选接、否则占位 / 省略」分流([§七](#28-rank-window-art::dispatch))。徽章 / 头像无切图 → 占位([§3.2](#28-rank-window-art::placeholder))。
+**本屏比设计 22 的完整数据层简,且 art 受限**:数据层支持多榜分组 / 名次档奖励预览 / 每日 + 点赞双奖 / 结算邮件;<mark>效果图 <code>排行榜.png</code> 是简化版</mark>——只有「标题板『排行榜』+ 关闭 X + 5 行榜单(前 3 名金银铜奖杯徽章,4/5 名纯数字)+『我的排名』分隔 + 我的名次条(999)+ 底部『再来一次』按钮」,**无点赞按钮、无奖励预览、无多榜页签**。**本轮以效果图为对位基准**(简报指定):按效果图摆节点、接真实数据;数据层有但效果图未画的元素(点赞按钮 / 奖励预览 / 页签)按「数据支持则可选接、否则占位 / 省略」分流([§七](#28-rank-window-art::dispatch))。徽章 / 头像无切图 → 占位([§3.2](#28-rank-window-art::placeholder))。
 
 | # | 本轮交付的 | 落法 | 性质 |
 | --- | --- | --- | --- |
@@ -73,7 +73,7 @@
 
 <h2 id="effigy">二、效果图拆解(对位基准)</h2>
 
-美术基准 `排行榜.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的<b>模态弹窗</b>:半透明深色遮罩 + 居中木牌面板。顶部有一排状态栏(头像 + 3 个资源条 + 齿轮,属底层 HUD 透出,非本窗内容)。本窗自上而下:
+美术基准 `排行榜.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木牌面板。顶部有一排状态栏(头像 + 3 个资源条 + 齿轮,属底层 HUD 透出,非本窗内容)。本窗自上而下:
 
 <table class="tight">
     <tbody><tr><th>区块</th><th>效果图内容</th><th>取图(<code>Sheet_settings</code> 子图 / 占位)</th><th>节点类型</th><th>处置</th></tr>
@@ -109,7 +109,7 @@ _imgClose.SetSubSprite(Atlas, "icon_x");     // 关闭圆按钮
 _imgBottomBtnBg.SetSubSprite(Atlas, "button"); // 底部「再来一次」长条
 // …各节点贴，子图名以 §二 dev 读图核实后的映射为准</pre>
 
-<b>不写法</b>(同设计 23 / 25):<span class="no">不</span>用 `LoadAssetAsync<Sprite>`(违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图。静态图在 `OnCreate` 贴一次,会运行期变的(榜行内容)由 `OnRefresh` 刷([§六](#28-rank-window-art::window))。
+**不写法**(同设计 23 / 25):<span class="no">不</span>用 `LoadAssetAsync<Sprite>`(违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图。静态图在 `OnCreate` 贴一次,会运行期变的(榜行内容)由 `OnRefresh` 刷([§六](#28-rank-window-art::window))。
 
 <h3 id="placeholder">3.2 三处缺图的占位策略(本屏 art 受限的核心)</h3>
 
@@ -119,7 +119,7 @@ _imgBottomBtnBg.SetSubSprite(Atlas, "button"); // 底部「再来一次」长条
 | --- | --- | --- |
 | <b>榜行底(行卡片)</b> | 纯色圆角 `Image` 条作行底。<mark>前 3 名用暖色区分</mark>(1 名暖金 / 2 名银灰 / 3 名铜棕),4 名起浅米;我的名次条用高亮暖金。颜色携带名次语义,补图后替 `SetSubSprite` 即生效。 | 待美术补「榜行底」切图(普通 + 前三名高亮 + 我的名次高亮) |
 | <b>名次徽章(金银铜奖杯)</b> | 前 3 名:纯色圆 `Image`(金 / 银 / 铜)+ 文本字符(「①」/「②」/「③」或「1/2/3」,可叠「🏆」字符)。4 名起:浅色圆 + 名次数字文本。<mark>名次数字始终是真实 <code>RankEntry.Rank</code></mark>,占位的只是徽章外观。 | 待美术补「金 / 银 / 铜奖杯徽章」切图,替子图即生效 |
-| <b>圆头像</b> | 纯色块 / 纯色圆 `Image`(`color` 由 `PlayerNameTextId` 或 `IsSelf` 取稳定色,本人用醒目色)。头像 Sprite 无美术(同设计 25 头像占位)。 | 待美术补「圆头像 / 头像框」切图 + 各头像 Sprite,接真实头像资源加载 |
+| **圆头像** | 纯色块 / 纯色圆 `Image`(`color` 由 `PlayerNameTextId` 或 `IsSelf` 取稳定色,本人用醒目色)。头像 Sprite 无美术(同设计 25 头像占位)。 | 待美术补「圆头像 / 头像框」切图 + 各头像 Sprite,接真实头像资源加载 |
 
 <div class="callout note" style="margin-top:8px">
     <b>占位的统一原则(同设计 23 / 25)+ 本屏特别声明</b>
@@ -167,7 +167,7 @@ private void InitRank()
     </ul>
   </div>
 
-<b>测试注入入口</b>(仿既有 `InitSettingsWithStore` / `InitPlayerFromMeta`):加一个 `InitRankWithDeps(IRankSource source, IRankPersistence persist, IMailService mail, IRankConfigSource cfg = null)`,EditMode 经它灌入 `InMemoryRankPersistence` + `RecordingMailService` + `RankConfigMgr.InitForTest` 的榜定义,断言 `GameContext.Instance.Rank.GetBoard` 数据贯通,不污染真实 PlayerPrefs / 不连网(验收 H2/H3,[§九](#28-rank-window-art::accept))。
+**测试注入入口**(仿既有 `InitSettingsWithStore` / `InitPlayerFromMeta`):加一个 `InitRankWithDeps(IRankSource source, IRankPersistence persist, IMailService mail, IRankConfigSource cfg = null)`,EditMode 经它灌入 `InMemoryRankPersistence` + `RecordingMailService` + `RankConfigMgr.InitForTest` 的榜定义,断言 `GameContext.Instance.Rank.GetBoard` 数据贯通,不污染真实 PlayerPrefs / 不连网(验收 H2/H3,[§九](#28-rank-window-art::accept))。
 
 <h2 id="row">五、prefab 节点树 + 榜单列表渲染(数据源 → 行)</h2>
 
@@ -207,9 +207,9 @@ private void InitRank()
 
 | 方案 | 做法 | 取舍 |
 | --- | --- | --- |
-| <b>A · 行 Widget + 对象池(推荐)</b> | 建一个 `RankRowWidget : UIWidget`(参工程既有 `RewardItemWidget` / Widget 范式),榜行 prefab 一份;`OnRefresh` 时按 `Entries.Count` 调整行实例数(对象池 / `AdjustIconNum` 式增删),逐行 `SetData(entry)`。列表容器套 `ScrollRect` + `VerticalLayoutGroup` 支持滚动看更多。 | 条数不定时最干净;复用 Widget 范式;dev 须确认工程 UIWidget / 对象池 API(grep `UIWidget` / `RewardItemWidget` / `AdjustIconNum` 实际签名再用,<b>别臆造</b>)。 |
+| <b>A · 行 Widget + 对象池(推荐)</b> | 建一个 `RankRowWidget : UIWidget`(参工程既有 `RewardItemWidget` / Widget 范式),榜行 prefab 一份;`OnRefresh` 时按 `Entries.Count` 调整行实例数(对象池 / `AdjustIconNum` 式增删),逐行 `SetData(entry)`。列表容器套 `ScrollRect` + `VerticalLayoutGroup` 支持滚动看更多。 | 条数不定时最干净;复用 Widget 范式;dev 须确认工程 UIWidget / 对象池 API(grep `UIWidget` / `RewardItemWidget` / `AdjustIconNum` 实际签名再用,**别臆造**)。 |
 | <b>B · 代码生成行(无池)</b> | `OnRefresh` 里清空容器子节点 → 按 `Entries` 逐条 `UGuiFactory.CreateXxx` 拼一行(同 `MainMenuWindow` code-built 风格)。容器套 `ScrollRect` 滚动。 | 不依赖 Widget 范式,纯代码;每次刷重建(条数少无性能问题);与主菜单 code-built 风格一致。 |
-| <b>C · 固定 N 行槽位</b> | prefab 预摆固定行数(如效果图可见 5–6 行 + 我的名次条),`OnRefresh` 按 `Entries` 填前 N 行、超出隐藏。不滚动或浅滚动。 | 最简,但只显前 N 名(效果图本就只显 5 行 + 我的名次,可接受);超 N 名看不到。本轮 art 受限 + 离线榜条目少,此方案足够对位效果图。 |
+| **C · 固定 N 行槽位** | prefab 预摆固定行数(如效果图可见 5–6 行 + 我的名次条),`OnRefresh` 按 `Entries` 填前 N 行、超出隐藏。不滚动或浅滚动。 | 最简,但只显前 N 名(效果图本就只显 5 行 + 我的名次,可接受);超 N 名看不到。本轮 art 受限 + 离线榜条目少,此方案足够对位效果图。 |
 
 <div class="callout note" style="margin-top:8px">
     <b>本轮推荐与底线</b>
@@ -323,7 +323,7 @@ namespace GameLogic.UI
 
 <h3 id="praise">6.1 点赞接 ClaimPraise(数据支持,效果图无钮 → 可选)</h3>
 
-数据层有 `ClaimPraise(rankId)`:每日一次,榜级奖(`PraiseRewardPoolId`),奖经邮件发。<mark>效果图未画点赞按钮</mark>,故本轮默认<b>不强加点赞按钮</b>([§七](#28-rank-window-art::dispatch) D2,安全默认 = 按效果图);但留接线点——若产品 / 后续要点赞,加一个 `m_btn_Praise` 节点,点击:
+数据层有 `ClaimPraise(rankId)`:每日一次,榜级奖(`PraiseRewardPoolId`),奖经邮件发。<mark>效果图未画点赞按钮</mark>,故本轮默认**不强加点赞按钮**([§七](#28-rank-window-art::dispatch) D2,安全默认 = 按效果图);但留接线点——若产品 / 后续要点赞,加一个 `m_btn_Praise` 节点,点击:
 
 <pre class="code">private void OnPraise()
 {
@@ -375,7 +375,7 @@ namespace GameLogic.UI
 
 <h2 id="accept">九、验收标准</h2>
 
-拆两档:<b>H/W 组 = 逻辑可 EditMode 单测</b>(编译 + `GameContext` 持有 + 查榜数据贯通 + 点赞结果,不依赖 Play / 真实视觉);<b>V 组 = 需 Play / 人眼</b>(对位 + 列表渲染 + 指针 + 不破坏玩法)。占位项验收 = 「点击不报错 + 数据真实 + 节点摆齐」,不要求高保真图。
+拆两档:**H/W 组 = 逻辑可 EditMode 单测**(编译 + `GameContext` 持有 + 查榜数据贯通 + 点赞结果,不依赖 Play / 真实视觉);**V 组 = 需 Play / 人眼**(对位 + 列表渲染 + 指针 + 不破坏玩法)。占位项验收 = 「点击不报错 + 数据真实 + 节点摆齐」,不要求高保真图。
 
 <h3 id="accept-hw">9.1 H/W 组 — EditMode 可单测(test 直调断言)</h3>
 
@@ -385,7 +385,7 @@ namespace GameLogic.UI
 | H2 | GameContext 持有 RankService | EditMode:`GameContext.Instance.Rank` 非 null;多次 `Instance` 返回同一 `RankService`(持有,不每次新建)。经测试注入入口 `InitRankWithDeps` 灌入 `InMemoryRankPersistence` + `RecordingMailService` + fake 配置源后可用。 |
 | H3 | 查榜数据贯通(排序 / 名次正确) | EditMode:`RankConfigMgr.InitForTest` 灌一个榜定义,`LocalRankSource` 注入「本机 + 几条陪榜基准分」→ `GameContext.Instance.Rank.GetBoard(rankId)`:`Entries` 按分降序排好、`Rank` 从 1 回填、本机 `IsSelf=true` 标对、`SelfRank`/`SelfScore` 与本机成绩一致(直接复用设计 22 已有的 `RankService` 排序单测口径,本轮验收 = 经 `GameContext` 拿到的服务行为一致)。 |
 | W3 | 窗口渲染读数据层(列表 + 我的名次) | EditMode:构造已知 `RankBoard`(或经注入服务 `GetBoard`)→ 反射调窗口 `RenderList`/`RenderMyRank`(或其纯逻辑提取)后,断言行数 == `Entries.Count`、首行名次 / 名 / 分 == 数据、我的名次条文本 == `SelfRank`/`SelfScore`(同设计 23 / 25 反射驱动口径)。<mark>若行渲染强依赖真实 UGUI 实例化难纯测</mark>,则 W3 退为「把『board → 行 VM 列表』的映射抽成纯方法单测 + 行实例化并 V2 人眼核」([V 组](#28-rank-window-art::accept-v))。 |
-| W4 | 点赞贯通数据层(若做点赞) | EditMode 经注入服务:首次 `ClaimPraise(rankId)`(本人入榜 + 榜有 `PraiseRewardPoolId`)→ `Status==Success` 且 `RecordingMailService.Sent` 多一封;当天再点 → `AlreadyClaimedToday`;`PraiseRewardPoolId==0` 的榜 → `NoReward`。<mark>数据层已有此单测(设计 22)</mark>,本轮验收 = 窗口确实委托 `Svc.ClaimPraise`、不自写领取逻辑。<b>不做点赞按钮则本条 N/A</b>(D2)。 |
+| W4 | 点赞贯通数据层(若做点赞) | EditMode 经注入服务:首次 `ClaimPraise(rankId)`(本人入榜 + 榜有 `PraiseRewardPoolId`)→ `Status==Success` 且 `RecordingMailService.Sent` 多一封;当天再点 → `AlreadyClaimedToday`;`PraiseRewardPoolId==0` 的榜 → `NoReward`。<mark>数据层已有此单测(设计 22)</mark>,本轮验收 = 窗口确实委托 `Svc.ClaimPraise`、不自写领取逻辑。**不做点赞按钮则本条 N/A**(D2)。 |
 | W5 | 窗口绑定路径对齐 prefab | `ScriptGenerator` 里每个 `FindChildComponent<T>(path)` 的 path 与 §五 / §六 节点树逐一对齐(dev 自查 + test code review 核);Play 模式打开窗口无「FindChild 返回 null」报错(并入 V 组实测)。 |
 | W6 | 未入榜 / 空榜不崩 | EditMode:`GetBoard` 返本机未达入榜要求(`SelfRank==0`)/ 榜不存在(返 null)时,`RenderList`/`RenderMyRank` 不抛、不空引用,显友好态。 |
 
@@ -394,7 +394,7 @@ namespace GameLogic.UI
 | # | 验收点 | 怎么核 |
 | --- | --- | --- |
 | V1 | 能从入口打开 | 主菜单点排行榜入口 → 窗口出现(MCP `ShowUIAsync` + 截图),无报错。 |
-| V2 | 视觉对位 排行榜.png + 列表渲染 | 人眼比对:标题木牌 / 关闭 / 榜单列表(多行,前 3 名徽章占位色区分)/「我的排名」分隔 / 我的名次条 / 底部按钮 位置与效果图大致一致;榜行的名次 / 名 / 分逐行显示正确。占位图(行底 / 徽章 / 头像)允许朴素,<b>位置 + 数据须对</b>([§3.2](#28-rank-window-art::placeholder) 本屏 art 受限声明)。 |
+| V2 | 视觉对位 排行榜.png + 列表渲染 | 人眼比对:标题木牌 / 关闭 / 榜单列表(多行,前 3 名徽章占位色区分)/「我的排名」分隔 / 我的名次条 / 底部按钮 位置与效果图大致一致;榜行的名次 / 名 / 分逐行显示正确。占位图(行底 / 徽章 / 头像)允许朴素,**位置 + 数据须对**([§3.2](#28-rank-window-art::placeholder) 本屏 art 受限声明)。 |
 | V3 | 切图贴对(复用 Sheet\_settings) | 截图核 `box1`/`box2`/`icon_x`/`button` 等子图正确显示(`SetSubSprite` 寻址通,同设计 23 / 25 已打通的链路)。 |
 | V4 | 滚动 / 多行(若取方案 A/B) | 榜单条数多于可见区时可滚动看更多(方案 A/B);取方案 C 固定槽则核前 N 行 + 我的名次条显示对。 |
 | V5 | 三种关闭都生效 | 点 X / 点遮罩空白处 / 点底部按钮 → 窗口关闭;点面板内容不穿透关窗。 |
@@ -418,8 +418,8 @@ namespace GameLogic.UI
 | D5 | 名次档奖励预览是否本屏做 | 不做(效果图无该位) | 后续屏接 `TierForRank.ShowRewardPoolId` + 17 `RewardView`(阻塞于奖励图标美术,同遗留 #20) |
 | D6 | 入口 icon 红点 | 本屏内不显;红点用 `HasClaimable` 显在入口侧(后续轮接入口 icon 时用) | — |
 | D7 | 行实现方案 | 推荐 Widget+池(方案 A);art 受限可退固定槽(方案 C) | 三方案验收等价([§五](#28-rank-window-art::row)),dev 按工程现状取 |
-| BLK1 | <b>真实全服榜 + 真实他人成绩</b> | <b>跳过(无安全默认):无网络模块</b>。`RemoteRankSource` 返空,本屏榜单 = 本机 + 配置 / 注入陪榜(非随机 NPC)。陪榜内容是运营 / 配置项,本轮 `filler=null`(榜上可能只有本机一条) | 解阻 = 网络模块就绪后实现 `RemoteRankSource`,服务层零改动切注入(设计 22 §3.6);陪榜基准分由运营配置补 |
-| BLK2 | <b>点赞奖真进邮箱可见</b> | <b>部分阻塞:mail 表现层(#26)未做</b>。点赞 `ClaimPraise` 经 `IMailService.Send` 发奖,但无邮件窗看不到收到的奖。本屏验收只锚 `ClaimPraise` 返码 + 数据层调用(W4) | 解阻 = mail 表现层(#26)落地后,点赞奖在邮件窗可见可领 |
+| BLK1 | **真实全服榜 + 真实他人成绩** | **跳过(无安全默认):无网络模块**。`RemoteRankSource` 返空,本屏榜单 = 本机 + 配置 / 注入陪榜(非随机 NPC)。陪榜内容是运营 / 配置项,本轮 `filler=null`(榜上可能只有本机一条) | 解阻 = 网络模块就绪后实现 `RemoteRankSource`,服务层零改动切注入(设计 22 §3.6);陪榜基准分由运营配置补 |
+| BLK2 | **点赞奖真进邮箱可见** | **部分阻塞:mail 表现层(#26)未做**。点赞 `ClaimPraise` 经 `IMailService.Send` 发奖,但无邮件窗看不到收到的奖。本屏验收只锚 `ClaimPraise` 返码 + 数据层调用(W4) | 解阻 = mail 表现层(#26)落地后,点赞奖在邮件窗可见可领 |
 
 <h2 id="risk">十一、风险表</h2>
 

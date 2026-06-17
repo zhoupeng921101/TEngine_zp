@@ -11,7 +11,7 @@
 
 # 跨会话磁盘存档
 
-把 `MergeOrderState` 的<b>元层进度</b>(虔诚币 / 神庙修复 / 经验·守护者等级 / 灵力 / 盲盒计数 / 女神 / 订单完成数 / 今日祈愿)从<b>单局尺度</b>升为<b>跨会话尺度</b>:启动加载、有意义元变更后保存,退出重进不再清零。<b>加法式</b>接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)/[13](#13-piety-temple-repair)),复用工程既有 `Persistence.Provider` 持久化接缝,<b>不动悔棋快照(局内 undo)</b>。
+把 `MergeOrderState` 的**元层进度**(虔诚币 / 神庙修复 / 经验·守护者等级 / 灵力 / 盲盒计数 / 女神 / 订单完成数 / 今日祈愿)从**单局尺度**升为**跨会话尺度**:启动加载、有意义元变更后保存,退出重进不再清零。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)/[13](#13-piety-temple-repair)),复用工程既有 `Persistence.Provider` 持久化接缝,<b>不动悔棋快照(局内 undo)</b>。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -37,9 +37,9 @@
 
 <h2 id="what">一、改什么与为什么</h2>
 
-现状:`MergeOrderState` <b>整体不做磁盘持久化</b>,只入悔棋快照(单局内回滚)。每次进入 merge-order 模式,`ResetForMergeOrder` 都 `new MergeOrderState()` 并 `Reset()`,把所有元字段清零。结果是被 GDD 定位为<b>长期主线</b>的虔诚币 / 神庙修复进度,以及灵力 / 经验 / 守护者等级 / 盲盒计数 / 女神好感,全是<b>单局尺度</b>——玩家退出重进,一切归零。这与「攒虔诚币 → 修 12 神庙 → 升等级 → 解锁剧情」这条跨越多个订单周期的长期反馈链直接矛盾(设计 13 §七 O3 已记此为待办)。
+现状:`MergeOrderState` **整体不做磁盘持久化**,只入悔棋快照(单局内回滚)。每次进入 merge-order 模式,`ResetForMergeOrder` 都 `new MergeOrderState()` 并 `Reset()`,把所有元字段清零。结果是被 GDD 定位为**长期主线**的虔诚币 / 神庙修复进度,以及灵力 / 经验 / 守护者等级 / 盲盒计数 / 女神好感,全是**单局尺度**——玩家退出重进,一切归零。这与「攒虔诚币 → 修 12 神庙 → 升等级 → 解锁剧情」这条跨越多个订单周期的长期反馈链直接矛盾(设计 13 §七 O3 已记此为待办)。
 
-本篇补的就是这一层:给元层进度加<b>跨会话磁盘存档</b>,使长期语义成立。逐条对应需求:
+本篇补的就是这一层:给元层进度加**跨会话磁盘存档**,使长期语义成立。逐条对应需求:
 
 | # | 需求 | 本篇落法 | 现状/新增 |
 | --- | --- | --- | --- |
@@ -81,7 +81,7 @@ flowchart TD
 
 <h3 id="snapshot-vs-disk">2.2 磁盘存档 与 悔棋快照 的分工</h3>
 
-两者字段有重叠(Piety / Soul / Exp 等都在两边出现),但语义、时机、生命周期全不同,是<b>两条独立轨</b>。对照:
+两者字段有重叠(Piety / Soul / Exp 等都在两边出现),但语义、时机、生命周期全不同,是**两条独立轨**。对照:
 
 <table>
     <tbody><tr><th>维度</th><th>悔棋快照 <code>Snapshot</code>(现状,不动)</th><th>磁盘存档 <code>MergeMetaSave</code>(本篇新增)</th></tr>
@@ -97,7 +97,7 @@ flowchart TD
 
 <h3 id="boundary">3.1 持久化边界(哪些字段进盘)</h3>
 
-判据:<b>元层进度(跨局累积、长期语义)进盘;局内瞬态(每局重开)不进盘</b>。逐字段裁定(字段名经 grep `MergeOrderState.cs` 核实):
+判据:**元层进度(跨局累积、长期语义)进盘;局内瞬态(每局重开)不进盘**。逐字段裁定(字段名经 grep `MergeOrderState.cs` 核实):
 
 <table class="tight">
     <tbody><tr><th>字段</th><th>类型</th><th>语义</th><th>进盘?</th></tr>
@@ -186,7 +186,7 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 
 | 触发 | 动作 | 说明 |
 | --- | --- | --- |
-| 有意义元变更 | `RequestSave()` 标脏 | 交付(`Deliver`/`DeliverSpecial`)、修复(`RepairTemple`)、开盒(`OpenBlindBox`)、祈愿(`WishForEnergy`)、女神升档(`AdvanceGoddess`)后由<b>窗口侧</b>调用标脏。<mark>不在 <code>MergeOrderState</code> 内部每次字段自增就写盘</mark>(那会每帧/过频)。 |
+| 有意义元变更 | `RequestSave()` 标脏 | 交付(`Deliver`/`DeliverSpecial`)、修复(`RepairTemple`)、开盒(`OpenBlindBox`)、祈愿(`WishForEnergy`)、女神升档(`AdvanceGoddess`)后由**窗口侧**调用标脏。<mark>不在 <code>MergeOrderState</code> 内部每次字段自增就写盘</mark>(那会每帧/过频)。 |
 | 合并落盘 | 脏位为真时落盘一次 | 窗口在合适节点(动作处理结束 / 下一帧 / 定时)检查脏位,真则 `SaveAsync()` 落盘并清脏。节流策略 dev 可选最简「每次元动作结束即异步落盘」(动作频率低,够用),复杂去抖列 O5。 |
 | 退出 / 暂停 / 销毁(兜底) | 脏则强制落盘 | `MergeOrderWindow.OnDestroy` / `ExitMergeOrder` 前、`OnApplicationPause(true)` / `OnApplicationQuit` 时,脏位为真强制 `SaveAsync()`(或同步兜底落盘,退出场景下可接受短暂阻塞,仿 `PlayerPrefs.Save`)。<mark>保证「玩家随手退出」不丢最后一次元变更。</mark> |
 
@@ -216,7 +216,7 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 
 <h3 id="daily">3.6 每日字段跨天重置</h3>
 
-`WishUsedToday` 语义是「<b>今日</b>已用祈愿次数」(上限 `WishPerDayLimit=3`)。跨会话存它必须配「上次重置日期」,否则昨天用满 3 次的玩家今天进来还是 0 可用。
+`WishUsedToday` 语义是「**今日**已用祈愿次数」(上限 `WishPerDayLimit=3`)。跨会话存它必须配「上次重置日期」,否则昨天用满 3 次的玩家今天进来还是 0 可用。
 
 - <b>存:</b>DTO 带 `lastWishResetDate`(字符串 `yyyy-MM-dd`,本地日期)。每次落盘写入当前 `WishUsedToday` 与上次重置日期。
 - <b>读(<code>ImportMeta</code> 内判定):</b>取当前本地日期 `today`。若 `lastWishResetDate != today` → <mark><code>WishUsedToday = 0</code></mark> 并把重置日期更新为 `today`;否则沿用存档的 `WishUsedToday`。
@@ -268,7 +268,7 @@ sequenceDiagram
 
 <h2 id="accept">六、验收点</h2>
 
-逐条 test 可核对(全部锚在<b>同步纯方法</b> + InMemory Provider,不依赖真实磁盘 / 不依赖 UniTask 运行)。dev 带 unityMCP 自行编译 + 跑 EditMode;MCP 不可达则 test 判 BLOCKED 不判 FAIL。
+逐条 test 可核对(全部锚在**同步纯方法** + InMemory Provider,不依赖真实磁盘 / 不依赖 UniTask 运行)。dev 带 unityMCP 自行编译 + 跑 EditMode;MCP 不可达则 test 判 BLOCKED 不判 FAIL。
 
 | # | 验收点 | 完成定义(测试可核对) |
 | --- | --- | --- |
@@ -289,15 +289,15 @@ sequenceDiagram
 
 <h2 id="open">七、待拍板清单</h2>
 
-有安全默认的已自主拍板(填 decisions),此处只列<b>需 boss/用户裁决或交 dev 实现选型</b>的方向性开关:
+有安全默认的已自主拍板(填 decisions),此处只列**需 boss/用户裁决或交 dev 实现选型**的方向性开关:
 
 | # | 问题 | 默认 / 建议 | 性质 |
 | --- | --- | --- | --- |
-| O1 | 局内棋盘断点续玩(当前棋盘/手牌/进行中订单也存)做不做? | <b>默认不做</b>(任务边界:除非低成本顺带)。元层存档不含局内瞬态,每局重开。若 dev 评估顺带成本极低可加,但不在本轮验收 | 范围开关 |
-| O2 | `TotalScore` 进盘当「累计总分」还是不进盘? | <b>默认进盘</b>(加法式无害,当累计成就分)。若与窗口「本局分」显示冲突,dev 可降级不进盘,不影响其余字段 | 边界微调(dev 可定) |
-| O3 | 体力 `Energy` 跨会话保留? | <b>默认不保留</b>(局内资源,跨会话保留会成养体力漏洞,且与「每局重开」一致)。离线体力恢复属独立设计,不在本轮 | 已拍板(填 decisions) |
-| O4 | 生产存储介质:沙盒 JSON 文件 vs PlayerPrefs? | <b>建议沙盒文件</b>(任务点名 YooAsset 沙盒路径 + 异步)。<b>降级备选 PlayerPrefs</b>(与现有 BlockGameState 同款,接入零成本,非阻塞不触红线)。dev 用 `unity_reflect` 核实沙盒 API 后定;两方案验收点(§六)不变(都经 Provider/序列化层) | 实现选型(dev 定) |
-| O5 | 落盘节流:每次元动作即落盘 vs 帧末去抖合并? | <b>默认每次元动作结束即异步落盘</b>(元动作频率低,够用)。复杂去抖(标脏 + 下一帧/定时合并)dev 可选,不强求 | 实现选型(dev 定) |
+| O1 | 局内棋盘断点续玩(当前棋盘/手牌/进行中订单也存)做不做? | **默认不做**(任务边界:除非低成本顺带)。元层存档不含局内瞬态,每局重开。若 dev 评估顺带成本极低可加,但不在本轮验收 | 范围开关 |
+| O2 | `TotalScore` 进盘当「累计总分」还是不进盘? | **默认进盘**(加法式无害,当累计成就分)。若与窗口「本局分」显示冲突,dev 可降级不进盘,不影响其余字段 | 边界微调(dev 可定) |
+| O3 | 体力 `Energy` 跨会话保留? | **默认不保留**(局内资源,跨会话保留会成养体力漏洞,且与「每局重开」一致)。离线体力恢复属独立设计,不在本轮 | 已拍板(填 decisions) |
+| O4 | 生产存储介质:沙盒 JSON 文件 vs PlayerPrefs? | **建议沙盒文件**(任务点名 YooAsset 沙盒路径 + 异步)。**降级备选 PlayerPrefs**(与现有 BlockGameState 同款,接入零成本,非阻塞不触红线)。dev 用 `unity_reflect` 核实沙盒 API 后定;两方案验收点(§六)不变(都经 Provider/序列化层) | 实现选型(dev 定) |
+| O5 | 落盘节流:每次元动作即落盘 vs 帧末去抖合并? | **默认每次元动作结束即异步落盘**(元动作频率低,够用)。复杂去抖(标脏 + 下一帧/定时合并)dev 可选,不强求 | 实现选型(dev 定) |
 
 <h2 id="risk">八、风险表</h2>
 

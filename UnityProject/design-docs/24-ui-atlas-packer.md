@@ -13,7 +13,7 @@
 
 # 散切图打表工具(Editor)
 
-一个 Editor 菜单工具:输入一个<b>散切图目录</b>(`AssetRaw/UIRaw/Atlas/<screen>/`),一键输出一张 <mark>Multiple 模式精灵表 PNG</mark>(`Sheet_<目录名>.png`),落 `AssetRaw/UIRaw/Atlas/` 并设好 `TextureImporter`。目的:[设计 23](#23-settings-window-art) 确立的切图寻址范式(每屏一张 Multiple 精灵表 PNG + `Image.SetSubSprite(图集 location, 子图名)`)当前靠<b>一次性手工合表</b>实现,后续约 20 屏 UI 换皮若每屏手工打表,成本线性累积且易错(子图名漏改 / rect / pivot / border 手设)。本工具把这条打表流程工具化,服务整条换皮主线([遗留 #28](#))。
+一个 Editor 菜单工具:输入一个**散切图目录**(`AssetRaw/UIRaw/Atlas/<screen>/`),一键输出一张 <mark>Multiple 模式精灵表 PNG</mark>(`Sheet_<目录名>.png`),落 `AssetRaw/UIRaw/Atlas/` 并设好 `TextureImporter`。目的:[设计 23](#23-settings-window-art) 确立的切图寻址范式(每屏一张 Multiple 精灵表 PNG + `Image.SetSubSprite(图集 location, 子图名)`)当前靠**一次性手工合表**实现,后续约 20 屏 UI 换皮若每屏手工打表,成本线性累积且易错(子图名漏改 / rect / pivot / border 手设)。本工具把这条打表流程工具化,服务整条换皮主线([遗留 #28](#))。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -51,7 +51,7 @@
 
 现状:[设计 23](#23-settings-window-art) 关单确立了切图寻址范式(每屏一张 Multiple 精灵表 PNG + `SetSubSprite` 按子图名取图),并落地了第一屏 `Sheet_settings.png`——但那张表是<mark>一次性手工合表</mark>:在 Sprite Editor 里逐张摆 rect、逐子图设名 / pivot / border、再导出。后续主线([遗留 #30](#))约 20 屏 UI 待换皮,每屏一张这样的表。若全程手工:① 每屏几十张子图的 rect 摆放是机械重活;② 子图名须精确等于「窗口脚本里 `SetSubSprite` 第二参数」,手设易拼错 → 运行期按名取返 null;③ 九宫格按钮底图的 border 须逐张设对,漏设则拉伸糊;④ 现有手工表已暴露「自动切残留名表」(`Sheet_settings_0..25`)这类脏数据。这些都是确定性、可程序化的步骤。
 
-本工具把打表流程固化成<b>一键操作</b>:选中一个散切图目录 → 跑工具 → 得到一张干净的 Multiple 精灵表 PNG。源 PNG 自身已是规范的 Single Sprite(导入时设好 pivot / border),工具从源继承这些参数,使产出可<b>精确复现手工表</b>(以现有 `Sheet_settings.png` 为对照基准验证),同时消除手工的易错点。
+本工具把打表流程固化成**一键操作**:选中一个散切图目录 → 跑工具 → 得到一张干净的 Multiple 精灵表 PNG。源 PNG 自身已是规范的 Single Sprite(导入时设好 pivot / border),工具从源继承这些参数,使产出可**精确复现手工表**(以现有 `Sheet_settings.png` 为对照基准验证),同时消除手工的易错点。
 
 | # | 本轮交付的 | 落法 | 性质 |
 | --- | --- | --- | --- |
@@ -67,11 +67,11 @@
 
 <h3 id="entry-form">2.1 入口形态(默认:对 Project 选中目录操作)</h3>
 
-菜单项 `Tools/UI/打表(散切图 → Multiple 精灵表)`(具体菜单路径 dev 可对齐工程既有 `Tools/` 习惯)。操作对象 = <b>Project 窗口当前选中的目录</b>(`Selection.activeObject` → `AssetDatabase.GetAssetPath` → 判 `AssetDatabase.IsValidFolder`)。选中一个散切图目录后点菜单即对它打表。
+菜单项 `Tools/UI/打表(散切图 → Multiple 精灵表)`(具体菜单路径 dev 可对齐工程既有 `Tools/` 习惯)。操作对象 = **Project 窗口当前选中的目录**(`Selection.activeObject` → `AssetDatabase.GetAssetPath` → 判 `AssetDatabase.IsValidFolder`)。选中一个散切图目录后点菜单即对它打表。
 
 | 承载 | 做法 | 取舍 |
 | --- | --- | --- |
-| <b>(默认)选中目录 + 菜单项</b> | `[MenuItem]` 方法读 `Selection`;`[MenuItem(..., true)]` 验证函数在「选中非目录 / 目录不合法」时灰掉菜单 | 零额外 UI,最快;符合 Unity 工具习惯。<b>取此为默认</b> |
+| <b>(默认)选中目录 + 菜单项</b> | `[MenuItem]` 方法读 `Selection`;`[MenuItem(..., true)]` 验证函数在「选中非目录 / 目录不合法」时灰掉菜单 | 零额外 UI,最快;符合 Unity 工具习惯。**取此为默认** |
 | (备选)EditorWindow 面板 | 开一个窗口,拖目录 + 看子图列表 + 逐项填覆盖 + 「打表」按钮 | 承载「可选覆盖」更顺手(§六),但本轮覆盖是少数个例,不值得为它先建面板。覆盖承载见 §六 的轻量方案 |
 
 <h3 id="entry-validate">2.2 输入合法性校验(逐项处置)</h3>
@@ -83,7 +83,7 @@
 | 选中是目录 | `AssetDatabase.IsValidFolder(path)` | 报「请在 Project 选中一个切图目录」 |
 | 目录在收录树下 | path 以 `Assets/AssetRaw/UIRaw/Atlas/` 为前缀(且非该目录本身) | 报「目录须在 AssetRaw/UIRaw/Atlas/ 下,否则产出表不被收集器收录、运行期寻址不到」<mark>+ 中止</mark>(落点错 = 寻址必失败,不能放过) |
 | 含 PNG 源 | 目录下(顶层,不递归子目录)至少 1 张 `.png` | 报「目录内无 PNG 切图」+ 中止 |
-| 非 PNG 文件 | 目录内混入 `.jpg`/`.psd`/其它图等 | <b>跳过非 PNG、只收 PNG</b>(不中止);若有被跳过的,在结果对话框列出「已跳过:xxx.jpg」提示,避免静默漏图 |
+| 非 PNG 文件 | 目录内混入 `.jpg`/`.psd`/其它图等 | **跳过非 PNG、只收 PNG**(不中止);若有被跳过的,在结果对话框列出「已跳过:xxx.jpg」提示,避免静默漏图 |
 | 子目录 | 目录内还有子文件夹 | 只处理顶层 PNG,不递归(与「一目录 = 一表」语义一致);如有子目录在结果里提示「未递归:子目录 xxx」 |
 | 源 PNG 是 Sprite 类型 | 每张源 PNG 的 importer `textureType==Sprite` 且可读出尺寸 | 非 Sprite 类型的图无 `spriteBorder` 可继承;报「xxx.png 非 Sprite 导入类型」+ 中止(让用户先把源导入设置好,工具不擅自改源导入) |
 | 子图名唯一 | 去扩展名后的文件名集合无重复(同名不同扩展、或 `a.png` 与子目录里另一 `a.png`) | 子图名须唯一(否则 `GetSubAssetObject` 按名取歧义);报重复名 + 中止 |
@@ -97,7 +97,7 @@
 
 <h3 id="pack-core">3.1 核心:Texture2D.PackTextures</h3>
 
-读每张源 PNG 的像素到一个 `Texture2D`(源 importer 须 `isReadable` 才能 `GetPixels`——工具临时把源设 readable 读完<b>恢复原值</b>,或用 `AssetDatabase.LoadAssetAtPath<Texture2D>` 配合可读取路径;dev 取可靠者),把这批 `Texture2D[]` 交给 `Texture2D.PackTextures`,它自动排布到一张大图并返回每张子图的归一化 `Rect[]`:
+读每张源 PNG 的像素到一个 `Texture2D`(源 importer 须 `isReadable` 才能 `GetPixels`——工具临时把源设 readable 读完**恢复原值**,或用 `AssetDatabase.LoadAssetAtPath<Texture2D>` 配合可读取路径;dev 取可靠者),把这批 `Texture2D[]` 交给 `Texture2D.PackTextures`,它自动排布到一张大图并返回每张子图的归一化 `Rect[]`:
 
 <pre class="code">// 伪代码骨架(dev 以工程实际 API 签名为准)
 Texture2D[] srcs = LoadSourceTextures(pngPaths);   // 各源像素
@@ -109,8 +109,8 @@ byte[] png = sheet.EncodeToPNG();</pre>
 
 | 参数 | 取值 | 依据 |
 | --- | --- | --- |
-| `padding` | <b>2</b> | 对齐既有 `AtlasConfiguration.padding=2`;防相邻子图采样溢色 |
-| `maximumAtlasSize` | <b>2048</b> | 对齐基准 `Sheet_settings.png` 的 `maxTextureSize=2048` 与既有图集口径 |
+| `padding` | **2** | 对齐既有 `AtlasConfiguration.padding=2`;防相邻子图采样溢色 |
+| `maximumAtlasSize` | **2048** | 对齐基准 `Sheet_settings.png` 的 `maxTextureSize=2048` 与既有图集口径 |
 | 子图 rect | `uvRects[i] × 表尺寸`,取整到像素 | 归一化 → 像素;`SpriteMetaData.rect` 用像素矩形(同 `Sheet_settings.png.meta` 各 rect 是像素整数) |
 
 <h3 id="pack-determinism">3.2 确定性排布(回归可比对的前提)</h3>
@@ -126,8 +126,8 @@ byte[] png = sheet.EncodeToPNG();</pre>
 
 若一批子图在 2048×2048 内排不下,`PackTextures` 会返回 false / 排布失败(或自动放大超过期望)。处置:
 
-- <b>先尝试 2048</b>(对齐基准)。排不下时 `PackTextures` 返回失败 → 工具<mark>报错并中止</mark>,提示「子图总面积超 2048×2048,本屏切图过大或过多,需拆分目录 / 压缩源图」。
-- 本轮目标屏(setting 等)源图都是小图标 + 几张底板,2048 充裕(`Sheet_settings.png` 内容均在 2048 内)。<b>不</b>本轮就支持多页表 / 自动升 4096——那是投机性扩展,真有超限屏时另开增量(列 §十一)。
+- **先尝试 2048**(对齐基准)。排不下时 `PackTextures` 返回失败 → 工具<mark>报错并中止</mark>,提示「子图总面积超 2048×2048,本屏切图过大或过多,需拆分目录 / 压缩源图」。
+- 本轮目标屏(setting 等)源图都是小图标 + 几张底板,2048 充裕(`Sheet_settings.png` 内容均在 2048 内)。**不**本轮就支持多页表 / 自动升 4096——那是投机性扩展,真有超限屏时另开增量(列 §十一)。
 
 <h2 id="meta">四、逐子图 SpriteMetaData</h2>
 
@@ -137,7 +137,7 @@ byte[] png = sheet.EncodeToPNG();</pre>
 | --- | --- | --- |
 | `name` | <b>源 PNG 文件名(去 <code>.png</code>)</b> | = `SetSubSprite` 的 `spriteName`。如 `button.png` → 子图名 `button`;运行期 `SetSubSprite("Sheet_setting","button")` 取得到 |
 | `rect` | 由 §三 排布定(像素矩形,尺寸=源图尺寸) | `PackTextures` 返回的归一化 rect × 表尺寸,取整 |
-| `alignment` | <b>0</b>(Center) | 对齐基准各子图 `alignment:0` |
+| `alignment` | **0**(Center) | 对齐基准各子图 `alignment:0` |
 | `pivot` | <b>{0.5, 0.5}</b>(居中) | 用户约定:默认居中。<mark>不从源继承 pivot</mark>——源 PNG 的 `spriteSheet.sprites[0].pivot` 因 alignment=Center 实际是 {0,0} 占位(见 `base_plate.png.meta`),真实居中由 alignment=0 表达;基准表各子图也是固定 `pivot:{0.5,0.5}`。固定居中即复现现状([B1](#24-ui-atlas-packer::open) 备:如某屏需非居中 pivot,再加「可选覆盖 pivot」,本轮 border 已有覆盖通道、pivot 暂统一居中) |
 | `border` | <b>从源 <code>TextureImporter.spriteBorder</code> 继承</b> + 可选覆盖(§六) | 用户拍板:读每张源 PNG 的 importer 级 `spriteBorder`。<mark>关键:读 importer 的 <code>spriteBorder</code> 属性,不是 <code>spriteSheet.sprites\[0\].border</code></mark>——后者在 Single 模式下是 {0,0,0,0} 占位,真实九宫格 border 存在 importer 级(`base_plate.png.meta` 第 55 行 `spriteBorder:{24,24,24,24}`,而其 sprites\[0\].border 是 {0,0,0,0}) |
 
@@ -161,9 +161,9 @@ flowchart LR
 
 排布与 metadata 备好后,按顺序写盘:
 
-1. <b>定输出路径</b>:`Assets/AssetRaw/UIRaw/Atlas/Sheet_<目录名>.png`(目录名 = 选中目录的文件夹名,如 `setting` → `Sheet_setting.png`)。<mark>若文件已存在 → 不覆盖</mark>:报「`Sheet_setting.png` 已存在,本工具不覆盖;如需重打请先手动删旧表」并中止(用户拍板:不覆盖,并排比对。这使首跑产出 `Sheet_setting.png` 与现有手工 `Sheet_settings.png` 并存、可对照,非破坏)。
-2. <b>写 PNG</b>:`File.WriteAllBytes(绝对路径, sheet.EncodeToPNG())` → `AssetDatabase.ImportAsset(资源路径)` 使 Unity 识别。
-3. <b>设 TextureImporter</b>(对齐基准 `Sheet_settings.png.meta`):
+1. **定输出路径**:`Assets/AssetRaw/UIRaw/Atlas/Sheet_<目录名>.png`(目录名 = 选中目录的文件夹名,如 `setting` → `Sheet_setting.png`)。<mark>若文件已存在 → 不覆盖</mark>:报「`Sheet_setting.png` 已存在,本工具不覆盖;如需重打请先手动删旧表」并中止(用户拍板:不覆盖,并排比对。这使首跑产出 `Sheet_setting.png` 与现有手工 `Sheet_settings.png` 并存、可对照,非破坏)。
+2. **写 PNG**:`File.WriteAllBytes(绝对路径, sheet.EncodeToPNG())` → `AssetDatabase.ImportAsset(资源路径)` 使 Unity 识别。
+3. **设 TextureImporter**(对齐基准 `Sheet_settings.png.meta`):
 
 <pre class="code">var ti = (TextureImporter)AssetImporter.GetAtPath(sheetPath);
 ti.textureType          = TextureImporterType.Sprite;        // textureType=8
@@ -200,8 +200,8 @@ ti.SaveAndReimport();</pre>
     <p style="margin:8px 0 0"><b>验收读回也用现代 API</b>:测试经 <code>GetSpriteEditorDataProvider…GetSpriteRects()</code> 读回断言(§9.1),与写路径同源。obsolete 的 <code>ti.spritesheet</code> 作兜底(若现代路在本版本有坑可退回),两路产出须满足同一验收(§九)。上面的 <code>ti.spritesheet = metas</code> 写法保留为<b>等价示意</b>,实做以现代 API 为准。</p>
   </div>
 
-1. <b>重建模拟清单</b>:`AssetDatabase.Refresh()` 后调 `YooAsset.EditorSimulateModeHelper.SimulateBuild("DefaultPackage")`,使 EditorSimulateMode 下 `Sheet_setting` 这个 location 立即可被 `GetAssetInfo` 解析(否则要等下次 Play 启动自动重建)。dev 核实包名:用 `_resourceModule.DefaultPackageName` 的实际值(勘察为 `"DefaultPackage"`);若工具拿不到运行期模块,直接传字符串常量 `"DefaultPackage"`。
-2. <b>结果反馈</b>:`EditorUtility.DisplayDialog` 报「打表完成:Sheet\_setting.png,N 个子图;已跳过 / 未递归:…」,并 `EditorGUIUtility.PingObject` 选中产出表便于查看。
+1. **重建模拟清单**:`AssetDatabase.Refresh()` 后调 `YooAsset.EditorSimulateModeHelper.SimulateBuild("DefaultPackage")`,使 EditorSimulateMode 下 `Sheet_setting` 这个 location 立即可被 `GetAssetInfo` 解析(否则要等下次 Play 启动自动重建)。dev 核实包名:用 `_resourceModule.DefaultPackageName` 的实际值(勘察为 `"DefaultPackage"`);若工具拿不到运行期模块,直接传字符串常量 `"DefaultPackage"`。
+2. **结果反馈**:`EditorUtility.DisplayDialog` 报「打表完成:Sheet\_setting.png,N 个子图;已跳过 / 未递归:…」,并 `EditorGUIUtility.PingObject` 选中产出表便于查看。
 
 ```mermaid
 sequenceDiagram
@@ -222,7 +222,7 @@ sequenceDiagram
 
 | 方案 | 做法 | 取舍 |
 | --- | --- | --- |
-| <b>A. 旁置覆盖文件(默认推荐)</b> | 目录内可选放一个 `_border_override.json`(或 `.txt`):`{"chat":[8,8,8,8], "help":[12,12,12,12]}`。工具打表时若存在该文件,对其中列出的子图用覆盖值、其余继承源。文件不存在 = 全继承(零负担) | 无需建 UI;覆盖值可 git 跟踪、可复跑复现;对「少数个例覆盖」足够。<b>取此为默认</b>。该文件本身非 PNG,§2.2 校验里归入「跳过的非 PNG」不报错(或显式识别为配置) |
+| <b>A. 旁置覆盖文件(默认推荐)</b> | 目录内可选放一个 `_border_override.json`(或 `.txt`):`{"chat":[8,8,8,8], "help":[12,12,12,12]}`。工具打表时若存在该文件,对其中列出的子图用覆盖值、其余继承源。文件不存在 = 全继承(零负担) | 无需建 UI;覆盖值可 git 跟踪、可复跑复现;对「少数个例覆盖」足够。**取此为默认**。该文件本身非 PNG,§2.2 校验里归入「跳过的非 PNG」不报错(或显式识别为配置) |
 | B. EditorWindow 逐项填 | 开窗列出所有子图 + 各自源 border + 一个可编辑覆盖列 + 「打表」 | 最直观,但要先建面板(§2.1 默认是菜单项无面板);本轮覆盖是少数,建面板收益不抵成本。<mark>真有「每屏大量手调 border」的需求时再升级到 B</mark>(列 §十一) |
 
 <div class="callout note" style="margin-top:8px">
@@ -234,9 +234,9 @@ sequenceDiagram
 
 | 场景 | 工具行为 |
 | --- | --- |
-| 对同一目录重复跑(表已存在) | <b>不覆盖、报「已存在」并中止</b>(§五·1,用户拍板)。要重打须先手删旧表——使「重打」是显式动作,不会静默改掉已在用的表 |
+| 对同一目录重复跑(表已存在) | **不覆盖、报「已存在」并中止**(§五·1,用户拍板)。要重打须先手删旧表——使「重打」是显式动作,不会静默改掉已在用的表 |
 | 源增 / 删一张后重跑 | 因表已存在仍中止。<b>正确流程:删旧 <code>Sheet\_setting.png</code>(+ .meta)→ 重跑</b> → 产出含新增 / 去掉删除的子图、rect 重排。子图名稳定(按文件名),已接线窗口对未变子图的 `SetSubSprite` 不受影响;新增子图需窗口侧补 `SetSubSprite` 调用(那是换皮窗口的事) |
-| 确定性 | 输入按文件名排序后喂 `PackTextures`(§3.2),<b>同一组源图每次产出相同布局</b> → 删旧重跑得到一致结果,回归测试可比对、git diff 不无谓抖动 |
+| 确定性 | 输入按文件名排序后喂 `PackTextures`(§3.2),**同一组源图每次产出相同布局** → 删旧重跑得到一致结果,回归测试可比对、git diff 不无谓抖动 |
 
 <div class="callout note" style="margin-top:8px">
     <b>「不覆盖」与「重打」的取舍</b>
@@ -252,7 +252,7 @@ sequenceDiagram
 | 1 | `Assets/Editor/UIAtlasPacker/UIAtlasPacker.cs` | 新建 | 菜单入口(`[MenuItem]` + 验证函数)+ 输入校验(§二)+ 打表核心(读源 → `PackTextures` § 三 → 逐子图元数据 § 四 → 写盘 + importer § 五);用 ✓ `UnityEditor.TextureImporter` / `AssetImporter.GetAtPath` / `AssetDatabase` / ✓ `YooAsset.EditorSimulateModeHelper.SimulateBuild`;写子图用 ✓ `UnityEditor.U2D.Sprites.ISpriteEditorDataProvider`(`Unity.2D.Sprite.Editor` 程序集,非 obsolete,§五 callout) |
 | 2 | (可选)`_border_override.json` 解析(§六 方案 A) | 新建(并入 #1 或单独小类) | 目录内有则读、覆盖对应子图 border;无则全继承。轻量,可后置 |
 | 3 | `Assets/Editor/Tests/BlockBlast/UIAtlasPackerTests.cs`(或就近既有测试目录) | 新建测试 | §9.1:对 `setting/`(或测试夹具目录)调打表入口 → `AssetImporter.GetAtPath` 读回产出表 `spritesheet` → 断言 21 子图 + name 集合 + 各 rect 尺寸=源尺寸 + pivot{0.5,0.5} + border(6×24/15×0,对照 `Sheet_settings.png`)+ 无 `Sheet_settings_0..25` 残留名 |
-| — | 收集器 `AssetBundleCollectorSetting.asset` / 框架 / 运行期热更代码 / 现有 `Sheet_settings.png` / AtlasMaker | <b>不改</b> | `Sheet_*` 落已收录的 `UIRaw/Atlas/`,无需改收集器;工具不进运行期、不动既有表 |
+| — | 收集器 `AssetBundleCollectorSetting.asset` / 框架 / 运行期热更代码 / 现有 `Sheet_settings.png` / AtlasMaker | **不改** | `Sheet_*` 落已收录的 `UIRaw/Atlas/`,无需改收集器;工具不进运行期、不动既有表 |
 
 <div class="callout warn" style="margin-top:8px">
     <b>dev 落地须自行核实的两处工程实际(references 与 API 可能有出入)</b>
@@ -292,7 +292,7 @@ sequenceDiagram
 
 | # | 验收点 | 能否 MCP 截图 |
 | --- | --- | --- |
-| P1 | Play 中对 `Sheet_setting` 调 `YooAssets.LoadSubAssetsAsync<Sprite>("Sheet_setting")`:SubAssets <b>count==21</b>(= 21 命名子图,不含残留名) | 可经测试钩子 / 临时脚本 Log count;Play 启动自动重建模拟清单后查 |
+| P1 | Play 中对 `Sheet_setting` 调 `YooAssets.LoadSubAssetsAsync<Sprite>("Sheet_setting")`:SubAssets **count==21**(= 21 命名子图,不含残留名) | 可经测试钩子 / 临时脚本 Log count;Play 启动自动重建模拟清单后查 |
 | P2 | 按名取得到:对 21 个名逐一 `GetSubAssetObject<Sprite>(名)` 返非 null;任取一名(如 `button`)`_img.SetSubSprite("Sheet_setting","button")` → Image 显示该子图 | 贴图可 ShowUI + 截图核(证明寻址链路通) |
 | P3 | 九宫格 border 生效:对 border=24 的子图(如 `button`)用 `Image.type=Sliced` 拉伸,四角不糊、中段平铺(border 正确写入) | 可截图核九宫格拉伸表现 |
 
@@ -303,25 +303,25 @@ sequenceDiagram
 
 <h2 id="open">十、待拍板清单(范围开关,交 boss / 用户)</h2>
 
-常规模式、用户在场。有安全默认的按默认推进(列此备查);均不抵触寻址范式 / 不可逆,<b>不入 blockers</b>(不停机)。
+常规模式、用户在场。有安全默认的按默认推进(列此备查);均不抵触寻址范式 / 不可逆,**不入 blockers**(不停机)。
 
 | # | 开关 | 本轮默认(安全默认) | 备选 / 改动触发 |
 | --- | --- | --- | --- |
-| <b>B1</b> | pivot 是否支持「可选覆盖」(同 border) | <b>统一居中 {0.5,0.5}</b>,不做 pivot 覆盖(现状各表子图均居中,setting 复现不需要) | 某屏需非居中 pivot(如锚定角)时,比照 border 覆盖通道加「pivot 覆盖」,本轮不预建 |
+| **B1** | pivot 是否支持「可选覆盖」(同 border) | <b>统一居中 {0.5,0.5}</b>,不做 pivot 覆盖(现状各表子图均居中,setting 复现不需要) | 某屏需非居中 pivot(如锚定角)时,比照 border 覆盖通道加「pivot 覆盖」,本轮不预建 |
 | B2 | 「可选覆盖」承载形式 | <b>方案 A 旁置 <code>\_border\_override.json</code></b>(§六,轻量、可 git 追溯) | 若后续某屏需大量手调 border → 升级到方案 B EditorWindow 逐项填 |
-| B3 | 是否提供「强制重打(覆盖已存在)」变体 | <b>不提供</b>,只「不覆盖 + 报已存在」(用户拍板:不覆盖) | 高频迭代某屏觉「手删 + 重跑」繁 → 加带二次确认的「强制重打」菜单变体(§七) |
-| B4 | 菜单路径 / 入口形态 | <b>菜单项 + Project 选中目录</b>(§2.1,零额外 UI) | 覆盖需求增大时改 EditorWindow(B2 联动) |
-| B5 | 超 2048 的处置 | <b>报错中止</b>(§3.3,目标屏不会超) | 真有超限屏 → 另开增量支持多页表 / 升 4096,本轮不投机 |
-| B6 | 测试产出表是否入库 | <b>测试 TearDown 删除 / 写临时目录</b>(不污染 `AssetRaw/`);`setting/` 的正式 `Sheet_setting.png` 由人工跑工具生成、是否入库由 boss / 后续换皮轮决定 | — |
+| B3 | 是否提供「强制重打(覆盖已存在)」变体 | **不提供**,只「不覆盖 + 报已存在」(用户拍板:不覆盖) | 高频迭代某屏觉「手删 + 重跑」繁 → 加带二次确认的「强制重打」菜单变体(§七) |
+| B4 | 菜单路径 / 入口形态 | **菜单项 + Project 选中目录**(§2.1,零额外 UI) | 覆盖需求增大时改 EditorWindow(B2 联动) |
+| B5 | 超 2048 的处置 | **报错中止**(§3.3,目标屏不会超) | 真有超限屏 → 另开增量支持多页表 / 升 4096,本轮不投机 |
+| B6 | 测试产出表是否入库 | **测试 TearDown 删除 / 写临时目录**(不污染 `AssetRaw/`);`setting/` 的正式 `Sheet_setting.png` 由人工跑工具生成、是否入库由 boss / 后续换皮轮决定 | — |
 | B7 | 写子图元数据 API | <b><code>ISpriteEditorDataProvider</code></b>(现代、非 obsolete、已核实存在;§五 callout) | `TextureImporter.spritesheet`(已 Obsolete 但仍可写)作兜底;两路同验收(§九)。属工程实现取舍、有安全默认,记 decisions 不入 blockers |
 
 <h2 id="risk">十一、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| <b>border 读错来源</b>:误读 `spriteSheet.sprites[0].border`(Single 模式下 {0,0,0,0} 占位)而非 importer 级 `spriteBorder` → 全部子图 border=0、九宫格糊 | §四 callout 明确:读 `(TextureImporter).spriteBorder`(`base_plate.png.meta:55` 证 24 存于 importer 级)。验收 S2 逐子图对照基准捕获此错 |
-| <b>子图名带残留</b>:产出表带 `Sheet_setting_0..N` 自动切名(同现有 `Sheet_settings.png` 的脏数据)→ `LoadSubAssetsAsync` count≠21、寻址混乱 | §五:产出前显式只把 21 个命名 `SpriteMetaData` 写进 `spritesheet`,不依赖 Unity 自动切。验收 R2 断言无残留名、P1 断言 count==21 |
-| <b>源不可读</b>:源 `isReadable=0`,`PackTextures` 取不到像素 → 产出空 / 报错 | §八 callout:dev 临时设源 readable 读完恢复,或读 PNG 字节自行 `LoadImage` 到临时纹理(不动源)。落地第一步先验证「能读出源像素并排出一张非空表」 |
-| <b>落点错 → 寻址失败</b>:产出 PNG 落到不被收集器收的目录(如 `AssetArt/`)→ 运行期 `GetAssetInfo` 返 invalid | §2.2 校验:目录非 `AssetRaw/UIRaw/Atlas/` 下即中止;输出固定落 `AssetRaw/UIRaw/Atlas/`(组 `UIRaw` 收录,`AddressByFileName` → location=文件名)。P1/P2 Play 验寻址通 |
-| <b>SimulateBuild 漏调 / 包名错</b>:改完资源未重建模拟清单 → 编辑器内查 location 还是 invalid(误判工具坏) | §五·4:写盘后调 `SimulateBuild("DefaultPackage")`;包名 dev grep 核实(勘察 `DefaultPackage`)。Play 启动也会自动重建,故即便工具内漏调,Play 验(§9.2)仍能通——把它当「便利项」,寻址正确性以 Play 为准 |
-| <b>覆盖已在用的表</b>:重跑静默改掉已被某窗口接线的表 → 子图 rect 变、潜在错位 | §五·1 / §七:不覆盖、报已存在、中止(用户拍板)。重打须显式手删,且确定性排布(§3.2)使删旧重跑结果稳定 |
+| **border 读错来源**:误读 `spriteSheet.sprites[0].border`(Single 模式下 {0,0,0,0} 占位)而非 importer 级 `spriteBorder` → 全部子图 border=0、九宫格糊 | §四 callout 明确:读 `(TextureImporter).spriteBorder`(`base_plate.png.meta:55` 证 24 存于 importer 级)。验收 S2 逐子图对照基准捕获此错 |
+| **子图名带残留**:产出表带 `Sheet_setting_0..N` 自动切名(同现有 `Sheet_settings.png` 的脏数据)→ `LoadSubAssetsAsync` count≠21、寻址混乱 | §五:产出前显式只把 21 个命名 `SpriteMetaData` 写进 `spritesheet`,不依赖 Unity 自动切。验收 R2 断言无残留名、P1 断言 count==21 |
+| **源不可读**:源 `isReadable=0`,`PackTextures` 取不到像素 → 产出空 / 报错 | §八 callout:dev 临时设源 readable 读完恢复,或读 PNG 字节自行 `LoadImage` 到临时纹理(不动源)。落地第一步先验证「能读出源像素并排出一张非空表」 |
+| **落点错 → 寻址失败**:产出 PNG 落到不被收集器收的目录(如 `AssetArt/`)→ 运行期 `GetAssetInfo` 返 invalid | §2.2 校验:目录非 `AssetRaw/UIRaw/Atlas/` 下即中止;输出固定落 `AssetRaw/UIRaw/Atlas/`(组 `UIRaw` 收录,`AddressByFileName` → location=文件名)。P1/P2 Play 验寻址通 |
+| **SimulateBuild 漏调 / 包名错**:改完资源未重建模拟清单 → 编辑器内查 location 还是 invalid(误判工具坏) | §五·4:写盘后调 `SimulateBuild("DefaultPackage")`;包名 dev grep 核实(勘察 `DefaultPackage`)。Play 启动也会自动重建,故即便工具内漏调,Play 验(§9.2)仍能通——把它当「便利项」,寻址正确性以 Play 为准 |
+| **覆盖已在用的表**:重跑静默改掉已被某窗口接线的表 → 子图 rect 变、潜在错位 | §五·1 / §七:不覆盖、报已存在、中止(用户拍板)。重打须显式手删,且确定性排布(§3.2)使删旧重跑结果稳定 |

@@ -12,7 +12,7 @@
 
 # 排行榜底层系统 · 数据逻辑层 + 服务器接缝
 
-命名空间 `GameLogic.Rank` 的<b>排名数据逻辑层</b>:一张配置表控制所有榜单([§3.1](#22-rank-system::config) spec「统一用一个表格控制所有排行榜」),按 spec 字段建排行榜定义 + 奖励档位 + 结算时机;运行期提供<b>查榜</b>(取前 N 名、查自己名次)、<b>排序与并列规则</b>(分数降序 + 同分按入榜时间)、<b>结算编排</b>(到点算名次 → 按档位查奖励 → 发结算邮件)。关键在<b>排名数据源接缝</b>:① `IRankSource`——<mark>本地离线榜实现可跑可测</mark>(本机自己一条记录 + 配置陪榜,排序产出名次),<mark>远程 stub 零网络调用</mark>;② 结算发奖<mark>不另造</mark>,直接调 [邮件系统 21](#21-mail-system) 既有 `IMailService.Send`(spec「mail 字段 = 邮件 id,结算奖励写到邮件中」),奖励内容复用 [道具系统 16](#16-item-system) 礼包随机库。这是 xlsx 系统底层批次第八刀。<mark>排行榜界面 / 名次列表 / 点赞按钮 / 头像(表现层)与真实全服榜单数据(需服务器)延后,本轮只留数据逻辑 + 接缝 + 结算 + 红点 getter + TODO。</mark>
+命名空间 `GameLogic.Rank` 的**排名数据逻辑层**:一张配置表控制所有榜单([§3.1](#22-rank-system::config) spec「统一用一个表格控制所有排行榜」),按 spec 字段建排行榜定义 + 奖励档位 + 结算时机;运行期提供**查榜**(取前 N 名、查自己名次)、**排序与并列规则**(分数降序 + 同分按入榜时间)、**结算编排**(到点算名次 → 按档位查奖励 → 发结算邮件)。关键在**排名数据源接缝**:① `IRankSource`——<mark>本地离线榜实现可跑可测</mark>(本机自己一条记录 + 配置陪榜,排序产出名次),<mark>远程 stub 零网络调用</mark>;② 结算发奖<mark>不另造</mark>,直接调 [邮件系统 21](#21-mail-system) 既有 `IMailService.Send`(spec「mail 字段 = 邮件 id,结算奖励写到邮件中」),奖励内容复用 [道具系统 16](#16-item-system) 礼包随机库。这是 xlsx 系统底层批次第八刀。<mark>排行榜界面 / 名次列表 / 点赞按钮 / 头像(表现层)与真实全服榜单数据(需服务器)延后,本轮只留数据逻辑 + 接缝 + 结算 + 红点 getter + TODO。</mark>
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -56,7 +56,7 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:游戏<b>没有排行榜</b>。spec(`1007排行榜底层.xlsx`)的设计目的是「进度显示 / 全服排名 / 攀比 / 名次奖励」,设计思路是「<mark>统一用一个表格控制所有排行榜</mark>」——即一张配置表,每一行声明一个榜(或一个榜的一个名次奖励档),字段涵盖榜 id / 名称 / 分组 / 玩法类型 / 入榜要求 / 名次区间 / 奖励 / 每日奖励 / 点赞奖励 / 结算时机 / 结算邮件 / 入榜上限 / 展示上限。本轮建一套<b>排名数据逻辑层</b>:查榜(取前 N、查自己)→ 排序并列 → 到点结算 → 按名次档查奖励 → 发结算邮件,并把「排名数据源」「结算发奖」两道接缝划清。
+现状:游戏**没有排行榜**。spec(`1007排行榜底层.xlsx`)的设计目的是「进度显示 / 全服排名 / 攀比 / 名次奖励」,设计思路是「<mark>统一用一个表格控制所有排行榜</mark>」——即一张配置表,每一行声明一个榜(或一个榜的一个名次奖励档),字段涵盖榜 id / 名称 / 分组 / 玩法类型 / 入榜要求 / 名次区间 / 奖励 / 每日奖励 / 点赞奖励 / 结算时机 / 结算邮件 / 入榜上限 / 展示上限。本轮建一套**排名数据逻辑层**:查榜(取前 N、查自己)→ 排序并列 → 到点结算 → 按名次档查奖励 → 发结算邮件,并把「排名数据源」「结算发奖」两道接缝划清。
 
 因为本作离线、无服务器,「全服真实排名」拿不到。本轮的关键判断:<b>把「排名从哪来」抽象成 <code>IRankSource</code> 接缝</b>,离线用 `LocalRankSource`——玩家自己打出的成绩进本机记录,配置里放一组「陪榜成绩」(NPC/基准分)垫底,本地按分数排序产出一份名次榜。玩家能看到自己排第几、能在结算时按名次拿奖。这既兑现了 spec 的「进度显示 / 攀比 / 名次奖励」(对单机玩家成立:和基准分比、和自己历史最佳比),又把真实全服榜留成未来上后端时只换 `IRankSource` 实现的一道接缝。逐条对应 spec 字段与需求:
 
@@ -72,17 +72,17 @@
 | 8 | `valid_type` / `valid_val` 结算时机(0 无结算 / 1 开服 X 天 / 2 指定时间 / 3 周循环星期 X) | `ValidType` 枚举 + `ValidVal`;`IsSettleDue(now, openDate, lastSettle)` 按四档判「到点没」([§3.5](#22-rank-system::settle) 逐档代入表) | <span class="pill-new">新增结算时机</span> |
 | 9 | `mail` 结算邮件:填邮件 id,结算奖励写到邮件中 | 结算时按名次档查奖励库 id,组 `MailDraft`(挂该库 id + 邮件模板 `mail` 的标题/内容)调 [21 `IMailService.Send`](#21-mail-system) 发邮件([§3.5](#22-rank-system::settle)) | <span class="pill-cur">复用 21</span> |
 | 10 | `rank_count_max` 入榜上限(计算前多少玩家)/ `show_count_max` 展示上限 | `CountMax`(参与排名/结算的名额上限)/ `ShowMax`(`List` 返回条数上限);超出不计/不展示([§3.3](#22-rank-system::query)) | <span class="pill-new">新增</span> |
-| 11 | 排序与并列规则(spec 未明写,设计补全) | 分数<b>降序</b>;同分按<mark>更早达到该分者名次靠前</mark>(入榜时间升序,稳定并列,[§3.3.2](#22-rank-system::sort)) | <span class="pill-new">设计补全</span> |
+| 11 | 排序与并列规则(spec 未明写,设计补全) | 分数**降序**;同分按<mark>更早达到该分者名次靠前</mark>(入榜时间升序,稳定并列,[§3.3.2](#22-rank-system::sort)) | <span class="pill-new">设计补全</span> |
 | 12 | 查自己名次 / 进度显示(设计目的「进度显示 / 攀比」) | `GetMyRank(rankId)` 返本人名次 + 分数(未入榜返 0 名次 + 距入榜差值,[§3.3](#22-rank-system::query)) | <span class="pill-new">新增</span> |
-| 13 | 全服真实排名(服务器侧) | `IRankSource` 接缝:离线 `LocalRankSource`(本机成绩 + 配置陪榜,可跑可测)/ `RemoteRankSource` <b>stub</b>([§3.6](#22-rank-system::source) / [§七 O1](#22-rank-system::open)) | <span class="pill-no">远程 stub</span> |
+| 13 | 全服真实排名(服务器侧) | `IRankSource` 接缝:离线 `LocalRankSource`(本机成绩 + 配置陪榜,可跑可测)/ `RemoteRankSource` **stub**([§3.6](#22-rank-system::source) / [§七 O1](#22-rank-system::open)) | <span class="pill-no">远程 stub</span> |
 | 14 | 功能开启:玩家 1 级即开 | 无等级门控逻辑(始终可用);1 级开仅 UI 入口可见性,表现层处理 | <span class="pill-cur">无门控</span> |
-| 15 | 排行榜界面 / 名次列表 / 点赞按钮 / 头像 / icon | 表现层,需美术,<b>延后</b>(同 15–21 节奏,[§七 O8](#22-rank-system::open)) | <span class="pill-no">UI 延后</span> |
+| 15 | 排行榜界面 / 名次列表 / 点赞按钮 / 头像 / icon | 表现层,需美术,**延后**(同 15–21 节奏,[§七 O8](#22-rank-system::open)) | <span class="pill-no">UI 延后</span> |
 
 <b>不做(本轮明确排除):</b><span class="pill-no">真实全服排名 / 服务器拉榜</span>(无网络模块,O1);<span class="pill-no">真实他人玩家数据</span>(离线无,陪榜由配置生成,O2);<span class="pill-no">所有 UI 窗口</span>(界面 / 列表 / 点赞按钮 / 头像 — 需美术,O8);<span class="pill-no">多语言名称 / 文案真实查表</span>(textId 占位,同 num/item/reward/mail 现状,O6);<span class="pill-no">道具 / 跑马灯</span>(spec 明写无,O7);<span class="pill-no">充值榜 / 付费冲榜 / 买名次</span>(去变现方向,不做)。
 
 <h2 id="model">二、数据模型与分层</h2>
 
-排行榜底层分三层,职责清晰互不越界:<b>配置层</b>(榜定义 + 奖励档,只读)、<b>数据源层</b>(榜上有谁、各多少分 — 接缝,离线本地 / 远程 stub)、<b>服务层</b>(查榜 / 排序并列 / 结算编排 / 领取 / 红点 — 纯逻辑)。结算时服务层向<b>邮件系统 21</b> 借 `IMailService.Send` 发奖。结构图:
+排行榜底层分三层,职责清晰互不越界:**配置层**(榜定义 + 奖励档,只读)、**数据源层**(榜上有谁、各多少分 — 接缝,离线本地 / 远程 stub)、**服务层**(查榜 / 排序并列 / 结算编排 / 领取 / 红点 — 纯逻辑)。结算时服务层向**邮件系统 21** 借 `IMailService.Send` 发奖。结构图:
 
 ```mermaid
 flowchart TD
@@ -255,17 +255,17 @@ spec 没写排序细节,本轮明确两条规则(均为安全默认,见 [§七 O
 
 | 规则 | 判据 | 理由 |
 | --- | --- | --- |
-| <b>主序:分数降序</b> | `Score` 大者名次靠前(第 1 名 = 最高分) | 排行榜通例;spec「攀比 / 名次奖励」隐含高分高名次 |
-| <b>并列:入榜时间升序</b> | 同分时 `AchievedTicks` 小者(<mark>更早达到该分</mark>)名次靠前 | 稳定并列(可复现、可测);奖励竞速类「先到先得」通例,避免同分名次抖动 |
-| <b>过滤:入榜要求</b> | `Score < Condition` 不进榜(不参与排名、不占名额、不展示) | spec `rank_condition`「入榜要求」 |
-| <b>入榜上限</b> | 排序后只取前 `CountMax` 名参与名次 / 结算;超出的不计名次 | spec `rank_count_max`「计算前多少玩家」 |
-| <b>展示上限</b> | `GetBoard` 返回的 `Entries` 截前 `ShowMax` 条 | spec `show_count_max`「展示多少玩家」 |
+| **主序:分数降序** | `Score` 大者名次靠前(第 1 名 = 最高分) | 排行榜通例;spec「攀比 / 名次奖励」隐含高分高名次 |
+| **并列:入榜时间升序** | 同分时 `AchievedTicks` 小者(<mark>更早达到该分</mark>)名次靠前 | 稳定并列(可复现、可测);奖励竞速类「先到先得」通例,避免同分名次抖动 |
+| **过滤:入榜要求** | `Score < Condition` 不进榜(不参与排名、不占名额、不展示) | spec `rank_condition`「入榜要求」 |
+| **入榜上限** | 排序后只取前 `CountMax` 名参与名次 / 结算;超出的不计名次 | spec `rank_count_max`「计算前多少玩家」 |
+| **展示上限** | `GetBoard` 返回的 `Entries` 截前 `ShowMax` 条 | spec `show_count_max`「展示多少玩家」 |
 
-<b>名次回填</b>:排序后从 1 起顺序编号(<mark>同分也各占一个名次位</mark>,即「密集名次 vs 标准名次」取<b>标准名次</b>:1,2,2,4 还是 1,2,3,4?本轮取 <mark>1,2,3,4 顺序名次</mark> — 每条记录占一个唯一名次,简单可测,见 O4)。本人 `IsSelf` 由数据源标记(本机成绩那条)。
+**名次回填**:排序后从 1 起顺序编号(<mark>同分也各占一个名次位</mark>,即「密集名次 vs 标准名次」取**标准名次**:1,2,2,4 还是 1,2,3,4?本轮取 <mark>1,2,3,4 顺序名次</mark> — 每条记录占一个唯一名次,简单可测,见 O4)。本人 `IsSelf` 由数据源标记(本机成绩那条)。
 
 <h3 id="reward">3.4 奖励内容(复用 16 礼包库 id) + 每日 / 点赞领取</h3>
 
-排行榜表 `reward`/`reward_daily`/`reward_praise` 三列都是<mark>奖励随机库 id</mark>(道具系统 16 `gift_random` index),与邮件 reward\_id / 兑换码同源。排名层<b>只持有 id</b>,不展开:结算奖经邮件下发(领取时展开),每日 / 点赞奖按 O5 默认<b>也经邮件下发</b>(统一走 21,不另造直发落点)。
+排行榜表 `reward`/`reward_daily`/`reward_praise` 三列都是<mark>奖励随机库 id</mark>(道具系统 16 `gift_random` index),与邮件 reward\_id / 兑换码同源。排名层**只持有 id**,不展开:结算奖经邮件下发(领取时展开),每日 / 点赞奖按 O5 默认**也经邮件下发**(统一走 21,不另造直发落点)。
 
 <h4 id="daily">3.4.2 每日奖励 + 点赞(跨天重置,经邮件发)</h4>
 
@@ -320,7 +320,7 @@ public bool IsSettleDue(RankDef def, System.DateTime now, System.DateTime openDa
 | 2 FixedTime | 指定时间(Unix 秒) | `now ≥ 该时间` 且 `last == null` | 一次性 | val=2026/7/1 0:00, now=7/1 0:01 → due |
 | 3 Weekly | 星期 X(1=周一…7=周日) | 本周已过「星期 X 的结算时刻」且本周期(本周)未结过 | 每周一次 | val=1(周一), now=周二 → 本周已过周一且 last 不在本周 → due;last 在本周 → 不再结 |
 
-<b>周循环判据细节</b>:`IsWeeklyDue` = 算出 now 所在自然周的「星期 X 结算时刻」`thisWeekSettle`;若 `now ≥ thisWeekSettle` 且(`lastSettle == null` 或 `lastSettle < thisWeekSettle`)→ due。结算后写 `lastSettle = now`,使本周不再重复结、下周到点再结。时刻精度本轮到「天」(spec valid\_val 只给星期 X,小时统一,见 O4);要精确到小时另开增量。
+**周循环判据细节**:`IsWeeklyDue` = 算出 now 所在自然周的「星期 X 结算时刻」`thisWeekSettle`;若 `now ≥ thisWeekSettle` 且(`lastSettle == null` 或 `lastSettle < thisWeekSettle`)→ due。结算后写 `lastSettle = now`,使本周不再重复结、下周到点再结。时刻精度本轮到「天」(spec valid\_val 只给星期 X,小时统一,见 O4);要精确到小时另开增量。
 
 <h4 id="orchestrate">3.5.2 结算编排 CheckAndSettle</h4>
 
@@ -349,7 +349,7 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
     return results;
 }</pre>
 
-<b>关键边界</b>:① 玩家未入榜(myRank==0)或名次未落任何档(tier==null)或该档无奖(RewardPoolId==0)→ <mark>不发邮件,仅记已结算</mark>(本周期已处理,下次不重复算);② 邮件模板 id==0 → 不发(配置无结算邮件);③ `FromTemplate` 返 null(模板表无此 id)→ 兜底用占位草稿(发件人 / 标题占位 textId),仍挂奖励发出,不漏奖;④ 同周期重复调 `CheckAndSettle` → `IsSettleDue` 因 last 已写而返 false,<mark>不重复发奖</mark>(幂等防刷)。
+**关键边界**:① 玩家未入榜(myRank==0)或名次未落任何档(tier==null)或该档无奖(RewardPoolId==0)→ <mark>不发邮件,仅记已结算</mark>(本周期已处理,下次不重复算);② 邮件模板 id==0 → 不发(配置无结算邮件);③ `FromTemplate` 返 null(模板表无此 id)→ 兜底用占位草稿(发件人 / 标题占位 textId),仍挂奖励发出,不漏奖;④ 同周期重复调 `CheckAndSettle` → `IsSettleDue` 因 last 已写而返 false,<mark>不重复发奖</mark>(幂等防刷)。
 
 <h3 id="source">3.6 排名数据源接缝 IRankSource(本地可测 / 远程 stub)</h3>
 
@@ -387,11 +387,11 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
     }
 }</pre>
 
-<b>为什么离线游戏还要这道接缝?</b> 把「排名从哪来」一次划清:离线注 `LocalRankSource`(本机 + 陪榜,玩家有得玩、有名次、能结算);未来上后端只换 `RemoteRankSource` 实现(拉全服真实榜),<mark><code>RankService</code> 的查榜 / 排序 / 结算 / 领取逻辑零改动</mark>。陪榜成绩本轮由<b>配置 / 注入</b>提供(基准分,NPC 名占位 textId);不引入随机生成 NPC(那是表现层 / 运营内容,O2)。这与去变现方向不冲突——榜只比成绩,不卖名次。
+<b>为什么离线游戏还要这道接缝?</b> 把「排名从哪来」一次划清:离线注 `LocalRankSource`(本机 + 陪榜,玩家有得玩、有名次、能结算);未来上后端只换 `RemoteRankSource` 实现(拉全服真实榜),<mark><code>RankService</code> 的查榜 / 排序 / 结算 / 领取逻辑零改动</mark>。陪榜成绩本轮由**配置 / 注入**提供(基准分,NPC 名占位 textId);不引入随机生成 NPC(那是表现层 / 运营内容,O2)。这与去变现方向不冲突——榜只比成绩,不卖名次。
 
 <h3 id="reddot">3.7 红点 getter(可领每日 / 点赞 / 有未领结算邮件)</h3>
 
-排行榜 icon 红点 = 有可领的每日奖 OR 可领的点赞奖 OR 有未结算到点的榜。结算奖发进邮箱后由<b>邮件红点</b>(21 `HasUnreadOrUnclaimed`)负责,排行榜红点只管<mark>「榜内可领项」</mark>,避免与邮件红点重复亮。本轮只给状态 getter,UI 投放延后。
+排行榜 icon 红点 = 有可领的每日奖 OR 可领的点赞奖 OR 有未结算到点的榜。结算奖发进邮箱后由**邮件红点**(21 `HasUnreadOrUnclaimed`)负责,排行榜红点只管<mark>「榜内可领项」</mark>,避免与邮件红点重复亮。本轮只给状态 getter,UI 投放延后。
 
 <pre class="code">public sealed partial class RankService
 {
@@ -419,7 +419,7 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
 
 <h3 id="persist">3.8 持久化层(RankProgressSave / RankPersistence)</h3>
 
-需要跨会话留存的只有<b>本机元层进度</b>:各榜本机最佳成绩 + 达到时间、上次结算时间、已结算周期标记、每日 / 点赞当天领取日期。<mark>全服他人成绩不进盘</mark>(离线没有;陪榜由配置生成,每次现取)。仿 `MailPersistence`(设计 21):`[Serializable]` DTO + `JsonUtility` + version + 反序列化保底。序列化层纯逻辑同步可单测,不碰真实磁盘。
+需要跨会话留存的只有**本机元层进度**:各榜本机最佳成绩 + 达到时间、上次结算时间、已结算周期标记、每日 / 点赞当天领取日期。<mark>全服他人成绩不进盘</mark>(离线没有;陪榜由配置生成,每次现取)。仿 `MailPersistence`(设计 21):`[Serializable]` DTO + `JsonUtility` + version + 反序列化保底。序列化层纯逻辑同步可单测,不碰真实磁盘。
 
 <pre class="code">namespace GameLogic.Rank
 {
@@ -454,7 +454,7 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
     public sealed class InMemoryRankPersistence : IRankPersistence { /* 内存往返，不污染 PlayerPrefs */ }
 }</pre>
 
-<b>保底 + 跨天重置</b>(同 14/21 口径):`Load` 对无键 / 空串 / 非法 JSON 统一返合法空 `RankProgressSave`(`try/catch` 包 `FromJson`);每日 / 点赞领取用「<mark>存上次领取日期、与注入 today 比</mark>」判跨天(`dailyClaimDateBin != today.Date.Ticks` → 可领);`version` 预留迁移(本轮恒 1)。本地单机文件可被篡改,反序列化对任意输入不抛、对负分 / 越界字段产出合法默认(成绩夹 ≥0)。
+**保底 + 跨天重置**(同 14/21 口径):`Load` 对无键 / 空串 / 非法 JSON 统一返合法空 `RankProgressSave`(`try/catch` 包 `FromJson`);每日 / 点赞领取用「<mark>存上次领取日期、与注入 today 比</mark>」判跨天(`dailyClaimDateBin != today.Date.Ticks` → 可领);`version` 预留迁移(本轮恒 1)。本地单机文件可被篡改,反序列化对任意输入不抛、对负分 / 越界字段产出合法默认(成绩夹 ≥0)。
 
 <h3 id="text">3.9 结果文案 textId(占位)</h3>
 
@@ -520,7 +520,7 @@ sequenceDiagram
 | 6 | 同目录 · `IRankSource` / `LocalRankSource` / `RemoteRankSource` | 新建 | 排名数据源接缝;本地源(本机 + 陪榜,可测)/ 远程 stub(返空、不连网,[§3.6](#22-rank-system::source)) |
 | 7 | 同目录 · `IRankConfigSource`(可选薄接口包 `RankConfigMgr`,便于注 fake) · `RankService` | 新建 | 查榜 / 排序并列 / 结算编排 / 每日+点赞领取 / 红点;<mark>结算发奖经注入 <code>GameLogic.Mail.IMailService.Send</code></mark>(✓ 已核实 `Module/Mail/MailboxService.cs`,设计 21)+ `MailDraft.FromTemplate`(✓ `Module/Mail/MailItem.cs`)([§3.3](#22-rank-system::query)–[§3.7](#22-rank-system::reddot)) |
 | 8 | `Assets/Editor/Tests/BlockBlast/RankSystemTests.cs` | 新建测试 | 覆盖配置聚合 / 查榜排序并列 / 入榜+上限过滤 / 我的名次 / 结算时机四档 / 结算发邮件 / 幂等防重 / 每日+点赞跨天 / 红点 / 持久化往返 / 接缝([§六](#22-rank-system::accept))。结算用注入 fake/真 `MailboxService` 断言「发了带哪个奖励库的邮件」。asmdef 已含 `GameLogic`+`GameProto`+`TEngine.Runtime` 引用,直接可达 |
-| — | `IMailService`/`MailboxService`/`MailDraft`(21)· `GiftOpener`/`ItemGrant`(16)· `Persistence` · 框架代码 | <b>不改</b> | 结算发奖调 21、奖励展开由 21 领取链走 16、持久化复用既有接缝,<mark>只调用不修改</mark> |
+| — | `IMailService`/`MailboxService`/`MailDraft`(21)· `GiftOpener`/`ItemGrant`(16)· `Persistence` · 框架代码 | **不改** | 结算发奖调 21、奖励展开由 21 领取链走 16、持久化复用既有接缝,<mark>只调用不修改</mark> |
 
 <div class="callout note" style="margin-top:8px">
     <b>命名空间归属</b>
@@ -534,7 +534,7 @@ sequenceDiagram
 
 <h2 id="accept">六、验收点</h2>
 
-纯逻辑全 EditMode 可测(POCO + 注入隔离 + 注入时钟 + 注入邮件服务 + 注入数据源);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在<b>配置聚合 + 查榜 + 排序并列 + 入榜/上限 + 我的名次 + 结算时机四档 + 结算发邮件 + 幂等 + 每日/点赞跨天 + 红点 + 持久化往返 + 接缝</b>;真实全服排名 / UI 视觉不在本轮(无后端 / 需美术)。
+纯逻辑全 EditMode 可测(POCO + 注入隔离 + 注入时钟 + 注入邮件服务 + 注入数据源);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在**配置聚合 + 查榜 + 排序并列 + 入榜/上限 + 我的名次 + 结算时机四档 + 结算发邮件 + 幂等 + 每日/点赞跨天 + 红点 + 持久化往返 + 接缝**;真实全服排名 / UI 视觉不在本轮(无后端 / 需美术)。
 
 <table class="tight">
     <tbody><tr><th>组</th><th>#</th><th>验收点(完成定义,test 可逐条核对)</th></tr>
@@ -571,30 +571,30 @@ sequenceDiagram
 
 <h2 id="open">七、待拍板清单</h2>
 
-以下为范围开关,boss 自治授权下<b>均取安全默认推进</b>(已在 boss 预先拍板内),列此备查;要改另开增量轮。
+以下为范围开关,boss 自治授权下**均取安全默认推进**(已在 boss 预先拍板内),列此备查;要改另开增量轮。
 
 | # | 开关 | 本轮默认 | 备选 / 触发改动 |
 | --- | --- | --- | --- |
-| O1 | 真实全服排名 / 服务器拉榜 | <b>远程 stub</b>(`RemoteRankSource` 返空、不连网);离线用 `LocalRankSource`(本机 + 陪榜,可跑可测) | 未来上后端实现 `RemoteRankSource`(HTTP 拉全服榜 → `RankEntry`),`RankService` 排序/结算/领取零改动 |
-| O2 | 陪榜成绩来源 | <b>配置 / 注入基准分</b>(NPC 名 textId 占位 + 固定分数,单机有得排) | 随机生成 NPC / 动态难度陪榜 = 表现层/运营内容,本轮不投机做;真人榜上后端取 |
+| O1 | 真实全服排名 / 服务器拉榜 | **远程 stub**(`RemoteRankSource` 返空、不连网);离线用 `LocalRankSource`(本机 + 陪榜,可跑可测) | 未来上后端实现 `RemoteRankSource`(HTTP 拉全服榜 → `RankEntry`),`RankService` 排序/结算/领取零改动 |
+| O2 | 陪榜成绩来源 | **配置 / 注入基准分**(NPC 名 textId 占位 + 固定分数,单机有得排) | 随机生成 NPC / 动态难度陪榜 = 表现层/运营内容,本轮不投机做;真人榜上后端取 |
 | O3 | `rank_method` 玩法类型语义 | 整数枚举占位(标识分数来自哪个维度,本轮不绑具体玩法分数源) | 各玩法接入时把自己的成绩经 `SubmitScore(rankId, score)` 提交;method 仅作分类标识,语义由接入方约定 |
-| O4 | 排序并列 + 名次编号口径 | 分数降序 + 同分入榜时间升序(早者靠前);<b>顺序名次</b>(1,2,3,4 — 同分各占唯一名次) | 若要密集名次(1,2,2,4)或同分同名次,改名次回填逻辑;周结算时刻本轮精度到「天」,要精确到小时改 `IsWeeklyDue` |
-| O5 | 每日 / 点赞 / 结算奖发放渠道 | <b>统一经邮件 21 下发</b>(组草稿挂奖励库 id 调 `IMailService.Send`,玩家去邮箱领) | 若要每日/点赞即时直发(不经邮箱),排名层接 16 `GiftOpener`/`ItemGrant` 直落 MergeOrderState;当前统一走邮件最省、最一致 |
+| O4 | 排序并列 + 名次编号口径 | 分数降序 + 同分入榜时间升序(早者靠前);**顺序名次**(1,2,3,4 — 同分各占唯一名次) | 若要密集名次(1,2,2,4)或同分同名次,改名次回填逻辑;周结算时刻本轮精度到「天」,要精确到小时改 `IsWeeklyDue` |
+| O5 | 每日 / 点赞 / 结算奖发放渠道 | **统一经邮件 21 下发**(组草稿挂奖励库 id 调 `IMailService.Send`,玩家去邮箱领) | 若要每日/点赞即时直发(不经邮箱),排名层接 16 `GiftOpener`/`ItemGrant` 直落 MergeOrderState;当前统一走邮件最省、最一致 |
 | O6 | 名称 / 玩家名 / 文案多语言 | textId 占位常量(同 num/item/reward/settings/redeem/mail) | 多语言文本表建成后查表替换 |
-| O7 | 道具 / 跑马灯需求 | <b>不做</b>(spec 明写「道具:无」「跑马灯:无」) | spec 未要求,不投机做 |
-| O8 | 排行榜界面 / 列表 / 点赞按钮 / 头像 / icon UI | <b>延后</b>(需美术,留服务 + 红点 getter) | 有美术 + 窗口流程时建窗口,接 17 `RewardView` 展示奖励预览,主界面入口接红点 getter,Play 手验 |
+| O7 | 道具 / 跑马灯需求 | **不做**(spec 明写「道具:无」「跑马灯:无」) | spec 未要求,不投机做 |
+| O8 | 排行榜界面 / 列表 / 点赞按钮 / 头像 / icon UI | **延后**(需美术,留服务 + 红点 getter) | 有美术 + 窗口流程时建窗口,接 17 `RewardView` 展示奖励预览,主界面入口接红点 getter,Play 手验 |
 | O9 | 结算自动触发时机 | 本轮<b>纯方法 <code>CheckAndSettle(now)</code></b>,不起后台定时器;调用方(登录检查 / 主循环)按需调 | 表现层 / 流程层接入时,在登录流程 + 定时 tick 调 `CheckAndSettle`;本地无服务器推送,被动检查够用 |
 
 <h2 id="risk">八、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| <b>dev 误把「服务器接缝」做成真拉全服排名</b>:引入 `UnityWebRequest`/`HttpClient` 或真连后端 → 离线游戏跑不通、且违方向 | 读前必看第 1 条 + §3.6 已明确:接缝 = 可注入数据源接口,离线注 `LocalRankSource`(本机 + 陪榜),`RemoteRankSource` 仅 stub 返空。Code Review R2 + 验收 SK1 核「无真实网络调用」 |
-| <b>另造发奖逻辑</b>:dev 不调邮件 21 的 `IMailService.Send`,自己写一套「名次→奖励→落 MergeOrderState」→ 与邮件 / 道具系统多处漂移,且违 spec「奖励写到邮件中」 | 读前必看第 2 条 + §3.5 显式调既有 `IMailService.Send`(注入);排名层不碰 `MergeOrderState`/`ItemGrant`。Code Review 核不另造发奖。验收 ST1/DP1 断言「发了挂对应奖励库 id 的邮件」 |
-| <b>结算重复发奖</b>:同周期多次调 `CheckAndSettle`(登录 + tick)→ 玩家多次收奖 | §3.5.2 `IsSettleDue` 带 `lastSettle` 判据 + 结算后写 `lastSettle=now`;验收 ST2 断言同周期第二次不发。周循环按「本周已结」判,下周再结 |
-| <b>每日 / 点赞奖跨天判错</b>:用本地系统时钟直接比 / 不存领取日期 → 当天可重复领或永远领不了 | §3.8 存「上次领取日期 `DateTime.Date.Ticks`」+ 注入 today 比(同 14 每日字段口径);验收 DP2 注入次日 today 断言可再领 |
-| <b>排序不稳定 / 同分名次抖动</b>:只按分数排,同分时名次每次不同 → 不可复现、结算名次飘 | §3.3.2 并列规则「同分按 `AchievedTicks` 升序」稳定排序;验收 SO1 用同分不同时间断言名次固定 |
-| <b>聚合丢档 / 榜级字段冲突</b>:同 id 多行桥接时漏掉某档,或各行榜级字段不一致取错 | §3.2 按 id 聚合、各档按 RankMin 升序入 Tiers、榜级字段取首行;验收 C2 断言 3 行聚合成 3 档且 `TierForRank` 命中正确 |
-| <b>未入榜 / 无档 结算崩</b>:本机没成绩或名次落空区间,结算时空引用 | §3.5.2 边界:rank==0 / tier==null / reward==0 / mail==0 均不发邮件仅记已结;`FromTemplate` 返 null 兜底占位草稿。验收 ST3 专门断言 |
-| <b>脏存档崩服务</b>:本地文件被篡改 / 截断,反序列化抛异常 / 负分 → 进度进不去 | §3.8 `Load` 对无键 / 空串 / 非法 JSON 统一产空 `RankProgressSave`(`try/catch` 包 `FromJson`,同 14/21 口径);负分 / 越界字段产合法默认。验收 P2 断言脏数据不抛 |
-| <b>红点与邮件红点重复亮</b>:结算奖发进邮箱后排行榜 icon 仍亮「有结算奖」→ 两处红点指同一封 | §3.7 排行榜红点只管「榜内可领项(每日/点赞)+ 到点未结」;结算奖进邮箱后由邮件红点(21)负责,排行榜红点不再为已结算项亮。验收 RD2 断言结算后该榜不再触发红点 |
+| **dev 误把「服务器接缝」做成真拉全服排名**:引入 `UnityWebRequest`/`HttpClient` 或真连后端 → 离线游戏跑不通、且违方向 | 读前必看第 1 条 + §3.6 已明确:接缝 = 可注入数据源接口,离线注 `LocalRankSource`(本机 + 陪榜),`RemoteRankSource` 仅 stub 返空。Code Review R2 + 验收 SK1 核「无真实网络调用」 |
+| **另造发奖逻辑**:dev 不调邮件 21 的 `IMailService.Send`,自己写一套「名次→奖励→落 MergeOrderState」→ 与邮件 / 道具系统多处漂移,且违 spec「奖励写到邮件中」 | 读前必看第 2 条 + §3.5 显式调既有 `IMailService.Send`(注入);排名层不碰 `MergeOrderState`/`ItemGrant`。Code Review 核不另造发奖。验收 ST1/DP1 断言「发了挂对应奖励库 id 的邮件」 |
+| **结算重复发奖**:同周期多次调 `CheckAndSettle`(登录 + tick)→ 玩家多次收奖 | §3.5.2 `IsSettleDue` 带 `lastSettle` 判据 + 结算后写 `lastSettle=now`;验收 ST2 断言同周期第二次不发。周循环按「本周已结」判,下周再结 |
+| **每日 / 点赞奖跨天判错**:用本地系统时钟直接比 / 不存领取日期 → 当天可重复领或永远领不了 | §3.8 存「上次领取日期 `DateTime.Date.Ticks`」+ 注入 today 比(同 14 每日字段口径);验收 DP2 注入次日 today 断言可再领 |
+| **排序不稳定 / 同分名次抖动**:只按分数排,同分时名次每次不同 → 不可复现、结算名次飘 | §3.3.2 并列规则「同分按 `AchievedTicks` 升序」稳定排序;验收 SO1 用同分不同时间断言名次固定 |
+| **聚合丢档 / 榜级字段冲突**:同 id 多行桥接时漏掉某档,或各行榜级字段不一致取错 | §3.2 按 id 聚合、各档按 RankMin 升序入 Tiers、榜级字段取首行;验收 C2 断言 3 行聚合成 3 档且 `TierForRank` 命中正确 |
+| **未入榜 / 无档 结算崩**:本机没成绩或名次落空区间,结算时空引用 | §3.5.2 边界:rank==0 / tier==null / reward==0 / mail==0 均不发邮件仅记已结;`FromTemplate` 返 null 兜底占位草稿。验收 ST3 专门断言 |
+| **脏存档崩服务**:本地文件被篡改 / 截断,反序列化抛异常 / 负分 → 进度进不去 | §3.8 `Load` 对无键 / 空串 / 非法 JSON 统一产空 `RankProgressSave`(`try/catch` 包 `FromJson`,同 14/21 口径);负分 / 越界字段产合法默认。验收 P2 断言脏数据不抛 |
+| **红点与邮件红点重复亮**:结算奖发进邮箱后排行榜 icon 仍亮「有结算奖」→ 两处红点指同一封 | §3.7 排行榜红点只管「榜内可领项(每日/点赞)+ 到点未结」;结算奖进邮箱后由邮件红点(21)负责,排行榜红点不再为已结算项亮。验收 RD2 断言结算后该榜不再触发红点 |

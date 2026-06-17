@@ -12,7 +12,7 @@
 
 # 通用兑换码系统 · 数据逻辑层 + 服务器接缝
 
-把玩家输入的<b>兑换码字符串</b>解析成<b>奖励发放</b>的<b>数据逻辑层</b>:校验(码是否有效)+ 一次性去重(本地防重复兑换)+ 发奖(复用 [道具系统](#16-item-system) 既有 `ItemGrant`/`GrantPayload` 落点)+ 结果编排(成功 / 各类失败的结果码与提示 textId)。关键在<b>服务器接缝</b>:校验经可注入 `IRedeemValidator` 接缝隔离——<mark>离线默认实现查本地 Luban 配置表,远程实现留 stub(本工程无网络模块、方向去变现,不实接服务器)</mark>。这是 xlsx 系统底层批次第六刀,兑现 [设计 19 §3.6 / §七 O4](#19-settings-system) 留的兑换码 TODO 钩子。<mark>兑换码输入窗口 + 结果弹窗(表现层)需美术,延后轮,本轮只留服务 + 接缝 + 钩子常量。</mark>
+把玩家输入的**兑换码字符串**解析成**奖励发放**的**数据逻辑层**:校验(码是否有效)+ 一次性去重(本地防重复兑换)+ 发奖(复用 [道具系统](#16-item-system) 既有 `ItemGrant`/`GrantPayload` 落点)+ 结果编排(成功 / 各类失败的结果码与提示 textId)。关键在**服务器接缝**:校验经可注入 `IRedeemValidator` 接缝隔离——<mark>离线默认实现查本地 Luban 配置表,远程实现留 stub(本工程无网络模块、方向去变现,不实接服务器)</mark>。这是 xlsx 系统底层批次第六刀,兑现 [设计 19 §3.6 / §七 O4](#19-settings-system) 留的兑换码 TODO 钩子。<mark>兑换码输入窗口 + 结果弹窗(表现层)需美术,延后轮,本轮只留服务 + 接缝 + 钩子常量。</mark>
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -51,7 +51,7 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:游戏<b>没有兑换码系统</b>——设计 19 通用设置在功能入口列表里留了「兑换码入口」,但只写了 `OpenRedeemCode()` 的 TODO 钩子注释([19 §3.6](#19-settings-system)),没有任何能把玩家输入的码换成奖励的逻辑。本轮建一套<b>通用兑换码数据逻辑层</b>:玩家输入码 → 校验 → 去重 → 发奖 → 出结果。
+现状:游戏**没有兑换码系统**——设计 19 通用设置在功能入口列表里留了「兑换码入口」,但只写了 `OpenRedeemCode()` 的 TODO 钩子注释([19 §3.6](#19-settings-system)),没有任何能把玩家输入的码换成奖励的逻辑。本轮建一套**通用兑换码数据逻辑层**:玩家输入码 → 校验 → 去重 → 发奖 → 出结果。
 
 「通用」体现在两处:① 奖励内容不写死,经配置表声明,复用道具系统已有的发奖落点(任何道具 / 货币 / 图案都能发);② 校验来源经接缝抽象,离线查本地配置、未来可切远程服务器而服务层不改。逐条对应需求:
 
@@ -59,13 +59,13 @@
 | --- | --- | --- | --- |
 | 1 | 玩家输入兑换码字符串,提交兑换 | `RedeemService.Redeem(code)` 入口:规整(trim + 大小写归一)→ 校验 → 去重 → 发奖 → 返 `RedeemOutcome`([§3.5](#20-redeem-code-system::service)) | <span class="pill-new">新增服务</span> |
 | 2 | 校验码是否有效(能换什么) | `IRedeemValidator.Validate(code)` 接缝;默认 `LocalConfigRedeemValidator` 查本地 `redeemcode` 表([§3.3](#20-redeem-code-system::validator)) | <span class="pill-new">新增校验接缝</span> |
-| 3 | 服务器校验(运营在后台配码) | `RemoteRedeemValidator` <b>stub</b> + TODO:本工程无网络模块、方向去变现,留接口待未来实现([§3.3](#20-redeem-code-system::validator) / [§七 O1](#20-redeem-code-system::open)) | <span class="pill-no">stub</span> |
+| 3 | 服务器校验(运营在后台配码) | `RemoteRedeemValidator` **stub** + TODO:本工程无网络模块、方向去变现,留接口待未来实现([§3.3](#20-redeem-code-system::validator) / [§七 O1](#20-redeem-code-system::open)) | <span class="pill-no">stub</span> |
 | 4 | 同一码每个玩家只能兑换一次(防重复) | `IRedeemStore` 本地已兑换集合,经既有 `Persistence.Provider` 持久化([§3.4](#20-redeem-code-system::dedupe)) | <span class="pill-new">新增去重存储</span> |
 | 5 | 发放奖励(道具 / 货币 / 图案) | 复用 16 道具系统 `ItemGrant.Resolve` → `GrantPayload` + 既有适配器落 `MergeOrderState`([§3.6](#20-redeem-code-system::grant)) | <span class="pill-cur">复用 16</span> |
 | 6 | 结果提示(成功 / 无效码 / 已兑换 / 过期) | `RedeemResult` 枚举 + `RedeemText` 结果文案 textId(占位,真实查表延后,[§3.7](#20-redeem-code-system::text)) | <span class="pill-new">新增结果码 + 文案</span> |
 | 7 | 奖励展示(成功后显示发了什么) | 产出 `GrantPayload` 列表,UI 接时转 17 的 `RewardView` 统一渲染([§3.6](#20-redeem-code-system::grant)) | <span class="pill-cur">复用 17</span> |
 | 8 | 设置界面的兑换码入口 | 把 19 §3.6 留的 `OpenRedeemCode()` TODO 钩子接到本系统服务入口(UI 投放时,[§五](#20-redeem-code-system::hook)) | <span class="pill-cur">兑现 19 钩子</span> |
-| 9 | 兑换码输入 / 结果弹窗 UI | 表现层,需美术,<b>延后</b>(同 15–19 节奏,[§七 O7](#20-redeem-code-system::open)) | <span class="pill-no">UI 延后</span> |
+| 9 | 兑换码输入 / 结果弹窗 UI | 表现层,需美术,**延后**(同 15–19 节奏,[§七 O7](#20-redeem-code-system::open)) | <span class="pill-no">UI 延后</span> |
 
 <b>不做(本轮明确排除):</b><span class="pill-no">真实服务器 / HTTP 校验</span>(无网络模块,O1);<span class="pill-no">所有 UI 窗口</span>(输入框 / 结果弹窗 — 需美术,O7);<span class="pill-no">全局限量 / 有限次码</span>(需后端计数,离线做不到,留 stub,O5);<span class="pill-no">限时码到期判定的真实时钟接入</span>(给可注入 `nowProvider` 接缝,默认不限时,O4);<span class="pill-no">多语言结果文案真实查表</span>(textId 占位,同 num/item/reward 现状,O6);<span class="pill-no">充值 / 付费 / 内购码</span>(去变现方向,不做)。
 
@@ -73,7 +73,7 @@
 
 <h3 id="layers">2.1 分层(校验 / 去重 / 发奖 / 编排)</h3>
 
-系统拆四层,各层职责单一、各自可测。<b>校验层</b>判码是否有效、能换什么(经接缝,离线查配置 / 未来切远程);<b>去重层</b>判该码本机是否兑换过(经持久化接缝);<b>发奖层</b>复用道具系统既有落点(不新造);<b>服务层</b>编排「规整 → 校验 → 去重 → 发奖 → 出结果码 + 文案」。结构图:
+系统拆四层,各层职责单一、各自可测。**校验层**判码是否有效、能换什么(经接缝,离线查配置 / 未来切远程);**去重层**判该码本机是否兑换过(经持久化接缝);**发奖层**复用道具系统既有落点(不新造);**服务层**编排「规整 → 校验 → 去重 → 发奖 → 出结果码 + 文案」。结构图:
 
 ```mermaid
 flowchart TD
@@ -109,7 +109,7 @@ flowchart TD
 
 <h3 id="seam">2.2 服务器接缝(可注入校验器,离线默认 + 远程 stub)</h3>
 
-这是本篇标题里「服务器接缝」的实义。<b>不是本轮真去连服务器</b>——本工程无网络模块、方向去变现。而是把「这个码有效吗、能换什么」这件<mark>本应由服务器拍板的事</mark>抽象成一个接口 `IRedeemValidator`,让兑换服务只依赖接口、不依赖校验来源:
+这是本篇标题里「服务器接缝」的实义。**不是本轮真去连服务器**——本工程无网络模块、方向去变现。而是把「这个码有效吗、能换什么」这件<mark>本应由服务器拍板的事</mark>抽象成一个接口 `IRedeemValidator`,让兑换服务只依赖接口、不依赖校验来源:
 
 | 实现 | 本轮状态 | 校验来源 | 说明 |
 | --- | --- | --- | --- |
@@ -131,15 +131,15 @@ flowchart TD
 | 道具元数据 | `ItemConfigMgr.GetItem(id)`(设计 16) | 复用,不重复登记道具 |
 | 持久化 | `Persistence.Provider`(`IPersistenceProvider`) | `PersistenceRedeemStore` 包它存已兑换集合 |
 | 奖励展示 | `RewardView` 归一(设计 17) | 复用,UI 接时把 `GrantPayload` 转 `RewardView` |
-| 码 → 奖励映射 | <span class="no">缺</span> | <b>本轮主体</b>:配置表 + 校验接缝 + 去重 + 服务编排 |
+| 码 → 奖励映射 | <span class="no">缺</span> | **本轮主体**:配置表 + 校验接缝 + 去重 + 服务编排 |
 
 <h2 id="numbers">三、设计正文</h2>
 
 <h3 id="config">3.1 兑换码配置表 redeemcode(Luban)</h3>
 
-源 xlsx 在仓库根 `Configs/GameConfig/Datas/redeemcode.xlsx`(与 `UnityProject` 同级,同 num/item/avatar 表)。一个码可发多项奖励,故拆两表:<b>码主表</b>(码 + 元属性) + <b>奖励子表</b>(码 → 多个奖励项,按码 id 聚合,同 gift 表的 index 聚合做法)。schema 写数据 xlsx 表头四行(`##var` / `##type` / `##group` / `##`);planner 备注类字段设 `group=e` 不导出运行期。
+源 xlsx 在仓库根 `Configs/GameConfig/Datas/redeemcode.xlsx`(与 `UnityProject` 同级,同 num/item/avatar 表)。一个码可发多项奖励,故拆两表:**码主表**(码 + 元属性) + **奖励子表**(码 → 多个奖励项,按码 id 聚合,同 gift 表的 index 聚合做法)。schema 写数据 xlsx 表头四行(`##var` / `##type` / `##group` / `##`);planner 备注类字段设 `group=e` 不导出运行期。
 
-<b>码主表 redeemcode</b>(主键 `code` 字符串):
+**码主表 redeemcode**(主键 `code` 字符串):
 
 | 字段(##var) | 类型(##type) | group | 含义 |
 | --- | --- | --- | --- |
@@ -149,7 +149,7 @@ flowchart TD
 | expire\_time | string | c,s | 过期时间(日期串,空 = 不限时)。本轮可注入 `nowProvider` 判定,默认不接真实时钟([§七 O4](#20-redeem-code-system::open)) |
 | remark | string | e | 策划备注(`group=e` 不导出运行期) |
 
-<b>奖励子表 redeemreward</b>(同一 xlsx 第二张表或独立 xlsx,按 `code` 聚合):
+**奖励子表 redeemreward**(同一 xlsx 第二张表或独立 xlsx,按 `code` 聚合):
 
 | 字段(##var) | 类型(##type) | group | 含义 |
 | --- | --- | --- | --- |
@@ -196,11 +196,11 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<b>聚合</b>:`EnsureLoaded` 先读码主表建 `RedeemCodeDef`,再遍历奖励子表按 `code` 把 `RedeemReward` 塞进对应 `Rewards`(同 `ItemConfigMgr.AppendPool` 按 index 聚合礼包)。字典 key 用<mark>规整后(大写)</mark>的码,与服务层比对口径一致。
+**聚合**:`EnsureLoaded` 先读码主表建 `RedeemCodeDef`,再遍历奖励子表按 `code` 把 `RedeemReward` 塞进对应 `Rewards`(同 `ItemConfigMgr.AppendPool` 按 index 聚合礼包)。字典 key 用<mark>规整后(大写)</mark>的码,与服务层比对口径一致。
 
 <h3 id="validator">3.3 校验器接缝 IRedeemValidator(本地 / 远程)</h3>
 
-校验只回答两件事:<b>码有效吗</b>、<b>能换什么</b>(连同失败原因)。返一个 `ValidationResult` 结构(命中 / 未命中 / 校验源不可用 + 命中时的 `RedeemCodeDef`)。<mark>校验不碰去重、不发奖</mark>——那是服务层的事,使校验器可独立替换。
+校验只回答两件事:**码有效吗**、**能换什么**(连同失败原因)。返一个 `ValidationResult` 结构(命中 / 未命中 / 校验源不可用 + 命中时的 `RedeemCodeDef`)。<mark>校验不碰去重、不发奖</mark>——那是服务层的事,使校验器可独立替换。
 
 <pre class="code">namespace GameLogic.Redeem
 {
@@ -236,7 +236,7 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<b>stub 行为</b>:`RemoteRedeemValidator` 返 `SourceUnavailable`(<mark>不抛异常</mark>,服务层映射成「校验源不可用」结果码,不崩);未来实现真实远程校验时替换方法体。本轮生产注入 `LocalConfigRedeemValidator`。
+**stub 行为**:`RemoteRedeemValidator` 返 `SourceUnavailable`(<mark>不抛异常</mark>,服务层映射成「校验源不可用」结果码,不崩);未来实现真实远程校验时替换方法体。本轮生产注入 `LocalConfigRedeemValidator`。
 
 <h3 id="dedupe">3.4 一次性去重存储 IRedeemStore(本地集合)</h3>
 
@@ -267,11 +267,11 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<b>序列化</b>:码集合是字符串集合,可用换行 / 逗号分隔串(码本身规整为大写字母数字,不含分隔符)或简单 JSON。<mark>本地单机文件可被篡改/截断</mark>,反序列化对任意输入须产出合法集合(空串 → 空集合,不抛;同 14 save-system 保底口径)。<b>只去重 <code>once\_per\_player=1</code> 的码</b>:可重复兑的码(=0)不查不记。
+**序列化**:码集合是字符串集合,可用换行 / 逗号分隔串(码本身规整为大写字母数字,不含分隔符)或简单 JSON。<mark>本地单机文件可被篡改/截断</mark>,反序列化对任意输入须产出合法集合(空串 → 空集合,不抛;同 14 save-system 保底口径)。<b>只去重 <code>once\_per\_player=1</code> 的码</b>:可重复兑的码(=0)不查不记。
 
 <h3 id="service">3.5 兑换服务 RedeemService(编排 + 结果码)</h3>
 
-编排层把四步串起来,返一个<b>结果结构</b>(结果码 + 文案 textId + 成功时的奖励产出列表)。注入校验器 + 去重存储 + 发奖落点(`MergeOrderState`,可 null 走纯解析)。
+编排层把四步串起来,返一个**结果结构**(结果码 + 文案 textId + 成功时的奖励产出列表)。注入校验器 + 去重存储 + 发奖落点(`MergeOrderState`,可 null 走纯解析)。
 
 <pre class="code">namespace GameLogic.Redeem
 {
@@ -318,7 +318,7 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<b>顺序关键</b>:校验源不可用 → 不存在 → 过期 → 已兑换 → 发奖 → 记录。<mark>「记录已兑换」必须在发奖成功之后</mark>(失败不占名额)。空输入最先短路(不查表)。各失败分支返对应结果码 + 文案 textId,不抛异常。
+**顺序关键**:校验源不可用 → 不存在 → 过期 → 已兑换 → 发奖 → 记录。<mark>「记录已兑换」必须在发奖成功之后</mark>(失败不占名额)。空输入最先短路(不查表)。各失败分支返对应结果码 + 文案 textId,不抛异常。
 
 <h3 id="grant">3.6 发奖落点(复用 ItemGrant / GrantPayload)</h3>
 
@@ -338,7 +338,7 @@ namespace GameLogic.Config
     return all;
 }</pre>
 
-<b>展示</b>:成功后 `RedeemOutcome.Granted` 是 `GrantPayload` 列表,UI 接时可转设计 17 的 `RewardView` 统一渲染(图标 / 名称 / 数量 / 品质色)。本轮只产出结构,UI 投放延后。
+**展示**:成功后 `RedeemOutcome.Granted` 是 `GrantPayload` 列表,UI 接时可转设计 17 的 `RewardView` 统一渲染(图标 / 名称 / 数量 / 品质色)。本轮只产出结构,UI 投放延后。
 
 <h3 id="text">3.7 结果文案 textId(占位)</h3>
 
@@ -358,7 +358,7 @@ namespace GameLogic.Config
     public static int TextIdFor(RedeemResult r) =&gt; r switch { ... };  // 结果码 → textId
 }</pre>
 
-<b>占位约定</b>:本轮 textId 给<mark>互不相同的占位常量</mark>(验收断言六类各返不同非 0 值,同 19 ToggleTip 做法);真实多语言文本表建成后替换。`RedeemText` 上方注释写中文占位文案供 UI 参考。
+**占位约定**:本轮 textId 给<mark>互不相同的占位常量</mark>(验收断言六类各返不同非 0 值,同 19 ToggleTip 做法);真实多语言文本表建成后替换。`RedeemText` 上方注释写中文占位文案供 UI 参考。
 
 <h2 id="flow">四、兑换一个码的时序</h2>
 
@@ -398,7 +398,7 @@ sequenceDiagram
 | 6 | 同目录 · `RedeemService` + `RedeemResult`/`RedeemOutcome` + `RedeemText` | 新建 | 编排 + 结果码 + 文案 textId;发奖复用 `ItemGrant.GrantOnAcquire`(✓ 已核实 `Item/ItemGrant.cs`)、道具查 `ItemConfigMgr.GetItem`(✓)([§3.5](#20-redeem-code-system::service) / [§3.6](#20-redeem-code-system::grant) / [§3.7](#20-redeem-code-system::text)) |
 | 7 | `GameLogic.Settings.SettingsLinks` 的 `OpenRedeemCode()` TODO 钩子(设计 19 §3.6) | TODO 接线(UI 投放时) | UI 接到 `RedeemService.Redeem`;本轮不建窗口,留注释指向本系统(✓ 已核实 `Settings/SettingsLinks.cs`) |
 | 8 | `Assets/Editor/Tests/BlockBlast/RedeemCodeSystemTests.cs` | 新建测试 | 覆盖配置桥接 / 校验器 / 去重往返 / 服务结果码 / 发奖产出([§六](#20-redeem-code-system::accept))。asmdef 已含 `GameLogic`+`GameProto`+`TEngine.Runtime` 引用,直接可达 |
-| — | `ItemGrant` / `ItemConfigMgr` / `Persistence` / 框架代码 | <b>不改</b> | 发奖 / 持久化复用既有接缝,只调用不修改 |
+| — | `ItemGrant` / `ItemConfigMgr` / `Persistence` / 框架代码 | **不改** | 发奖 / 持久化复用既有接缝,只调用不修改 |
 
 <div class="callout note" style="margin-top:8px">
     <b>命名空间归属</b>
@@ -412,7 +412,7 @@ sequenceDiagram
 
 <h2 id="accept">六、验收点</h2>
 
-纯逻辑全 EditMode 可测(POCO + 注入隔离);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在<b>配置桥接 + 校验接缝 + 去重往返 + 服务结果码 + 发奖产出</b>;真实音频外的真实服务器 / UI 视觉不在本轮(无后端 / 需美术)。
+纯逻辑全 EditMode 可测(POCO + 注入隔离);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在**配置桥接 + 校验接缝 + 去重往返 + 服务结果码 + 发奖产出**;真实音频外的真实服务器 / UI 视觉不在本轮(无后端 / 需美术)。
 
 <table class="tight">
     <tbody><tr><th>组</th><th>#</th><th>验收点(完成定义,test 可逐条核对)</th></tr>
@@ -444,27 +444,27 @@ sequenceDiagram
 
 <h2 id="open">七、待拍板清单</h2>
 
-以下为范围开关,boss 自治授权下<b>均取安全默认推进</b>(已在 boss 预先拍板内),列此备查;要改另开增量轮。
+以下为范围开关,boss 自治授权下**均取安全默认推进**(已在 boss 预先拍板内),列此备查;要改另开增量轮。
 
 | # | 开关 | 本轮默认 | 备选 / 触发改动 |
 | --- | --- | --- | --- |
-| O1 | 真实服务器校验 | <b>stub</b>(`RemoteRedeemValidator` 留接口,默认注 Local) | 未来上后端时实现 `RemoteRedeemValidator`,换注入即切;服务层零改动 |
+| O1 | 真实服务器校验 | **stub**(`RemoteRedeemValidator` 留接口,默认注 Local) | 未来上后端时实现 `RemoteRedeemValidator`,换注入即切;服务层零改动 |
 | O2 | 码 → 奖励的奖励结构 | 复用「道具 id × 数量」(经 16 道具系统落点) | 若需兑换码专属奖励类型(非道具),扩奖励子表 + 落点;当前复用足够 |
 | O3 | 非自动道具进背包 | 不接背包实例(`GrantOnAcquire` 对 automatic=0 返空,只汇总立即结算项) | 背包实例接入后,UI / 调用方把 automatic=0 项入背包(同 16 §3.7) |
 | O4 | 限时码到期判定 | 可注入 `NowProvider`(默认系统时钟);`ExpireTime` 空即不限时 | 真实运营限时码:配 `ExpireTime` 日期串;时区 / 服务器时间对齐随远程校验一并定 |
-| O5 | 全局限量 / 有限次码 | <b>stub / 不做</b>(需后端计数,离线单机做不到) | 上后端后由远程校验返「名额已满」;本地只能做「每玩家一次」 |
+| O5 | 全局限量 / 有限次码 | **stub / 不做**(需后端计数,离线单机做不到) | 上后端后由远程校验返「名额已满」;本地只能做「每玩家一次」 |
 | O6 | 结果文案多语言 | textId 占位常量(同 num/item/reward/settings) | 多语言文本表建成后查表替换 |
-| O7 | 兑换码输入 / 结果弹窗 UI | <b>延后</b>(需美术,留服务 + 钩子) | 有美术 + 窗口流程时建窗口,接 17 RewardView 展示,Play 手验 |
+| O7 | 兑换码输入 / 结果弹窗 UI | **延后**(需美术,留服务 + 钩子) | 有美术 + 窗口流程时建窗口,接 17 RewardView 展示,Play 手验 |
 | O8 | 码格式 / 长度校验 | 仅 trim + 大写规整;有效性全交配置命中(查不到即 NotFound) | 若需前置格式校验(长度 / 字符集)减少无效查表,加 `Normalize` 后的格式预检 |
 
 <h2 id="risk">八、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| <b>dev 误把「服务器接缝」做成真发 HTTP 请求</b>:引入 `UnityWebRequest`/`HttpClient` 或真连后端 → 离线游戏跑不通、且违方向 | 读前必看第 1 条 + §2.2 已明确:接缝 = 可注入接口,生产注 `LocalConfigRedeemValidator`(查配置);Remote 仅 stub。Code Review R2 重点核「无真实网络调用」 |
-| <b>记录已兑换的时机错</b>:在发奖前就 `MarkRedeemed` → 发奖若中途异常,码已占用名额、玩家拿不到奖又不能重兑 | §3.5 顺序明确「发奖成功后才记录」;验收 S5 专门断言失败分支不写去重集合 |
-| <b>规整口径不一致</b>:配置表存大写、服务比对没转大写(或反之)→ 玩家输对码却 NotFound | §3.1 / §3.2 / §3.5 统一「配置 key 与比对都走 `Normalize`(trim+大写)」;验收 C2 / S2 断言规整命中 |
-| <b>另造发奖逻辑</b>:dev 不复用 16 的 `ItemGrant`,自己写一套「码→货币/图案」落点 → 与道具系统两处漂移 | 读前必看第 2 条 + §3.6 显式调既有 `GrantOnAcquire`/`Resolve`;Code Review 核不复制落点。验收 G1/G2 断言落点与 16 一致 |
-| <b>另造存储栈</b>:dev 新建第二套 PlayerPrefs 键空间存已兑换集合,不用既有 `Persistence.Provider` | §3.4 复用既有接缝;去重存储用本系统专用键 `"Redeem.Redeemed"`(不与框架 / 其它系统键冲突),仍走同一 Provider |
-| <b>本地去重可被绕过</b>:玩家清 PlayerPrefs / 改存档可重兑「每玩家一次」码 | 本地单机的固有限制,如实承认(§3.4)。真正防绕过需后端计数(O5),离线做不到——这正是「服务器接缝」存在的理由:未来远程校验可补足 |
-| <b>配置自指 / 礼包递归环</b>:奖励道具指向随机礼包、礼包又指回 → 递归爆栈 | 复用 16 既有 `ItemGrant.MaxGiftDepth` 深度上限(已防环);本系统不引入新递归 |
+| **dev 误把「服务器接缝」做成真发 HTTP 请求**:引入 `UnityWebRequest`/`HttpClient` 或真连后端 → 离线游戏跑不通、且违方向 | 读前必看第 1 条 + §2.2 已明确:接缝 = 可注入接口,生产注 `LocalConfigRedeemValidator`(查配置);Remote 仅 stub。Code Review R2 重点核「无真实网络调用」 |
+| **记录已兑换的时机错**:在发奖前就 `MarkRedeemed` → 发奖若中途异常,码已占用名额、玩家拿不到奖又不能重兑 | §3.5 顺序明确「发奖成功后才记录」;验收 S5 专门断言失败分支不写去重集合 |
+| **规整口径不一致**:配置表存大写、服务比对没转大写(或反之)→ 玩家输对码却 NotFound | §3.1 / §3.2 / §3.5 统一「配置 key 与比对都走 `Normalize`(trim+大写)」;验收 C2 / S2 断言规整命中 |
+| **另造发奖逻辑**:dev 不复用 16 的 `ItemGrant`,自己写一套「码→货币/图案」落点 → 与道具系统两处漂移 | 读前必看第 2 条 + §3.6 显式调既有 `GrantOnAcquire`/`Resolve`;Code Review 核不复制落点。验收 G1/G2 断言落点与 16 一致 |
+| **另造存储栈**:dev 新建第二套 PlayerPrefs 键空间存已兑换集合,不用既有 `Persistence.Provider` | §3.4 复用既有接缝;去重存储用本系统专用键 `"Redeem.Redeemed"`(不与框架 / 其它系统键冲突),仍走同一 Provider |
+| **本地去重可被绕过**:玩家清 PlayerPrefs / 改存档可重兑「每玩家一次」码 | 本地单机的固有限制,如实承认(§3.4)。真正防绕过需后端计数(O5),离线做不到——这正是「服务器接缝」存在的理由:未来远程校验可补足 |
+| **配置自指 / 礼包递归环**:奖励道具指向随机礼包、礼包又指回 → 递归爆栈 | 复用 16 既有 `ItemGrant.MaxGiftDepth` 深度上限(已防环);本系统不引入新递归 |

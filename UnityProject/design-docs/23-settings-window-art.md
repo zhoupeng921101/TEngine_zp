@@ -13,7 +13,7 @@
 
 # 设置窗美术换皮 · 表现层
 
-本工程<b>第一个美术驱动的 UI 窗口</b>:把效果图 `setting.png` 换皮成可运行的 `SettingsWindow`。目的有二——① 兑现[设计 19 设置系统](#19-settings-system)遗留的表现层(boss 遗留 #24);② <mark>打通「切图 → 每屏一个 SpriteAtlas → prefab 摆节点 → FindChildComponent 绑定 → \[Window\] 加载 → SetSubSprite 取图 → 热更」整条链路,成为后续所有界面换皮的模板</mark>。数据逻辑层(音频开关 + 持久化 + 信息 getter)[设计 19](#19-settings-system) 已交付并经单测,本轮<b>只做表现层 + 接线</b>,不重写数据层。
+本工程**第一个美术驱动的 UI 窗口**:把效果图 `setting.png` 换皮成可运行的 `SettingsWindow`。目的有二——① 兑现[设计 19 设置系统](#19-settings-system)遗留的表现层(boss 遗留 #24);② <mark>打通「切图 → 每屏一个 SpriteAtlas → prefab 摆节点 → FindChildComponent 绑定 → \[Window\] 加载 → SetSubSprite 取图 → 热更」整条链路,成为后续所有界面换皮的模板</mark>。数据逻辑层(音频开关 + 持久化 + 信息 getter)[设计 19](#19-settings-system) 已交付并经单测,本轮**只做表现层 + 接线**,不重写数据层。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -51,7 +51,7 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:游戏所有 UI 窗口都是<mark>纯代码搭建(<code>UGuiFactory</code> + glyph + 纯色)</mark>,零美术——主菜单 / 玩法窗 / 神庙窗都是占位方块。设置数据层([设计 19](#19-settings-system))已交付但<b>没有任何窗口能让玩家触达</b>:玩家无处关音乐 / 看版本号。同时整个工程<mark>从未走通「美术切图 → prefab → 运行期换皮」的链路</mark>——没有一个 prefab 绑定的窗口、没有一次 `SetSubSprite` 调用、没有一个为 UI 投放建的 SpriteAtlas。
+现状:游戏所有 UI 窗口都是<mark>纯代码搭建(<code>UGuiFactory</code> + glyph + 纯色)</mark>,零美术——主菜单 / 玩法窗 / 神庙窗都是占位方块。设置数据层([设计 19](#19-settings-system))已交付但**没有任何窗口能让玩家触达**:玩家无处关音乐 / 看版本号。同时整个工程<mark>从未走通「美术切图 → prefab → 运行期换皮」的链路</mark>——没有一个 prefab 绑定的窗口、没有一次 `SetSubSprite` 调用、没有一个为 UI 投放建的 SpriteAtlas。
 
 本轮以「设置窗」为第一块试验田,一次性把这条链路打通并固化成模板。之所以挑设置窗当第一个:① 它的数据层已就绪(只缺壳),改动面可控;② 效果图结构清晰(标题 + 关闭 + 一行图标 + 4 长条按钮 + 一排图标按钮),节点类型齐全(`Image` / `Button` / `Toggle` / 文本),足以覆盖大多数后续界面会用到的节点种类;③ 它是模态弹窗,能顺带验证「非全屏弹窗 + 遮罩 + Top 层」这套后续到处要用的范式。资源加载红线见 tengine-dev 的 `resource-api` 参考文档(Sprite 用 `SetSprite` / `SetSubSprite`,禁 `LoadAssetAsync<Sprite>`)。
 
@@ -68,7 +68,7 @@
 
 <h2 id="effigy">二、效果图拆解(对位基准)</h2>
 
-美术基准 `setting.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的<b>模态弹窗</b>:半透明深色遮罩 + 居中木牌面板。自上而下五块:
+美术基准 `setting.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木牌面板。自上而下五块:
 
 | 区块 | 效果图内容 | 切图(`设置\` 文件夹) | 节点类型 |
 | --- | --- | --- | --- |
@@ -87,7 +87,7 @@
 
 <h3 id="atlas-import">3.1 切图导入落点</h3>
 
-把 `C:\Users\pc\Downloads\塔罗\塔罗\设置\` 整个文件夹的 22 张 PNG 导入工程,落点<b>与现有 UIRaw 图集源体例一致</b>:
+把 `C:\Users\pc\Downloads\塔罗\塔罗\设置\` 整个文件夹的 22 张 PNG 导入工程,落点**与现有 UIRaw 图集源体例一致**:
 
 <pre class="code">Assets/AssetRaw/UIRaw/Atlas/setting/        ← 新建子目录，22 张切图放这里
     base_plate.png  base_plate2.png  base_plate3.png  box1.png  box2.png
@@ -95,11 +95,11 @@
     help.png  icon_x.png  instagram.png  language.png  Player_music.png
     printer.png  setting.png  twitter.png  Volume_up.png  x.png  youtube.png</pre>
 
-<b>为什么放这里</b>:现有图集源(如 `Atlas_misc` 打的 `misc/` PNG)就在 `Assets/AssetRaw/UIRaw/Atlas/` 下,该路径已被收集器组 `UIRaw/Atlas` 收录(`AssetBundleCollectorSetting.asset`,`AddressByFileName` + `PackDirectory`)。每张切图导入设置:`Texture Type = Sprite (2D and UI)`、`Sprite Mode = Single`、`Mesh Type = Full Rect`(UI 用)、九宫格按钮底图(`button` / `base_plate*`)设 `Border` 便于拉伸。
+**为什么放这里**:现有图集源(如 `Atlas_misc` 打的 `misc/` PNG)就在 `Assets/AssetRaw/UIRaw/Atlas/` 下,该路径已被收集器组 `UIRaw/Atlas` 收录(`AssetBundleCollectorSetting.asset`,`AddressByFileName` + `PackDirectory`)。每张切图导入设置:`Texture Type = Sprite (2D and UI)`、`Sprite Mode = Single`、`Mesh Type = Full Rect`(UI 用)、九宫格按钮底图(`button` / `base_plate*`)设 `Border` 便于拉伸。
 
 <h3 id="atlas-build">3.2 SpriteAtlas v2 建法</h3>
 
-建一个图集 `Atlas_settings.spriteatlasv2`,落点<b>与现有图集一致</b>(`Assets/AssetArt/Atlas/`),把上面整个 `setting/` 目录作为 `Packable` 加进去(整目录加,不逐张加):
+建一个图集 `Atlas_settings.spriteatlasv2`,落点**与现有图集一致**(`Assets/AssetArt/Atlas/`),把上面整个 `setting/` 目录作为 `Packable` 加进去(整目录加,不逐张加):
 
 <pre class="code">Assets/AssetArt/Atlas/Atlas_settings.spriteatlasv2
   Packables: [ Assets/AssetRaw/UIRaw/Atlas/setting (folder) ]
@@ -134,7 +134,7 @@ _imgBtnContact.SetSubSprite(Atlas, "button");
 _imgIconContact.SetSubSprite(Atlas, "chat");
 // ...逐节点贴，子图名以 dev 读图核实后的「子图名→功能位」映射为准（§二 callout）</pre>
 
-<b>不写法</b>:<span class="no">不</span>用 `LoadAssetAsync<Sprite>` 加载图(无缓存池 + 需手动释放,违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图 + `SetSprite(单图location)`(跨界面重名会被导入器删,用户拍板排除)。整窗静态图在 `OnCreate` 贴一次即可(弹窗内容不随数据变,开关态用文本 / 切双态图刷,见 [§六](#23-settings-window-art::window))。
+**不写法**:<span class="no">不</span>用 `LoadAssetAsync<Sprite>` 加载图(无缓存池 + 需手动释放,违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图 + `SetSprite(单图location)`(跨界面重名会被导入器删,用户拍板排除)。整窗静态图在 `OnCreate` 贴一次即可(弹窗内容不随数据变,开关态用文本 / 切双态图刷,见 [§六](#23-settings-window-art::window))。
 
 <h3 id="atlas-collector">3.4 收集器配置确认</h3>
 
@@ -200,13 +200,13 @@ prefab 与图集分别被两个现有组收录,dev 落地后在收集器界面�
 
 | 方案 | 做法 | 利 | 弊 |
 | --- | --- | --- | --- |
-| <b>A. 各系统各自单例</b> | 给 `SettingsService` 套 `SimpleSingleton`,player-info / item 等也各套各的 | 改动小、就近 | 单例散落、各系统初始化时机 / 接存档各写一遍;<mark>无统一接缝,N 个系统 N 套样板</mark> |
+| **A. 各系统各自单例** | 给 `SettingsService` 套 `SimpleSingleton`,player-info / item 等也各套各的 | 改动小、就近 | 单例散落、各系统初始化时机 / 接存档各写一遍;<mark>无统一接缝,N 个系统 N 套样板</mark> |
 | <b>B. 统一运行期上下文单例 <code>GameContext</code>(推荐)</b> | 新建一个 `GameContext : SimpleSingleton<GameContext>`,作为所有无主数据层服务的运行期持有者 + 统一初始化 + 统一接存档接缝。本轮先只持有 `SettingsService`,后续系统逐个挂进来 | 无主系统有统一归宿;初始化 / 存档接缝写一次;窗口只 `GameContext.Instance.Settings` 取;与既有 `BlockGameState`(玩法态单例)分层清晰(玩法态 vs 通用服务) | 引入一个新基础设施类(但很薄) |
-| <b>C. 并入 <code>BlockGameState</code></b> | 把 `SettingsService` 等挂到既有玩法态单例 `BlockGameState` 上 | 不新增类 | <mark>职责混淆</mark>:`BlockGameState` 是 Classic/Merge 玩法态(棋盘 / 得分 / 悔棋),设置 / 玩家信息是<b>通用层</b>,塞进去会让玩法单例越来越胖、与玩法无关的东西也随它 Reset |
+| <b>C. 并入 <code>BlockGameState</code></b> | 把 `SettingsService` 等挂到既有玩法态单例 `BlockGameState` 上 | 不新增类 | <mark>职责混淆</mark>:`BlockGameState` 是 Classic/Merge 玩法态(棋盘 / 得分 / 悔棋),设置 / 玩家信息是**通用层**,塞进去会让玩法单例越来越胖、与玩法无关的东西也随它 Reset |
 
 <h3 id="holder-rec">5.3 推荐:方案 B(GameContext)+ 理由</h3>
 
-取 <b>B</b>。理由:① 这批无主系统(settings / player-info / item / redeem / mail / rank)是<mark>同一类问题</mark>——「通用数据层服务,需一个运行期持有者 + 一次初始化 + 一处接存档」。按 CLAUDE.md「同类摩擦第二次出现就在源头修」,与其每个系统各打一个单例补丁(方案 A),不如一次性给它们一个统一归宿;② 与既有 `BlockGameState` 自然分层:玩法态归 `BlockGameState`(随开局 Reset),通用服务归 `GameContext`(随会话长存),职责不混(避开方案 C 的弊);③ 薄——本轮 `GameContext` 只需持有 `SettingsService` 一个成员 + 一个 `Init()`,后续系统挂进来时才长大,不投机性预建。
+取 **B**。理由:① 这批无主系统(settings / player-info / item / redeem / mail / rank)是<mark>同一类问题</mark>——「通用数据层服务,需一个运行期持有者 + 一次初始化 + 一处接存档」。按 CLAUDE.md「同类摩擦第二次出现就在源头修」,与其每个系统各打一个单例补丁(方案 A),不如一次性给它们一个统一归宿;② 与既有 `BlockGameState` 自然分层:玩法态归 `BlockGameState`(随开局 Reset),通用服务归 `GameContext`(随会话长存),职责不混(避开方案 C 的弊);③ 薄——本轮 `GameContext` 只需持有 `SettingsService` 一个成员 + 一个 `Init()`,后续系统挂进来时才长大,不投机性预建。
 
 <pre class="code">namespace GameLogic   // 通用层，与 BlockBlast 玩法解耦
 {
@@ -320,22 +320,22 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 
 | 功能位 | 本轮处置 | 接什么 / 留什么 |
 | --- | --- | --- |
-| <b>音效开关</b>(`m_toggle_Sound`) | 实做 | `Svc.SetSound(on)`(设计 19 数据层,落盘 + 应用音频);`OnRefresh` 读 `Svc.Audio.SoundOn` 刷态。<b>核心验收项</b>。 |
-| <b>关闭 X</b> + <b>遮罩</b> | 实做 | `CloseUI<SettingsWindow>()`。 |
-| <b>清除存档</b>(`m_btn_ClearSave`) | 实做(带二次确认) | 调既有存档清除(`MergeMetaPersistence` 清键 / `BlockGameState` 重置)。<mark>须二次确认弹窗</mark>(防误触清档)。dev 若本轮不便建确认弹窗,降级为占位 + TODO(列 §十一 B2)。 |
-| <b>版本号</b>(若效果图 / 面板有显示位) | 实做 | `SettingsInfo.Version()` → 文本节点。效果图未明显见版本号位,若 dev 读图发现有则接,无则不强加。 |
-| <b>用户 ID</b>(同上) | 实做 | `SettingsInfo.UserId(playerInfo)` + 复制按钮调 `ClipboardUtil.Copy`(设计 18)。同版本号:有位才接。 |
-| <b>兑换码入口</b>(若面板有) | 实做接线点 | 兑换码系统([设计 20](#20-redeem-code-system))数据层已建(#25)。入口按钮接 `GameLogic.Redeem.RedeemService`(服务入口见 `SettingsLinks.cs` 注释)。<mark>但兑换码<b>输入窗</b>本身无美术、本轮不建</mark>——入口按钮留点击 → 现阶段 `Log` / Toast「兑换码界面待建」+ TODO 指向 RedeemService。效果图下排 5 图标未明确含兑换码,dev 读图核实;无位则纯留服务入口注释。 |
-| <b>帮助设置</b>(`m_btn_Help`) | 占位 | 无帮助 / FAQ 内容系统。点击 → Toast「帮助界面待建」+ TODO。 |
-| <b>通知设置</b>(`m_btn_Notify`) | 占位 | 无推送 / 通知系统(离线)。点击 → Toast「通知设置待建」+ TODO。 |
-| <b>隐私设置 / 用户协议</b>(`m_btn_Privacy`) | 占位(URL 常量已备) | `SettingsLinks.PrivacyPolicyUrl` / `UserAgreementUrl` 是占位 URL(`example.com`)。接 `Application.OpenURL(SettingsLinks.PrivacyPolicyUrl)` 即可点开占位页,真实 URL 替换常量即生效(设计 19 §七 O3)。 |
-| <b>联系我们 / 客服</b>(`m_btn_Contact`) | 占位 | `SettingsLinks.ContactSupport` 是空 stub(spec 自身标待定,设计 19 §七 O2)。点击 → Toast「客服待定」+ TODO。 |
-| <b>更多游戏</b>(`m_btn_MoreGames`) | 占位 | 无导流页 / 厂商列表。点击 → Toast「更多游戏待建」+ TODO(去变现方向,不做真实导流)。 |
-| <b>语言切换</b>(`m_btn_Language`) | 占位 | 无多语言系统(全局文案均 textId 占位、未接真实文本表)。点击 → Toast「多语言待建」+ TODO。 |
-| <b>退出登录</b>(`m_btn_Logout`) | 不做 / 占位 | 离线无账号系统(设计 19 §七 O8「快捷登录不做」对称)。按钮保留(美术对位需要),点击 → Toast「离线版无账号」+ TODO。 |
-| <b>社交外链</b>(facebook/twitter/x/youtube/instagram) | 占位(URL 待来源) | 无真实社交账号 URL。点击 → `Application.OpenURL(占位URL)` 或 Toast「外链待配」+ TODO。<mark>真实 URL 来源须问产品(列 §十一)</mark>。 |
+| **音效开关**(`m_toggle_Sound`) | 实做 | `Svc.SetSound(on)`(设计 19 数据层,落盘 + 应用音频);`OnRefresh` 读 `Svc.Audio.SoundOn` 刷态。**核心验收项**。 |
+| **关闭 X** + **遮罩** | 实做 | `CloseUI<SettingsWindow>()`。 |
+| **清除存档**(`m_btn_ClearSave`) | 实做(带二次确认) | 调既有存档清除(`MergeMetaPersistence` 清键 / `BlockGameState` 重置)。<mark>须二次确认弹窗</mark>(防误触清档)。dev 若本轮不便建确认弹窗,降级为占位 + TODO(列 §十一 B2)。 |
+| **版本号**(若效果图 / 面板有显示位) | 实做 | `SettingsInfo.Version()` → 文本节点。效果图未明显见版本号位,若 dev 读图发现有则接,无则不强加。 |
+| **用户 ID**(同上) | 实做 | `SettingsInfo.UserId(playerInfo)` + 复制按钮调 `ClipboardUtil.Copy`(设计 18)。同版本号:有位才接。 |
+| **兑换码入口**(若面板有) | 实做接线点 | 兑换码系统([设计 20](#20-redeem-code-system))数据层已建(#25)。入口按钮接 `GameLogic.Redeem.RedeemService`(服务入口见 `SettingsLinks.cs` 注释)。<mark>但兑换码**输入窗**本身无美术、本轮不建</mark>——入口按钮留点击 → 现阶段 `Log` / Toast「兑换码界面待建」+ TODO 指向 RedeemService。效果图下排 5 图标未明确含兑换码,dev 读图核实;无位则纯留服务入口注释。 |
+| **帮助设置**(`m_btn_Help`) | 占位 | 无帮助 / FAQ 内容系统。点击 → Toast「帮助界面待建」+ TODO。 |
+| **通知设置**(`m_btn_Notify`) | 占位 | 无推送 / 通知系统(离线)。点击 → Toast「通知设置待建」+ TODO。 |
+| **隐私设置 / 用户协议**(`m_btn_Privacy`) | 占位(URL 常量已备) | `SettingsLinks.PrivacyPolicyUrl` / `UserAgreementUrl` 是占位 URL(`example.com`)。接 `Application.OpenURL(SettingsLinks.PrivacyPolicyUrl)` 即可点开占位页,真实 URL 替换常量即生效(设计 19 §七 O3)。 |
+| **联系我们 / 客服**(`m_btn_Contact`) | 占位 | `SettingsLinks.ContactSupport` 是空 stub(spec 自身标待定,设计 19 §七 O2)。点击 → Toast「客服待定」+ TODO。 |
+| **更多游戏**(`m_btn_MoreGames`) | 占位 | 无导流页 / 厂商列表。点击 → Toast「更多游戏待建」+ TODO(去变现方向,不做真实导流)。 |
+| **语言切换**(`m_btn_Language`) | 占位 | 无多语言系统(全局文案均 textId 占位、未接真实文本表)。点击 → Toast「多语言待建」+ TODO。 |
+| **退出登录**(`m_btn_Logout`) | 不做 / 占位 | 离线无账号系统(设计 19 §七 O8「快捷登录不做」对称)。按钮保留(美术对位需要),点击 → Toast「离线版无账号」+ TODO。 |
+| **社交外链**(facebook/twitter/x/youtube/instagram) | 占位(URL 待来源) | 无真实社交账号 URL。点击 → `Application.OpenURL(占位URL)` 或 Toast「外链待配」+ TODO。<mark>真实 URL 来源须问产品(列 §十一)</mark>。 |
 
-<b>占位统一做法</b>:占位按钮点击调一个统一的 `ShowPlaceholderToast(string textId)`(用 `GameModule` 既有 Toast / 飘字,若无则临时 `Log.Info`),并在代码处留 `// TODO(设计 23 §七):接 XXX`。<mark>占位不等于无反馈</mark>——点了要有「待建」提示,不能死按钮。
+**占位统一做法**:占位按钮点击调一个统一的 `ShowPlaceholderToast(string textId)`(用 `GameModule` 既有 Toast / 飘字,若无则临时 `Log.Info`),并在代码处留 `// TODO(设计 23 §七):接 XXX`。<mark>占位不等于无反馈</mark>——点了要有「待建」提示,不能死按钮。
 
 <h2 id="entry">八、打开入口 + 关闭</h2>
 
@@ -397,7 +397,7 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 | 7 | `MainMenuWindow.cs`(✓ 现有) | 改(加 1 按钮) | §八;加设置入口按钮 → `ShowUIAsync<SettingsWindow>` |
 | 8 | `AssetBundleCollectorSetting.asset`(✓ 现有) | 确认 / 可能补路径 | §3.4;确认 `UIRaw/Atlas` 收录到 `.spriteatlasv2`;若 PackDirectory 不含图集资源本身,补一条收集路径 |
 | 9 | 测试:`Assets/Editor/Tests/...` Settings/Context | 新建测试 | §9.1 的 H/W 组;`GameContext` 单例 + `SettingsService` 往返(经 InMemory store 变体) |
-| — | `GameLogic.Settings` 各类 / 框架 UI / 资源代码 / 既有玩法窗口 | <b>不改</b> | 只调用数据层,不改其逻辑;不动框架;不动 Classic/Merge 玩法窗 |
+| — | `GameLogic.Settings` 各类 / 框架 UI / 资源代码 / 既有玩法窗口 | **不改** | 只调用数据层,不改其逻辑;不动框架;不动 Classic/Merge 玩法窗 |
 
 <h2 id="open">十一、待拍板清单(范围开关,交 boss / 用户)</h2>
 
@@ -405,10 +405,10 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 
 | # | 开关 | 本轮默认(安全默认) | 备选 / 改动触发 |
 | --- | --- | --- | --- |
-| <b>B1</b> | SettingsService 运行期持有者(基础设施,影响后续多系统) | <b>引入 <code>GameContext</code> 统一上下文</b>(方案 B,§五)——薄、可逆 | 若 boss 倾向先把试验做最小:用方案 A(只给 `SettingsService` 套单例),后续再抽 GameContext。<mark>这是会被后续 player-info/item/mail/rank 依赖的决定,提请 boss 复核</mark> |
-| B2 | 清除存档二次确认弹窗 | <b>实做带确认</b>(防误触清档);dev 不便建确认窗则降级占位 + TODO | 有通用确认弹窗组件则复用;无则本轮占位、后续补 |
-| B3 | 音效开关控件类型 | <b>Toggle</b>(`m_toggle_Sound`,贴框架范式) | 切图缺静音态图时以 color 区分 + TODO;或降级双态 Button |
-| B4 | 音乐开关是否进本窗 | <b>进</b>(数据层有 `SetMusic`;效果图下排若只有「音效」一项,则音乐开关并入音效位或暂不投放) | dev 读图核实下排图标含义;效果图无音乐独立位则只做音效,音乐留 TODO |
+| **B1** | SettingsService 运行期持有者(基础设施,影响后续多系统) | <b>引入 <code>GameContext</code> 统一上下文</b>(方案 B,§五)——薄、可逆 | 若 boss 倾向先把试验做最小:用方案 A(只给 `SettingsService` 套单例),后续再抽 GameContext。<mark>这是会被后续 player-info/item/mail/rank 依赖的决定,提请 boss 复核</mark> |
+| B2 | 清除存档二次确认弹窗 | **实做带确认**(防误触清档);dev 不便建确认窗则降级占位 + TODO | 有通用确认弹窗组件则复用;无则本轮占位、后续补 |
+| B3 | 音效开关控件类型 | **Toggle**(`m_toggle_Sound`,贴框架范式) | 切图缺静音态图时以 color 区分 + TODO;或降级双态 Button |
+| B4 | 音乐开关是否进本窗 | **进**(数据层有 `SetMusic`;效果图下排若只有「音效」一项,则音乐开关并入音效位或暂不投放) | dev 读图核实下排图标含义;效果图无音乐独立位则只做音效,音乐留 TODO |
 | B5 | 打开入口落点 | <b>主菜单 <code>MainMenuWindow</code> 加按钮</b>(最小改动) | 玩法 HUD 顶栏齿轮入口后续轮次 / 行有余力时一并接 |
 | B6 | 切图「子图名 → 功能位」最终映射 | dev 读图核实后定(§二 callout 给推断) | 命名歧义大的(`printer` / `chat` 复用)以效果图视觉为准 |
 
@@ -425,9 +425,9 @@ namespace GameLogic.UI    // 通用 UI 命名空间，与 BlockBlastUI（玩法�
 
 | 风险 | 应对 |
 | --- | --- |
-| <b>图集寻址不通</b>:`SetSubSprite` 的 `location` 取不到资源(`GetAssetInfo` 返 invalid / `LoadSubAssetsAsync` 取不到子图)——工程从未实际用过 SetSubSprite,这是真未知 | §3.2 callout:dev <mark>落地第一步先单点验证寻址</mark>(取一张子图显示出来)再铺满;方案 A 不通则试 B 并回报 boss。这是本轮唯一带验证风险的环节,前置验证不要等摆完整窗 |
-| <b>分辨率坐标错位</b>:误套 `BlockLayout` 的 750×1334 私有坐标系 / `UGuiFactory`,与 1080×1920 参考分辨率冲突 | §四:prefab 直接用 1080×1920 锚点,不引 `BlockLayout`/`UGuiFactory`(那套是 code-built 玩法窗专用)。CanvasScaler 已是 1080×1920(✓ `main.unity:366`) |
-| <b>遮罩穿透</b>:点面板内容误穿透到遮罩 Button 关窗;或遮罩没盖住底层 HUD 交互 | §八:遮罩 Button 置节点树最底(最先绘制),面板盖其上;`fullScreen:false` 但遮罩 Image 自身全屏挡住底层射线 |
-| <b>把数据层重写一遍</b>:dev 为「接通」在窗口里重新实现开关 / 落盘逻辑,绕过 `SettingsService` | §读前必看第 1 条 + §六:窗口只<b>调用</b> `GameContext.Instance.Settings`,落盘 / 取反 / 应用全在数据层,窗口不碰 PlayerPrefs / 框架键 |
-| <b>占位做成死按钮</b>:占位按钮点了无反应,玩家以为卡死 | §七:占位统一调 `ShowPlaceholderToast` 给「待建」反馈 + 留 TODO;验收 V5 专核 |
-| <b>持有者越界</b>:把玩法态塞进 `GameContext` 或把通用服务塞进 `BlockGameState` | §五:二者分层——玩法态(棋盘 / 得分 / 悔棋)归 `BlockGameState`,通用服务归 `GameContext`;本轮 `GameContext` 只持 `SettingsService`,不投机性塞别的 |
+| **图集寻址不通**:`SetSubSprite` 的 `location` 取不到资源(`GetAssetInfo` 返 invalid / `LoadSubAssetsAsync` 取不到子图)——工程从未实际用过 SetSubSprite,这是真未知 | §3.2 callout:dev <mark>落地第一步先单点验证寻址</mark>(取一张子图显示出来)再铺满;方案 A 不通则试 B 并回报 boss。这是本轮唯一带验证风险的环节,前置验证不要等摆完整窗 |
+| **分辨率坐标错位**:误套 `BlockLayout` 的 750×1334 私有坐标系 / `UGuiFactory`,与 1080×1920 参考分辨率冲突 | §四:prefab 直接用 1080×1920 锚点,不引 `BlockLayout`/`UGuiFactory`(那套是 code-built 玩法窗专用)。CanvasScaler 已是 1080×1920(✓ `main.unity:366`) |
+| **遮罩穿透**:点面板内容误穿透到遮罩 Button 关窗;或遮罩没盖住底层 HUD 交互 | §八:遮罩 Button 置节点树最底(最先绘制),面板盖其上;`fullScreen:false` 但遮罩 Image 自身全屏挡住底层射线 |
+| **把数据层重写一遍**:dev 为「接通」在窗口里重新实现开关 / 落盘逻辑,绕过 `SettingsService` | §读前必看第 1 条 + §六:窗口只**调用** `GameContext.Instance.Settings`,落盘 / 取反 / 应用全在数据层,窗口不碰 PlayerPrefs / 框架键 |
+| **占位做成死按钮**:占位按钮点了无反应,玩家以为卡死 | §七:占位统一调 `ShowPlaceholderToast` 给「待建」反馈 + 留 TODO;验收 V5 专核 |
+| **持有者越界**:把玩法态塞进 `GameContext` 或把通用服务塞进 `BlockGameState` | §五:二者分层——玩法态(棋盘 / 得分 / 悔棋)归 `BlockGameState`,通用服务归 `GameContext`;本轮 `GameContext` 只持 `SettingsService`,不投机性塞别的 |

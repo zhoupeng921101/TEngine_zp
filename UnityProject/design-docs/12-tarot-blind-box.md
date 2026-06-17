@@ -10,7 +10,7 @@
 
 # 神秘塔罗盲盒
 
-把 GDD 的「神秘塔罗盲盒」落成一个<b>持有式、即时开盒</b>的核心系统:消除中的连消/全消挑战与特殊订单交付积累盲盒,玩家自选时机一键开出 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / 当前订单所需高阶物。接入现有 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)),复用 `MergeOrderState` / `ClearSettlement` / `SpecialOrderTrack` / `ChestSystem` 的既有形态,不另起一套。
+把 GDD 的「神秘塔罗盲盒」落成一个**持有式、即时开盒**的核心系统:消除中的连消/全消挑战与特殊订单交付积累盲盒,玩家自选时机一键开出 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / 当前订单所需高阶物。接入现有 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)),复用 `MergeOrderState` / `ClearSettlement` / `SpecialOrderTrack` / `ChestSystem` 的既有形态,不另起一套。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -43,7 +43,7 @@
 | 1 | 盲盒作为「惊喜感的中跨度目标」 | `MergeOrderState.BlindBoxCount` 持有计数,自选时机开 | <span class="pill-new">新增</span> |
 | 2 | 获取:连消、全消等高挑战形成去开启 | 挂 `ClearSettlement.Settle` 解锁钩子:全清直发 1 个盲盒;连消链达阈值发 1 个 | <span class="pill-cur">现状有结算流水线</span> + <span class="pill-new">钩子</span> |
 | 3 | 获取:订单奖励(特殊订单) | `DeliverSpecial` 交付时附赠盲盒 | <span class="pill-cur">现状有特殊轨</span> + <span class="pill-new">附赠</span> |
-| 4 | 内容:随机 Lv1–Lv4 图案 / 体力 / 订单所需高阶物 | 奖池产 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / <b>当前订单缺口的高阶图案</b>(收敛 Lv4 见上方红框) | <span class="pill-new">新增奖池</span> |
+| 4 | 内容:随机 Lv1–Lv4 图案 / 体力 / 订单所需高阶物 | 奖池产 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / **当前订单缺口的高阶图案**(收敛 Lv4 见上方红框) | <span class="pill-new">新增奖池</span> |
 
 <b>不做(本轮明确排除,后续轮次):</b>命运之轮活动包装、付费购买入口、集卡碎片、占卜屋/扭蛋、神谕降临双倍。本篇只做「持有 + 三渠道获取 + 即时开盒」的最小自洽系统。
 
@@ -51,12 +51,12 @@
 
 <h3 id="hold">2.1 持有式道具(非倒计时)</h3>
 
-盲盒与<b>宝箱</b>(`ChestSystem`,设计 11 §九)是<b>两套不同的获取节奏</b>,刻意不合并:
+盲盒与**宝箱**(`ChestSystem`,设计 11 §九)是**两套不同的获取节奏**,刻意不合并:
 
-- <b>宝箱 = 占槽 + 倒计时</b>:获取后入 4 箱位,必须等倒计时(去变现下只能等),到点才可开。它考验的是「攒箱位、规划开箱节奏」。
-- <b>盲盒 = 持有计数 + 即时开</b>:获取即 `BlindBoxCount += 1`,玩家任意时刻点「开盒」立即扣 1 开 1。它考验的是「连消/全消打得好就多攒,想用高阶物时就开」。无倒计时、无箱位上限概念,只有一个计数。
+- **宝箱 = 占槽 + 倒计时**:获取后入 4 箱位,必须等倒计时(去变现下只能等),到点才可开。它考验的是「攒箱位、规划开箱节奏」。
+- **盲盒 = 持有计数 + 即时开**:获取即 `BlindBoxCount += 1`,玩家任意时刻点「开盒」立即扣 1 开 1。它考验的是「连消/全消打得好就多攒,想用高阶物时就开」。无倒计时、无箱位上限概念,只有一个计数。
 
-选持有计数模型而非复用宝箱占槽的理由:GDD 把盲盒定义为「中时间跨度目标」且「在消除过程中通过高挑战去开启」,语义是<b>攒够了就能开、想开就开</b>,与倒计时的「被动等待」相反。复用宝箱的倒计时会改变它的玩法语义。两套并存、各管一种节奏。
+选持有计数模型而非复用宝箱占槽的理由:GDD 把盲盒定义为「中时间跨度目标」且「在消除过程中通过高挑战去开启」,语义是**攒够了就能开、想开就开**,与倒计时的「被动等待」相反。复用宝箱的倒计时会改变它的玩法语义。两套并存、各管一种节奏。
 
 <h3 id="vs-chest">2.2 与宝箱的分工(为什么不复用 ChestSystem 的占槽)</h3>
 
@@ -103,7 +103,7 @@
 
 <h3 id="pool">3.1 奖池与掉率</h3>
 
-开一个盲盒掷出<b>恰好 1 项</b>奖励(不是三选一——盲盒是「开即得」的惊喜,不是宝箱的「选其一」)。奖项分四类,按权重抽样:
+开一个盲盒掷出**恰好 1 项**奖励(不是三选一——盲盒是「开即得」的惊喜,不是宝箱的「选其一」)。奖项分四类,按权重抽样:
 
 | 奖项(RewardKind) | 产物 | 默认权重 | 占比 | 价值定位 |
 | --- | --- | --- | --- | --- |
@@ -111,7 +111,7 @@
 | `PatternMid` | <span class="lv">Lv2</span> 图案 ×1 | 22 | 22% | 中等惊喜 |
 | `Energy` | 体力 +`BoxEnergyGain`(默认 10) | 20 | 20% | 续命,等价约 10 次落子 |
 | `PatternHigh` | <span class="lv">Lv3</span> 图案 ×1(=封顶高阶物) | 10 | 10% | 稀有大奖,GDD「高阶物品」 |
-| `NeededHigh` | <b>当前订单缺口的最高等级图案 ×1</b>(无缺口时降级为 `PatternHigh`) | 8 | 8% | GDD「直接产出订单所需高阶物品」,针对性最强 |
+| `NeededHigh` | **当前订单缺口的最高等级图案 ×1**(无缺口时降级为 `PatternHigh`) | 8 | 8% | GDD「直接产出订单所需高阶物品」,针对性最强 |
 
 权重总和 100,占比即权重(便于读)。<b>旋钮:</b> `BoxRewardWeights` 数组——调大某项权重即提高该项出率;调 `BoxEnergyGain` 改体力档。
 
@@ -127,9 +127,9 @@ int r = RandomSource.Range(0, total);      // [0, total)
 累加权重,r 落入哪个区间即抽中该 RewardKind;
 返回 BlindBoxReward{ Kind, 产物等级/数量 }。</pre>
 
-<b>保底</b>(双重):
+**保底**(双重):
 
-- <b>下限保底:</b>任意一次开盒必产<b>有效奖励</b>(权重表无 0 价值项,最低也是 1 个 Lv1 图案或体力)。不存在「开了个空」。
+- <b>下限保底:</b>任意一次开盒必产**有效奖励**(权重表无 0 价值项,最低也是 1 个 Lv1 图案或体力)。不存在「开了个空」。
 - <b>NeededHigh 降级保底:</b>抽中 `NeededHigh` 但当前无订单缺口(`NeededTypes()` 空 / 所有订单已可交付)→ 自动降级为通用 `PatternHigh`(Lv3),不浪费这次大奖。
 
 <h3 id="grant">3.3 产物落点与边界</h3>
@@ -137,7 +137,7 @@ int r = RandomSource.Range(0, total);      // [0, total)
 | 奖项 | 落点方法(现状符号) | 类型选择 | 边界处理 |
 | --- | --- | --- | --- |
 | 图案 Lv1/Lv2/Lv3 | `MergeOrderState.AddDirect(type, level, 1)` | 当前订单所需类型之一(`NeededTypes()` 轮转取),空则回退 `Diamond` | AddDirect 走级联合并:产 Lv1 若该类已有 1 个 Lv1 → 自动升 Lv2(预期,非缺陷)。封顶 Lv3 不再升、堆积。 |
-| NeededHigh | `AddDirect(type, level, 1)` | 缺口里<b>最高等级</b>的那一项的(类型,等级) | 无缺口 → 降级 PatternHigh(见 §3.2) |
+| NeededHigh | `AddDirect(type, level, 1)` | 缺口里**最高等级**的那一项的(类型,等级) | 无缺口 → 降级 PatternHigh(见 §3.2) |
 | 体力 | `MergeOrderState.RefundEnergy(BoxEnergyGain)` | — | 受体力软上限 `EnergyCap` 约束,不溢出(与消除返还同规则) |
 
 <div class="callout note">
@@ -148,14 +148,14 @@ int r = RandomSource.Range(0, total);      // [0, total)
 
 <h3 id="unlock">3.4 连消/全消解锁阈值</h3>
 
-挂 `ClearSettlement.Settle` 结算流水线(单一信息源,所有落子后结算都经此)。在现有「连消链推进 / 全清武装位」逻辑之后追加盲盒解锁判定,<b>产出到 SettlementResult 供窗口表现,计数副作用在 Settle 内施加</b>(与全清奖、女神推进同体例):
+挂 `ClearSettlement.Settle` 结算流水线(单一信息源,所有落子后结算都经此)。在现有「连消链推进 / 全清武装位」逻辑之后追加盲盒解锁判定,**产出到 SettlementResult 供窗口表现,计数副作用在 Settle 内施加**(与全清奖、女神推进同体例):
 
 | 触发条件 | 判据 | 盲盒产出 | 旁注 |
 | --- | --- | --- | --- |
-| <b>全清</b> | 发生全清且发奖(`boardEmptyAfter && AllClearArmed`,沿用现有全清武装位) | +1 盲盒 | 复用全清武装位:连续第 2 次全清不发盲盒(防刷,与全清图案奖同步) |
-| <b>连消链达阈值</b> | `ComboChain == BoxComboThreshold`(默认 4,即第 4 连消那一手) | +1 盲盒 | 用 `==` 而非 `>=`:每条连消链<b>跨过阈值的那一手发一次</b>,链更长不重复发(否则 4/5/6 连消每手都发,通胀)。链断回 1 后重新计。 |
+| **全清** | 发生全清且发奖(`boardEmptyAfter && AllClearArmed`,沿用现有全清武装位) | +1 盲盒 | 复用全清武装位:连续第 2 次全清不发盲盒(防刷,与全清图案奖同步) |
+| **连消链达阈值** | `ComboChain == BoxComboThreshold`(默认 4,即第 4 连消那一手) | +1 盲盒 | 用 `==` 而非 `>=`:每条连消链**跨过阈值的那一手发一次**,链更长不重复发(否则 4/5/6 连消每手都发,通胀)。链断回 1 后重新计。 |
 
-<b>逐档代入</b>(阈值默认 4):
+**逐档代入**(阈值默认 4):
 
 | 连消链推进序列 | 各手 ComboChain | 发盲盒的手 |
 | --- | --- | --- |
@@ -192,13 +192,13 @@ GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.D
 | --- | --- | --- |
 | 1 | `Module/BlockBlast/TarotBlindBoxConfig.cs` <span class="pill-new">新建</span> | 静态配置类:`BoxRewardWeights` / `BoxEnergyGain` / `BoxComboThreshold` / `BoxPerExpress\|Story\|Golden` / 枚举 `BlindBoxRewardKind` / 结构 `BlindBoxReward` / 方法 `RollReward(MergeOrderState)`(加权抽样 + NeededHigh 降级保底)。仿 `ChestSystem.RollRewards` 用 `RandomSource`。 |
 | 2 | `MergeOrderState.cs` · 新字段 `public int BlindBoxCount;` | 在 `Reset()` 中置 0;加方法 `AddBlindBox(int)` / `bool CanOpenBlindBox` / `bool OpenBlindBox(out BlindBoxReward)`(扣 1 + 调 `TarotBlindBoxConfig.RollReward` + 按 Kind 调 `AddDirect`/`RefundEnergy` 发放,返回掷出的奖励供 UI 展示)。 |
-| 3 | `MergeOrderState.cs` · `Snapshot.Capture` / `Restore` | 加 `_blindBoxCount` 字段,Capture 存、Restore 复原。<b>必须</b>——否则悔棋后计数错乱(与 `_soul`/`_goddessRating` 同体例,照抄那两行的写法)。 |
+| 3 | `MergeOrderState.cs` · `Snapshot.Capture` / `Restore` | 加 `_blindBoxCount` 字段,Capture 存、Restore 复原。**必须**——否则悔棋后计数错乱(与 `_soul`/`_goddessRating` 同体例,照抄那两行的写法)。 |
 | 4 | `MergeOrderState.cs` · `DeliverSpecial()` | 在 `SpecialTrack.OnDelivered()` 之前(还能读到 `Occupied.Kind`),按 §3.5 表 `BlindBoxCount += 表[kind]`。 |
 | 5 | `ClearSettlement.cs` · `Settle()` | 全清发奖分支内(`AddDirect` 全清奖之后)`m.AddBlindBox(1)`;连消分支判 `m.ComboChain == BoxComboThreshold` 则 `m.AddBlindBox(1)`。把「本手获得几个盲盒」加入 `SettlementResult`(新字段 `BlindBoxGained`)供窗口表现。 |
 | 6 | `UI/BlockBlastUI/MergeOrderWindow.cs` | 顶部信息行加盲盒计数显示 + 开盒按钮(详见 §五);`PlaceAndResolve` 内读 `settle.BlindBoxGained > 0` 弹获得提示;开盒结果用内联结果条/小窗展示。 |
 | 7 | `Editor/Tests/BlockBlast/TarotBlindBoxTests.cs` <span class="pill-new">新建</span> | 覆盖 §六验收点(奖池抽样确定性、保底、解锁阈值、附赠、快照回滚)。仿 `CoreLoopCompletionTests` 的 `SetUp`(InMemory Provider + `RandomSource.SetSeed`)。 |
 
-注:`MergeOrderState` 整体目前<b>不做磁盘持久化</b>——只有 `BlockGameState.Save/Load` 持久化棋盘+待选块+分数,MergeOrderState 每局 `ResetForMergeOrder` 重建。盲盒计数跟随此现状:进悔棋快照(单局内回滚正确),不单独建磁盘序列化层。任务简报的「纳入持久化」在现状下等价于「纳入快照」——若要 MergeOrderState 全量跨会话存盘,那是独立的大改(全字段序列化),不在本轮、见 §七待拍板。
+注:`MergeOrderState` 整体目前**不做磁盘持久化**——只有 `BlockGameState.Save/Load` 持久化棋盘+待选块+分数,MergeOrderState 每局 `ResetForMergeOrder` 重建。盲盒计数跟随此现状:进悔棋快照(单局内回滚正确),不单独建磁盘序列化层。任务简报的「纳入持久化」在现状下等价于「纳入快照」——若要 MergeOrderState 全量跨会话存盘,那是独立的大改(全字段序列化),不在本轮、见 §七待拍板。
 
 <h2 id="ui">五、UI 方案</h2>
 

@@ -12,7 +12,7 @@
 
 # 玩家信息系统 · 数据逻辑层
 
-玩家个人信息系统的<b>数据逻辑层</b>:玩家信息数据模型(id / 名字 / 等级 / 经验 / 当前头像·框 / 已解锁集合)跨会话持久化,加上四组纯逻辑能力——<b>名字生成器</b>(初始系统名)、<b>改名逻辑</b>(首次免费 / 配置价格 / 钻石扣费尝试 / 屏蔽字匹配)、<b>头像/框解锁判定</b>(解锁条件→三态)、<b>id 复制剪贴板工具</b>。这是 xlsx 系统底层批次第四刀。<b>数据层先行</b>(沿用 15/16/17 节奏):全部 EditMode 可测;<mark>UI 窗口(玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览)是表现层,需美术,延后轮,本轮只留钩子 + TODO</mark>。
+玩家个人信息系统的**数据逻辑层**:玩家信息数据模型(id / 名字 / 等级 / 经验 / 当前头像·框 / 已解锁集合)跨会话持久化,加上四组纯逻辑能力——**名字生成器**(初始系统名)、**改名逻辑**(首次免费 / 配置价格 / 钻石扣费尝试 / 屏蔽字匹配)、**头像/框解锁判定**(解锁条件→三态)、**id 复制剪贴板工具**。这是 xlsx 系统底层批次第四刀。**数据层先行**(沿用 15/16/17 节奏):全部 EditMode 可测;<mark>UI 窗口(玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览)是表现层,需美术,延后轮,本轮只留钩子 + TODO</mark>。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -51,9 +51,9 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:游戏<b>没有玩家个人信息系统</b>——无玩家 id、无昵称、无头像、无玩家账号等级。spec(`1001玩家信息系统.xlsx`)要求建一套「玩家个人信息」:玩家信息 = 玩家等级 + id + 名字 + 头像 + 头像框,配套改名 / id 复制 / 等级经验槽 / 头像框三态网格。
+现状:游戏**没有玩家个人信息系统**——无玩家 id、无昵称、无头像、无玩家账号等级。spec(`1001玩家信息系统.xlsx`)要求建一套「玩家个人信息」:玩家信息 = 玩家等级 + id + 名字 + 头像 + 头像框,配套改名 / id 复制 / 等级经验槽 / 头像框三态网格。
 
-本轮交付其中<b>数据逻辑层</b>(spec 主体的可测部分),逐条对应 spec:
+本轮交付其中**数据逻辑层**(spec 主体的可测部分),逐条对应 spec:
 
 | # | 需求(来自 spec 逐字) | 本篇落法 | 现状/新增 |
 | --- | --- | --- | --- |
@@ -65,7 +65,7 @@
 | 6 | 头像/头像框:初始默认机器人,玩家可换已拥有的;3 态(佩戴/已解锁/未解锁) | 初始头像/框 id 配置常量;`AvatarUnlockService.StateOf` 返三态([§3.6](#18-player-info::unlock));换装写 `PlayerInfo.CurrentAvatarId/CurrentFrameId` | <span class="pill-new">新增服务</span> |
 | 7 | 头像&amp;框表:id \| 类型(1头像/2框)\| 图片 \| 解锁文字(多语言) \| 解锁条件(1等级/2活动发放) | Luban 表 `avatar.TbAvatar` 5 字段 + 两枚举([§3.5](#18-player-info::schema));type 2 活动发放本轮留钩子 | <span class="pill-new">新增表</span> |
 | 8 | 等级 + 经验槽 + 等级奖励预览 tips | `PlayerLevelConfig`:经验→等级换算 + 当前级进度([§3.4](#18-player-info::level));奖励预览数据本轮给接口、UI 延后 | <span class="pill-new">新增曲线</span> |
-| 9 | 主界面左上角入口 → 玩家信息界面(改名 / id 复制 / 等级经验 / 头像框页签 / 选中保存) | UI 表现层,<b>本轮不做</b>,留入口钩子 + TODO([§五](#18-player-info::hook)) | <span class="pill-no">表现层延后</span> |
+| 9 | 主界面左上角入口 → 玩家信息界面(改名 / id 复制 / 等级经验 / 头像框页签 / 选中保存) | UI 表现层,**本轮不做**,留入口钩子 + TODO([§五](#18-player-info::hook)) | <span class="pill-no">表现层延后</span> |
 | 10 | 开启:玩家 1 级即开;道具/红点/邮件:无;运营:后做;美术:UI 见界面,原画/特效/动画:无 | 1 级即开 = 玩家始终可访问(无门槛逻辑);道具/红点/邮件/运营字段不建 | <span class="pill-cur">无需逻辑</span> |
 
 <b>不做(本轮明确排除):</b><span class="pill-no">所有 UI 窗口</span>(玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 奖励预览 tips — 需美术,延后,见 [§七 O1](#18-player-info::open));<span class="pill-no">充值 / 内购钻石入口</span>(去变现);<span class="pill-no">账号绑定 / 登录</span>(离线无账号);<span class="pill-no">解锁条件 type 2 活动发放的真实判定</span>(无活动系统,留钩子 O3);<span class="pill-no">多语言文本真实查表</span>(解锁文字 / 名称存 text id,与 num/item/reward NameTextId 现状一致,O4);<span class="pill-no">头像/框真实 Sprite 加载</span>(无美术,只给图片资源名,O2);<span class="pill-no">红点 / 邮件 / 运营 / 道具</span>(spec 明示无)。
@@ -103,11 +103,11 @@ flowchart TD
     model -.复用既有设施.-> persist
 ```
 
-<b>为什么这样切:</b>头像表桥接成 POCO(`AvatarEntry`)隔离 Luban 类型,同 `ItemConfigMgr` 把 `GameConfig.ItemDef` 转 POCO 的做法,业务侧只认 POCO。服务层全做成<b>无状态纯函数 / 静态方法</b>(吃 `PlayerInfo` + 参数,产结果),不持有玩家状态——故验收点全是纯断言,连配置都未必加载。剪贴板与扣钻石这两处「碰外部世界」的操作,经<mark>可注入接缝</mark>(sink / 数值扣减回调)隔离,使单测不碰真实剪贴板、不依赖钻石实装。
+<b>为什么这样切:</b>头像表桥接成 POCO(`AvatarEntry`)隔离 Luban 类型,同 `ItemConfigMgr` 把 `GameConfig.ItemDef` 转 POCO 的做法,业务侧只认 POCO。服务层全做成**无状态纯函数 / 静态方法**(吃 `PlayerInfo` + 参数,产结果),不持有玩家状态——故验收点全是纯断言,连配置都未必加载。剪贴板与扣钻石这两处「碰外部世界」的操作,经<mark>可注入接缝</mark>(sink / 数值扣减回调)隔离,使单测不碰真实剪贴板、不依赖钻石实装。
 
 <h3 id="additive">2.2 加法式接入(与既有持久化的关系)</h3>
 
-玩家信息<b>新增</b>一个数据模型 + 一组服务 + 一张表;持久化<b>增量并入</b>既有 `MergeMetaSave`。既有玩法字段(灵力/虔诚币/经验/神庙…)与读写一律不动。对照:
+玩家信息**新增**一个数据模型 + 一组服务 + 一张表;持久化**增量并入**既有 `MergeMetaSave`。既有玩法字段(灵力/虔诚币/经验/神庙…)与读写一律不动。对照:
 
 <table>
     <tbody><tr><th>维度</th><th>既有 MergeMetaSave(本轮加字段不删)</th><th>玩家信息(本篇新增)</th></tr>
@@ -174,10 +174,10 @@ string Generate(System.Random rng):
 
 <b>改名逻辑(<code>PlayerRenameService.TryRename</code>):</b>spec「首次免费,之后读配置价格扣钻石;确定时屏蔽字匹配,符合才发起」。判定顺序(任一不过即拒,后续不执行):
 
-1. <b>合法性</b>:新名非空、长度在 `[MinLen, MaxLen]`(可调旋钮,默认 1–16),不全空白。
-2. <b>屏蔽字</b>:`ProfanityFilter.IsClean(name, wordList)` 通过([§3.3](#18-player-info::profanity))。<mark>不通过直接拒,不扣费</mark>。
-3. <b>计费</b>:`RenameCount == 0` → 免费;否则读价 `cost = RenamePriceConfig.PriceFor(RenameCount)`(默认固定价,见下旋钮),经数值路径尝试扣钻石。
-4. <b>扣费成功 / 免费</b> → 写 `Name = newName`、`RenameCount++`,返回成功结果。扣费失败(钻石不足)→ 拒,不改名。
+1. **合法性**:新名非空、长度在 `[MinLen, MaxLen]`(可调旋钮,默认 1–16),不全空白。
+2. **屏蔽字**:`ProfanityFilter.IsClean(name, wordList)` 通过([§3.3](#18-player-info::profanity))。<mark>不通过直接拒,不扣费</mark>。
+3. **计费**:`RenameCount == 0` → 免费;否则读价 `cost = RenamePriceConfig.PriceFor(RenameCount)`(默认固定价,见下旋钮),经数值路径尝试扣钻石。
+4. **扣费成功 / 免费** → 写 `Name = newName`、`RenameCount++`,返回成功结果。扣费失败(钻石不足)→ 拒,不改名。
 
 <pre class="code">public readonly struct RenameResult {        // 结构化结果，便于 UI 分支提示
     public readonly bool Success;
@@ -341,17 +341,17 @@ bool TryEquip(PlayerInfo p, AvatarEntry e):
 
 | 头像 id | cond / param | 集合含? | StateOf | 说明 |
 | --- | --- | --- | --- | --- |
-| 1 | LEVEL/1 | 是 | <b>Equipped</b> | 已解锁 + 当前佩戴 |
-| 2 | LEVEL/5 | 否 | <b>Unlocked</b> | Level5≥5,等级实时达标(即使集合未同步) |
-| 2(Level=4) | LEVEL/5 | 否 | <b>Locked</b> | Level4&lt;5,未达标 |
-| 3 | EVENT/9001 | 否 | <b>Locked</b> | 活动发放本轮不判 → 未解锁(留钩子 O3) |
-| 3 | EVENT/9001 | 是 | <b>Unlocked</b> | 已被(将来)活动写进集合 → 视为已解锁 |
+| 1 | LEVEL/1 | 是 | **Equipped** | 已解锁 + 当前佩戴 |
+| 2 | LEVEL/5 | 否 | **Unlocked** | Level5≥5,等级实时达标(即使集合未同步) |
+| 2(Level=4) | LEVEL/5 | 否 | **Locked** | Level4&lt;5,未达标 |
+| 3 | EVENT/9001 | 否 | **Locked** | 活动发放本轮不判 → 未解锁(留钩子 O3) |
+| 3 | EVENT/9001 | 是 | **Unlocked** | 已被(将来)活动写进集合 → 视为已解锁 |
 
 <div class="callout note"><b>活动发放(type 2)本轮只留钩子:</b><code>IsUnlocked</code> 对 EVENT 条件返「集合含才算解锁」——即真实「发放」动作 = 把 id 加进 <code>UnlockedAvatarIds</code>(将来活动系统调用)。本轮无活动系统,故 EVENT 项除非被手动/测试写进集合,否则恒 Locked。<mark>表字段 + 判定分支齐备,只缺「谁来发放」的调用方</mark>,接活动系统时补一个 <code>GrantAvatar(p, id)</code> 调用即可,判定逻辑不返工(列 <a href="#18-player-info::open">§七 O3</a>)。</div>
 
 <h3 id="clipboard">3.7 id 复制剪贴板工具</h3>
 
-spec:「id 界面可点按钮复制到剪贴板」。Unity 标准 API 是 `GUIUtility.systemCopyBuffer = text`(运行期可用)。为使逻辑可单测、不碰真实剪贴板,做<b>可注入 sink</b> 的薄封装:
+spec:「id 界面可点按钮复制到剪贴板」。Unity 标准 API 是 `GUIUtility.systemCopyBuffer = text`(运行期可用)。为使逻辑可单测、不碰真实剪贴板,做**可注入 sink** 的薄封装:
 
 <pre class="code">public static class ClipboardUtil
 {
@@ -367,7 +367,7 @@ spec:「id 界面可点按钮复制到剪贴板」。Unity 标准 API 是 `GUIUt
 
 <h3 id="persist">3.8 跨会话持久化(并入 MergeMetaSave)</h3>
 
-复用 save-system(设计 14):玩家信息字段<b>增量并入</b> `MergeMetaSave`,随既有 `MergeMetaPersistence.SaveAsync/Load` 落盘 / 迁移 / 跨天一并走,不另造存储栈。<b>两个安全做法,默认 (a):</b>
+复用 save-system(设计 14):玩家信息字段**增量并入** `MergeMetaSave`,随既有 `MergeMetaPersistence.SaveAsync/Load` 落盘 / 迁移 / 跨天一并走,不另造存储栈。<b>两个安全做法,默认 (a):</b>
 
 | 做法 | 怎么落 | 权衡 |
 | --- | --- | --- |
@@ -408,33 +408,33 @@ sequenceDiagram
 
 | # | 动作 | 落点 / 内容 |
 | --- | --- | --- |
-| <b>C1</b> | Luban 头像表 | 源 `Configs/GameConfig/Datas/avatar.xlsx`(5+1 字段,§3.5);`__enums__.xlsx` 追加 `avatar.EAvatarType`/`avatar.EUnlockCond`;`__tables__.xlsx` 追加 `avatar.TbAvatar` 行。跑导表脚本(`gen_code_bin_to_project_lazyload`,本机带 `DOTNET_ROLL_FORWARD=Major`,见遗留 #18)生成 `GameConfig.avatar.*` + `avatar_tbavatar.bytes` |
-| <b>C2</b> | 头像注册表 + POCO | 新建 `GameLogic.Config.AvatarConfigMgr`(仿 `ItemConfigMgr`:`ToEntry` 桥接 / `EnsureLoaded` 经 ConfigSystem / `GetAvatar(id)` / `GetByType(type)` / `All()` / `InitForTest` / `ResetForTest`)+ POCO `AvatarEntry`(`GameLogic.BlockBlast.PlayerInfo` 命名空间下,Id/Type/Image/UnlockText/UnlockCond/UnlockParam)。落 `GameScripts/HotFix/GameLogic/Config/` |
-| <b>C3</b> | 数据模型 | 新建 `GameLogic.BlockBlast.PlayerInfo`(POCO,§3.1)+ 常量 `DefaultAvatarId/DefaultFrameId` + `NewId()` + `CreateDefault(rng)`。落 `GameScripts/HotFix/GameLogic/Module/BlockBlast/Player/`(新目录) |
-| <b>C4</b> | 名字 + 改名 + 屏蔽字 | 新建 `PlayerNameGenerator`(§3.2)/ `ProfanityFilter`(§3.3)/ `RenamePriceConfig`(常量)/ `PlayerRenameService.TryRename` + `RenameResult`/`RenameReject`(§3.2)。同 Player 目录 |
-| <b>C5</b> | 等级曲线 + 加经验 | 新建 `PlayerLevelConfig`(`LevelFor`/`ExpIntoLevel`/`ExpToNext`/`CumExp`,§3.4)+ `PlayerExpService.AddExp(p,n)`(只增)。`LevelReward` 占位接口(等级奖励预览数据结构,空实现) |
-| <b>C6</b> | 解锁判定 | 新建 `AvatarUnlockService`(`IsUnlocked`/`StateOf`/`SyncLevelUnlocks`/`TryEquip`,§3.6)+ `AvatarState` 枚举 |
-| <b>C7</b> | 剪贴板工具 | 新建 `GameLogic.BlockBlast.ClipboardUtil`(可注入 Sink,§3.7) |
-| <b>M1</b> | 持久化加字段(增量) | `MergeMetaSave.cs` 加玩家平铺字段(§3.8 做法 a);`MergeOrderState.ExportMeta`/`ImportMeta` 加玩家字段拷贝 + 逐字段保底夹值(§3.8 注)。<mark>既有字段一行不改</mark>,`CurrentVersion` 不升 |
-| <b>M2</b> | 品质色复用(若 UI 需要) | 头像/框品质显示直接调 `RewardDisplay.QualityColor(int)`(设计 17,6 档权威)——<b>本轮无 UI,此条仅约定</b>,不新建色表(O5)。注:avatar 表无 quality 字段(spec 未要求),品质显示属可选增强,本轮不强求 |
-| <b>H1</b> | 主界面入口钩子(TODO) | 主界面左上角「玩家信息入口」是 UI,本轮不建。在主界面 UI 脚本(如 `MergeOrderWindow` 或主菜单)留 `// TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow` 注释钩子,不写实现 |
-| <b>T1</b> | EditMode 测试 | 新建 `PlayerInfoTests.cs`(落 `Assets/Editor/Tests/BlockBlast/`,加进 `BlockBlast.Tests.asmdef` 覆盖范围)。配置表(C 类)= `AssetDatabase` 直读 `avatar_tbavatar.bytes`(仿 `ItemSystemTests`);其余 = 纯逻辑 new / 静态调用 / `InitForTest` 注入 |
-| <b>X</b> | 不碰(零回归) | `ItemGrant.cs` / `NumericConfigMgr.cs` / `ItemConfigMgr.cs` / `RewardDisplay.cs` / 既有玩法逻辑 / 任何 UI 窗口 / 既有 `MergeMetaSave` 字段(只加不改) |
+| **C1** | Luban 头像表 | 源 `Configs/GameConfig/Datas/avatar.xlsx`(5+1 字段,§3.5);`__enums__.xlsx` 追加 `avatar.EAvatarType`/`avatar.EUnlockCond`;`__tables__.xlsx` 追加 `avatar.TbAvatar` 行。跑导表脚本(`gen_code_bin_to_project_lazyload`,本机带 `DOTNET_ROLL_FORWARD=Major`,见遗留 #18)生成 `GameConfig.avatar.*` + `avatar_tbavatar.bytes` |
+| **C2** | 头像注册表 + POCO | 新建 `GameLogic.Config.AvatarConfigMgr`(仿 `ItemConfigMgr`:`ToEntry` 桥接 / `EnsureLoaded` 经 ConfigSystem / `GetAvatar(id)` / `GetByType(type)` / `All()` / `InitForTest` / `ResetForTest`)+ POCO `AvatarEntry`(`GameLogic.BlockBlast.PlayerInfo` 命名空间下,Id/Type/Image/UnlockText/UnlockCond/UnlockParam)。落 `GameScripts/HotFix/GameLogic/Config/` |
+| **C3** | 数据模型 | 新建 `GameLogic.BlockBlast.PlayerInfo`(POCO,§3.1)+ 常量 `DefaultAvatarId/DefaultFrameId` + `NewId()` + `CreateDefault(rng)`。落 `GameScripts/HotFix/GameLogic/Module/BlockBlast/Player/`(新目录) |
+| **C4** | 名字 + 改名 + 屏蔽字 | 新建 `PlayerNameGenerator`(§3.2)/ `ProfanityFilter`(§3.3)/ `RenamePriceConfig`(常量)/ `PlayerRenameService.TryRename` + `RenameResult`/`RenameReject`(§3.2)。同 Player 目录 |
+| **C5** | 等级曲线 + 加经验 | 新建 `PlayerLevelConfig`(`LevelFor`/`ExpIntoLevel`/`ExpToNext`/`CumExp`,§3.4)+ `PlayerExpService.AddExp(p,n)`(只增)。`LevelReward` 占位接口(等级奖励预览数据结构,空实现) |
+| **C6** | 解锁判定 | 新建 `AvatarUnlockService`(`IsUnlocked`/`StateOf`/`SyncLevelUnlocks`/`TryEquip`,§3.6)+ `AvatarState` 枚举 |
+| **C7** | 剪贴板工具 | 新建 `GameLogic.BlockBlast.ClipboardUtil`(可注入 Sink,§3.7) |
+| **M1** | 持久化加字段(增量) | `MergeMetaSave.cs` 加玩家平铺字段(§3.8 做法 a);`MergeOrderState.ExportMeta`/`ImportMeta` 加玩家字段拷贝 + 逐字段保底夹值(§3.8 注)。<mark>既有字段一行不改</mark>,`CurrentVersion` 不升 |
+| **M2** | 品质色复用(若 UI 需要) | 头像/框品质显示直接调 `RewardDisplay.QualityColor(int)`(设计 17,6 档权威)——**本轮无 UI,此条仅约定**,不新建色表(O5)。注:avatar 表无 quality 字段(spec 未要求),品质显示属可选增强,本轮不强求 |
+| **H1** | 主界面入口钩子(TODO) | 主界面左上角「玩家信息入口」是 UI,本轮不建。在主界面 UI 脚本(如 `MergeOrderWindow` 或主菜单)留 `// TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow` 注释钩子,不写实现 |
+| **T1** | EditMode 测试 | 新建 `PlayerInfoTests.cs`(落 `Assets/Editor/Tests/BlockBlast/`,加进 `BlockBlast.Tests.asmdef` 覆盖范围)。配置表(C 类)= `AssetDatabase` 直读 `avatar_tbavatar.bytes`(仿 `ItemSystemTests`);其余 = 纯逻辑 new / 静态调用 / `InitForTest` 注入 |
+| **X** | 不碰(零回归) | `ItemGrant.cs` / `NumericConfigMgr.cs` / `ItemConfigMgr.cs` / `RewardDisplay.cs` / 既有玩法逻辑 / 任何 UI 窗口 / 既有 `MergeMetaSave` 字段(只加不改) |
 
 <div class="callout note"><b>命名空间提示:</b>玩家信息逻辑落 <code>GameLogic.BlockBlast.Player</code>(或沿用 <code>GameLogic.BlockBlast</code>),配置管理器落 <code>GameLogic.Config</code>(同 <code>NumericConfigMgr</code>/<code>ItemConfigMgr</code>),POCO <code>AvatarEntry</code> 跟随。测试 asmdef 已引用 <code>GameLogic</code>/<code>GameProto</code>,无需改引用,新增 <code>.cs</code> 自动纳入。</div>
 
 <h2 id="accept">六、验收点</h2>
 
-test 逐条核对。<b>C 类</b>(配置直读)需 `avatar_tbavatar.bytes` 已导出(导表工具链不可达 → 判 BLOCKED 不判 FAIL,boss memory);<b>其余全纯逻辑</b>,无 .bytes / YooAsset 依赖。
+test 逐条核对。**C 类**(配置直读)需 `avatar_tbavatar.bytes` 已导出(导表工具链不可达 → 判 BLOCKED 不判 FAIL,boss memory);**其余全纯逻辑**,无 .bytes / YooAsset 依赖。
 
 | # | 验收点 | 完成定义 |
 | --- | --- | --- |
 | N1 | 名字生成结构 | `Generate(rng)` 以 "Player" 开头,总长 = 6+6=12,后 6 字符全落在 62 字符集内(固定种子可复现断言) |
 | N2 | 名字随机性 | 两个不同种子的 `Generate` 后缀不全等(防写死);同种子两次调用结果一致(确定性) |
-| R1 | 首次改名免费 | `RenameCount=0`,`TryRename(p,"新名",词表,stub)`→ Success,Cost==0,Name=="新名",RenameCount==1,<b>未调</b> trySpend |
+| R1 | 首次改名免费 | `RenameCount=0`,`TryRename(p,"新名",词表,stub)`→ Success,Cost==0,Name=="新名",RenameCount==1,**未调** trySpend |
 | R2 | 二次改名读价扣钻 | `RenameCount=1`,trySpend 返 true → Success,Cost==配置价(默认100),RenameCount==2;trySpend 被以 cost 调用 |
 | R3 | 钻石不足拒绝 | `RenameCount=1`,trySpend 返 false → Success==false,Reason==NotEnoughDiamond,Name 不变,RenameCount 不变 |
-| R4 | 屏蔽字拒绝且不计费 | 新名含屏蔽词 → Success==false,Reason==Profanity,Name 不变,<b>trySpend 未被调</b>(屏蔽字先于计费) |
+| R4 | 屏蔽字拒绝且不计费 | 新名含屏蔽词 → Success==false,Reason==Profanity,Name 不变,**trySpend 未被调**(屏蔽字先于计费) |
 | R5 | 空/超长拒绝 | 空串 → Reason==Empty;超 MaxLen → Reason==TooLong;均不改名不计费 |
 | P1 | 屏蔽字大小写不敏感 | 词表{"admin"},"superADMIN" → IsClean==false;"Player2dfgKL" → true |
 | P2 | 空词表不拦 | `IsClean(任意名, 空表/null)`==true |
@@ -465,20 +465,20 @@ test 逐条核对。<b>C 类</b>(配置直读)需 `avatar_tbavatar.bytes` 已导
 
 范围开关,均按「本轮安全默认」推进(不阻塞);boss 关单复核,要改另开增量轮。
 
-- <b>O1 · UI 表现层全部延后</b>(默认 √)。玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览 tips / 主界面左上角入口——需美术(头像/框 Sprite),本轮只留服务 + 入口 TODO 钩子。接 UI 时基于本层服务驱动,逻辑层不返工。
-- <b>O2 · 头像/框真实 Sprite 加载</b>(默认延后)。本轮只给 `image` 资源名占位,真实 Sprite 加载(`Image.SetSprite` + 资源路径)随 UI 轮。
-- <b>O3 · 解锁条件 type 2 活动发放</b>(默认留钩子)。表字段 + 判定分支齐备,本轮无活动系统不判;真实「发放」= 接活动系统调 `GrantAvatar(p,id)` 把 id 写进集合,判定逻辑不返工。
-- <b>O4 · 多语言文本真实查表</b>(默认延后)。`unlock_text` / 名称存 text id,本轮显示 id 兜底,与 num/item/reward NameTextId 现状一致。文本表接入列后续。
-- <b>O5 · 头像/框品质显示</b>(默认不做)。spec avatar 表<b>无 quality 字段</b>,品质显示属可选增强;若后续要,复用 `RewardDisplay.QualityColor`(设计 17,6 档)+ 给 avatar 表加 quality 字段,不另造色表。
-- <b>O6 · 屏蔽字真实词表来源</b>(默认可注入夹具)。本轮算法 + 注入接缝就绪,真实词表(Luban 表 / 文本资源 / 远程)是运营数据,延后;匹配策略增强(变形/拼音/间隔符)同此轮接。
-- <b>O7 · 玩家经验来源接线</b>(默认不接)。本轮给经验容器 + 换算 + `AddExp` 接口,「玩什么加多少经验」(消除/订单/每日)是经济接线 + 运营数据,无明确 spec 规则,延后。等级奖励内容(每级给什么)同此,本轮给数据结构占位。
-- <b>O8 · 钻石可花费余额</b>(默认 no-op)。钻石 num\_id=3 无余额字段(item-system 遗留 #19),改名扣钻经 `trySpendDiamond` 接缝,默认生产返 true(去变现:不靠钻石卡改名);待钻石实装为可花费余额,接真实扣减,`TryRename` 不返工。
+- **O1 · UI 表现层全部延后**(默认 √)。玩家信息界面 / 改名界面 / 三态网格 / 经验槽 / 等级奖励预览 tips / 主界面左上角入口——需美术(头像/框 Sprite),本轮只留服务 + 入口 TODO 钩子。接 UI 时基于本层服务驱动,逻辑层不返工。
+- **O2 · 头像/框真实 Sprite 加载**(默认延后)。本轮只给 `image` 资源名占位,真实 Sprite 加载(`Image.SetSprite` + 资源路径)随 UI 轮。
+- **O3 · 解锁条件 type 2 活动发放**(默认留钩子)。表字段 + 判定分支齐备,本轮无活动系统不判;真实「发放」= 接活动系统调 `GrantAvatar(p,id)` 把 id 写进集合,判定逻辑不返工。
+- **O4 · 多语言文本真实查表**(默认延后)。`unlock_text` / 名称存 text id,本轮显示 id 兜底,与 num/item/reward NameTextId 现状一致。文本表接入列后续。
+- **O5 · 头像/框品质显示**(默认不做)。spec avatar 表**无 quality 字段**,品质显示属可选增强;若后续要,复用 `RewardDisplay.QualityColor`(设计 17,6 档)+ 给 avatar 表加 quality 字段,不另造色表。
+- **O6 · 屏蔽字真实词表来源**(默认可注入夹具)。本轮算法 + 注入接缝就绪,真实词表(Luban 表 / 文本资源 / 远程)是运营数据,延后;匹配策略增强(变形/拼音/间隔符)同此轮接。
+- **O7 · 玩家经验来源接线**(默认不接)。本轮给经验容器 + 换算 + `AddExp` 接口,「玩什么加多少经验」(消除/订单/每日)是经济接线 + 运营数据,无明确 spec 规则,延后。等级奖励内容(每级给什么)同此,本轮给数据结构占位。
+- **O8 · 钻石可花费余额**(默认 no-op)。钻石 num\_id=3 无余额字段(item-system 遗留 #19),改名扣钻经 `trySpendDiamond` 接缝,默认生产返 true(去变现:不靠钻石卡改名);待钻石实装为可花费余额,接真实扣减,`TryRename` 不返工。
 
 <h2 id="risk">八、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| 玩家等级误复用守护者经验,两套语义混淆 | §3.4 钉死:玩家等级是 `PlayerInfo.Exp` 独立第三线,<b>不读</b> `MergeOrderState.Exp`/`GuardianLevel`;验收 L1–L4 全用独立 PlayerInfo 经验,不触守护者 |
+| 玩家等级误复用守护者经验,两套语义混淆 | §3.4 钉死:玩家等级是 `PlayerInfo.Exp` 独立第三线,**不读** `MergeOrderState.Exp`/`GuardianLevel`;验收 L1–L4 全用独立 PlayerInfo 经验,不触守护者 |
 | 改名扣钻石被当真实付费墙(违去变现) | §3.2 注 + O8:钻石无余额,`trySpendDiamond` 默认返 true(不拦);逻辑保留可测,生产不卡玩家;不实装购买入口 |
 | 把数据层做成连 UI / 改既有玩法(回归面爆炸) | 读前必看四条边界 + §五 X 行钉死:UI 不建、既有玩法/产出/数值零改动;唯一改既有是 MergeMetaSave 加字段(不删不改既有字段) |
 | 持久化加字段破坏旧档加载 | §3.8 做法 a + S2/S3:CurrentVersion 不升,JsonUtility 旧档缺字段给缺省 + ImportMeta 逐字段保底夹值(同设计 14 红线);旧档既有 14 字段不丢 |

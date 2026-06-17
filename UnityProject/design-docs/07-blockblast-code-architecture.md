@@ -10,7 +10,7 @@
 
 # BlockBlast 代码架构剖析
 
-工程视角 · 看清离线还原版动态难度系统的 C# 代码是怎么分层、数据怎么流、热点在哪。数值与体感设计请看姊妹篇《[动态难度拆解](#02-dynamic-difficulty)》，本篇只讲<b>代码实现</b>。
+工程视角 · 看清离线还原版动态难度系统的 C# 代码是怎么分层、数据怎么流、热点在哪。数值与体感设计请看姊妹篇《[动态难度拆解](#02-dynamic-difficulty)》，本篇只讲**代码实现**。
 
 <div class="callout note">
       <b>一句话定位：</b>这套代码的核心不是「游戏逻辑」，而是一台<b>发牌操控机</b>——根据你的分数和一个隐藏「难度账户」<mark><code>dynamicWeight</code></mark>，在 8×8 位棋盘上做<b>蒙特卡洛搜索</b>，实时决定下一组方块是帮你消除（放水）还是逼你走投无路（做局）。整个模块<mark class="g">完全 headless</mark>：除 <code>JsonUtility</code> 存档外不碰任何 Unity 运行时，可在 EditMode 直接单测。
@@ -125,10 +125,10 @@ sequenceDiagram
 
 每行用一个 int 的低 8 位表示，bit `(7 - col)` = 1 表示占用。整套棋盘操作都是<mark>位运算</mark>，极快：
 
-- <b>放置</b> `PutBlock`：把形状行掩码左移对齐后 `|=` 到棋盘行。
-- <b>可放性</b> `CanPutBlock`：形状掩码与棋盘行 `&` 非零即冲突。
-- <b>满行/满列消除</b> `CanClearRowCols`：行掩码 == `255` 即满行；所有行 `&` 起来取满列。
-- <b>GameOver 判定</b> `CheckPutAllBlocks`：DFS 试所有摆放顺序，存在一种能全放下即未死。
+- **放置** `PutBlock`：把形状行掩码左移对齐后 `|=` 到棋盘行。
+- **可放性** `CanPutBlock`：形状掩码与棋盘行 `&` 非零即冲突。
+- **满行/满列消除** `CanClearRowCols`：行掩码 == `255` 即满行；所有行 `&` 起来取满列。
+- **GameOver 判定** `CheckPutAllBlocks`：DFS 试所有摆放顺序，存在一种能全放下即未死。
 
 <div class="callout note">所有「占用 / 空」都跟颜色无关。<b>颜色只活在 <code>BlockGameState.SaveArr</code> 这层带色 2D 数组里</b>，算法层完全不关心颜色——又一处干净的关注点分离。</div>
 
@@ -137,7 +137,7 @@ sequenceDiagram
 这是整套难度引擎的发动机。关键洞察：<mark>一组牌的「解的数量」就是它的难度量化指标</mark>。
 
 - `EnumerateSolutions`：DFS 枚举一组 trio 在当前盘面的所有合法摆放序列（带 limit 提前剪枝）。
-- `CountSolutions`：只数解的个数。<b>做局算法</b>就是搜「解数趋近 1」的 trio，<b>放水算法</b>搜「能消最多 / 能清盘」的 trio。
+- `CountSolutions`：只数解的个数。**做局算法**就是搜「解数趋近 1」的 trio，**放水算法**搜「能消最多 / 能清盘」的 trio。
 - `Simulate`：模拟一条摆放序列并结算消除格数（与游戏内规则一致，避免行列交叉点重复计数）。
 - `Entropy`：相邻格状态不同的边数 —— Add3「熵增」算法用它把盘面搞碎。
 
@@ -145,9 +145,9 @@ sequenceDiagram
 
 大脑的决策分两级，外加一条平滑反馈回路：
 
-1. <b>选 tier</b>（`GetCurrentTier`）：用 `dynamicWeight ∈ FactorRange` <b>且</b> `score ∈ HighScoreRange` 命中一档；找不到精确档退化到「中点最近」的档。
-2. <b>抽算法</b>（`PickAlgorithmFromTier`）：在该 tier 的 8 个 odds 里加权随机抽一种算法。
-3. <b>反馈调权</b>（`AddWeight`）：发完牌按算法查 `FactorList` 拿增量累加回 `dynamicWeight`。<b>同向连续</b>用较小的 `Consecutive`、<b>换向</b>用较大的 `Basic` —— 防难度突变。
+1. **选 tier**（`GetCurrentTier`）：用 `dynamicWeight ∈ FactorRange` **且** `score ∈ HighScoreRange` 命中一档；找不到精确档退化到「中点最近」的档。
+2. **抽算法**（`PickAlgorithmFromTier`）：在该 tier 的 8 个 odds 里加权随机抽一种算法。
+3. **反馈调权**（`AddWeight`）：发完牌按算法查 `FactorList` 拿增量累加回 `dynamicWeight`。**同向连续**用较小的 `Consecutive`、**换向**用较大的 `Basic` —— 防难度突变。
 
 <div class="callout note">
       代码里 <code>AddWeight</code> 有一段考古级注释：原版 TS 用 ±9999 sentinel 做 clamp，因 sentinel 比配置值还宽 → clamp 实际<b>失效</b>。还原版「修复」为按配置真实边界收敛。<mark class="g">这类与原版差异的标注贯穿全模块，是这套代码最值钱的部分之一。</mark>
@@ -166,7 +166,7 @@ sequenceDiagram
 | 5 正式调度 | 其余 | tier → algo | 核心 DDA，详见《[动态难度拆解](#02-dynamic-difficulty)》 |
 | 6 后处理 | 每次返回前 | 过滤 / 去重 | 早期屏蔽难块、三块图形去重 |
 
-覆盖层用<b>策略模式 + 注册表</b>（`IOfferOverride` 按 `TriggerTiming` 分桶、按 `Priority` 排序）。新增一条特殊规则只要实现接口并注册，不动调度主干 —— <mark class="g">对扩展开放</mark>。
+覆盖层用**策略模式 + 注册表**（`IOfferOverride` 按 `TriggerTiming` 分桶、按 `Priority` 排序）。新增一条特殊规则只要实现接口并注册，不动调度主干 —— <mark class="g">对扩展开放</mark>。
 
 <h2 id="review">六、工程亮点 &amp; 关注点</h2>
 

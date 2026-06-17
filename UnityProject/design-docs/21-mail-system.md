@@ -12,7 +12,7 @@
 
 # 通用邮件系统 · 数据逻辑层 + 服务器/运营接缝
 
-命名空间 `GameLogic.Mail` 的<b>收件箱数据逻辑层</b>:邮件数据模型(发件人 / 时间 / 标题 / 内容 / 奖励附件 / 已读 / 已领取)+ 收件箱服务 `MailboxService`(收件 / 列表排序 / 标记已读 / 领取奖励单封+一键 / 删除已读 / 自动清理超量+过期 / 红点)。关键在两道接缝:① <b>对外收件 API</b> `IMailService.Send`——供排行榜结算 / 活动回收 / 系统奖励调用(即 spec 的「为其他功能留邮件调用接口」);② <b>服务器/运营接缝</b> `IMailSource`(后台发删 / 定时 / 区服多选)<mark>= stub + TODO,离线不实现</mark>。奖励附件复用 [道具系统 16](#16-item-system) 的礼包随机库 + `ItemGrant` 落点,领取后用 [设计 17](#17-reward-display) 的 `RewardView` 展示。这是 xlsx 系统底层批次第七刀。<mark>邮件界面 / 详情 / 红点显示 / icon(表现层)需美术,延后轮,本轮只留服务 + 接缝 + 红点状态 getter。</mark>
+命名空间 `GameLogic.Mail` 的**收件箱数据逻辑层**:邮件数据模型(发件人 / 时间 / 标题 / 内容 / 奖励附件 / 已读 / 已领取)+ 收件箱服务 `MailboxService`(收件 / 列表排序 / 标记已读 / 领取奖励单封+一键 / 删除已读 / 自动清理超量+过期 / 红点)。关键在两道接缝:① **对外收件 API** `IMailService.Send`——供排行榜结算 / 活动回收 / 系统奖励调用(即 spec 的「为其他功能留邮件调用接口」);② **服务器/运营接缝** `IMailSource`(后台发删 / 定时 / 区服多选)<mark>= stub + TODO,离线不实现</mark>。奖励附件复用 [道具系统 16](#16-item-system) 的礼包随机库 + `ItemGrant` 落点,领取后用 [设计 17](#17-reward-display) 的 `RewardView` 展示。这是 xlsx 系统底层批次第七刀。<mark>邮件界面 / 详情 / 红点显示 / icon(表现层)需美术,延后轮,本轮只留服务 + 接缝 + 红点状态 getter。</mark>
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
@@ -54,7 +54,7 @@
 
 <h2 id="what">一、做什么与为什么</h2>
 
-现状:游戏<b>没有邮件系统</b>。spec(`1002通用邮件系统.xlsx`)要一套「系统发信息与奖励」的收件箱:运营在后台发全服/私人/附件邮件,系统(排行榜结算 / 活动回收 / 补偿)也经邮件给玩家发奖励。本轮建一套<b>通用邮件数据逻辑层</b>:收件 → 列表(排序)→ 读 → 领奖 → 删除 → 自动清理,并把「奖励发放接口」「服务器/运营来源」两道接缝划清。
+现状:游戏**没有邮件系统**。spec(`1002通用邮件系统.xlsx`)要一套「系统发信息与奖励」的收件箱:运营在后台发全服/私人/附件邮件,系统(排行榜结算 / 活动回收 / 补偿)也经邮件给玩家发奖励。本轮建一套**通用邮件数据逻辑层**:收件 → 列表(排序)→ 读 → 领奖 → 删除 → 自动清理,并把「奖励发放接口」「服务器/运营来源」两道接缝划清。
 
 「通用」体现在三处:① 邮件内容(标题/内容/有效期/奖励)经配置表声明,奖励复用道具系统的礼包随机库(任何道具/货币/图案都能发);② 对外收件 API 让游戏内任意系统都能经邮件发奖,不绑定来源;③ 运营来源经接缝抽象,离线 inert、未来可切真实后台而服务层不改。逐条对应 spec 需求:
 
@@ -72,8 +72,8 @@
 | 10 | N 与保留时间入全局配置 | `mail_global` 表:maxCount(默认 100)/ retainDays(默认 30),`MailConfigMgr` 读([§3.1](#21-mail-system::config)) | <span class="pill-new">新增全局配置</span> |
 | 11 | 红点 = 未读 OR 有奖励未领;主界面图标右上+列表项右上 | `HasUnreadOrUnclaimed`(全局红点)/ 每封 `MailItem.HasRedDot`(列表项红点,[§3.6](#21-mail-system::reddot)) | <span class="pill-new">新增红点 getter</span> |
 | 12 | 开启:1 级即开 | 无等级门控逻辑(始终可用);1 级开仅 UI 入口可见性,表现层处理 | <span class="pill-cur">无门控</span> |
-| 13 | 运营/服务器:后台发删定时邮件(标待定/后面做) | `IMailSource` 接缝 + `InertMailSource` <b>stub</b>:离线不实现,区服离线视单一本地区服([§3.7](#21-mail-system::source) / [§七 O1](#21-mail-system::open)) | <span class="pill-no">stub</span> |
-| 14 | 邮件界面 / 详情 / 无邮件 / 全部删除提示 / 红点显示 / icon | 表现层,需美术,<b>延后</b>(同 15–20 节奏,[§七 O7](#21-mail-system::open)) | <span class="pill-no">UI 延后</span> |
+| 13 | 运营/服务器:后台发删定时邮件(标待定/后面做) | `IMailSource` 接缝 + `InertMailSource` **stub**:离线不实现,区服离线视单一本地区服([§3.7](#21-mail-system::source) / [§七 O1](#21-mail-system::open)) | <span class="pill-no">stub</span> |
+| 14 | 邮件界面 / 详情 / 无邮件 / 全部删除提示 / 红点显示 / icon | 表现层,需美术,**延后**(同 15–20 节奏,[§七 O7](#21-mail-system::open)) | <span class="pill-no">UI 延后</span> |
 
 <b>不做(本轮明确排除):</b><span class="pill-no">真实服务器 / 后台收发邮件</span>(无网络模块,O1);<span class="pill-no">区服多选 / 多区概念</span>(离线单区,O2);<span class="pill-no">所有 UI 窗口</span>(界面/详情/无邮件态/删除确认 — 需美术,O7);<span class="pill-no">多语言标题/内容真实查表</span>(textId 占位,同 num/item/reward 现状,O5);<span class="pill-no">道具/跑马灯</span>(spec 明写无,O6);<span class="pill-no">充值 / 付费 / 内购邮件</span>(去变现方向,不做)。
 
@@ -81,7 +81,7 @@
 
 <h3 id="states">2.1 邮件状态(已读 × 奖励三态)</h3>
 
-一封邮件有两个正交维度:<b>读态</b>(未读/已读)与<b>奖励态</b>(无奖励 / 有奖励未领 / 有奖励已领)。spec 的红点、删除、领取规则都由这两维派生。状态图:
+一封邮件有两个正交维度:**读态**(未读/已读)与**奖励态**(无奖励 / 有奖励未领 / 有奖励已领)。spec 的红点、删除、领取规则都由这两维派生。状态图:
 
 ```mermaid
 stateDiagram-v2
@@ -116,7 +116,7 @@ stateDiagram-v2
 | 道具元数据 | `ItemConfigMgr.GetItem(id)`(设计 16) | 复用,不重复登记道具 |
 | 持久化 | `Persistence.Provider`(`IPersistenceProvider`)+ `JsonUtility` 序列化范本(设计 14) | `MailPersistence` 包它存收件箱(键 `Mail.Inbox`) |
 | 奖励展示 | `RewardView` 归一(设计 17) | 复用,UI 接时把领取产出 `GrantPayload` 转 `RewardView` |
-| 收件箱状态机 + 服务 + 接缝 | <span class="no">缺</span> | <b>本轮主体</b>:模型 + 列表/读/领/删/清理 + 收件 API + 运营接缝 |
+| 收件箱状态机 + 服务 + 接缝 | <span class="no">缺</span> | **本轮主体**:模型 + 列表/读/领/删/清理 + 收件 API + 运营接缝 |
 
 <h2 id="numbers">三、设计正文</h2>
 
@@ -124,7 +124,7 @@ stateDiagram-v2
 
 源 xlsx 在仓库根 `Configs/GameConfig/Datas/mail.xlsx`(与 `UnityProject` 同级,同 num/item/redeem 表)。schema 写数据 xlsx 表头四行(`##var` / `##type` / `##group` / `##`);planner 备注类字段设 `group=e` 不导出运行期。
 
-<b>邮件模板表 mail</b>(主键 `id`,字段直取 spec 的 `表` sheet 表头):
+**邮件模板表 mail**(主键 `id`,字段直取 spec 的 `表` sheet 表头):
 
 | 字段(##var) | 类型(##type) | group | 含义(spec) |
 | --- | --- | --- | --- |
@@ -134,7 +134,7 @@ stateDiagram-v2
 | expire\_days | int | c,s | 有效期(天)。demo 行 = 14;0 / 负 = 用全局 retainDays 兜底([§3.5.2](#21-mail-system::cleanup)) |
 | reward\_id | int | c,s | <mark>奖励随机库表 id</mark>(spec「Reward表id」)。指向道具系统 `gift_random` 礼包池 index(设计 16);demo 行 = 1002;0 = 无奖励 |
 
-spec 的 5 条 demo 行(`id 1–5` / title=mailName\_1..5 / desc=mailDesc\_1..5 / expire=14 / reward=1002)<b>原样录入</b>(reward=1002 须道具系统 16 的礼包随机库存在该 index 才能领出实物,否则领取产出空列表——不抛,见 [§3.4.2](#21-mail-system::claim) 边界)。
+spec 的 5 条 demo 行(`id 1–5` / title=mailName\_1..5 / desc=mailDesc\_1..5 / expire=14 / reward=1002)**原样录入**(reward=1002 须道具系统 16 的礼包随机库存在该 index 才能领出实物,否则领取产出空列表——不抛,见 [§3.4.2](#21-mail-system::claim) 边界)。
 
 <b>全局配置 mail\_global</b>(单行 / KV,或并入既有全局配置表):
 
@@ -187,7 +187,7 @@ namespace GameLogic.Config
 
 <h3 id="draft">3.3 邮件模型 MailItem + 收件草稿 MailDraft</h3>
 
-收件入口收的是一张<b>草稿</b>(`MailDraft`:谁发的 / 标题 / 内容 / 有效期 / 奖励库 id),服务给它配上 id + 收件时间 + 初始状态,变成<b>运行期邮件</b>(`MailItem`)。模型字段对应 spec「发件人+发件时间+标题+内容+奖励包(可选)」+ 读态/奖励态。
+收件入口收的是一张**草稿**(`MailDraft`:谁发的 / 标题 / 内容 / 有效期 / 奖励库 id),服务给它配上 id + 收件时间 + 初始状态,变成**运行期邮件**(`MailItem`)。模型字段对应 spec「发件人+发件时间+标题+内容+奖励包(可选)」+ 读态/奖励态。
 
 <pre class="code">namespace GameLogic.Mail
 {
@@ -220,7 +220,7 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<b>时间用 Ticks 存</b>:`DateTime` 不是 `JsonUtility` 友好类型,存 `long Ticks`(可序列化、可与注入 today 的 Ticks 比),过期判定时还原(同 save-system 存原始值口径)。
+**时间用 Ticks 存**:`DateTime` 不是 `JsonUtility` 友好类型,存 `long Ticks`(可序列化、可与注入 today 的 Ticks 比),过期判定时还原(同 save-system 存原始值口径)。
 
 <h3 id="service">3.4 收件箱服务 MailboxService(对外 API + 列表 + 读 + 删)</h3>
 
@@ -274,7 +274,7 @@ namespace GameLogic.Config
     }
 }</pre>
 
-<b>排序口径</b>:spec「已读>未读」——理解为<mark>未读邮件置顶</mark>(玩家先看新内容),已读沉底;组内按发件时间降序(新邮件在前)。`Read ? 1 : 0` 升序使未读(0)排在已读(1)之前。
+**排序口径**:spec「已读>未读」——理解为<mark>未读邮件置顶</mark>(玩家先看新内容),已读沉底;组内按发件时间降序(新邮件在前)。`Read ? 1 : 0` 升序使未读(0)排在已读(1)之前。
 
 <h4 id="claim">3.4.2 领取奖励(单封 Claim / 一键 ClaimAll)</h4>
 
@@ -341,7 +341,7 @@ namespace GameLogic.Config
     return all;                                                          // 池缺/空 → 空列表(不抛)
 }</pre>
 
-<b>边界</b>:奖励库 id 在道具系统未登记(`OpenRandom` 查无返空列表)→ 领取仍返 `Success` 但 `Granted` 空(不抛;demo 行 reward=1002 须 16 礼包库存在该 index 才有实物)。`automatic=0` 项 `GrantOnAcquire` 返空(进背包路径,本轮不接背包实例,O3)。
+**边界**:奖励库 id 在道具系统未登记(`OpenRandom` 查无返空列表)→ 领取仍返 `Success` 但 `Granted` 空(不抛;demo 行 reward=1002 须 16 礼包库存在该 index 才有实物)。`automatic=0` 项 `GrantOnAcquire` 返空(进背包路径,本轮不接背包实例,O3)。
 
 <h3 id="persist">3.5 持久化层(MailInboxSave / MailPersistence)</h3>
 
@@ -381,7 +381,7 @@ namespace GameLogic.Config
     public sealed class InMemoryMailPersistence : IMailPersistence { /* List 字段直存直取 */ }
 }</pre>
 
-<b>保底</b>:`Load` 对无键 / 空串 / `FromJson` 抛异常(脏数据/截断)统一产出空列表(`try/catch` 包 `FromJson`,同 14 `Deserialize` 口径)。本地单机文件可被篡改,反序列化对任意输入不抛。version 字段预留迁移(本轮恒 1)。
+**保底**:`Load` 对无键 / 空串 / `FromJson` 抛异常(脏数据/截断)统一产出空列表(`try/catch` 包 `FromJson`,同 14 `Deserialize` 口径)。本地单机文件可被篡改,反序列化对任意输入不抛。version 字段预留迁移(本轮恒 1)。
 
 <h4 id="cleanup">3.5.2 自动清理(过期 + 超量,注入时钟)</h4>
 
@@ -389,8 +389,8 @@ namespace GameLogic.Config
 
 | 规则 | 判据 | spec 出处 |
 | --- | --- | --- |
-| <b>过期清理</b> `CleanupExpired(now)` | 每封:有效期 = `ExpireDays>0 ? ExpireDays : Global.RetainDays`;`SendTime + 有效期天 < now` → 删 | 「保留期默认一月到期自动消失」(邮件自带 expire 优先,缺省用全局 retainDays=30) |
-| <b>超量清理</b> `CleanupOverflow()` | 收件箱数 > `Global.MaxCount`(默认 100)→ 按 `SendTimeTicks` 升序删最早的,直到 = MaxCount | 「未领取数>N 删最早、新邮件插尾、总上限 N」 |
+| **过期清理** `CleanupExpired(now)` | 每封:有效期 = `ExpireDays>0 ? ExpireDays : Global.RetainDays`;`SendTime + 有效期天 < now` → 删 | 「保留期默认一月到期自动消失」(邮件自带 expire 优先,缺省用全局 retainDays=30) |
+| **超量清理** `CleanupOverflow()` | 收件箱数 > `Global.MaxCount`(默认 100)→ 按 `SendTimeTicks` 升序删最早的,直到 = MaxCount | 「未领取数>N 删最早、新邮件插尾、总上限 N」 |
 
 <b>超量口径取舍(O4)</b>:spec 写「未领取数>N」与「总上限 N」两句。本轮取<mark>总上限 N</mark>(收件箱总条数上限,默认 100),超量删最早——这是安全默认:既满足「总上限 N」,又使「插尾 + 删最早」FIFO 语义清晰。「只数未领取」会让已读已领的旧邮件不占名额、收件箱可无限堆已读邮件,反而不符「总上限」。要改成「只对未领取计数」可在 `CleanupOverflow` 换判据(O4)。<mark>删最早不论读/领态</mark>(超量是硬上限);未领奖励被超量删除是 spec 既定取舍(玩家应及时领取)。
 
@@ -412,7 +412,7 @@ private void CleanupOverflow()
 
 <h3 id="reddot">3.6 红点 getter(未读 OR 有奖未领)</h3>
 
-spec 红点 = 「邮件未读时 / 有奖励未领时」,显示在<b>主界面邮件图标右上</b>(全局红点)与<b>列表项右上</b>(每封红点)。本轮只给状态 getter,UI 投放延后。
+spec 红点 = 「邮件未读时 / 有奖励未领时」,显示在**主界面邮件图标右上**(全局红点)与**列表项右上**(每封红点)。本轮只给状态 getter,UI 投放延后。
 
 <pre class="code">public partial class MailboxService
 {
@@ -469,7 +469,7 @@ spec 红点 = 「邮件未读时 / 有奖励未领时」,显示在<b>主界面�
     public static int TextIdFor(ClaimStatus s) =&gt; s switch { ... };  // 结果码 → textId
 }</pre>
 
-<b>占位约定</b>:本轮 textId 给<mark>互不相同的占位常量</mark>(验收断言各返不同非 0 值,同 19/20 做法);真实多语言文本表建成后替换。注释写中文占位文案供 UI 参考。
+**占位约定**:本轮 textId 给<mark>互不相同的占位常量</mark>(验收断言各返不同非 0 值,同 19/20 做法);真实多语言文本表建成后替换。注释写中文占位文案供 UI 参考。
 
 <h2 id="flow">四、收件 → 领取一封邮件的时序</h2>
 
@@ -512,7 +512,7 @@ sequenceDiagram
 | 6 | 同目录 · `IMailService` / `MailboxService` + `MailText` | 新建 | 对外收件 API + 收件箱服务(列表/读/领单+一键/删/清理/红点)+ 文案 textId;发奖复用 `GiftOpener.OpenRandom`(✓ 已核实 `Item/GiftOpener.cs`)+ `ItemGrant.GrantOnAcquire`(✓ `Item/ItemGrant.cs`)+ 道具查 `ItemConfigMgr.GetItem`(✓)([§3.4](#21-mail-system::service)–[§3.6](#21-mail-system::reddot) / [§3.8](#21-mail-system::text)) |
 | 7 | 同目录 · `IMailSource` / `InertMailSource` | 新建 | 服务器/运营接缝;离线 stub 返空、不连网([§3.7](#21-mail-system::source)) |
 | 8 | `Assets/Editor/Tests/BlockBlast/MailSystemTests.cs` | 新建测试 | 覆盖配置桥接 / 收件 / 排序 / 读 / 领单+一键 / 删 / 清理超N+过期 / 红点 / 持久化往返 / 发奖产出([§六](#21-mail-system::accept))。asmdef 已含 `GameLogic`+`GameProto`+`TEngine.Runtime` 引用,直接可达 |
-| — | `GiftOpener` / `ItemGrant` / `ItemConfigMgr` / `Persistence` / 框架代码 | <b>不改</b> | 发奖 / 持久化复用既有接缝,只调用不修改 |
+| — | `GiftOpener` / `ItemGrant` / `ItemConfigMgr` / `Persistence` / 框架代码 | **不改** | 发奖 / 持久化复用既有接缝,只调用不修改 |
 
 <div class="callout note" style="margin-top:8px">
     <b>命名空间归属</b>
@@ -526,7 +526,7 @@ sequenceDiagram
 
 <h2 id="accept">六、验收点</h2>
 
-纯逻辑全 EditMode 可测(POCO + 注入隔离 + 注入时钟);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在<b>配置桥接 + 收件 + 排序 + 读 + 领取单/一键 + 删除 + 自动清理 + 红点 + 持久化往返 + 发奖复用</b>;真实服务器 / UI 视觉不在本轮(无后端 / 需美术)。
+纯逻辑全 EditMode 可测(POCO + 注入隔离 + 注入时钟);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在**配置桥接 + 收件 + 排序 + 读 + 领取单/一键 + 删除 + 自动清理 + 红点 + 持久化往返 + 发奖复用**;真实服务器 / UI 视觉不在本轮(无后端 / 需美术)。
 
 <table class="tight">
     <tbody><tr><th>组</th><th>#</th><th>验收点(完成定义,test 可逐条核对)</th></tr>
@@ -564,29 +564,29 @@ sequenceDiagram
 
 <h2 id="open">七、待拍板清单</h2>
 
-以下为范围开关,boss 自治授权下<b>均取安全默认推进</b>(已在 boss 预先拍板内),列此备查;要改另开增量轮。
+以下为范围开关,boss 自治授权下**均取安全默认推进**(已在 boss 预先拍板内),列此备查;要改另开增量轮。
 
 | # | 开关 | 本轮默认 | 备选 / 触发改动 |
 | --- | --- | --- | --- |
-| O1 | 真实服务器后台发删/定时邮件 | <b>stub</b>(`IMailSource`/`InertMailSource` 留接口,离线返空) | 未来上后端时实现 `IMailSource`(拉服务器邮件 → `Send`),服务层零改动 |
-| O2 | 区服多选 / 多区概念 | <b>不做</b>(离线单区,区服离线视单一本地区服) | 上后端 + 多区时,`IMailSource` 实现按区服拉取;本地无多区 |
+| O1 | 真实服务器后台发删/定时邮件 | **stub**(`IMailSource`/`InertMailSource` 留接口,离线返空) | 未来上后端时实现 `IMailSource`(拉服务器邮件 → `Send`),服务层零改动 |
+| O2 | 区服多选 / 多区概念 | **不做**(离线单区,区服离线视单一本地区服) | 上后端 + 多区时,`IMailSource` 实现按区服拉取;本地无多区 |
 | O3 | 非自动道具进背包 | 不接背包实例(`GrantOnAcquire` 对 automatic=0 返空,只汇总立即结算项) | 背包实例接入后,UI / 调用方把 automatic=0 项入背包(同 16 §3.7 / 20 O3) |
-| O4 | 超量计数口径 | <b>总条数上限 N</b>(默认 100,超量删最早,不论读/领态) | 若要「只对未领取计数」(已读已领不占名额),换 `CleanupOverflow` 判据;当前「总上限 N」更符 spec「总上限 N」语义 |
+| O4 | 超量计数口径 | **总条数上限 N**(默认 100,超量删最早,不论读/领态) | 若要「只对未领取计数」(已读已领不占名额),换 `CleanupOverflow` 判据;当前「总上限 N」更符 spec「总上限 N」语义 |
 | O5 | 标题/内容/发件人 + 结果文案多语言 | textId 占位常量(同 num/item/reward/settings/redeem) | 多语言文本表建成后查表替换 |
-| O6 | 道具 / 跑马灯需求 | <b>不做</b>(spec 明写「道具:无」「跑马灯:无」) | spec 未要求,不投机做 |
-| O7 | 邮件界面 / 详情 / 红点显示 / icon UI | <b>延后</b>(需美术,留服务 + 红点 getter) | 有美术 + 窗口流程时建窗口,接 17 RewardView 展示,主界面入口接红点 getter,Play 手验 |
+| O6 | 道具 / 跑马灯需求 | **不做**(spec 明写「道具:无」「跑马灯:无」) | spec 未要求,不投机做 |
+| O7 | 邮件界面 / 详情 / 红点显示 / icon UI | **延后**(需美术,留服务 + 红点 getter) | 有美术 + 窗口流程时建窗口,接 17 RewardView 展示,主界面入口接红点 getter,Play 手验 |
 | O8 | 邮件 id 分配策略 | 服务分配(自增 / 收件时间戳保唯一) | 未来服务器邮件须用服务器下发的全局 id 防冲突;本地分配够用 |
 
 <h2 id="risk">八、风险表</h2>
 
 | 风险 | 应对 |
 | --- | --- |
-| <b>dev 误把「服务器接缝」做成真收发网络邮件</b>:引入 `UnityWebRequest`/`HttpClient` 或真连后端 → 离线游戏跑不通、且违方向 | 读前必看第 1 条 + §3.7 已明确:接缝 = 可注入接口,离线注 `InertMailSource`(返空)。对外 `IMailService.Send` 是游戏内发奖入口(本地,本轮真做),与 `IMailSource`(外部推送,stub)区分。Code Review R2 + 验收 SK1 核「无真实网络调用」 |
-| <b>另造发奖逻辑</b>:dev 不复用 16 的 `GiftOpener`/`ItemGrant`,自己写一套「奖励库→道具」落点 → 与道具系统两处漂移 | 读前必看第 3 条 + §3.4.3 显式调既有 `OpenRandom`/`GrantOnAcquire`;Code Review 核不复制落点。验收 CL1/CL4 断言落点与 16 一致 |
-| <b>另造存储栈</b>:dev 新建第二套 PlayerPrefs 键空间存收件箱,不用既有 `Persistence.Provider` | §3.5 复用既有接缝;持久化用本系统专用键 `"Mail.Inbox"`(不与框架 / 其它系统键冲突),仍走同一 Provider。验收 P1 断言往返 |
-| <b>删除前置判错</b>:把「未读」或「有奖未领」邮件也允许删 → 玩家误删未领奖励 | §2.1 / §3.4 `CanDelete = Read && (!HasReward \|\| Claimed)`;验收 DEL2 专门断言未读 / 未领拒绝删 |
-| <b>领取时机/重复发奖</b>:领取前就标已领,或领取后忘标 → 漏发或重复发 | §3.4.2 顺序「抽奖落点成功 → 标已领+已读 → 落盘」;验收 CL2 断言二次领取 `AlreadyClaimed` 不重复发 |
-| <b>清理删掉未领奖励</b>:超量 / 过期把玩家未领的邮件删了 → 奖励丢失 | spec 既定取舍(玩家应及时领取):过期(到期消失)与超量(总上限 N 删最早)是硬规则,不论读/领态(§3.5.2)。如要「未领的不被超量删」可改 O4 判据;过期 spec 明写「到期自动消失」不可避 |
-| <b>时间序列化丢精度 / DateTime 不可序列化</b>:直接存 `DateTime` 进 JsonUtility → 失败或丢字段 | §3.3 存 `long SendTimeTicks`(JsonUtility 友好),过期判定用 `new DateTime(ticks).AddDays(...)` 还原;验收 P1 跨实例往返断言时间保真 |
-| <b>奖励库自指 / 礼包递归环</b>:奖励道具指向随机礼包、礼包又指回 → 递归爆栈 | 复用 16 既有 `ItemGrant.MaxGiftDepth` 深度上限(已防环);本系统不引入新递归 |
-| <b>脏存档崩服务</b>:本地文件被篡改 / 截断,反序列化抛异常 → 收件箱进不去 | §3.5 `Load` 对无键 / 空串 / 非法 JSON 统一产空列表(`try/catch` 包 `FromJson`,同 14 口径);验收 P2 断言脏数据不抛 |
+| **dev 误把「服务器接缝」做成真收发网络邮件**:引入 `UnityWebRequest`/`HttpClient` 或真连后端 → 离线游戏跑不通、且违方向 | 读前必看第 1 条 + §3.7 已明确:接缝 = 可注入接口,离线注 `InertMailSource`(返空)。对外 `IMailService.Send` 是游戏内发奖入口(本地,本轮真做),与 `IMailSource`(外部推送,stub)区分。Code Review R2 + 验收 SK1 核「无真实网络调用」 |
+| **另造发奖逻辑**:dev 不复用 16 的 `GiftOpener`/`ItemGrant`,自己写一套「奖励库→道具」落点 → 与道具系统两处漂移 | 读前必看第 3 条 + §3.4.3 显式调既有 `OpenRandom`/`GrantOnAcquire`;Code Review 核不复制落点。验收 CL1/CL4 断言落点与 16 一致 |
+| **另造存储栈**:dev 新建第二套 PlayerPrefs 键空间存收件箱,不用既有 `Persistence.Provider` | §3.5 复用既有接缝;持久化用本系统专用键 `"Mail.Inbox"`(不与框架 / 其它系统键冲突),仍走同一 Provider。验收 P1 断言往返 |
+| **删除前置判错**:把「未读」或「有奖未领」邮件也允许删 → 玩家误删未领奖励 | §2.1 / §3.4 `CanDelete = Read && (!HasReward \|\| Claimed)`;验收 DEL2 专门断言未读 / 未领拒绝删 |
+| **领取时机/重复发奖**:领取前就标已领,或领取后忘标 → 漏发或重复发 | §3.4.2 顺序「抽奖落点成功 → 标已领+已读 → 落盘」;验收 CL2 断言二次领取 `AlreadyClaimed` 不重复发 |
+| **清理删掉未领奖励**:超量 / 过期把玩家未领的邮件删了 → 奖励丢失 | spec 既定取舍(玩家应及时领取):过期(到期消失)与超量(总上限 N 删最早)是硬规则,不论读/领态(§3.5.2)。如要「未领的不被超量删」可改 O4 判据;过期 spec 明写「到期自动消失」不可避 |
+| **时间序列化丢精度 / DateTime 不可序列化**:直接存 `DateTime` 进 JsonUtility → 失败或丢字段 | §3.3 存 `long SendTimeTicks`(JsonUtility 友好),过期判定用 `new DateTime(ticks).AddDays(...)` 还原;验收 P1 跨实例往返断言时间保真 |
+| **奖励库自指 / 礼包递归环**:奖励道具指向随机礼包、礼包又指回 → 递归爆栈 | 复用 16 既有 `ItemGrant.MaxGiftDepth` 深度上限(已防环);本系统不引入新递归 |
+| **脏存档崩服务**:本地文件被篡改 / 截断,反序列化抛异常 → 收件箱进不去 | §3.5 `Load` 对无键 / 空串 / 非法 JSON 统一产空列表(`try/catch` 包 `FromJson`,同 14 口径);验收 P2 断言脏数据不抛 |
