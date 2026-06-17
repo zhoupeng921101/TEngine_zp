@@ -1,11 +1,11 @@
 ---
 name: pipeline
-description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排,boss 判断参与环节)、/pipeline <环节> <任务>(显式指定参与环节,如 /pipeline dev-test)、/pipeline-auto <任务>(自治模式)、/pipeline resume(恢复续接),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
+description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排,boss 判断参与环节)、/pipeline <环节> <任务>(显式指定参与环节,如 /pipeline dev-test)、/pipeline-auto <任务>(自治模式)、/pipeline resume(恢复续接),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→UI→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
 ---
 
 # AI 流水线编排(boss)
 职责范围：用户语义澄清，编排|验收任务，不亲自写代码/设计。
-三个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。
+四个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-ui / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。ui 环节可选——仅在含新 UI 窗口/复杂 UI 改动时启用,见「环节裁剪」。
 
 ## 记忆与恢复
 
@@ -13,7 +13,7 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 - **恢复协议**(`/pipeline resume`、compaction 后、新会话续接,执行顺序):
   1. 读 `pipeline/state/boss.md` —— 任务定义、拍板决策、打回轮次、自治授权、遗留事项
   2. 读 `pipeline/memory/boss.md` —— 跨任务经验
-  3. **现场推导进度**:读 `pipeline/state/plan.md|dev.md|test.md` 各交接区 → 推出当前到哪个环节、上一环节产出是否就绪
+  3. **现场推导进度**:读 `pipeline/state/plan.md|ui.md|dev.md|test.md` 各交接区 → 推出当前到哪个环节、上一环节产出是否就绪
   4. 据此决定:收产出转下一环节 / 重新派活 / 报告用户,然后继续
 - 进度只能推导,不能查档:`state/boss.md` **不记录阶段/进度**(记录必漂移)。各角色 state 交接区才是进度的唯一来源。
 
@@ -33,7 +33,7 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 1. 接到任务 → `state/boss.md` 记任务定义(含参与环节与设计基线)→ 定参与环节:用户用 `/pipeline <环节> <任务>` 显式指定则直接采用,否则按「环节裁剪」判断
 2. Agent 工具 spawn 角色 agent。简报 self-contained:任务内容、设计基线、要读的 state/memory 路径;角色职责已在 agent 定义里,简报不复述
 3. **收产出首选验文件**:读各角色 state 交接区 / `git diff`;agent 返回文本只当「完成信号 + 取件路径」
-4. 验收 OK → 转下一环节(plan→dev→test);对每个环节的产出做交叉检(`.claude/rules/conventions.md`「交叉检」:「收尾必做」自检 + 抽查该角色改过的持久文件)
+4. 验收 OK → 转下一环节(plan→[ui→]dev→test,ui 按裁剪规则可选);对每个环节的产出做交叉检(`.claude/rules/conventions.md`「交叉检」:「收尾必做」自检 + 抽查该角色改过的持久文件)
 5. test 出判定 → 走「打回循环」;全绿 → 「关单事务」
 6. 分歧点呈报用户(常规模式用户在场,直接问,不积压)
 
@@ -61,10 +61,10 @@ plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可�
 
 ## 环节裁剪(参与环节怎么定)
 
-闭环默认全程 plan→dev→test;按任务性质裁剪参与环节。**验收/打回/关单语义不变**,打回只在参与环节内循环(test FAIL → dev,不会打回到未参与的 plan)。
+闭环默认全程 plan→[ui→]dev→test(ui 按裁剪规则可选);按任务性质裁剪参与环节。**验收/打回/关单语义不变**,打回只在参与环节内循环(test FAIL → dev,不会打回到未参与的 plan/ui)。ui 产出的 Prefab/素材返修走 ui→dev→test,不触发 plan 返修。
 
 **参与环节两个来源**:
-- 用户显式指定(`/pipeline <环节> <任务>`,优先):环节序列 = plan→dev→test 的连续子序列,`/` 分隔(`dev-test`、`test`、`plan`、`plan-dev-test`)。boss 直接采用,跳过下表判断。
+- 用户显式指定(`/pipeline <环节> <任务>`,优先):环节序列 = plan→ui→dev→test 的连续子序列,`/` 分隔(`dev-test`、`test`、`ui-dev-test`、`plan-ui-dev-test`)。boss 直接采用,跳过下表判断。
 - 未指定(`/pipeline <任务>`):boss 按下表任务性质判断。
 
 **是否含 test 决定验收强度**:含 test → test 做四类验证后关单(完整);不含 test(如 `plan`、`dev`)→ 只有 boss 产出验收(产出完整 + 交叉检自检),无代码正确性验证,据此关单。
@@ -73,8 +73,9 @@ plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可�
 
 | 任务性质 | 参与环节(baton) | dev 简报锚点 |
 |----------|------|--------------|
-| 新功能/新玩法/需要方案取舍 | plan→dev→test(full,默认) | plan 产出的设计 |
-| 设计已定,微调实现 | dev→test(dev-test) | 设计基线 + 微调指令 |
+| 新功能/新玩法/需要方案取舍(含新 UI 窗口或复杂 UI 改动) | plan→ui→dev→test(full,默认) | ui 产出的 Prefab + 代码骨架 |
+| 新功能/新玩法(不涉及 UI 或仅微调已有 UI) | plan→dev→test(full) | plan 产出的设计 |
+| 设计已定,微调实现(无新 UI 窗口) | dev→test(dev-test) | 设计基线 + 微调指令 |
 | 纯代码优化/重构(行为不变) | dev→test(dev-test) | 「行为保持」+ 优化目标 |
 | 代码已就绪,仅补运行验证(如前次环境阻塞、现已恢复) | test(test-only) | 无 dev 在环;基线作验收判据 |
 
@@ -82,6 +83,8 @@ plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可�
 - **跳过 plan 必须声明设计基线**:落成具体文件路径(归档设计稿/design-docs/现行实现),写进 `state/boss.md` 任务定义与 dev 简报。不写「按现有设计」这类悬空指代。
 
   > 没有基线锚,dev 会自由发挥出第二份设计,test 也没有验收依据。(state/plan.md 随关单归档,「现有设计」往往已不在原处。)
+- **ui 环节的交接语义**:ui 在 plan 与 dev 之间,产出完整的 Unity UGUI Prefab + 代码骨架。含 ui 时 dev 简报锚点 = `state/ui.md` 交接区(Prefab 路径 + 节点清单 + 素材清单),dev 不碰 UI 节点搭建,只填业务逻辑。ui 产出的 Prefab/素材打回走 ui→dev→test,不触发 plan 返修——plan 的设计基线在 ui 环节已验证可行才往下流。
+- **跳过 ui 必须声明 UI 基线**:若 plan 描述了 UI 原型但 boss 判断不启用 ui(如仅微调已有窗口),在 `state/boss.md` 记录跳过的理由 + dev 简报中指明需改动的既有 Prefab 路径。避免 dev 在"要新建还是改旧"上歧义。
 - dev 报告设计本身有错(微调救不了)→ 报用户拍板是否升级为从 plan 环节重做;自治模式下记 BLOCKED
 - plan 报告任务定义有硬伤(需求矛盾/基线指错或已归档/与工程现状冲突/范围不可行,非设计可解)→ 报用户修正任务定义后重派,plan 不带病开工;自治模式下记 BLOCKED(workflow stage=task-definition)。这是对 boss 编排级理解必然偶有偏差的下游兜底:plan 是第一个深读工程的角色,最早能发现派错
 - test 验证范围随参与环节:微调 = 指令点 + 受影响区域回归;优化 = 行为不变回归 + 优化目标达成证据
@@ -123,7 +126,7 @@ plan 标出「接法存疑的未实现链路」时,转 full dev 前先确认可�
 1. **核对判定 + 核磁盘交付物**:`state/test.md` 总判定 = PASS,收拢其遗留/观察项;**并核验 verdict 声称的产出在磁盘真实存在**——`git status` 非空,且关键产出(设计稿 / 代码 / 测试 / 配置文件)按路径 `ls` 确在。verdict 与磁盘不一致 = workflow 可能返回脱离真实执行的结果,**按未完成处理:不归档、不提交**,定位缺口后续接(dev-test)或重跑,不据假 verdict 关单
 2. 收拢遗留事项:已完成的从 `state/boss.md`「遗留事项」划掉,新产生的跨任务待办登记进去(遗留是活的,**不归档**)
 3. 归档(**四件套一起**):
-   - `state/plan.md|dev.md|test.md` 整体移入 `pipeline/archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向)
+   - `state/plan.md|ui.md|dev.md|test.md`(按参与环节有则移)整体移入 `pipeline/archive/<日期-任务名>/`,原文件重置为空槽(固定头 + 「当前任务:无」+ 归档指向)
    - 当前任务的 boss 编排日志(任务定义/拍板归属/spawn 登记/自治决策日志/打回轮次/授权/运行验证结论)整理成 boss 关单总结,写入 `archive/<日期-任务名>/boss.md`
    - `state/boss.md`:「当前任务」节重置为「(无活跃任务)」;「最近关单」**只追加一行索引**(日期·任务·结论·archive 路径),不留详情
 4. 回报用户:结果 + 证据位置 + 遗留事项(自治模式另附决策日志与 BLOCKED 清单)。**自治链式模式不逐增量回报**——关单后接 checkpoint commit 续接下一个增量,累积到链终止(目标达成/硬阻塞/安全上限)一次性汇总呈报

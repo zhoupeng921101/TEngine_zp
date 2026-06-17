@@ -87,3 +87,22 @@ Unity 6（本工程 6000.4）已移除内置 legacy 字体（`Arial.ttf` 抛错�
 - `anchorMin = anchorMax = (0, 1)` — 左上角锚点
 - `pivot = (0, 1)` — 左上角轴心
 - `anchoredPosition = (localX, -localY)` — Y 轴取反适配 Unity 坐标系
+
+## TEngine 命名约定
+
+Baker 生成的节点名来自 HTML 的 `data-u-name`。**必须使用 TEngine 带下划线前缀格式**，与 `UIScriptGenerator` 的 regex 匹配规则对齐：
+
+| data-u-type | TEngine 前缀 | 命名示例 |
+|-------------|-------------|---------|
+| `div`（容器） | `m_tf_` | `m_tf_Container` |
+| `div`（背景） | `m_` | `m_bg_Panel` |
+| `text` | `m_tmp_` | `m_tmp_Title` |
+| `image` | `m_img_` | `m_img_Icon` |
+| `button` | `m_btn_` | `m_btn_Save` |
+| `input` | `m_tmpInput_` | `m_tmpInput_Name` |
+| `scroll` | `m_scroll_` | `m_scroll_List` |
+| `toggle` | `m_toggle_` | `m_toggle_Sound` |
+| `slider` | `m_slider_` | `m_slider_Volume` |
+| `dropdown` | `m_tmpDropdown_` | `m_tmpDropdown_Quality` |
+
+> 前缀必须以下划线结尾（如 `m_btn_`），否则 TEngine `UIScriptGenerator` 的 regex 不会匹配为对应类型。例：`m_btnSave`（无下划线分隔）不会生成 Button 绑定，应写 `m_btn_Save`。

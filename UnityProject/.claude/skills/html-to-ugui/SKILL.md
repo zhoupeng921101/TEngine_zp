@@ -16,7 +16,7 @@ description: "HTML原型转Unity UGUI界面生成管线。通过AI生成符合UI
 
 核心规则：
 - 唯一根节点：`data-u-type="div"` + `data-u-name="rootName"` + 明确 `width/height`
-- 所有节点必须有 `data-u-name`（小驼峰）和 `data-u-type`（8种之一）
+- 所有节点必须有 `data-u-name`（TEngine 格式：`m_{前缀}_{PascalCase}`，如 `m_btn_Save`、`m_tmp_Title`）和 `data-u-type`（9种之一）
 - 仅允许：`div` `image` `text` `button` `input` `scroll` `toggle` `slider` `dropdown`
 - 使用 CSS Flexbox 布局，绝对不可超出根节点尺寸
 
