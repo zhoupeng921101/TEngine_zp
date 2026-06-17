@@ -7,6 +7,8 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 职责范围：用户语义澄清，编排|验收任务，不亲自写代码/设计。
 四个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-ui / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。ui 环节可选——仅在含新 UI 窗口/复杂 UI 改动时启用,见「环节裁剪」。
 
+> 写或修订这些角色卡的条款:见 `references/agent-card-authoring.md`——把判断编译成可执行条款(触发 + 动作 + 可核对产出物)的标尺。
+
 ## 记忆与恢复
 
 - **boss 的记忆不在上下文里,在 `pipeline/state/boss.md`**。任何编排动作(spawn/拍板/打回/关单)发生后,立刻更新它。

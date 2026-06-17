@@ -124,3 +124,29 @@
 
 元观察(供准入#1 复盘):旧「CJK `**` 不可靠」是**未经行为探针、长期沿用的过宽事实条款**,本会话首次实测 marked v15 才证伪并收窄——印证准入#1「真争议事实条款值得跑探针」,该条款现已实测落地。
 carry-forward:plan「向上对体验」自检仍无触发实例(续监视);**新增监视**——后续设计文档若仍用旧 `<b>` 次级强调 / `<div class="callout">` 简单框写作,即 plan 卡同步未传导。删除候选:无。下次增量以 `34692918` 为基线。
+
+## 第十六次审计 @ 工作树(增量基线 = 第十五次审至 commit `34692918`,UI 环节落地 + 角色卡写作标尺接入未提交)
+
+触发:手动 `/audit`。审 `34692918..HEAD` 触及规则栈的提交 + 工作树未提交。基线正确性已核:`6834c1d9`(第十五次审过)经 `merge-base --is-ancestor` 确为 `34692918` 祖先,无漏审/双审。`ffbd5659`(第十五次落账)仅动 audit-log.md 基线指针,审计自身记账、非行为规则。
+
+自基线以来规则栈实改:
+- **`e479e403`(流水管线添加 UI 环节)**:新增角色卡 `pipeline-ui.md`(183 行,UI 制作 = plan 与 dev 间的 Prefab 生产环节)+ `pipeline/SKILL.md` 全面集成 ui 环节(三→四执行体、baton 序列 plan→[ui→]dev→test 全处统一、环节裁剪表加 UI 行、archive 四件套加 ui.md、ui 交接语义/跳过 ui 声明 UI 基线)+ `html-to-ugui/SKILL.md` 命名格式(8→9 种控件、`data-u-name` 改 TEngine 前缀 `m_{前缀}_{PascalCase}`)+ 新建 `pipeline/memory/ui.md`。
+- **`bb3034f8`**:`pipeline-plan.md` 加「design-docs 正文分层」条款 + 旁注(迭代范围/取舍/延后项属工作状态层、不织进规范正文;用具体阶段名不用「本轮」)。
+- **本会话未提交**:`audit/SKILL.md` 新增条件查项 7「条款可执行性」+ 同步两处计数;`pipeline/SKILL.md` 加角色卡写作标尺入站指针;新建 `pipeline/references/agent-card-authoring.md`(references 层、不注入、不在审计范围)。
+
+查项结论(1-3 必查):
+- **重复**:无。pipeline-ui.md 与他卡共享结构性样板(「写持久文件前遵守 conventions」「返回契约」「收尾沉淀 memory」)系多 agent 提示词固有并列引用(各 consumer 只见自身 system prompt,须自包含),同第十四/十五次并列副本模式、非冗余。本会话查项 7 与查项 2「死规则」分属不同镜头(死规则查「是否触发」,查项 7 查「触发后 动作+产出物 是否可执行可验收」——形容词条款可持续触发却不可执行,死规则抓不到),互补非重复;标尺文档双入站指针(pipeline/SKILL 写卡时 + audit/SKILL 审卡时)对应两个不同触发时点,非同一行为两源。
+- **矛盾**:无。① UI 集成内部一致:baton 序列在编排流程/环节裁剪/archive/恢复协议全处同步更新为 plan→[ui→]dev→test;② pipeline-ui.md 描述「用于含新 UI 窗口/复杂 UI 改动」与 SKILL「ui 可选——仅含新 UI 窗口/复杂 UI 改动时启用」一致;③ html-to-ugui「9 种控件」与 pipeline-ui.md Step1 控件清单(div/image/text/button/input/scroll/toggle/slider/dropdown = 9)一致(跨卡同步,非冲突);④ 本会话查项 7 不与查项 1-6 交叠。
+- **死规则**:无。新条款均有触发——ui 环节条款于 UI 任务触发、design-docs 分层于 plan 写文档时触发(频繁)、查项 7 于角色卡改动时触发(本次审计即其首个触发实例)。carry-forward:plan「向上对体验」自检仍无项目内触发实例(第十三次起续监视,单窗口不判死);第十五次「设计文档旧 `<b>`/`<div class="callout">` 风格 = plan 卡同步未传导」属 design-docs 内容监视、非规则栈,本次未扫 design-docs 正文,续留。
+
+条件查项(4-7):
+- **#4 信道匹配**:核过。新文件均落对信道——`pipeline-ui.md` 入 `.claude/agents/`(角色卡,spawn 态注入、非每窗,正确);`agent-card-authoring.md` + `html-to-ugui/references/*` 入 references/(按需读、不注入,正确)。无错置。
+- **#5 净增趋势**:注入态 `.claude/rules/` ≈ 不变(仅 audit-log.md stub 基线指针更新,conventions.md 未触)。pipeline-ui.md +183 系 spawn 态(仅 ui agent 启用时加载),不占每窗口常驻注入预算,不升总量复查。
+- **#6 孤儿旁注**:无。pipeline/SKILL.md 就地重写(三→四执行体、baton 序列、环节裁剪表)保留旁注「> 没有基线锚…」父节在位;新增旁注(ui 交接、design-docs 分层、本会话标尺指针)均父节在位;无删除致孤儿。
+- **#7 条款可执行性**(首次触发):过。pipeline-ui.md 多为程序性条款(工具链五步、具体 MCP 调用),判断型条款(红线:API 不可达→降级纯色 + 交接区标明;MCP 断连→暂停但产出 Step1-2 + 补跑命令清单;命名前缀逐项对照自检;素材失败→换 seed 重试 1 次后降级)三要素(触发+动作+可核对产出物)均齐,无形容词冒充条款、无 taste 伪装成规则;pipeline-plan.md「design-docs 分层」条款三要素齐(触发=写 design-docs 正文、动作=迭代范围归工作状态层节、产出物=正文符合分层)、具体非形容词。两张改动卡均通过标尺。
+
+memory/ui.md 头准入:本地直读核过(脱离 git-diff 短路,第十四次起须直读)——头为标准准入式样(「只记跨任务可复用且 agent 定义/设计文档/CLAUDE/references 未覆盖的经验」),正文「(暂无)」空,无死规则无孤儿。
+
+自审声明(交叉检最弱点):本会话查项 7 + pipeline/SKILL 指针系审计者本人所改、自评 clean,blast radius 低(条件查 + 引用指针),留下次独立审计复核。
+
+删除候选:无。改写候选:无(pipeline-ui.md 经查项 7 clean)。下次增量以本会话(第十六次落账 + 查项 7 接入 + UI 环节)提交后 commit 为基线。
