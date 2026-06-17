@@ -17,7 +17,7 @@
     <p style="margin:8px 0 0">盲盒接的是已落地的 merge-order 切片现状,不是 GDD 的完整商业体量游戏。两条边界先钉死:</p>
     <ul style="margin:8px 0 0">
       <li><b>产物上限随现状封顶 <span class="lv">Lv3</span>,不引入 Lv4</b>。GDD 写盲盒产「Lv1–Lv4」,但工程 <code>MergeOrderConfig.MaxLevel=3</code>,且设计 11 §六已把「5 级 → 3 级」作为已拍板收敛(Lv4/Lv5 不落地)。盲盒奖池产 Lv4 会与封顶不变量冲突——本篇据此把图案产物收敛为 <span class="lv">Lv1</span>–<span class="lv">Lv3</span>。详见 <a href="#12-tarot-blind-box::what">§一</a>。</li>
-      <li><b>「付费购买」渠道本轮不做</b>。项目红线去变现,GDD 盲盒的「付费购买」获取渠道明确不实装(见任务边界)。本轮只做<b>消除挑战解锁</b>与<b>特殊订单附赠</b>两条免费获取路径。</li>
+      <li><b>「付费购买」渠道本设计不做</b>。项目红线去变现,GDD 盲盒的「付费购买」获取渠道明确不实装(见任务边界)。本设计只做<b>消除挑战解锁</b>与<b>特殊订单附赠</b>两条免费获取路径。</li>
     </ul>
   </div>
 
@@ -45,7 +45,7 @@
 | 3 | 获取:订单奖励(特殊订单) | `DeliverSpecial` 交付时附赠盲盒 | <span class="pill-cur">现状有特殊轨</span> + <span class="pill-new">附赠</span> |
 | 4 | 内容:随机 Lv1–Lv4 图案 / 体力 / 订单所需高阶物 | 奖池产 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / **当前订单缺口的高阶图案**(收敛 Lv4 见上方红框) | <span class="pill-new">新增奖池</span> |
 
-<b>不做(本轮明确排除,后续轮次):</b>命运之轮活动包装、付费购买入口、集卡碎片、占卜屋/扭蛋、神谕降临双倍。本篇只做「持有 + 三渠道获取 + 即时开盒」的最小自洽系统。
+<b>不做(本设计明确排除,后续轮次):</b>命运之轮活动包装、付费购买入口、集卡碎片、占卜屋/扭蛋、神谕降临双倍。本篇只做「持有 + 三渠道获取 + 即时开盒」的最小自洽系统。
 
 <h2 id="model">二、系统模型</h2>
 
@@ -179,7 +179,7 @@ GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.D
 <b>实现位置抉择:</b> `DeliverSpecial` 内按 `SpecialTrack.Occupied.Kind` 查表 `BlindBoxCount += 表[kind]`。注意 `DeliverSpecial` 末尾有 `_undoStack.Clear()`(交付是已提交动作,悔棋不倒回)——附赠的盲盒计数随交付一起固化,不被悔棋倒回,符合「已交付」语义。
 
 > [!NOTE]
-> <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但**尚未接入任何 UI 窗口**(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是**数据层逻辑**,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="#11-core-loop-completion::concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,**不在本轮范围**。本轮只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
+> <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但**尚未接入任何 UI 窗口**(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是**数据层逻辑**,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="#11-core-loop-completion::concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,**不在本设计范围**。本设计只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
 
 <h2 id="hook">四、挂接点 / dev 改动清单</h2>
 
@@ -195,7 +195,7 @@ GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.D
 | 6 | `UI/BlockBlastUI/MergeOrderWindow.cs` | 顶部信息行加盲盒计数显示 + 开盒按钮(详见 §五);`PlaceAndResolve` 内读 `settle.BlindBoxGained > 0` 弹获得提示;开盒结果用内联结果条/小窗展示。 |
 | 7 | `Editor/Tests/BlockBlast/TarotBlindBoxTests.cs` <span class="pill-new">新建</span> | 覆盖 §六验收点(奖池抽样确定性、保底、解锁阈值、附赠、快照回滚)。仿 `CoreLoopCompletionTests` 的 `SetUp`(InMemory Provider + `RandomSource.SetSeed`)。 |
 
-注:`MergeOrderState` 整体目前**不做磁盘持久化**——只有 `BlockGameState.Save/Load` 持久化棋盘+待选块+分数,MergeOrderState 每局 `ResetForMergeOrder` 重建。盲盒计数跟随此现状:进悔棋快照(单局内回滚正确),不单独建磁盘序列化层。任务简报的「纳入持久化」在现状下等价于「纳入快照」——若要 MergeOrderState 全量跨会话存盘,那是独立的大改(全字段序列化),不在本轮、见 §七待拍板。
+注:`MergeOrderState` 整体目前**不做磁盘持久化**——只有 `BlockGameState.Save/Load` 持久化棋盘+待选块+分数,MergeOrderState 每局 `ResetForMergeOrder` 重建。盲盒计数跟随此现状:进悔棋快照(单局内回滚正确),不单独建磁盘序列化层。任务简报的「纳入持久化」在现状下等价于「纳入快照」——若要 MergeOrderState 全量跨会话存盘,那是独立的大改(全字段序列化),不在本设计、见 §七待拍板。
 
 <h2 id="ui">五、UI 方案</h2>
 
@@ -204,7 +204,7 @@ glyph + 纯色,零美术,接现有 `MergeOrderWindow`。两块:
 - <b>盲盒计数 + 开盒按钮(常驻顶部信息行):</b>在体力条/完成单数那一行旁加一个「🔮 ×N」计数 + 「开盒」按钮。`BlindBoxCount==0` 时按钮置灰(同悔棋按钮的置灰写法 `interactable = can`)。glyph 用 🔮 或 ◈,色用紫/金。
 - <b>开盒结果(内联结果条):</b>点开盒 → 调 `OpenBlindBox` → 用 `BurstText.Spawn`(现状已有,全清/多消弹字同款)在棋盘上方弹一条「开出:◆ Lv3 ×1」之类,带 glyph + 色。不做独立全屏弹窗——盲盒是高频轻动作,内联弹字够且不打断节奏。获得盲盒时(连消/全清/交付)同样弹一条「+1 🔮」。
 
-开盒结果展示用内联弹字而非模态窗口的理由:盲盒开得频繁,模态窗口每次都要点关闭会拖慢节奏;内联弹字与现有连消/多消反馈同一套表现语言,一致且零额外 prefab。若后续要做「开盒动画/仪式感」,那是表现层增强,本轮不做(见 §七)。
+开盒结果展示用内联弹字而非模态窗口的理由:盲盒开得频繁,模态窗口每次都要点关闭会拖慢节奏;内联弹字与现有连消/多消反馈同一套表现语言,一致且零额外 prefab。若后续要做「开盒动画/仪式感」,那是表现层增强,本设计不做(见 §七)。
 
 > [!NOTE]
 > <b>刷新调用:</b>开盒/获得后须调现有 <code>RefreshSynthesis()</code>(图案进了合成区)+ <code>RefreshEnergy()</code>(可能加了体力)+ 新增 <code>RefreshBlindBox()</code>(计数与按钮态)。与现有 <code>OnDeliverClicked</code> 末尾的批量刷新同体例。
@@ -232,10 +232,10 @@ glyph + 纯色,零美术,接现有 `MergeOrderWindow`。两块:
 
 | # | 待决项 | 我的默认取向(若无异议即按此) |
 | --- | --- | --- |
-| O1 | <b>盲盒产物是否含 Lv4。</b>GDD 写 Lv1–Lv4,工程封顶 Lv3 且设计 11 已收敛 5→3 级。 | 收敛到 Lv1–Lv3(本篇方案)。若 boss 要支持 Lv4,须先抬高 `MaxLevel` 并重审整个合成链(超本轮范围)。 |
-| O2 | <b>持有计数是否设软上限 <code>BoxHoldCap</code>。</b> | 本轮不设硬上限(GDD 未限,持有式);留旋钮默认 99 备用。 |
-| O3 | <b>MergeOrderState 是否做全量跨会话磁盘持久化。</b>现状只快照、不存盘。 | 本轮不做——跟随现状只入快照。全量存盘是独立大改,单列任务。 |
-| O4 | <b>开盒表现是否要独立仪式感动画/弹窗。</b> | 本轮内联弹字(轻、不打断)。仪式感动画属表现增强,后续轮次。 |
+| O1 | <b>盲盒产物是否含 Lv4。</b>GDD 写 Lv1–Lv4,工程封顶 Lv3 且设计 11 已收敛 5→3 级。 | 收敛到 Lv1–Lv3(本篇方案)。若 boss 要支持 Lv4,须先抬高 `MaxLevel` 并重审整个合成链(超本设计范围)。 |
+| O2 | <b>持有计数是否设软上限 <code>BoxHoldCap</code>。</b> | 本设计不设硬上限(GDD 未限,持有式);留旋钮默认 99 备用。 |
+| O3 | <b>MergeOrderState 是否做全量跨会话磁盘持久化。</b>现状只快照、不存盘。 | 本设计不做——跟随现状只入快照。全量存盘是独立大改,单列任务。 |
+| O4 | <b>开盒表现是否要独立仪式感动画/弹窗。</b> | 本设计内联弹字(轻、不打断)。仪式感动画属表现增强,后续轮次。 |
 
 <h2 id="risk">八、风险表</h2>
 

@@ -15,7 +15,7 @@
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
-    <p style="margin:8px 0 0">本篇直接兑现设计 <a href="#13-piety-temple-repair::open">13 §七 O3</a> 标注的「跨会话存盘是独立大改,不在本轮」——那一轮就是这一轮。四条边界先钉死:</p>
+    <p style="margin:8px 0 0">本篇直接兑现设计 <a href="#13-piety-temple-repair::open">13 §七 O3</a> 标注的「跨会话存盘是独立大改,不在本设计」——那一轮就是这一轮。四条边界先钉死:</p>
     <ul style="margin:8px 0 0">
       <li><b>只存元层进度,默认不存局内瞬态。</b>当前棋盘 / 手牌 / 进行中订单 / 合成区库存 / 悔棋栈 <b>每局重开不存</b>(断点续玩不做,详 <a href="#14-save-system::boundary">§3.1</a> 与 <a href="#14-save-system::open">§七 O1</a>)。<code>ResetForMergeOrder</code> 仍每次重建局内瞬态,只是元层不再从 0 起。</li>
       <li><b>复用现有 <code>Persistence.Provider</code> 接缝,不自造存储框架。</b>工程已有 <code>Persistence</code>(<code>Module/BlockBlast/Persistence.cs</code>:生产 <code>PlayerPrefsProvider</code> / 测试 <code>InMemoryPersistenceProvider</code>),<code>BlockGameState</code> 与 <code>DynamicWeightDiff</code> 已按此模式存盘。本篇沿用同接缝 + 同 <code>JsonUtility</code> 序列化口径,<mark>不引入新存储栈</mark>(对照 <a href="#14-save-system::format">§3.2</a>)。</li>
@@ -49,7 +49,7 @@
 | 4 | 每日字段(今日祈愿)跨天重置 | 存上次重置日期;加载跨天则 `WishUsedToday=0`([§3.6](#14-save-system::daily)) | <span class="pill-new">新增</span> |
 | 5 | 与悔棋快照分层,两者不冲突 | 磁盘存档独立轨,不进 `Snapshot`;悔棋机制原样不动([§2.2](#14-save-system::snapshot-vs-disk)) | <span class="pill-cur">现状保留</span> |
 
-<b>不做(本轮明确排除):</b><span class="pill-no">云存档 / 账号绑定</span>(本地单机文件);xlsx 那 10 个系统(本轮后接);<span class="pill-no">局内棋盘断点续玩</span>(除非低成本顺带,默认不做,见 [§七 O1](#14-save-system::open));多存档槽 / 玩家手动存读档(本轮单槽自动存档)。
+<b>不做(本设计明确排除):</b><span class="pill-no">云存档 / 账号绑定</span>(本地单机文件);xlsx 那 10 个系统(本设计后接);<span class="pill-no">局内棋盘断点续玩</span>(除非低成本顺带,默认不做,见 [§七 O1](#14-save-system::open));多存档槽 / 玩家手动存读档(本设计单槽自动存档)。
 
 <h2 id="model">二、系统模型</h2>
 
@@ -127,7 +127,7 @@ flowchart TD
 <b>边界裁定的两处需注意(列入待拍板 §七):</b>
 
 - <b>O2 — <code>TotalScore</code>:</b>注释写「本局累计交付得分(用于通关/结算摘要)」,偏局内。但作为「跨会话累计总分 / 成就」也成立。默认<mark>进盘当累计总分</mark>(加法式、无害);若 dev 发现窗口把它当本局分用且与显示冲突,可降级为不进盘——不影响其余字段。
-- <b>O3 — <code>Energy</code>(体力):</b>默认<mark>不进盘</mark>,每局 `ResetForMergeOrder` 回 `EnergyStart=20`。体力是局内资源(落子扣 / 消除返 / 祈愿兑),跨会话保留它会让「关掉游戏养体力」成为漏洞,也与「每局重开」的现状一致。如将来要体力跨会话(配离线恢复),属独立设计,不在本轮。
+- <b>O3 — <code>Energy</code>(体力):</b>默认<mark>不进盘</mark>,每局 `ResetForMergeOrder` 回 `EnergyStart=20`。体力是局内资源(落子扣 / 消除返 / 祈愿兑),跨会话保留它会让「关掉游戏养体力」成为漏洞,也与「每局重开」的现状一致。如将来要体力跨会话(配离线恢复),属独立设计,不在本设计。
 
 <h3 id="format">3.2 序列化格式 + 沙盒路径</h3>
 
@@ -174,7 +174,7 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 - <b>异步(UniTask,落盘/读盘外壳):</b>`SaveAsync()` / `LoadAsync()` 包住「序列化 + 写文件」「读文件 + 反序列化」。写文件用 UniTask 异步文件 API(或把同步 PlayerPrefs 调用包进 `UniTask.RunOnThreadPool` / 直接 PlayerPrefs 非阻塞);读同理。失败(IO 异常 / 文件不存在 / 解析失败)吞掉并返回「无存档」走缺省,仿现有 `BlockGameState.Load` 的 try-catch 兜底。
 
 > [!WARNING]
-> <b>测试与磁盘解耦(硬约束):</b>单测<mark>只测同步序列化层 + InMemory Provider 往返</mark>,不测真实文件 IO(EditMode 不应碰沙盒文件,且 UniTask 异步在 EditMode 测试中麻烦)。验收锚点(§六)全部落在 <code>ExportMeta</code>/<code>ImportMeta</code>/<code>Serialize</code>/<code>Deserialize</code>/迁移/跨天这些**同步纯方法**上。异步落盘外壳由 dev 在工程内编译通过即可,不强求单测覆盖(异步文件 IO 的正确性靠 PlayMode / 人工冒烟,非本轮 EditMode 验收范围)。
+> <b>测试与磁盘解耦(硬约束):</b>单测<mark>只测同步序列化层 + InMemory Provider 往返</mark>,不测真实文件 IO(EditMode 不应碰沙盒文件,且 UniTask 异步在 EditMode 测试中麻烦)。验收锚点(§六)全部落在 <code>ExportMeta</code>/<code>ImportMeta</code>/<code>Serialize</code>/<code>Deserialize</code>/迁移/跨天这些**同步纯方法**上。异步落盘外壳由 dev 在工程内编译通过即可,不强求单测覆盖(异步文件 IO 的正确性靠 PlayMode / 人工冒烟,非本设计 EditMode 验收范围)。
 
 <b>MergeOrderState 仍是纯逻辑类:</b>`ExportMeta`/`ImportMeta` 是纯方法(无 IO、无 UniTask);异步 IO 留在 `MergeMetaPersistence`(存储层)与窗口侧。`MergeOrderState` 不 `using` UniTask,保持可在纯 C# 单测里直接 new 出来跑(继承现状)。
 
@@ -293,9 +293,9 @@ sequenceDiagram
 
 | # | 问题 | 默认 / 建议 | 性质 |
 | --- | --- | --- | --- |
-| O1 | 局内棋盘断点续玩(当前棋盘/手牌/进行中订单也存)做不做? | **默认不做**(任务边界:除非低成本顺带)。元层存档不含局内瞬态,每局重开。若 dev 评估顺带成本极低可加,但不在本轮验收 | 范围开关 |
+| O1 | 局内棋盘断点续玩(当前棋盘/手牌/进行中订单也存)做不做? | **默认不做**(任务边界:除非低成本顺带)。元层存档不含局内瞬态,每局重开。若 dev 评估顺带成本极低可加,但不在本设计验收 | 范围开关 |
 | O2 | `TotalScore` 进盘当「累计总分」还是不进盘? | **默认进盘**(加法式无害,当累计成就分)。若与窗口「本局分」显示冲突,dev 可降级不进盘,不影响其余字段 | 边界微调(dev 可定) |
-| O3 | 体力 `Energy` 跨会话保留? | **默认不保留**(局内资源,跨会话保留会成养体力漏洞,且与「每局重开」一致)。离线体力恢复属独立设计,不在本轮 | 已拍板(填 decisions) |
+| O3 | 体力 `Energy` 跨会话保留? | **默认不保留**(局内资源,跨会话保留会成养体力漏洞,且与「每局重开」一致)。离线体力恢复属独立设计,不在本设计 | 已拍板(填 decisions) |
 | O4 | 生产存储介质:沙盒 JSON 文件 vs PlayerPrefs? | **建议沙盒文件**(任务点名 YooAsset 沙盒路径 + 异步)。**降级备选 PlayerPrefs**(与现有 BlockGameState 同款,接入零成本,非阻塞不触红线)。dev 用 `unity_reflect` 核实沙盒 API 后定;两方案验收点(§六)不变(都经 Provider/序列化层) | 实现选型(dev 定) |
 | O5 | 落盘节流:每次元动作即落盘 vs 帧末去抖合并? | **默认每次元动作结束即异步落盘**(元动作频率低,够用)。复杂去抖(标脏 + 下一帧/定时合并)dev 可选,不强求 | 实现选型(dev 定) |
 

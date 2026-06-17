@@ -22,7 +22,7 @@
       <li><b>寻址范式不动,只工具化产出。</b> 范式 = <a href="#23-settings-window-art">设计 23</a> 关单确立的「Multiple 精灵表 PNG + <code>SetSubSprite</code>」(<a href="#">遗留 #28</a>)。<mark>不</mark>用 SpriteAtlas v2(经实测不向 YooAsset 暴露子精灵,<code>LoadSubAssetsAsync&lt;Sprite&gt;</code> count=0,不可用,<a href="#">遗留 #29</a> 是其失败残留)。本工具产出的就是现状 <code>Sheet_settings.png</code> 那种「单张 PNG + spriteMode=Multiple + 多个命名子图」资源。</li>
       <li><b>子图名 = 源 PNG 文件名(去扩展名)。</b> <code>SetSubSprite</code> 内部走 <code>LoadSubAssetsAsync&lt;Sprite&gt;(location).GetSubAssetObject&lt;Sprite&gt;(子图名)</code>,子图名即精灵表里每个 <code>SpriteMetaData.name</code>。工具把每张源 PNG 的文件名(去 <code>.png</code>)作为对应子图的 <code>name</code>,运行期 <code>SetSubSprite("Sheet_setting", "button")</code> 即按文件名取得到。</li>
       <li><b>不复用既有 AtlasMaker。</b> 工程已有 <code>TEngine.Editor.AtlasConfiguration</code> / AtlasMaker(<code>Assets/TEngine/Editor/AtlasMakerEditor/</code>),但它生成的是 <b>SpriteAtlas v2</b> 容器(上一条已排除),与本工具产出的「Multiple 精灵表 PNG」是两条不同路径。本工具是新建独立 Editor 脚本,不改 AtlasMaker。</li>
-      <li><b>纯 Editor 工具,不进热更区、不进运行期。</b> 工具脚本落 <code>Assets/Editor/</code>(编辑器程序集,不打包、不热更);产出资源(PNG + .meta)落 <code>AssetRaw/UIRaw/Atlas/</code> 被收集器收。运行期代码(<code>SetSubSprite</code> 调用方)是各换皮窗口的事,本轮不碰。</li>
+      <li><b>纯 Editor 工具,不进热更区、不进运行期。</b> 工具脚本落 <code>Assets/Editor/</code>(编辑器程序集,不打包、不热更);产出资源(PNG + .meta)落 <code>AssetRaw/UIRaw/Atlas/</code> 被收集器收。运行期代码(<code>SetSubSprite</code> 调用方)是各换皮窗口的事,本设计不碰。</li>
     </ul>
   </div>
 
@@ -53,7 +53,7 @@
 
 本工具把打表流程固化成**一键操作**:选中一个散切图目录 → 跑工具 → 得到一张干净的 Multiple 精灵表 PNG。源 PNG 自身已是规范的 Single Sprite(导入时设好 pivot / border),工具从源继承这些参数,使产出可**精确复现手工表**(以现有 `Sheet_settings.png` 为对照基准验证),同时消除手工的易错点。
 
-| # | 本轮交付的 | 落法 | 性质 |
+| # | 本设计交付的 | 落法 | 性质 |
 | --- | --- | --- | --- |
 | 1 | Editor 菜单入口 + 输入校验 | 菜单项 / 选中 Project 目录操作;校验目录在 `AssetRaw/UIRaw/Atlas/` 下、非空、含 PNG([§二](#24-ui-atlas-packer::entry)) | <span class="pill-new">新工具入口</span> |
 | 2 | 排布 + 切 rect(打表核心) | `Texture2D.PackTextures` 自动排布 + padding → 各子图 rect([§三](#24-ui-atlas-packer::pack)) | <span class="pill-new">新核心</span> |
@@ -61,7 +61,7 @@
 | 4 | 写盘 + TextureImporter 配置 | `EncodeToPNG` 写 `Sheet_<目录名>.png`(不覆盖)→ importer 设 Sprite/Multiple/FullRect 等(对齐基准)→ `SimulateBuild`([§五](#24-ui-atlas-packer::write)) | <span class="pill-new">新核心</span> |
 | 5 | 「可选覆盖」承载 | 个别子图允许在工具里手填覆盖 border([§六](#24-ui-atlas-packer::override)) | <span class="pill-cur">用户拍板 I/O 约定</span> |
 
-<b>不做(本轮明确排除):</b><span class="pill-no">改寻址范式</span>(沿用 23);<span class="pill-no">改收集器</span>(`Sheet_*` 落已收录目录);<span class="pill-no">运行期换皮代码</span>(各窗口脚本是后续每屏的事);<span class="pill-no">复用 / 改 AtlasMaker</span>(SpriteAtlas v2 路径已排除);<span class="pill-no">覆盖已存在的表文件</span>(用户拍板:不覆盖,并排比对);<span class="pill-no">把源 PNG 的导入设置改成别的</span>(源 PNG 现状即规范,工具只读不改源)。
+<b>不做(本设计明确排除):</b><span class="pill-no">改寻址范式</span>(沿用 23);<span class="pill-no">改收集器</span>(`Sheet_*` 落已收录目录);<span class="pill-no">运行期换皮代码</span>(各窗口脚本是后续每屏的事);<span class="pill-no">复用 / 改 AtlasMaker</span>(SpriteAtlas v2 路径已排除);<span class="pill-no">覆盖已存在的表文件</span>(用户拍板:不覆盖,并排比对);<span class="pill-no">把源 PNG 的导入设置改成别的</span>(源 PNG 现状即规范,工具只读不改源)。
 
 <h2 id="entry">二、工具入口与输入校验</h2>
 
@@ -72,7 +72,7 @@
 | 承载 | 做法 | 取舍 |
 | --- | --- | --- |
 | <b>(默认)选中目录 + 菜单项</b> | `[MenuItem]` 方法读 `Selection`;`[MenuItem(..., true)]` 验证函数在「选中非目录 / 目录不合法」时灰掉菜单 | 零额外 UI,最快;符合 Unity 工具习惯。**取此为默认** |
-| (备选)EditorWindow 面板 | 开一个窗口,拖目录 + 看子图列表 + 逐项填覆盖 + 「打表」按钮 | 承载「可选覆盖」更顺手(§六),但本轮覆盖是少数个例,不值得为它先建面板。覆盖承载见 §六 的轻量方案 |
+| (备选)EditorWindow 面板 | 开一个窗口,拖目录 + 看子图列表 + 逐项填覆盖 + 「打表」按钮 | 承载「可选覆盖」更顺手(§六),但本设计覆盖是少数个例,不值得为它先建面板。覆盖承载见 §六 的轻量方案 |
 
 <h3 id="entry-validate">2.2 输入合法性校验(逐项处置)</h3>
 
@@ -127,7 +127,7 @@ byte[] png = sheet.EncodeToPNG();</pre>
 若一批子图在 2048×2048 内排不下,`PackTextures` 会返回 false / 排布失败(或自动放大超过期望)。处置:
 
 - **先尝试 2048**(对齐基准)。排不下时 `PackTextures` 返回失败 → 工具<mark>报错并中止</mark>,提示「子图总面积超 2048×2048,本屏切图过大或过多,需拆分目录 / 压缩源图」。
-- 本轮目标屏(setting 等)源图都是小图标 + 几张底板,2048 充裕(`Sheet_settings.png` 内容均在 2048 内)。**不**本轮就支持多页表 / 自动升 4096——那是投机性扩展,真有超限屏时另开增量(列 §十一)。
+- 本设计目标屏(setting 等)源图都是小图标 + 几张底板,2048 充裕(`Sheet_settings.png` 内容均在 2048 内)。**不**本设计就支持多页表 / 自动升 4096——那是投机性扩展,真有超限屏时另开增量(列 §十一)。
 
 <h2 id="meta">四、逐子图 SpriteMetaData</h2>
 
@@ -138,7 +138,7 @@ byte[] png = sheet.EncodeToPNG();</pre>
 | `name` | <b>源 PNG 文件名(去 <code>.png</code>)</b> | = `SetSubSprite` 的 `spriteName`。如 `button.png` → 子图名 `button`;运行期 `SetSubSprite("Sheet_setting","button")` 取得到 |
 | `rect` | 由 §三 排布定(像素矩形,尺寸=源图尺寸) | `PackTextures` 返回的归一化 rect × 表尺寸,取整 |
 | `alignment` | **0**(Center) | 对齐基准各子图 `alignment:0` |
-| `pivot` | <b>{0.5, 0.5}</b>(居中) | 用户约定:默认居中。<mark>不从源继承 pivot</mark>——源 PNG 的 `spriteSheet.sprites[0].pivot` 因 alignment=Center 实际是 {0,0} 占位(见 `base_plate.png.meta`),真实居中由 alignment=0 表达;基准表各子图也是固定 `pivot:{0.5,0.5}`。固定居中即复现现状([B1](#24-ui-atlas-packer::open) 备:如某屏需非居中 pivot,再加「可选覆盖 pivot」,本轮 border 已有覆盖通道、pivot 暂统一居中) |
+| `pivot` | <b>{0.5, 0.5}</b>(居中) | 用户约定:默认居中。<mark>不从源继承 pivot</mark>——源 PNG 的 `spriteSheet.sprites[0].pivot` 因 alignment=Center 实际是 {0,0} 占位(见 `base_plate.png.meta`),真实居中由 alignment=0 表达;基准表各子图也是固定 `pivot:{0.5,0.5}`。固定居中即复现现状([B1](#24-ui-atlas-packer::open) 备:如某屏需非居中 pivot,再加「可选覆盖 pivot」,本设计 border 已有覆盖通道、pivot 暂统一居中) |
 | `border` | <b>从源 <code>TextureImporter.spriteBorder</code> 继承</b> + 可选覆盖(§六) | 用户拍板:读每张源 PNG 的 importer 级 `spriteBorder`。<mark>关键:读 importer 的 <code>spriteBorder</code> 属性,不是 <code>spriteSheet.sprites\[0\].border</code></mark>——后者在 Single 模式下是 {0,0,0,0} 占位,真实九宫格 border 存在 importer 级(`base_plate.png.meta` 第 55 行 `spriteBorder:{24,24,24,24}`,而其 sprites\[0\].border 是 {0,0,0,0}) |
 
 > [!WARNING]
@@ -212,7 +212,7 @@ sequenceDiagram
 | 方案 | 做法 | 取舍 |
 | --- | --- | --- |
 | <b>A. 旁置覆盖文件(默认推荐)</b> | 目录内可选放一个 `_border_override.json`(或 `.txt`):`{"chat":[8,8,8,8], "help":[12,12,12,12]}`。工具打表时若存在该文件,对其中列出的子图用覆盖值、其余继承源。文件不存在 = 全继承(零负担) | 无需建 UI;覆盖值可 git 跟踪、可复跑复现;对「少数个例覆盖」足够。**取此为默认**。该文件本身非 PNG,§2.2 校验里归入「跳过的非 PNG」不报错(或显式识别为配置) |
-| B. EditorWindow 逐项填 | 开窗列出所有子图 + 各自源 border + 一个可编辑覆盖列 + 「打表」 | 最直观,但要先建面板(§2.1 默认是菜单项无面板);本轮覆盖是少数,建面板收益不抵成本。<mark>真有「每屏大量手调 border」的需求时再升级到 B</mark>(列 §十一) |
+| B. EditorWindow 逐项填 | 开窗列出所有子图 + 各自源 border + 一个可编辑覆盖列 + 「打表」 | 最直观,但要先建面板(§2.1 默认是菜单项无面板);本设计覆盖是少数,建面板收益不抵成本。<mark>真有「每屏大量手调 border」的需求时再升级到 B</mark>(列 §十一) |
 
 > [!NOTE]
 > **覆盖是「可选」——不配即全继承,继承已能精确复现现表**
@@ -230,7 +230,7 @@ sequenceDiagram
 > [!NOTE]
 > <b>「不覆盖」与「重打」的取舍</b>
 >
-> 「不覆盖」是用户拍板的安全默认(防误触改掉在用表)。代价是改一张图要「手删 + 重跑」两步。若后续高频迭代某屏觉得繁,可加一个**显式**的「强制重打(覆盖)」菜单变体(带二次确认),但默认仍不覆盖。本轮按拍板只做「不覆盖」,强制变体列 §十一 备选。
+> 「不覆盖」是用户拍板的安全默认(防误触改掉在用表)。代价是改一张图要「手删 + 重跑」两步。若后续高频迭代某屏觉得繁,可加一个**显式**的「强制重打(覆盖)」菜单变体(带二次确认),但默认仍不覆盖。本设计按拍板只做「不覆盖」,强制变体列 §十一 备选。
 
 <h2 id="hook">八、dev 改动清单</h2>
 
@@ -286,7 +286,7 @@ sequenceDiagram
 | P3 | 九宫格 border 生效:对 border=24 的子图(如 `button`)用 `Image.type=Sliced` 拉伸,四角不糊、中段平铺(border 正确写入) | 可截图核九宫格拉伸表现 |
 
 > [!WARNING]
-> <b>本轮的「工具可用」标志(给 boss 关单判据)</b>
+> <b>本设计的「工具可用」标志(给 boss 关单判据)</b>
 >
 > R2 + S2 是核心:<mark>产出表读回正好 21 个命名子图、border 分布与现有 <code>Sheet_settings.png</code> 逐一相等、无自动切残留名</mark>——证明工具能精确复现手工表的语义。P1/P2 证明产出表运行期可寻址。二者齐 = 工具可替代手工合表,后续每屏「散切图目录 → 跑工具 → 得可寻址精灵表」成立。
 
@@ -294,13 +294,13 @@ sequenceDiagram
 
 常规模式、用户在场。有安全默认的按默认推进(列此备查);均不抵触寻址范式 / 不可逆,**不入 blockers**(不停机)。
 
-| # | 开关 | 本轮默认(安全默认) | 备选 / 改动触发 |
+| # | 开关 | 本设计默认(安全默认) | 备选 / 改动触发 |
 | --- | --- | --- | --- |
-| **B1** | pivot 是否支持「可选覆盖」(同 border) | <b>统一居中 {0.5,0.5}</b>,不做 pivot 覆盖(现状各表子图均居中,setting 复现不需要) | 某屏需非居中 pivot(如锚定角)时,比照 border 覆盖通道加「pivot 覆盖」,本轮不预建 |
+| **B1** | pivot 是否支持「可选覆盖」(同 border) | <b>统一居中 {0.5,0.5}</b>,不做 pivot 覆盖(现状各表子图均居中,setting 复现不需要) | 某屏需非居中 pivot(如锚定角)时,比照 border 覆盖通道加「pivot 覆盖」,本设计不预建 |
 | B2 | 「可选覆盖」承载形式 | <b>方案 A 旁置 <code>\_border\_override.json</code></b>(§六,轻量、可 git 追溯) | 若后续某屏需大量手调 border → 升级到方案 B EditorWindow 逐项填 |
 | B3 | 是否提供「强制重打(覆盖已存在)」变体 | **不提供**,只「不覆盖 + 报已存在」(用户拍板:不覆盖) | 高频迭代某屏觉「手删 + 重跑」繁 → 加带二次确认的「强制重打」菜单变体(§七) |
 | B4 | 菜单路径 / 入口形态 | **菜单项 + Project 选中目录**(§2.1,零额外 UI) | 覆盖需求增大时改 EditorWindow(B2 联动) |
-| B5 | 超 2048 的处置 | **报错中止**(§3.3,目标屏不会超) | 真有超限屏 → 另开增量支持多页表 / 升 4096,本轮不投机 |
+| B5 | 超 2048 的处置 | **报错中止**(§3.3,目标屏不会超) | 真有超限屏 → 另开增量支持多页表 / 升 4096,本设计不投机 |
 | B6 | 测试产出表是否入库 | **测试 TearDown 删除 / 写临时目录**(不污染 `AssetRaw/`);`setting/` 的正式 `Sheet_setting.png` 由人工跑工具生成、是否入库由 boss / 后续换皮轮决定 | — |
 | B7 | 写子图元数据 API | <b><code>ISpriteEditorDataProvider</code></b>(现代、非 obsolete、已核实存在;§五 callout) | `TextureImporter.spritesheet`(已 Obsolete 但仍可写)作兜底;两路同验收(§九)。属工程实现取舍、有安全默认,记 decisions 不入 blockers |
 

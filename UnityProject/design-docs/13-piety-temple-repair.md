@@ -10,15 +10,15 @@
 
 # 虔诚币 + 神庙修复
 
-把 GDD 的**长期主线**落成一条可验收的成长链:订单交付产<span class="coin">虔诚币</span> → 攒够修复 12 座神庙大厅 → 每次修复产**经验**抬升**神庙守护者等级** → 升级解锁剧情章节(本轮只做解锁标记)。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)),复用 `MergeOrderState` / `MergeOrderConfig` / `MergeOrderWindow` 的既有形态,**不重构现有 灵力(Soul) 经济**。
+把 GDD 的**长期主线**落成一条可验收的成长链:订单交付产<span class="coin">虔诚币</span> → 攒够修复 12 座神庙大厅 → 每次修复产**经验**抬升**神庙守护者等级** → 升级解锁剧情章节(本设计只做解锁标记)。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)),复用 `MergeOrderState` / `MergeOrderConfig` / `MergeOrderWindow` 的既有形态,**不重构现有 灵力(Soul) 经济**。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
     <p style="margin:8px 0 0">本篇接的是已落地的 merge-order 切片现状,不是 GDD 的完整商业体量游戏。三条边界先钉死:</p>
     <ul style="margin:8px 0 0">
-      <li><b>加法式引入第二货币,不动 灵力。</b>现行经济是设计 11 的单软货币 灵力(<code>MergeOrderState.Soul</code>)。本篇新增<span class="coin">虔诚币</span>(<code>Piety</code>)作长期主线货币,与 灵力 并存、各管一段(对照 <a href="#13-piety-temple-repair::vs-soul">§2.2</a>)。GDD 写的「灵力 100 上限神谕槽」重构<b>不在本轮</b>。</li>
+      <li><b>加法式引入第二货币,不动 灵力。</b>现行经济是设计 11 的单软货币 灵力(<code>MergeOrderState.Soul</code>)。本篇新增<span class="coin">虔诚币</span>(<code>Piety</code>)作长期主线货币,与 灵力 并存、各管一段(对照 <a href="#13-piety-temple-repair::vs-soul">§2.2</a>)。GDD 写的「灵力 100 上限神谕槽」重构<b>不在本设计</b>。</li>
       <li><b>订单交付当前不发 灵力(已 grep 核实)。</b><code>MergeOrderState.Deliver</code> / <code>DeliverSpecial</code> 现状只发 体力(<code>OrderRewardEnergy</code>) + 累计分(<code>TotalScore</code>),<b>不调 <code>AddSoul</code></b>(<code>AddSoul</code> 已存在且入快照,但交付路径无调用方)。因此把<span class="coin">虔诚币</span>挂为「订单的主要奖励」是<b>纯新增</b>,不与现有奖励冲突。详见 <a href="#13-piety-temple-repair::piety-reward">§3.1</a>。</li>
-      <li><b>金币 / 高级图案包 不实装。</b>GDD 升级奖励含「金币和高级图案包」,但工程<b>无金币货币</b>,且图案包属变现向内容。本轮升级奖励只做<b>体力 + 剧情章节解锁标记</b>;金币/图案包<b>不做</b>(见 <a href="#13-piety-temple-repair::levelup">§3.5</a> 与任务边界)。</li>
+      <li><b>金币 / 高级图案包 不实装。</b>GDD 升级奖励含「金币和高级图案包」,但工程<b>无金币货币</b>,且图案包属变现向内容。本设计升级奖励只做<b>体力 + 剧情章节解锁标记</b>;金币/图案包<b>不做</b>(见 <a href="#13-piety-temple-repair::levelup">§3.5</a> 与任务边界)。</li>
     </ul>
   </div>
 
@@ -47,7 +47,7 @@
 | 4 | 经验:获取 = 修复神庙;作用 = 提升**神庙守护者等级** | `Exp` 累积 → `GuardianLevel` 按曲线算([§3.4](#13-piety-temple-repair::level-curve)) | <span class="pill-new">新增</span> |
 | 5 | 升级奖励:解锁新剧情章节、体力、金币、高级图案包 | 升级发体力 + **剧情章节解锁标记**(`UnlockedChapter` 计数);金币/图案包不做(无金币货币,见红框) | <span class="pill-new">新增(部分收敛)</span> |
 
-<b>不做(本轮明确排除,后续轮次):</b>钻石硬货币、灵力 重构为 100 上限神谕槽、剧情章节/NPC 剧情订单的**剧情内容**(只做解锁标记,不做剧情 UI)、装饰摆件的**实际美术**(只做 bool 标记)、金币货币与高级图案包、\~9 套活动。
+<b>不做(本设计明确排除,后续轮次):</b>钻石硬货币、灵力 重构为 100 上限神谕槽、剧情章节/NPC 剧情订单的**剧情内容**(只做解锁标记,不做剧情 UI)、装饰摆件的**实际美术**(只做 bool 标记)、金币货币与高级图案包、\~9 套活动。
 
 <h2 id="model">二、系统模型</h2>
 
@@ -150,9 +150,9 @@ GDD:「修复建筑后,获得大量经验值、体力、以及装饰性摆件。
 | --- | --- | --- | --- |
 | **经验** | `Exp += Cost(i)`(经验 = 该厅造价,1:1,造价越高经验越「大量」) | `MergeOrderState.Exp`(新字段);加完即重算 `GuardianLevel` | 只增;触发 0\~多次升级([§3.4](#13-piety-temple-repair::level-curve)) |
 | **体力** | `RefundEnergy(TempleRepairEnergy)`(默认 30 = 回满软上限) | 现状 `MergeOrderState.RefundEnergy` | 受 `EnergyCap` 约束,不溢出(与消除返还同规则) |
-| **装饰摆件** | 标记该厅 `HasDecoration[i]=true`(本轮只 bool 标记,无美术) | `TempleHallState.HasDecoration`(随修复位入快照) | 修复成功即置 true;美术表现后续轮次 |
+| **装饰摆件** | 标记该厅 `HasDecoration[i]=true`(本设计只 bool 标记,无美术) | `TempleHallState.HasDecoration`(随修复位入快照) | 修复成功即置 true;美术表现后续轮次 |
 
-经验取「= 造价」而非固定值的理由:GDD 写「大量经验值」且后期厅造价越来越高,经验跟造价走能让「修高价厅」同时是「跳等级」的大事件,后期升级感不疲软。<b>旋钮:</b>若要解耦,可引入 `ExpPerCost` 系数(默认 1.0);本轮默认 1:1,留旋钮备调([§七 O2](#13-piety-temple-repair::open))。`TempleRepairEnergy` 调修复回血量。
+经验取「= 造价」而非固定值的理由:GDD 写「大量经验值」且后期厅造价越来越高,经验跟造价走能让「修高价厅」同时是「跳等级」的大事件,后期升级感不疲软。<b>旋钮:</b>若要解耦,可引入 `ExpPerCost` 系数(默认 1.0);本设计默认 1:1,留旋钮备调([§七 O2](#13-piety-temple-repair::open))。`TempleRepairEnergy` 调修复回血量。
 
 <h3 id="level-curve">3.4 经验 → 守护者等级曲线</h3>
 
@@ -181,16 +181,16 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
 
 <h3 id="levelup">3.5 升级解锁与边界</h3>
 
-升级(`GuardianLevel` 增加)触发解锁。GDD 列「剧情章节 / 体力 / 金币 / 高级图案包」,本轮按红框收敛:
+升级(`GuardianLevel` 增加)触发解锁。GDD 列「剧情章节 / 体力 / 金币 / 高级图案包」,本设计按红框收敛:
 
-| GDD 升级奖励 | 本轮落法 | 说明 |
+| GDD 升级奖励 | 本设计落法 | 说明 |
 | --- | --- | --- |
 | 解锁新剧情章节 | `UnlockedChapter += 1`(每升 1 级解锁 1 章,只做**计数标记**) | 剧情内容/UI 不做(任务边界);窗口只显示「已解锁 N 章」 |
 | 体力 | `RefundEnergy(LevelUpEnergy)`(默认 15) | 现状 `RefundEnergy`,受软上限 |
 | 金币 | **不做** | 工程无金币货币(见红框);引入是独立大改 |
 | 高级图案包 | **不做** | 图案包属变现向内容,去变现红线;且无打包系统 |
 
-<b>跨级处理:</b>一次修复若使等级从 L 跨到 L+k,则 `UnlockedChapter += k`、发 k 次升级体力(或一次性 `k×LevelUpEnergy`,受软上限;本轮取一次性累加更省调用)。<b>实装范围:</b>本轮至少做到「经验累积 + 等级计算 + 升级判定 + 解锁章节计数 + 升级回血」就位且被测覆盖。剧情章节的实际内容(对话/CG/剧情订单)不做。
+<b>跨级处理:</b>一次修复若使等级从 L 跨到 L+k,则 `UnlockedChapter += k`、发 k 次升级体力(或一次性 `k×LevelUpEnergy`,受软上限;本设计取一次性累加更省调用)。<b>实装范围:</b>本设计至少做到「经验累积 + 等级计算 + 升级判定 + 解锁章节计数 + 升级回血」就位且被测覆盖。剧情章节的实际内容(对话/CG/剧情订单)不做。
 
 <h2 id="hook">四、挂接点 / dev 改动清单</h2>
 
@@ -255,8 +255,8 @@ glyph + 纯色,零美术,与现有 demo 一致(复用 `UGuiFactory` / `BurstText
 
 | # | 待决项 | 我的默认取向(若无异议即按此) |
 | --- | --- | --- |
-| O1 | <b>升级奖励是否补金币/图案包。</b>GDD 列了,工程无金币货币、图案包属变现向。 | 本轮**不做**(只体力 + 章节解锁标记)。金币需先引入货币系统(独立大改);图案包触去变现红线。 |
-| O2 | <b>修复经验是否解耦造价(引入 <code>ExpPerCost</code> 系数)。</b> | 本轮经验 = 造价 1:1(简单且后期升级感强)。留旋钮默认 1.0,要调再说。 |
+| O1 | <b>升级奖励是否补金币/图案包。</b>GDD 列了,工程无金币货币、图案包属变现向。 | 本设计**不做**(只体力 + 章节解锁标记)。金币需先引入货币系统(独立大改);图案包触去变现红线。 |
+| O2 | <b>修复经验是否解耦造价(引入 <code>ExpPerCost</code> 系数)。</b> | 本设计经验 = 造价 1:1(简单且后期升级感强)。留旋钮默认 1.0,要调再说。 |
 | O3 | <b>MergeOrderState 元层进度的跨会话磁盘持久化。</b> | 已由设计 [14](#14-save-system) 落地:虔诚币 / 经验·守护者等级 / 神庙修复位等元层进度随 灵力·盲盒 同体例进 `MergeMetaSave` 磁盘存档,退出重进保留;局内瞬态仍每局重建。「长期主线」即真正跨会话尺度。 |
 | O4 | <b>神庙面板入口放哪。</b> | 主入口在 `MergeOrderWindow` 顶部「神庙」按钮(叠层,不丢局);主菜单入口为可选加分项,dev 时间紧可省。 |
 | O5 | <b>厅名是否用大阿尔卡那命名。</b> | 用(贴「塔罗」主题,GDD 例「愚者大厅」即大阿尔卡那第 0 张)。改名只动 `TempleConfig.Halls` 一处。 |

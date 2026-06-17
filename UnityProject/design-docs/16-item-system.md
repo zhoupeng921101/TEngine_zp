@@ -24,7 +24,7 @@
       <li><b>新建品质枚举 <code>item.EItemQuality</code>(1–6),不复用现有 <code>item.EQuality</code>(1–4)。</b>现有 <code>EQuality</code> 为 <code>WHITE=1/BLUE=2/PURPLE=3/RED=4</code>,色序与本 spec(1 白 / 2 绿 / 3 蓝 / 4 紫 / 5 橙 / 6 红)<mark>不一致且档数不够</mark>;它被模板 <code>TbItem</code> 引用,改它会动模板示例。新建独立 6 档枚举,详 <a href="#16-item-system::enum">§3.3</a>。</li>
       <li><b>礼包开启 / 背包是纯逻辑,可单测;配置加载分两条路。</b>「按 rate 权重抽奖」「自选礼包返回可选列表」「背包计数 / 叠加 / 占格」都是纯内存逻辑,单测直接断言、不碰 YooAsset。权重抽样接受外部 <code>System.Random</code>(种子可控)使<mark>抽样结果确定可测</mark>。Luban 表运行期加载走既有 <code>ConfigSystem.Instance.Tables</code>(YooAsset,需 Unity 运行时);EditMode 单测仿 <code>WeightCfgLubanTests</code> / <code>NumericSystemTests</code> 经 <code>AssetDatabase</code> 直读 <code>.bytes</code> 绕 YooAsset(详 <a href="#16-item-system::registry">§3.5</a>)。</li>
       <li><b>产出落点复用既有系统,不另起炉灶。</b>UseEffect=1(货币)调用既有 <code>MergeOrderState</code> 的对应字段路径 / <a href="#15-numeric-system">数值系统</a> <code>NumericConfigMgr</code> 约定的 num_id;UseEffect=2(图案)调既有 <code>MergeOrderState.AddDirect(MergeElement, level, count)</code>。道具系统只产出「要发什么」的结构,<mark>由调用方接到既有发奖方法</mark>,本系统不复制发奖逻辑(详 <a href="#16-item-system::useeffect">§3.7</a>)。</li>
-      <li><b>限时 / 邮件补偿 / UI 跳转本轮全部不做(spec 自身依赖未建系统)。</b>限时整套(<code>Term</code> / <code>TermTime</code> / <code>Compensate</code>→Reward 表 / <code>CompensateEmail</code>→邮件)、背包溢出邮件补发、<code>JumpList</code> 获取跳转、真实 Sprite / Light 特效——这些<mark>字段照样进表</mark>(为后续不返工),但运行期 <b>stub</b>:不做到期检测 / 补偿 / 邮件 / UI;背包满本轮<b>拒绝并记 TODO</b>不发邮件;资源名占位(详 <a href="#16-item-system::open">§七</a> 各 O 项 + 风险表)。</li>
+      <li><b>限时 / 邮件补偿 / UI 跳转本设计全部不做(spec 自身依赖未建系统)。</b>限时整套(<code>Term</code> / <code>TermTime</code> / <code>Compensate</code>→Reward 表 / <code>CompensateEmail</code>→邮件)、背包溢出邮件补发、<code>JumpList</code> 获取跳转、真实 Sprite / Light 特效——这些<mark>字段照样进表</mark>(为后续不返工),但运行期 <b>stub</b>:不做到期检测 / 补偿 / 邮件 / UI;背包满本设计<b>拒绝并记 TODO</b>不发邮件;资源名占位(详 <a href="#16-item-system::open">§七</a> 各 O 项 + 风险表)。</li>
     </ul>
   </div>
 
@@ -57,7 +57,7 @@
 | 8 | 限时(Term/TermTime/Compensate→Reward/CompensateEmail→邮件) | 字段进表,运行期 **stub**:不做到期检测 / 补偿 / 邮件(依赖未建系统,[§七 O5](#16-item-system::open)) | <span class="pill-stub">字段进表·逻辑 stub</span> |
 | 9 | 背包溢出邮件补发;JumpList 获取跳转;真实 Sprite / Light 特效 | 容量满**拒绝 + 记 TODO**(不发邮件);JumpList 进表不接 UI;资源名占位([§七 O6/O7/O8](#16-item-system::open)) | <span class="pill-stub">字段进表·不接</span> |
 
-<b>不做(本轮明确排除):</b><span class="pill-no">充值 / 内购 / 计价</span>(去变现);<span class="pill-no">限时到期检测 / Reward 表补偿 / 邮件补发</span>(依赖未建系统,字段进表逻辑 stub,[§七 O5](#16-item-system::open));<span class="pill-no">背包溢出邮件补发</span>(邮件未建,仅容量上限,[§七 O6](#16-item-system::open));<span class="pill-no">JumpList 获取跳转 UI</span>(字段进表不接,[§七 O7](#16-item-system::open));<span class="pill-no">真实 Sprite / Light 特效</span>(无美术,资源名占位,[§七 O8](#16-item-system::open));<span class="pill-no">道具背包 / 礼包开启 UI 界面</span>(本轮交付数据层 + 纯逻辑,UI 投放独立后续,[§七 O9](#16-item-system::open));<span class="pill-no">把货币数量值迁进背包统一持有</span>(货币数量仍由 MergeOrderState 字段持有,[§七 O4](#16-item-system::open))。
+<b>不做(本设计明确排除):</b><span class="pill-no">充值 / 内购 / 计价</span>(去变现);<span class="pill-no">限时到期检测 / Reward 表补偿 / 邮件补发</span>(依赖未建系统,字段进表逻辑 stub,[§七 O5](#16-item-system::open));<span class="pill-no">背包溢出邮件补发</span>(邮件未建,仅容量上限,[§七 O6](#16-item-system::open));<span class="pill-no">JumpList 获取跳转 UI</span>(字段进表不接,[§七 O7](#16-item-system::open));<span class="pill-no">真实 Sprite / Light 特效</span>(无美术,资源名占位,[§七 O8](#16-item-system::open));<span class="pill-no">道具背包 / 礼包开启 UI 界面</span>(本设计交付数据层 + 纯逻辑,UI 投放独立后续,[§七 O9](#16-item-system::open));<span class="pill-no">把货币数量值迁进背包统一持有</span>(货币数量仍由 MergeOrderState 字段持有,[§七 O4](#16-item-system::open))。
 
 <h2 id="model">二、系统模型</h2>
 
@@ -104,7 +104,7 @@ flowchart TD
 | 货币字段(`Energy`/`Piety`/`Exp`…) | 不改字段、不迁数量值进背包;货币数量仍各字段持有(全面迁移见 [§七 O4](#16-item-system::open)) | <span class="no">否</span> |
 | `ChestReward` / 盲盒 | 不耦合;道具礼包是独立获取通道,与盲盒并存 | <span class="no">否</span> |
 
-背包(`ItemBag`)本轮持有的是 **Type=2 材料 / 3 功能材料** 这类「需要进背包格子」的道具。货币(Type=1)与图案(UseEffect=2)走各自既有系统、<mark>不进背包格子</mark>(它们没有「100 格上限」语义)。背包归类按 `Type` 划分([§3.8](#16-item-system::bag))。
+背包(`ItemBag`)本设计持有的是 **Type=2 材料 / 3 功能材料** 这类「需要进背包格子」的道具。货币(Type=1)与图案(UseEffect=2)走各自既有系统、<mark>不进背包格子</mark>(它们没有「100 格上限」语义)。背包归类按 `Type` 划分([§3.8](#16-item-system::bag))。
 
 <h2 id="numbers">三、设计正文</h2>
 
@@ -137,7 +137,7 @@ flowchart TD
 | icon | string | c,s | 图标资源名 | 占位名(无美术 O8) |
 | quality | item.EItemQuality | c,s | 品质(1–6) | 枚举 §3.3 |
 | light | string | c,s | icon 特效 id / 路径 | 占位(无美术 O8) |
-| automatic | int | c,s | 获得时是否自动使用(0 否 / 1 是) | 0/1,本轮 ItemGrant 读它决定是否立即结算 |
+| automatic | int | c,s | 获得时是否自动使用(0 否 / 1 是) | 0/1,本设计 ItemGrant 读它决定是否立即结算 |
 | type | item.EItemType | c,s | 道具类型(分类 / 背包归类) | 枚举 §3.3 |
 | param | int | c,s | 「参数」:自选 / 随机礼包奖励数量 | spec「参数」字段;礼包开几次 / 数量 |
 | use\_effect | int | c,s | 使用效果:1 num / 2 图案 / 3 自选礼包 ID / 4 随机礼包 id | 解析见 §3.7 |
@@ -193,7 +193,7 @@ flowchart TD
 | 30007 | 110007 | 6 随机礼包 | 4 随机 | 6001 | 0 | 0 | 3 | 0 | 6 | 随机礼包(param=3):开启抽 3 次 |
 | 30008 | 110008 | 2 材料 | 0 无 | 0 | 0 | 0 | 0 | 0 | 2 | 不可叠放材料:单独占格(stacking=0) |
 
-其中 30007 的 `param=3` 表示开启时抽 3 次(自选礼包 param 表示可选 N 选 M 里的可选数;随机礼包 param 表示抽几次)。30008 `stacking=0` 用于验证背包占格逻辑。Term 字段所有样例行填 `term=0`(本轮 stub,不做限时)。
+其中 30007 的 `param=3` 表示开启时抽 3 次(自选礼包 param 表示可选 N 选 M 里的可选数;随机礼包 param 表示抽几次)。30008 `stacking=0` 用于验证背包占格逻辑。Term 字段所有样例行填 `term=0`(本设计 stub,不做限时)。
 
 <h3 id="packs">3.4 随机 / 自选礼包表 + 样例</h3>
 
@@ -341,13 +341,13 @@ public static GrantPayload Resolve(ItemDef def, int count) {
 | --- | --- | --- |
 | Numeric | num\_id 对应货币字段:体力→`MergeOrderState.RefundEnergy` / 经验→`Exp +=` / 虔诚币→`AddPiety` / 钻石→(数值系统约定字段) | 产出 `(num_id, amount)`;适配器把 num\_id 映射到既有字段方法(给一份 `ApplyNumeric(MergeOrderState, payload)` 示范) |
 | Pattern | `MergeOrderState.AddDirect(MergeElement, level, count)`(既有方法) | 产出 `(MergeElement, level, count)`;适配器调既有 AddDirect |
-| GiftSelect | 返回候选列表交 UI(UI 本轮不接) | 产出 index + times;调 `GiftOpener.ListSelectable` |
+| GiftSelect | 返回候选列表交 UI(UI 本设计不接) | 产出 index + times;调 `GiftOpener.ListSelectable` |
 | GiftRandom | 递归:抽出的道具再 `Resolve` + 落点 | 产出 index + times;调 `GiftOpener.OpenRandom` 再逐项 Resolve |
 | None(纯材料) | 进背包 `ItemBag.Add(id, count)` | 适配器把材料放进背包 |
 
 注:Pattern 的 `UseValue` 存 MergeElement 的枚举底层值(如钻石 100)。MergeElement key 见 `MergeElementVisual.cs`(Diamond=100…Stone=200)。适配器 `(MergeElement)payload.TargetId` 转回枚举。
 
-<b>Automatic 字段:</b>`automatic=1` 的道具,获取时立即 `Resolve` + 落点(不进背包);`automatic=0` 的进背包待用户手动用。本轮 `ItemGrant` 提供 `GrantOnAcquire(def, count)` 读 Automatic 决定走「立即结算」还是「进背包」两条路。
+<b>Automatic 字段:</b>`automatic=1` 的道具,获取时立即 `Resolve` + 落点(不进背包);`automatic=0` 的进背包待用户手动用。本设计 `ItemGrant` 提供 `GrantOnAcquire(def, count)` 读 Automatic 决定走「立即结算」还是「进背包」两条路。
 
 <h3 id="bag">3.8 基础背包容器(叠加 / 上限 / 占格)</h3>
 
@@ -355,11 +355,11 @@ public static GrantPayload Resolve(ItemDef def, int count) {
 
 | 规则 | 值 | 行为 |
 | --- | --- | --- |
-| 叠加上限 | 999 | 同 id(stacking=1)累加,夹到 999;超出部分本轮**丢弃 + 记 TODO**(邮件补发 O6) |
+| 叠加上限 | 999 | 同 id(stacking=1)累加,夹到 999;超出部分本设计**丢弃 + 记 TODO**(邮件补发 O6) |
 | 显示 | 999+ | 数量 ≥999 显示 "999+"(给一个 `FormatCount(n)` 纯函数:n&lt;999 原值,≥999 返 "999+") |
 | 占格(可叠) | 1 格 / id | stacking=1:同 id 不论数量占 1 格 |
 | 占格(不可叠) | num 格 | stacking=0:每个占 1 格,num 个占 num 格 |
-| 容量上限 | 100 格 | 已用格 + 新增格 >100 → 本轮**拒绝该次 Add(返回实际放入量)+ 记 TODO**(不发邮件 O6) |
+| 容量上限 | 100 格 | 已用格 + 新增格 >100 → 本设计**拒绝该次 Add(返回实际放入量)+ 记 TODO**(不发邮件 O6) |
 
 <pre class="code">public sealed class ItemBag {
     public const int StackCap = 999;
@@ -385,7 +385,7 @@ public static GrantPayload Resolve(ItemDef def, int count) {
 | 不可叠 id,空格 k 个,放 count 个 | 放入 min(count, k) 个,占 min(count,k) 格;差额拒绝记 TODO |
 | 移除到 0 | 从字典删该 id,释放格子 |
 
-<b>背包持久化:</b>本轮背包**不接存档**(纯内存容器)。接入跨会话存档(序列化进 [设计 14](#14-save-system) 的存档 DTO)列为后续,见 [§七 O10](#16-item-system::open)。本轮验收只锚在内存容器的纯逻辑断言。
+<b>背包持久化:</b>本设计背包**不接存档**(纯内存容器)。接入跨会话存档(序列化进 [设计 14](#14-save-system) 的存档 DTO)列为后续,见 [§七 O10](#16-item-system::open)。本设计验收只锚在内存容器的纯逻辑断言。
 
 <h2 id="flow">四、礼包开启时序</h2>
 
@@ -467,11 +467,11 @@ sequenceDiagram
 
 <h2 id="open">七、待拍板清单</h2>
 
-有安全默认的已在 decisions 自行拍板(新建表 / 6 档枚举 / schema 字段拆分等);此处集中列**范围开关**交 boss / 用户裁决——均不阻塞本轮交付,默认按「本轮不做」推进。
+有安全默认的已在 decisions 自行拍板(新建表 / 6 档枚举 / schema 字段拆分等);此处集中列**范围开关**交 boss / 用户裁决——均不阻塞本设计交付,默认按「本设计不做」推进。
 
-| # | 事项 | 本轮默认 | 后续选项 |
+| # | 事项 | 本设计默认 | 后续选项 |
 | --- | --- | --- | --- |
-| O1 | 礼包奖品 item\_id 是否允许指向「非道具」(直接指 num / 图案) | 奖品统一是道具 id,道具自身 use\_effect 决定落点(一层间接) | 若要奖池直接挂 num/图案,加 reward\_type 列;本轮不加,保持单一抽象 |
+| O1 | 礼包奖品 item\_id 是否允许指向「非道具」(直接指 num / 图案) | 奖品统一是道具 id,道具自身 use\_effect 决定落点(一层间接) | 若要奖池直接挂 num/图案,加 reward\_type 列;本设计不加,保持单一抽象 |
 | O2 | 道具表把 spec「参数」拆成 use\_value/use\_num/use\_level/param 四字段 | 已拆(§3.2 字段补充说明),spec 字段全保留 | 若 boss 要严格 1:1 spec 字段,合回单「参数」+ 约定编码(不推荐,语义混) |
 | O3 | EItemType 是否补 value=4 | 照 spec 跳过 4 | spec 后续定义 4 时直接加行 |
 | O4 | 货币数量值是否迁进背包统一持有 | 否,货币仍 MergeOrderState 字段持有,背包只装材料 | 全面迁移(把所有可持有物收进背包)是更大重构,单列后续 |
@@ -479,8 +479,8 @@ sequenceDiagram
 | O6 | 背包溢出(超 999 / 超 100 格)邮件补发 | 差额**丢弃 + 记 TODO**,不发邮件 | 邮件系统建成后,溢出走邮件补发 |
 | O7 | JumpList 获取跳转 | 字段进表,不接 UI | 道具获取 UI 建成后接跳转 |
 | O8 | 真实 Sprite / Light 特效 | 资源名占位,不加载真实资源 | 美术到位后,Icon/Light 接 YooAsset 加载(走异步红线) |
-| O9 | 道具背包 / 礼包开启 UI 界面 | 本轮只交付数据层 + 纯逻辑,无 UIWindow | UI 投放独立后续(仿现有窗口,配 prefab) |
-| O10 | 背包跨会话存档 | 本轮纯内存,不接存档 | 序列化进设计 14 存档 DTO(扁平 \[Serializable\],与 BlockGameState 同口径) |
+| O9 | 道具背包 / 礼包开启 UI 界面 | 本设计只交付数据层 + 纯逻辑,无 UIWindow | UI 投放独立后续(仿现有窗口,配 prefab) |
+| O10 | 背包跨会话存档 | 本设计纯内存,不接存档 | 序列化进设计 14 存档 DTO(扁平 \[Serializable\],与 BlockGameState 同口径) |
 
 <h2 id="risk">八、风险表</h2>
 
@@ -491,6 +491,6 @@ sequenceDiagram
 | Luban 导表环境(.NET7 缺 / group 写法 / 自动导入)踩坑 | dev memory Luban 条:`DOTNET_ROLL_FORWARD=Major` / group 写 `c,s` / `--no-auto-import` + read\_schema\_from\_file=True;不可达判 BLOCKED 不判 FAIL |
 | 权重抽样不确定致单测 flaky | 抽样注入 `System.Random`,确定性验收(G1)用固定种子复现;分布验收(G2)用大样本 + 容差,不依赖具体种子 |
 | ItemGrant 复制一份发奖逻辑致与 MergeOrderState 漂移 | ItemGrant 只产出结构,适配器调既有 `AddDirect` / `RefundEnergy` 等;不复制发奖算法 |
-| 礼包递归(礼包开出礼包)无限循环 | 本轮样例不配自指礼包;dev 实现 OpenRandom 递归 Resolve 时加深度上限(如 ≤5 层)防配置环 |
+| 礼包递归(礼包开出礼包)无限循环 | 本设计样例不配自指礼包;dev 实现 OpenRandom 递归 Resolve 时加深度上限(如 ≤5 层)防配置环 |
 | 改动触碰既有 209 例致回归 | 本系统全新增、不改既有代码路径;Z2 验收全量跑 209 例零回归 |
 | stub 字段被后续误当已实现 | 设计稿 + 交接区显式标注 O5–O8 为 stub;道具表 Term 样例全填 0 |

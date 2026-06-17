@@ -12,15 +12,15 @@
 
 # 通用设置系统 · 数据逻辑层
 
-常规游戏设置界面的**数据逻辑层**:**音频设置**(音乐开 / 关 + 音效开 / 关,默认全开)+ 本地持久化(复用框架既有 `Constant.Setting` 键 + `Utility.PlayerPrefs`,启动加载)+ 应用接缝(把两开关推给 TEngine 既有 `GameModule.Audio`),再加两个**信息 getter**(版本号 `Application.version` / 用户 ID 复用 [玩家信息](#18-player-info) 的 `PlayerInfo.Id`)。这是 xlsx 系统底层批次第五刀。**数据层先行**(沿用 15/16/17/18 节奏):设置模型 + 持久化往返 EditMode 可测;<mark>设置界面窗口 + 各按钮投放(联系客服 / 新手说明 / 用户协议网址 / 兑换码 / 快捷登录)是表现层,需美术(icon = 主界面设置图标),延后轮,本轮只留服务 + 钩子常量 + TODO</mark>。
+常规游戏设置界面的**数据逻辑层**:**音频设置**(音乐开 / 关 + 音效开 / 关,默认全开)+ 本地持久化(复用框架既有 `Constant.Setting` 键 + `Utility.PlayerPrefs`,启动加载)+ 应用接缝(把两开关推给 TEngine 既有 `GameModule.Audio`),再加两个**信息 getter**(版本号 `Application.version` / 用户 ID 复用 [玩家信息](#18-player-info) 的 `PlayerInfo.Id`)。这是 xlsx 系统底层批次第五刀。**数据层先行**(沿用 15/16/17/18 节奏):设置模型 + 持久化往返 EditMode 可测;<mark>设置界面窗口 + 各按钮投放(联系客服 / 新手说明 / 用户协议网址 / 兑换码 / 快捷登录)是表现层,需美术(icon = 主界面设置图标),延后轮,本设计只留服务 + 钩子常量 + TODO</mark>。
 
 <div class="callout warn">
     <b>读前必看 · 与工程现状的关系(单一事实源 = 代码)</b>
     <p style="margin:8px 0 0">四条边界先钉死,防 dev 把「设置数据层」做成「连 UI + 另造一套设置存储」:</p>
     <ul style="margin:8px 0 0">
-      <li><b>音频持久化复用框架既有设置约定,不另造存储栈。</b>TEngine 框架<mark>已有</mark>一套设置持久化约定:键 <code>TEngine.Constant.Setting.MusicMuted</code>/<code>SoundMuted</code>(见 <code>Assets/TEngine/Runtime/Core/Constant/Constant.cs</code>),经 <code>TEngine.Utility.PlayerPrefs.GetBool/SetBool</code> 读写,启动流程 <code>ProcedureLaunch.InitSoundSettings()</code>(<code>Assets/GameScripts/Procedure/ProcedureLaunch.cs:83</code>)在游戏启动时读这些键并应用到 <code>_audioModule.MusicEnable/SoundEnable</code>。本轮<mark>写这同一套键</mark>(故启动加载零改动即生效),不新建第二套设置存储、不新建第二个 PlayerPrefs 键空间。注意框架键存的是「静音(muted)」语义:<code>MusicMuted=false</code> 即音乐开;本层模型 <code>MusicOn</code> 与之取反映射(<a href="#19-settings-system::store">§3.2</a>)。</li>
+      <li><b>音频持久化复用框架既有设置约定,不另造存储栈。</b>TEngine 框架<mark>已有</mark>一套设置持久化约定:键 <code>TEngine.Constant.Setting.MusicMuted</code>/<code>SoundMuted</code>(见 <code>Assets/TEngine/Runtime/Core/Constant/Constant.cs</code>),经 <code>TEngine.Utility.PlayerPrefs.GetBool/SetBool</code> 读写,启动流程 <code>ProcedureLaunch.InitSoundSettings()</code>(<code>Assets/GameScripts/Procedure/ProcedureLaunch.cs:83</code>)在游戏启动时读这些键并应用到 <code>_audioModule.MusicEnable/SoundEnable</code>。本设计<mark>写这同一套键</mark>(故启动加载零改动即生效),不新建第二套设置存储、不新建第二个 PlayerPrefs 键空间。注意框架键存的是「静音(muted)」语义:<code>MusicMuted=false</code> 即音乐开;本层模型 <code>MusicOn</code> 与之取反映射(<a href="#19-settings-system::store">§3.2</a>)。</li>
       <li><b>数据模型 + 服务是纯逻辑,可单测;存储 / 应用经可注入接缝隔离副作用。</b><code>AudioSettings</code> 是纯 POCO(两 bool),读 / 写 / 切换都是纯内存逻辑。持久化经 <code>ISettingsStore</code> 接缝(生产包 <code>Utility.PlayerPrefs</code> + 框架键 / 测试用 InMemory 注入),仿工程既有 <code>IPersistenceProvider</code>(<code>Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/Persistence.cs</code>)做法。应用到音频模块经可注入 <code>Action&lt;bool,bool&gt;</code> sink(生产推 <code>GameModule.Audio</code> / 测试记录调用),单测不碰真实音频模块、不碰真实 PlayerPrefs。验收锚在模型 + 存储往返 + 服务逻辑的 EditMode 单测上。</li>
-      <li><b>UI 投放不在本轮。</b>设置界面窗口 + 各功能按钮(音乐 / 音效开关、联系客服、新手说明、版本号显示、用户协议·隐私网址、用户 ID 与复制、兑换码入口、快捷登录)是表现层,依赖美术(icon = 主界面设置图标)与多个尚未建成的系统跳转,本轮<mark>不</mark>建窗口、不挂 prefab。本轮交付到「服务方法 + 数据模型 + 信息 getter + 延后项钩子常量」,留主界面入口钩子 + TODO(见 <a href="#19-settings-system::hook">§五</a>)。</li>
+      <li><b>UI 投放不在本设计。</b>设置界面窗口 + 各功能按钮(音乐 / 音效开关、联系客服、新手说明、版本号显示、用户协议·隐私网址、用户 ID 与复制、兑换码入口、快捷登录)是表现层,依赖美术(icon = 主界面设置图标)与多个尚未建成的系统跳转,本设计<mark>不</mark>建窗口、不挂 prefab。本设计交付到「服务方法 + 数据模型 + 信息 getter + 延后项钩子常量」,留主界面入口钩子 + TODO(见 <a href="#19-settings-system::hook">§五</a>)。</li>
       <li><b>离线 + 去变现适配(项目方向)。</b>① 快捷登录 = <mark>不做</mark>(离线无账号系统,同 18 player-info 账号绑定 out);② 联系客服 = spec 自身标「待定」,留 stub 常量 + TODO;③ 用户协议 / 隐私政策 = 存 URL 常量(占位),UI 接时用 <code>Application.OpenURL</code>;④ 兑换码入口 = 依赖未建的兑换码系统,留 TODO 钩子;⑤ 新手说明 → 新手关卡 = 依赖未建的新手 / 教学关,留 TODO 钩子。以上均不阻塞,数据层不返工(<a href="#19-settings-system::stub">§3.6</a>)。</li>
     </ul>
   </div>
@@ -42,7 +42,7 @@
         <b>新增存储 / 服务</b>:<code>ISettingsStore</code> + <code>PlayerPrefsSettingsStore</code>(包 <code>Utility.PlayerPrefs</code> + 框架键) + <code>InMemorySettingsStore</code>(测试) + <code>SettingsService</code>(读 / 写 / 切换 / 应用 / 提示文案,<a href="#19-settings-system::service">§3.4</a>);<br>
         <b>新增信息 getter</b>:<code>SettingsInfo</code>(版本号 / 用户 ID,经可注入 provider,<a href="#19-settings-system::info">§3.5</a>);<br>
         <b>新增钩子常量</b>:<code>SettingsLinks</code>(用户协议 / 隐私 URL 占位 + 客服 / 兑换码 / 新手关跳转 TODO 标记,<a href="#19-settings-system::stub">§3.6</a>)。<br>
-        <b>改既有</b>:无(写框架既有 <code>Constant.Setting</code> 键,不改框架代码;<code>ProcedureLaunch.InitSoundSettings</code> 零改动即兼容)。<b>UI 零改动</b>(本轮不建窗口)。<b>既有玩法逻辑零行为变化</b>。
+        <b>改既有</b>:无(写框架既有 <code>Constant.Setting</code> 键,不改框架代码;<code>ProcedureLaunch.InitSoundSettings</code> 零改动即兼容)。<b>UI 零改动</b>(本设计不建窗口)。<b>既有玩法逻辑零行为变化</b>。
       </td></tr>
       <tr><th>关键约束(继承现状)</th><td>数据模型 / 服务为纯逻辑,可在纯 C# 单测直接 <code>new</code> / 静态调用(不依赖 YooAsset / Unity 运行时 / 真实音频模块);持久化往返经 <code>InMemorySettingsStore</code> 注入断言(不碰真实 PlayerPrefs);音频应用经可注入 sink 隔离(单测记录两 bool,不触 <code>GameModule.Audio</code>)。现有 279 例 EditMode 零回归。</td></tr>
     </tbody></table>
@@ -52,7 +52,7 @@
 
 现状:游戏**没有玩家可见的设置系统**——框架虽已有音频开关字段(`IAudioModule.MusicEnable/SoundEnable`)与启动加载约定(`InitSoundSettings` 读 `Constant.Setting` 键),但<mark>没有任何运行期入口能让玩家切换并落盘</mark>:玩家无法关音乐 / 音效,也无处看版本号 / 用户 ID。spec(`1005通用设置系统.xlsx`)要求建一套「常规游戏设置界面」:信息展示 + 功能设定。
 
-本轮交付其中**数据逻辑层**(spec 主体的可测部分),逐条对应 spec:
+本设计交付其中**数据逻辑层**(spec 主体的可测部分),逐条对应 spec:
 
 | # | 需求(来自 spec 逐字) | 本篇落法 | 现状/新增 |
 | --- | --- | --- | --- |
@@ -68,7 +68,7 @@
 | 10 | 快捷登录 | 离线无账号系统,**不做**(同 18 账号绑定 out)([§3.6](#19-settings-system::stub)) | <span class="pill-no">不做</span> |
 | 11 | 开启:玩家 1 级即开;道具 / 红点 / 邮件 / 跑马灯 / 运营 / 服务器需求:无;美术:UI 见界面,icon = 主界面设置图标 | 1 级即开 = 设置始终可访问(无门槛逻辑);道具 / 红点 / 邮件 / 运营字段不建;icon / UI 是表现层延后 | <span class="pill-cur">无需逻辑</span> |
 
-<b>不做(本轮明确排除):</b><span class="pill-no">所有 UI 窗口</span>(设置界面 / 各功能按钮 — 需美术,延后,见 [§七 O1](#19-settings-system::open));<span class="pill-no">快捷登录 / 账号系统</span>(离线无账号);<span class="pill-no">联系客服真实形态</span>(spec 标待定,O2);<span class="pill-no">用户协议 / 隐私真实 URL</span>(占位常量,O3);<span class="pill-no">兑换码系统</span>(未建,O4);<span class="pill-no">新手 / 教学关</span>(未建,O5);<span class="pill-no">多语言文案真实查表</span>(提示文案存 textId + 占位,与 num/item/reward NameTextId 现状一致,O6);<span class="pill-no">音量滑条</span>(spec 只给开 / 关,不给滑条 — 框架虽有 `MusicVolume` 字段,本轮不投放,O7);<span class="pill-no">红点 / 邮件 / 跑马灯 / 运营 / 道具</span>(spec 明示无)。
+<b>不做(本设计明确排除):</b><span class="pill-no">所有 UI 窗口</span>(设置界面 / 各功能按钮 — 需美术,延后,见 [§七 O1](#19-settings-system::open));<span class="pill-no">快捷登录 / 账号系统</span>(离线无账号);<span class="pill-no">联系客服真实形态</span>(spec 标待定,O2);<span class="pill-no">用户协议 / 隐私真实 URL</span>(占位常量,O3);<span class="pill-no">兑换码系统</span>(未建,O4);<span class="pill-no">新手 / 教学关</span>(未建,O5);<span class="pill-no">多语言文案真实查表</span>(提示文案存 textId + 占位,与 num/item/reward NameTextId 现状一致,O6);<span class="pill-no">音量滑条</span>(spec 只给开 / 关,不给滑条 — 框架虽有 `MusicVolume` 字段,本设计不投放,O7);<span class="pill-no">红点 / 邮件 / 跑马灯 / 运营 / 道具</span>(spec 明示无)。
 
 <h2 id="model">二、系统模型</h2>
 
@@ -100,14 +100,14 @@ flowchart TD
 
 <h3 id="additive">2.2 加法式接入(复用框架既有设置约定)</h3>
 
-这套设计的关键是<mark>不另造存储栈</mark>。框架本就有完整的设置持久化与启动加载约定,本轮只补「运行期可切换并落盘」这一缺口:
+这套设计的关键是<mark>不另造存储栈</mark>。框架本就有完整的设置持久化与启动加载约定,本设计只补「运行期可切换并落盘」这一缺口:
 
-| 环节 | 框架既有(不动) | 本轮补 |
+| 环节 | 框架既有(不动) | 本设计补 |
 | --- | --- | --- |
 | 键定义 | `Constant.Setting.MusicMuted/SoundMuted` | 复用,不新增键 |
 | 读写底层 | `Utility.PlayerPrefs.GetBool/SetBool/Save` | `PlayerPrefsSettingsStore` 包装它 |
 | 启动加载 | `ProcedureLaunch.InitSoundSettings()` 读键应用到音频模块 | 零改动 — 本层写同键,启动即读到 |
-| 运行期切换 | <span class="no">缺</span>(无任何入口让玩家切换并落盘) | **本轮主体**:`SettingsService` 改模型 + 落盘 + 即时应用 |
+| 运行期切换 | <span class="no">缺</span>(无任何入口让玩家切换并落盘) | **本设计主体**:`SettingsService` 改模型 + 落盘 + 即时应用 |
 
 > [!NOTE]
 > <b>为什么不并入 MergeMetaSave(对比设计 18)?</b>
@@ -132,7 +132,7 @@ flowchart TD
     }
 }</pre>
 
-**约束**:无量化旋钮 —— 两 bool 没有数值,默认常量是 `MusicOn=true`/`SoundOn=true`(spec 逐字「默认全部打开」)。本轮**不**建音量滑条(spec 只给开 / 关,见 [§七 O7](#19-settings-system::open))。
+**约束**:无量化旋钮 —— 两 bool 没有数值,默认常量是 `MusicOn=true`/`SoundOn=true`(spec 逐字「默认全部打开」)。本设计**不**建音量滑条(spec 只给开 / 关,见 [§七 O7](#19-settings-system::open))。
 
 <h3 id="store">3.2 存储接缝 + 框架键映射(MusicMuted/SoundMuted)</h3>
 
@@ -182,7 +182,7 @@ flowchart TD
 
 切换后须即时把两 bool 应用到真实音频模块,玩家才听得到效果。这是**副作用**,经可注入 `Action<bool,bool>` sink 隔离:生产传一个推 `GameModule.Audio` 的 lambda,测试传一个记录调用的 lambda。模型 / 服务本身不引用音频模块,保持纯逻辑可单测。
 
-<pre class="code">// 生产侧（UI / 启动接线时注入；本轮只给约定，UI 投放延后）：
+<pre class="code">// 生产侧（UI / 启动接线时注入；暂只给约定，UI 投放延后）：
 service.AudioSink = (musicOn, soundOn) =&gt;
 {
     GameModule.Audio.MusicEnable = musicOn;
@@ -238,7 +238,7 @@ service.AudioSink = (m, s) =&gt; { lastMusic = m; lastSound = s; };</pre>
     public enum SettingKind { Music, Sound }
 }</pre>
 
-**提示文案**:`ToggleTipTextId` 返多语言 textId(占位常量,真实查表延后,与 num/item/reward 的 NameTextId 现状一致,见 [§七 O6](#19-settings-system::open))。spec 的「音乐已打开 / 已关闭」「音效已打开 / 已关闭」共四条,本轮给 textId 枚举 + 占位中文常量,UI 接多语言表时替换。
+**提示文案**:`ToggleTipTextId` 返多语言 textId(占位常量,真实查表延后,与 num/item/reward 的 NameTextId 现状一致,见 [§七 O6](#19-settings-system::open))。spec 的「音乐已打开 / 已关闭」「音效已打开 / 已关闭」共四条,本设计给 textId 枚举 + 占位中文常量,UI 接多语言表时替换。
 
 <h3 id="info">3.5 信息 getter(版本号 / 用户 ID)</h3>
 
@@ -261,7 +261,7 @@ service.AudioSink = (m, s) =&gt; { lastMusic = m; lastSound = s; };</pre>
 
 <h3 id="stub">3.6 延后项的钩子常量与 stub</h3>
 
-spec 列了多个「跳转到其它系统」的入口,这些系统多数未建。本轮给占位常量 + TODO 钩子,不阻塞数据层验收。
+spec 列了多个「跳转到其它系统」的入口,这些系统多数未建。本设计给占位常量 + TODO 钩子,不阻塞数据层验收。
 
 <pre class="code">namespace GameLogic.Settings
 {
@@ -303,7 +303,7 @@ sequenceDiagram
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 
-符号名经 grep 核实(真实存在的标注「✓ 已核实」,新建的标注「新建」)。本轮全部落 `GameScripts/HotFix/GameLogic`(热更区),新建独立命名空间 `GameLogic.Settings`(设置是通用系统,与 BlockBlast 玩法解耦)。
+符号名经 grep 核实(真实存在的标注「✓ 已核实」,新建的标注「新建」)。本设计全部落 `GameScripts/HotFix/GameLogic`(热更区),新建独立命名空间 `GameLogic.Settings`(设置是通用系统,与 BlockBlast 玩法解耦)。
 
 | # | 文件 / 符号 | 动作 | 说明 |
 | --- | --- | --- | --- |
@@ -312,8 +312,8 @@ sequenceDiagram
 | 3 | 同目录 · `SettingsService` + `SettingKind` 枚举 | 新建 | 读 / 写 / 切换 / 应用 / 文案;引用 `TEngine.Constant.Setting.MusicMuted/SoundMuted`(✓ 已核实 `Constant.cs:13,15`)([§3.4](#19-settings-system::service)) |
 | 4 | 同目录 · `SettingsInfo` | 新建 | 版本号 provider(默认 `Application.version`)+ `UserId(PlayerInfo)`(✓ `PlayerInfo.Id` 已核实)([§3.5](#19-settings-system::info)) |
 | 5 | 同目录 · `SettingsLinks` + `SettingsText`(textId 占位常量) | 新建 | 协议 / 隐私 URL 占位 + 客服 stub + 提示文案 textId([§3.6](#19-settings-system::stub) / [§3.4](#19-settings-system::service)) |
-| 6 | 音频应用接缝(生产 lambda 推 `GameModule.Audio.MusicEnable/SoundEnable` 或 `ModuleSystem.GetModule<IAudioModule>()`) | 约定(UI 接线时注入) | dev grep 核实 `GameModule.Audio` 在 HotFix 可达性([§3.3](#19-settings-system::apply));本轮只给 sink 契约,UI 投放延后 |
-| 7 | 主界面入口钩子(设置图标 → 打开设置窗口) | TODO 注释 | UI 表现层,本轮不建窗口(沿用 17/18 延后做法) |
+| 6 | 音频应用接缝(生产 lambda 推 `GameModule.Audio.MusicEnable/SoundEnable` 或 `ModuleSystem.GetModule<IAudioModule>()`) | 约定(UI 接线时注入) | dev grep 核实 `GameModule.Audio` 在 HotFix 可达性([§3.3](#19-settings-system::apply));本设计只给 sink 契约,UI 投放延后 |
+| 7 | 主界面入口钩子(设置图标 → 打开设置窗口) | TODO 注释 | UI 表现层,本设计不建窗口(沿用 17/18 延后做法) |
 | 8 | `Assets/Editor/Tests/BlockBlast/SettingsSystemTests.cs`(或新建 `Settings` 测试目录) | 新建测试 | 覆盖模型 / 存储往返 / 服务切换 / 信息 getter([§六](#19-settings-system::accept))。asmdef 已含 `GameLogic` + `TEngine.Runtime` 引用,直接可达 |
 | — | `ProcedureLaunch.InitSoundSettings()` / `Constant.cs` / `IAudioModule.cs` | **不改** | 本层写框架既有键,启动加载零改动即兼容;框架代码不动 |
 
@@ -348,7 +348,7 @@ sequenceDiagram
   </tbody></table>
 
 > [!WARNING]
-> <b>不在本轮验收(boss 授权遗留)</b>
+> <b>不在本设计验收(boss 授权遗留)</b>
 >
 > 真实音频开 / 关实听(切开关后真听到音乐停 / 起)、设置界面 UI 视觉、各跳转按钮(协议网址打开 / 兑换码 / 新手关 / 客服)→ <mark>Play 手验遗留 + 表现层延后轮</mark>。这些依赖美术(icon)与未建系统,数据层不返工。
 
@@ -356,7 +356,7 @@ sequenceDiagram
 
 以下为范围开关,boss 自治授权下**均取安全默认推进**(已在 boss 预先拍板内),列此备查;要改另开增量轮。
 
-| # | 开关 | 本轮默认 | 备选 / 触发改动 |
+| # | 开关 | 本设计默认 | 备选 / 触发改动 |
 | --- | --- | --- | --- |
 | O1 | 设置界面 UI + 各按钮投放 | **延后**(需美术 icon,留服务 + 钩子) | 有美术 + 具体 UI 流程时接真实窗口,Play 手验 |
 | O2 | 联系客服形态 | stub 常量 + TODO(spec 自身标待定) | spec 定形态后补(邮箱 / 网页 / 工单) |

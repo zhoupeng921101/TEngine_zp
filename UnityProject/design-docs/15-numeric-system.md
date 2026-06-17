@@ -19,9 +19,9 @@
     <p style="margin:8px 0 0">四条边界先钉死,防 dev 把「框架」做成「重构」:</p>
     <ul style="margin:8px 0 0">
       <li><b>用 Luban 定表导表,不硬编码货币表。</b>工程的配置全栈是 Luban(源 <code>Configs/GameConfig/</code> 在仓库根、与 <code>UnityProject/</code> 同级;生成代码落 <code>GameScripts/HotFix/GameProto/GameConfig/</code>,二进制落 <code>Assets/AssetRaw/Configs/bytes/</code>)。本表走<mark>既有 GameConfig 管线</mark>:在 <code>__tables__.xlsx</code> 注册 + 新建数据 xlsx + 跑导表脚本生成代码,口径与现有 <code>item</code> / <code>weightcfg</code> 两表完全一致。</li>
-      <li><b>加法式,不动现有货币字段。</b>本轮<mark>不</mark>把 <code>MergeOrderState</code> 的 <code>Soul</code> / <code>Piety</code> / <code>Exp</code> / <code>Energy</code> 改成「按 num_id 索引的字典」,也不删任何现有字段或改其读写。数值系统是<b>旁挂的元数据注册表 + 工具</b>:谁要展示某货币的图标/名字/格式化数字,查注册表;货币的<b>数量值仍由各自现有字段持有</b>。全面迁移(把数量也收进注册表)列为后续轮,见 <a href="#15-numeric-system::open">§七 O1</a>。</li>
+      <li><b>加法式,不动现有货币字段。</b>本设计<mark>不</mark>把 <code>MergeOrderState</code> 的 <code>Soul</code> / <code>Piety</code> / <code>Exp</code> / <code>Energy</code> 改成「按 num_id 索引的字典」,也不删任何现有字段或改其读写。数值系统是<b>旁挂的元数据注册表 + 工具</b>:谁要展示某货币的图标/名字/格式化数字,查注册表;货币的<b>数量值仍由各自现有字段持有</b>。全面迁移(把数量也收进注册表)列为后续轮,见 <a href="#15-numeric-system::open">§七 O1</a>。</li>
       <li><b>注册表与格式化是纯逻辑,可单测;配置加载分两条路。</b>「按 num_id 查名字/图标/类型/品质」「把整数格式化成 999.9K」都是纯内存逻辑,单测直接断言、不碰 YooAsset。Luban 表的运行期加载走工程既有 <code>ConfigSystem.Instance.Tables</code>(YooAsset,需 Unity 运行时);EditMode 单测则仿 <code>WeightCfgLubanTests</code> 经 <code>AssetDatabase</code> 直读 <code>.bytes</code> 绕过 YooAsset(详 <a href="#15-numeric-system::registry">§3.3</a>)。</li>
-      <li><b>UI helper 范围最小可用。</b>本轮交付「格式化数字 + (可选)拼图标资源名」的纯函数 / 轻组件,供后续通用奖励面板调用。<mark>不</mark>在本轮把现有 <code>MergeOrderWindow</code> 的货币显示全部改走 helper(那是表现层重构,加法式之外),仅提供能力 + 一处可选示范接入,见 <a href="#15-numeric-system::ui">§3.5</a> 与 <a href="#15-numeric-system::open">§七 O3</a>。</li>
+      <li><b>UI helper 范围最小可用。</b>本设计交付「格式化数字 + (可选)拼图标资源名」的纯函数 / 轻组件,供后续通用奖励面板调用。<mark>不</mark>在本设计把现有 <code>MergeOrderWindow</code> 的货币显示全部改走 helper(那是表现层重构,加法式之外),仅提供能力 + 一处可选示范接入,见 <a href="#15-numeric-system::ui">§3.5</a> 与 <a href="#15-numeric-system::open">§七 O3</a>。</li>
     </ul>
   </div>
 
@@ -50,7 +50,7 @@
 | 4 | 样例行覆盖 num\_type 1–4(经验/虔诚币/钻石/体力) | 4 行样例数据,见 [§3.2](#15-numeric-system::enum) | <span class="pill-new">新增数据</span> |
 | 5 | 可复用数值显示 helper(格式化 + 图标) | `NumericDisplay`:\`格式化数字\` 必做 + \`图标资源名解析\` 给出,真实 Sprite 加载列可选([§3.5](#15-numeric-system::ui)) | <span class="pill-new">新增 helper</span> |
 
-<b>不做(本轮明确排除):</b><span class="pill-no">充值 / 内购 / 计价</span>(去变现 — `num_type=3 钻石` 仅登记类型,不实装购买);<span class="pill-no">现有货币数量值全面迁移到注册表索引</span>(本轮 additive,见 [§七 O1](#15-numeric-system::open));<span class="pill-no">成就点系统</span>(spec 标题提及但本表聚焦货币,成就点单列后续);<span class="pill-no">其他 xlsx 系统</span>(本批次后续刀);<span class="pill-no">把 MergeOrderWindow 货币显示全改走 helper</span>(表现层重构,见 [§七 O3](#15-numeric-system::open))。
+<b>不做(本设计明确排除):</b><span class="pill-no">充值 / 内购 / 计价</span>(去变现 — `num_type=3 钻石` 仅登记类型,不实装购买);<span class="pill-no">现有货币数量值全面迁移到注册表索引</span>(本设计 additive,见 [§七 O1](#15-numeric-system::open));<span class="pill-no">成就点系统</span>(spec 标题提及但本表聚焦货币,成就点单列后续);<span class="pill-no">其他 xlsx 系统</span>(本批次后续刀);<span class="pill-no">把 MergeOrderWindow 货币显示全改走 helper</span>(表现层重构,见 [§七 O3](#15-numeric-system::open))。
 
 <h2 id="model">二、系统模型</h2>
 
@@ -83,14 +83,14 @@ flowchart TD
 
 <h3 id="additive">2.2 加法式接入(与现有 ad-hoc 货币的关系)</h3>
 
-现有四种数值的**数量值**仍由 `MergeOrderState` 各自字段持有,本轮一律不动。数值系统只补「元数据 + 格式化」,二者通过<b>约定的 num\_id</b> 弱关联(谁要展示某字段就拿对应 num\_id 查注册表)。对照:
+现有四种数值的**数量值**仍由 `MergeOrderState` 各自字段持有,本设计一律不动。数值系统只补「元数据 + 格式化」,二者通过<b>约定的 num\_id</b> 弱关联(谁要展示某字段就拿对应 num\_id 查注册表)。对照:
 
 <table>
-    <tbody><tr><th>维度</th><th>现有 ad-hoc 货币(本轮不动)</th><th>数值系统(本篇新增)</th></tr>
+    <tbody><tr><th>维度</th><th>现有 ad-hoc 货币(本设计不动)</th><th>数值系统(本篇新增)</th></tr>
     <tr><td>数量值存在哪</td><td><code>MergeOrderState.Soul/Piety/Exp/Energy</code> 各 int 字段</td><td><span class="no">不持有数量</span>,只持有元数据(名字/图标/类型/品质)</td></tr>
     <tr><td>怎么关联</td><td colspan="2"><mark>弱关联,经 num_id</mark>:约定 <code>num_id</code> ↔ 字段(见 <a href="#15-numeric-system::enum">§3.2</a> 映射约定)。注册表不读写 <code>MergeOrderState</code>;<code>MergeOrderState</code> 不依赖注册表。展示侧自己拿值 + 拿 num_id 查元数据</td></tr>
-    <tr><td>本轮是否迁移数量</td><td colspan="2"><span class="no">否</span>。把 <code>Soul</code> 等改成 <code>Dictionary&lt;numId,int&gt;</code> 的统一钱包是<b>独立大改</b>(动核心循环 + 存档 DTO + 悔棋快照字段),列后续轮 <a href="#15-numeric-system::open">§七 O1</a></td></tr>
-    <tr><td>灵力(Soul)为何不在表里</td><td colspan="2">spec 货币表 num_type 只列 1–4(经验/虔诚币/钻石/体力),<b>无灵力</b>。本轮严格照 spec 填 4 行,灵力<mark>暂不登记</mark>;若后续要纳入,加一行 num_type 即可(加法式),见 <a href="#15-numeric-system::open">§七 O2</a></td></tr>
+    <tr><td>本设计是否迁移数量</td><td colspan="2"><span class="no">否</span>。把 <code>Soul</code> 等改成 <code>Dictionary&lt;numId,int&gt;</code> 的统一钱包是<b>独立大改</b>(动核心循环 + 存档 DTO + 悔棋快照字段),列后续轮 <a href="#15-numeric-system::open">§七 O1</a></td></tr>
+    <tr><td>灵力(Soul)为何不在表里</td><td colspan="2">spec 货币表 num_type 只列 1–4(经验/虔诚币/钻石/体力),<b>无灵力</b>。本设计严格照 spec 填 4 行,灵力<mark>暂不登记</mark>;若后续要纳入,加一行 num_type 即可(加法式),见 <a href="#15-numeric-system::open">§七 O2</a></td></tr>
   </tbody></table>
 
 > [!NOTE]
@@ -105,7 +105,7 @@ flowchart TD
 | spec 字段 | Luban `##var` | Luban `##type` | group | 语义 / 备注 |
 | --- | --- | --- | --- | --- |
 | num\_id int32 唯一 | id | int | cs | 主键,表 `index=id` / `mode=map`。<mark>命名用 <code>id</code></mark>:Luban 表惯例主键叫 id(item/weightcfg 皆然),便于 `GetOrDefault(int)` 直接可用 |
-| num\_desc int32 文本id | desc | int | cs | 用途描述文本 id(指向本地化文本表,本轮不实装文本表,存 id 即可) |
+| num\_desc int32 文本id | desc | int | cs | 用途描述文本 id(指向本地化文本表,本设计不实装文本表,存 id 即可) |
 | num\_func\_name string 服务器用 | func\_name | string | s | 数值功能命名(服务器用,group=s)。本项目离线无服务器,字段保留以贴合 spec,客户端可不读 |
 | num\_name int32 名称文本id | name | int | c | 名称文本 id(本地化)。<mark>存 int id 而非字符串</mark>(照 spec) |
 | num\_no string 图标资源名 | icon | string | c | 对应图标资源名(Sprite/Atlas 资源名,helper 用)。命名用 `icon` 贴合 group 自动推断(skill 文档:icon→c) |
@@ -152,7 +152,7 @@ Luban 枚举默认从 1 起递增编号(对照 `item.EQuality` WHITE=1),故 EXP=
 | 4 | ENERGY(4) | 100004 | icon\_energy | 2 | 200004 | energy | 体力,落子消耗 / 消除返还,局内资源 | `MergeOrderState.Energy` |
 
 > [!NOTE]
-> <b>文本 id / 图标名是占位:</b><code>name</code>/<code>desc</code> 填占位整数(100001…/200001…),工程暂无本地化文本表,本轮不实装,helper 拿到 id 后<b>本轮直接显示 id 或 func_name 兜底</b>(文本表接入列后续轮)。<code>icon</code> 填语义化资源名占位(<code>icon_exp</code> 等),真实美术资源接入时替换。<mark>这些占位不影响验收</mark>:验收只断言「按 id 查出的 name/icon/type/quality 值 == 表里填的值」,不要求文本/美术真实存在。
+> <b>文本 id / 图标名是占位:</b><code>name</code>/<code>desc</code> 填占位整数(100001…/200001…),工程暂无本地化文本表,本设计不实装,helper 拿到 id 后<b>本设计直接显示 id 或 func_name 兜底</b>(文本表接入列后续轮)。<code>icon</code> 填语义化资源名占位(<code>icon_exp</code> 等),真实美术资源接入时替换。<mark>这些占位不影响验收</mark>:验收只断言「按 id 查出的 name/icon/type/quality 值 == 表里填的值」,不要求文本/美术真实存在。
 
 <b>num\_id ↔ 现有字段映射是「约定」不是「代码绑定」:</b>把约定写进 `NumericConfigMgr` 的常量(如 `public const int Exp = 1; public const int Piety = 2;`),展示侧 `NumericConfigMgr.Get(NumericConfigMgr.Piety)` 拿元数据、自己从 `MergeOrderState.Piety` 拿数量。注册表**不**反向读 state(保持加法式、零耦合)。
 
@@ -204,7 +204,7 @@ Luban 枚举默认从 1 起递增编号(对照 `item.EQuality` WHITE=1),故 EXP=
     </ul>
   </div>
 
-<b>运行期初始化时机:</b>注册表懒加载,首次 `Get` 触发 `EnsureLoaded`。无需像 `WeightCfgConfigMgr.InitDynamicWeight` 那样在启动主动灌(那是因为 DynamicWeightDiff 是有状态单例);本注册表只读,懒加载即可。<mark>不引入新的加载红线问题</mark>:沿用 `ConfigSystem` 既有加载口径(其同步 `LoadAsset` 是工程现状,不在本轮改动范围;若工程后续把 ConfigSystem 改异步,本注册表自然跟随,见 [§七 O5](#15-numeric-system::open))。
+<b>运行期初始化时机:</b>注册表懒加载,首次 `Get` 触发 `EnsureLoaded`。无需像 `WeightCfgConfigMgr.InitDynamicWeight` 那样在启动主动灌(那是因为 DynamicWeightDiff 是有状态单例);本注册表只读,懒加载即可。<mark>不引入新的加载红线问题</mark>:沿用 `ConfigSystem` 既有加载口径(其同步 `LoadAsset` 是工程现状,不在本设计改动范围;若工程后续把 ConfigSystem 改异步,本注册表自然跟随,见 [§七 O5](#15-numeric-system::open))。
 
 <h3 id="format">3.4 显示格式化(0–999 / K / M)</h3>
 
@@ -241,13 +241,13 @@ Scale(abs, unit):  // abs/unit 保留 DECIMALS 位，TRUNCATE 则向零截断
 | -1500 | K | -1.5K | 负数保符号(防御性:数值理论非负,但格式化纯函数应稳) |
 
 > [!NOTE]
-> <b>截断 vs 进位的关键裁定(为何默认截断):</b>spec 把 K 档示例钉成 <code>999.9K</code>(对应 999999),M 档示例钉成 <code>999.9M</code>。若用四舍五入,<code>999999</code> 会进位成 <code>1000.0K</code>(越界看着像该进 M 却没进),破坏 spec 示例。<mark>默认 TRUNCATE=true(向零截断)</mark> 保证 999999→999.9K 与 spec 逐字一致。代入表里 9999999 按「除以 1000000 截断到 1 位」= 9.9M(spec 标 999.9M 是「M 档能显示到的量级示例」,非指 9999999 这个具体值;9999999 实际 = 9.9M,量级在 M 档内,符合 spec「1000000–9999999 显示 M」的区间定义)。**本轮只定义到 M 档**(spec 上界 9999999);超过 9999999(进 B/十亿级)spec 未规定,默认**继续用 M 显示**(如 1 亿 = 100000000 → 100M),不新增 B 档(列 <a href="#15-numeric-system::open">§七 O6</a>,有需要再加旋钮)。
+> <b>截断 vs 进位的关键裁定(为何默认截断):</b>spec 把 K 档示例钉成 <code>999.9K</code>(对应 999999),M 档示例钉成 <code>999.9M</code>。若用四舍五入,<code>999999</code> 会进位成 <code>1000.0K</code>(越界看着像该进 M 却没进),破坏 spec 示例。<mark>默认 TRUNCATE=true(向零截断)</mark> 保证 999999→999.9K 与 spec 逐字一致。代入表里 9999999 按「除以 1000000 截断到 1 位」= 9.9M(spec 标 999.9M 是「M 档能显示到的量级示例」,非指 9999999 这个具体值;9999999 实际 = 9.9M,量级在 M 档内,符合 spec「1000000–9999999 显示 M」的区间定义)。**本设计只定义到 M 档**(spec 上界 9999999);超过 9999999(进 B/十亿级)spec 未规定,默认**继续用 M 显示**(如 1 亿 = 100000000 → 100M),不新增 B 档(列 <a href="#15-numeric-system::open">§七 O6</a>,有需要再加旋钮)。
 
 <b>为何把格式化做成与配置无关的独立纯函数:</b>显示缩写规则是全局的(不止货币,任何大数字——得分、计数都可能用),不该绑在货币注册表上。独立 `NumericFormat` 让它能被任何地方调用,且验收点(§六 F1–F9)全是纯断言,是最稳的回归锚——连配置表都不需要加载。
 
 <h3 id="ui">3.5 可复用数值显示 helper</h3>
 
-<b>范围最小可用:</b>helper 的核心可复用能力是「给一个 num\_id + 数量,产出显示文本」。真实 Sprite 加载在本切片<mark>无既有先例</mark>(merge-order UI 全用 emoji glyph + 程序化 `UGuiFactory`,grep `Module/BlockBlast` 与 `UI/BlockBlastUI` 无 `SetSprite`/`LoadSpriteAsync`),故 helper **本轮交付到「文本 + 图标资源名」,真实 Sprite 加载列可选 O4**。
+<b>范围最小可用:</b>helper 的核心可复用能力是「给一个 num\_id + 数量,产出显示文本」。真实 Sprite 加载在本切片<mark>无既有先例</mark>(merge-order UI 全用 emoji glyph + 程序化 `UGuiFactory`,grep `Module/BlockBlast` 与 `UI/BlockBlastUI` 无 `SetSprite`/`LoadSpriteAsync`),故 helper **本设计交付到「文本 + 图标资源名」,真实 Sprite 加载列可选 O4**。
 
 <pre class="code">public static class NumericDisplay
 {
@@ -265,7 +265,7 @@ Scale(abs, unit):  // abs/unit 保留 DECIMALS 位，TRUNCATE 则向零截断
     public static Color QualityColor(int quality) { …白/蓝/紫/红… }
 }</pre>
 
-<b>可选示范接入(默认不做,见 O3):</b>若 boss/dev 要本轮就见到效果,可把 `MergeOrderWindow.RefreshPiety` 一处改成 `_pietyText.text = NumericDisplay.FormatWith(NumericConfigMgr.Piety, _merge.Piety)` 作示范。<mark>默认不改</mark>——那是表现层重构,且会让回归面变大;helper 能力本身(纯函数 + 注册表)已足够验收,接入投放属后续。
+<b>可选示范接入(默认不做,见 O3):</b>若 boss/dev 要本设计就见到效果,可把 `MergeOrderWindow.RefreshPiety` 一处改成 `_pietyText.text = NumericDisplay.FormatWith(NumericConfigMgr.Piety, _merge.Piety)` 作示范。<mark>默认不改</mark>——那是表现层重构,且会让回归面变大;helper 能力本身(纯函数 + 注册表)已足够验收,接入投放属后续。
 
 <h2 id="flow">四、加载与查询时序</h2>
 
@@ -306,7 +306,7 @@ sequenceDiagram
 | 5 | `GameLogic/Module/BlockBlast/Numeric/NumericEntry.cs`(新) | POCO,字段见 [§3.3](#15-numeric-system::registry)(隔离 Luban 类型,仿 `WeightConfigEntry`) | <span class="pill-new">新增</span> |
 | 6 | `GameLogic/Config/NumericConfigMgr.cs`(新) | 静态桥接 + 缓存 + 查询:`ToEntry(GameConfig.Num)` / `EnsureLoaded` / `Get(numId)` / `GetByType(numType)` / `InitForTest` + num\_id 约定常量,仿 `WeightCfgConfigMgr`([§3.3](#15-numeric-system::registry)) | <span class="pill-new">新增</span> |
 | 7 | `GameLogic/Module/BlockBlast/Numeric/NumericFormat.cs`(新) | 纯函数 `Abbreviate(long)` + 旋钮常量(K/M 阈值、小数位、截断开关),与配置无关([§3.4](#15-numeric-system::format)) | <span class="pill-new">新增</span> |
-| 8 | `GameLogic/UI/BlockBlastUI/NumericDisplay.cs`(新) | UI helper:`Format` / `FormatWith(numId,amount)` / `IconName` / `QualityColor`([§3.5](#15-numeric-system::ui))。真实 Sprite 加载本轮不做(O4) | <span class="pill-new">新增</span> |
+| 8 | `GameLogic/UI/BlockBlastUI/NumericDisplay.cs`(新) | UI helper:`Format` / `FormatWith(numId,amount)` / `IconName` / `QualityColor`([§3.5](#15-numeric-system::ui))。真实 Sprite 加载本设计不做(O4) | <span class="pill-new">新增</span> |
 | 9 | `Editor/Tests/BlockBlast/NumericSystemTests.cs`(新) | 单测:格式化边界(F1–F9)+ 配置表往返(C1–C3,`AssetDatabase` 直读 `num_tbnum.bytes` 仿 `WeightCfgLubanTests`)+ 注册表查询(`InitForTest`) | <span class="pill-new">新增</span> |
 | 10 | `UI/BlockBlastUI/MergeOrderWindow.RefreshPiety`(line 321)等 | <mark>可选</mark>示范接入:一处货币显示改走 `NumericDisplay.FormatWith`。**默认不改**(O3),保回归面最小 | <span class="pill-no">可选</span> |
 
@@ -324,7 +324,7 @@ sequenceDiagram
 | F6 | M 档进入边界 | `Abbreviate(1000000) == "1M"` |
 | F7 | M 档一位小数 | `Abbreviate(1500000) == "1.5M"` |
 | F8 | M 档区间上界 | `Abbreviate(9999999) == "9.9M"`(spec 区间 1000000–9999999 全显示 M) |
-| F9 | 亿级仍用 M(本轮无 B 档) | `Abbreviate(100000000) == "100M"`(超 spec 上界默认续用 M,见 O6) |
+| F9 | 亿级仍用 M(本设计无 B 档) | `Abbreviate(100000000) == "100M"`(超 spec 上界默认续用 M,见 O6) |
 | C1 | 货币表加载 4 行 | `AssetDatabase` 读 `num_tbnum.bytes` → `new num.TbNum(ByteBuf)` → `DataList.Count == 4` |
 | C2 | 按 num\_id 查值正确 | `table.Get(2)`(虔诚币):`num_type == 2(PIETY)`、`quality == 3`、`icon == "icon_piety"`、`name == 100002`,逐字段 == 表里填的值 |
 | C3 | 四档 num\_type 齐全且唯一 | 4 行的 `num_type` 恰为 {1,2,3,4} 各一;`id` 唯一 {1,2,3,4} |
@@ -342,11 +342,11 @@ sequenceDiagram
 
 | # | 问题 | 默认 / 建议 | 性质 |
 | --- | --- | --- | --- |
-| O1 | 现有货币数量值是否本轮迁移到「按 num\_id 索引的统一钱包」? | <b>默认不迁移(本轮 additive)</b>。统一钱包要动核心循环 + 存档 DTO(设计 14)+ 悔棋快照字段,是独立大改,列后续轮。本轮注册表只持有元数据 | 范围开关(已拍板,填 decisions) |
+| O1 | 现有货币数量值是否本设计迁移到「按 num\_id 索引的统一钱包」? | <b>默认不迁移(本设计 additive)</b>。统一钱包要动核心循环 + 存档 DTO(设计 14)+ 悔棋快照字段,是独立大改,列后续轮。本设计注册表只持有元数据 | 范围开关(已拍板,填 decisions) |
 | O2 | 灵力(Soul)是否登记进货币表? | **默认不登记**(spec num\_type 只列 1–4 无灵力,严格照 spec 填 4 行)。后续要纳入加一行 num\_type 即可(加法式) | 范围开关(已拍板,填 decisions) |
-| O3 | 本轮是否把 `MergeOrderWindow` 现有货币显示改走 helper? | **默认不改**(表现层重构,放大回归面)。helper 能力本身已可验收;接入投放列后续轮。若 boss 要本轮见效果,可选一处(RefreshPiety)做示范接入 | 范围开关(boss 可定) |
-| O4 | UI helper 的图标:本轮做到「资源名」还是「真实 Sprite 加载」? | **默认到资源名**(merge-order UI 无 Sprite 加载先例,且无真实美术资源)。真实 Sprite 异步加载(`LoadAssetAsync<Sprite>`)+ 释放属后续美术接入轮 | 实现选型(dev 定) |
-| O5 | 配置加载:沿用 `ConfigSystem` 现有同步 `LoadAsset` 还是改异步? | **沿用现状**(`ConfigSystem` 是工程既有全局加载器,其同步加载是现状,不在本轮改动范围;改它影响全工程所有表)。本注册表懒加载贴 ConfigSystem,它将来改异步则自然跟随 | 实现选型(不在本轮) |
+| O3 | 本设计是否把 `MergeOrderWindow` 现有货币显示改走 helper? | **默认不改**(表现层重构,放大回归面)。helper 能力本身已可验收;接入投放列后续轮。若 boss 要本设计见效果,可选一处(RefreshPiety)做示范接入 | 范围开关(boss 可定) |
+| O4 | UI helper 的图标:本设计做到「资源名」还是「真实 Sprite 加载」? | **默认到资源名**(merge-order UI 无 Sprite 加载先例,且无真实美术资源)。真实 Sprite 异步加载(`LoadAssetAsync<Sprite>`)+ 释放属后续美术接入轮 | 实现选型(dev 定) |
+| O5 | 配置加载:沿用 `ConfigSystem` 现有同步 `LoadAsset` 还是改异步? | **沿用现状**(`ConfigSystem` 是工程既有全局加载器,其同步加载是现状,不在本设计改动范围;改它影响全工程所有表)。本注册表懒加载贴 ConfigSystem,它将来改异步则自然跟随 | 实现选型(不在本设计) |
 | O6 | 超过 9999999(亿级/十亿级)是否加 B(十亿)等更高档? | **默认不加,续用 M**(spec 只规定到 9999999=M 档上界)。数值理论上限未定;有需要时加 `B_THRESHOLD` 旋钮即可(格式化已留分档结构) | 范围开关(有需要再加) |
 | O7 | 品质字段:裸 int 还是复用 `item.EQuality` 枚举? | **默认裸 int**(严格照 spec「int32」,不强耦合 item 语义)。dev 认为复用枚举更稳可选,验收点不变 | 实现选型(dev 定) |
 
@@ -354,10 +354,10 @@ sequenceDiagram
 
 | 风险 | 影响 | 应对 |
 | --- | --- | --- |
-| Luban 导表工具链不可达(dotnet / Luban.dll 缺失或 MCP 桥断) | 生成代码 / bytes 出不来,配置表测试(C1–C3)无法跑 | 导表是本轮硬前置。<mark>不可达则 test 判 BLOCKED 不判 FAIL</mark>(任务硬约束),交接区写清卡点;纯逻辑测试(F/R/Z)不依赖导表,仍可先验。dev 用 unityMCP 自行导表 |
+| Luban 导表工具链不可达(dotnet / Luban.dll 缺失或 MCP 桥断) | 生成代码 / bytes 出不来,配置表测试(C1–C3)无法跑 | 导表是本设计硬前置。<mark>不可达则 test 判 BLOCKED 不判 FAIL</mark>(任务硬约束),交接区写清卡点;纯逻辑测试(F/R/Z)不依赖导表,仍可先验。dev 用 unityMCP 自行导表 |
 | 截断 vs 四舍五入误用 → 999999 进位成 1000K | 与 spec 示例 999.9K 不符 | 默认 TRUNCATE=true 向零截断;F5 验收专钉 999999→999.9K([§3.4](#15-numeric-system::format)) |
 | EditMode 经 `ConfigSystem.Tables` 跑不通(无 YooAsset 运行时) | 配置表测试写成依赖运行时 → EditMode 报错 | 测试走 `AssetDatabase` 直读 `.bytes`(仿 `WeightCfgLubanTests`,已验证可跑);注册表查询测试走 `InitForTest` 绕开 ConfigSystem([§3.3](#15-numeric-system::registry)) |
-| 把「加法式框架」做成「货币重构」 | 动现有 Soul/Piety 字段读写 → 破坏核心循环 + 存档,大面积回归 | 边界先钉([§2.2](#15-numeric-system::additive)):注册表只持元数据、不读写 state;O1 明确迁移不在本轮;Z2 验收现有字段读写零改动 |
+| 把「加法式框架」做成「货币重构」 | 动现有 Soul/Piety 字段读写 → 破坏核心循环 + 存档,大面积回归 | 边界先钉([§2.2](#15-numeric-system::additive)):注册表只持元数据、不读写 state;O1 明确迁移不在本设计;Z2 验收现有字段读写零改动 |
 | group=e(editor-only)的 planner\_notes 被误当运行期字段读 | POCO 含一个运行期不存在的字段,或导出体积变大 | planner\_notes 设 group=e 不导出客户端;POCO `NumericEntry` 不含该字段([§3.3](#15-numeric-system::registry));仅留表里给策划 |
 | 枚举编号与 spec 数字错位(EXP 应=1) | num\_type 值与 spec 1–4 对不上,查询 / 类型判断错 | Luban 枚举默认从 1 起(对照 EQuality WHITE=1);C3 验收 num\_type 恰为 {1,2,3,4};必要时 items 列显式赋值 `EXP=1` |
 | 后续 xlsx 系统 / 成就点 / 灵力加入时表频繁改 schema | 字段 / 行频繁增删 | 加行(新 num\_type)是加法式、向前兼容(Luban 新增字段给缺省);成就点 / 其他系统单列后续表,不挤进本货币表 |
