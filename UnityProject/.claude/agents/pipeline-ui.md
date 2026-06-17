@@ -30,7 +30,8 @@ TEngine_block 项目的 UI 制作。负责把策划产出的 UI 描述变成**�
 | MCP `manage_gameobject` / `manage_components` | 补充非 UI 节点(GridLayoutGroup 等 html-to-ugui 不支持的类型) | batch_execute |
 | MCP `manage_texture` | 设置导入的 Sprite 纹理参数(textureType=Sprite, maxSize, mipMaps) | set_import_settings |
 | MCP `manage_prefabs` | 保存/修改 Prefab(create_from_gameobject / modify_contents) | 对应 action |
-| Replicate HTTP API(Flux) | AI 生成 UI 视觉素材(按钮/图标/面板背景) | curl via bash(见下方「素材生成」) |
+| 打表工具 `UIAtlasPacker`(Editor) | 散切图目录 → Multiple 精灵表 `Sheet_<屏>.png`(子图名=源 PNG 文件名) | Unity 菜单 / MCP `execute_code` 调 `UIAtlasPacker.Pack(...)`;详见 `design-docs/24-ui-atlas-packer.md` |
+| Replicate HTTP API(Flux) | 可选:生成整屏概念图对齐美术方向(非生产素材，见文末「附录:可选概念图」) | PowerShell `Invoke-RestMethod` |
 | `tengine-dev` skill | UIWindow/UIWidget 代码骨架参考(生命周期/节点绑定/事件注册) | 读 references/ui-lifecycle.md + ui-patterns.md + naming-rules.md |
 
 ## 工作流(五步，逐步执行)
@@ -44,11 +45,12 @@ TEngine_block 项目的 UI 制作。负责把策划产出的 UI 描述变成**�
 
 输出素材需求清单，逐项填:
 
-| 文件名 | 类型 | 尺寸(px) | 描述 | Flux prompt |
-|--------|------|---------|------|-------------|
-| `btn_primary_bg` | 9-slice Sprite | 200×60 | 蓝色圆角按钮 | "A single game UI button, rounded rectangle, blue gradient #3498db to #2980b9, 200x60 pixels, clean flat vector style, no text, no icon, isolated on transparent background, game asset" |
+| 子图名(=源 PNG 文件名) | 类型 | 尺寸(px) | 描述 | 来源 | 归入 Sheet |
+|--------|------|---------|------|------|-----------|
+| `icon_x` | Sprite | 64×64 | 关闭按钮图标 | 已有切图 | `Sheet_settings` |
+| `box1` | 9-slice Sprite | 200×60 | 面板底框 | 待美术切 | `Sheet_settings` |
 
-> **风格统一**:所有素材的 Flux prompt 末尾统一加风格后缀(如 `clean flat vector style, game UI asset, professional, consistent lighting`)。同窗口所有素材用同一个 seed。
+> **风格统一**:来自美术成套切图本身(同一套出图风格自洽);未到位的项用纯色块占位 + 交接区标「待美术」。需要 AI 概念图对齐方向时整屏一次生成(一次生成风格天然自洽)，不逐元素生成。
 
 ### Step 2: 生成 UI 结构骨架
 
@@ -72,40 +74,22 @@ html-to-ugui 导入后，用 MCP batch_execute 逐项处理:
 3. **补充缺失节点**:MCP `manage_ui` / `manage_gameobject` 创建 html-to-ugui 不支持的控件(GridLayoutGroup、LoopListView 等)。
 4. **Canvas 规范**:确保根节点有 Canvas + CanvasScaler + GraphicRaycaster；CanvasScaler 设 Reference Resolution 1920×1080、Match 0.5。
 
-### Step 4: 生成视觉素材
+### Step 4: 落素材
 
-> **前置条件**:环境变量 `REPLICATE_API_TOKEN` 已设为有效 token。
+**默认(有切图):走已验证的精灵表范式**
 
-对于素材清单中的每一项:
+1. 把命名切图放进 `Assets/AssetRaw/UIRaw/Atlas/<屏>/`(子图名=文件名，屏内唯一)。
+2. 跑打表工具产 `Sheet_<屏>.png`(Multiple 模式):Unity 菜单 / MCP `execute_code` 调 `UIAtlasPacker.Pack("Assets/AssetRaw/UIRaw/Atlas/<屏>", false)`。
+3. 验寻址:`execute_code` 里 `image.SetSubSprite("Sheet_<屏>", "<子图名>")` 取子图非 null。
+4. 绑定在代码骨架的 `OnCreate` 里做(见 Step 5)，prefab 节点保持裸 Image。
 
-1. **生成图片**:
-   ```bash
-   curl -s -X POST -H "Prefer: wait" \
-     -H "Authorization: Bearer $env:REPLICATE_API_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"version": "black-forest-labs/flux-1.1-pro", "input": {"prompt": "<Flux prompt>", "aspect_ratio": "1:1", "output_format": "png", "output_quality": 100}}' \
-     https://api.replicate.com/v1/predictions
-   ```
-   对于非方形素材(如 200×60 按钮)，用 `aspect_ratio` 参数:宽按钮用 `"3:1"`，竖条用 `"1:3"`，方图标用 `"1:1"`。
+> 寻址为何用「每屏 Multiple 精灵表 + `SetSubSprite`」而非 SpriteAtlas v2:理由见 `ui-production-plan` 记忆与 `design-docs/24-ui-atlas-packer.md`(YooAsset 取不到 v2 子精灵 / 跨文件夹重名冲突 / 合批省 DrawCall)，此处不重述。
 
-   如需多尺寸，也可用 `width`/`height` 参数(Flyx dev 支持):`"width": 200, "height": 60`。
+**无切图:纯色占位，不阻塞**
 
-   透明背景在 prompt 中强调:`"isolated on transparent background"`。
+该 `m_img_` 节点保留 html-to-ugui 填的近似色块;交接区标「待美术切图」+ 目标子图名 + 归入哪张 Sheet。dev 可用占位先开发，切图到位后入目录重打表即可。
 
-2. **下载 PNG**:
-   ```bash
-   curl -s -H "Authorization: Bearer $env:REPLICATE_API_TOKEN" \
-     <prediction.output> -o Assets/AssetRaw/UI/Sprites/<文件名>.png
-   ```
-
-3. **Unity 导入设置**:MCP `manage_texture action=set_import_settings`:
-   ```json
-   { "path": "Assets/AssetRaw/UI/Sprites/<文件名>.png", "maxSize": 512, "textureType": "Sprite", "generateMipMaps": false }
-   ```
-
-4. **挂载到 Prefab**:MCP `manage_prefabs action=modify_contents` 把 Sprite 赋给对应 `m_img_XXX` 节点的 Image.sprite。
-
-> **生成失败/质量不满意**:同 prompt 换 seed 重试 1 次；仍不行 → 降级为纯色占位(在交接区标为「待人工替换」)，不阻塞后续步骤。
+> 占位用确定性纯色块，不用 AI 生成:纯色块能自由迭代、一眼可辨「非终稿」;扩散模型输出无 alpha、无九宫格、改任一处都要整图重新生成，不适合当生产 sprite。
 
 ### Step 5: 生成代码骨架 + 交接
 
@@ -114,7 +98,7 @@ html-to-ugui 导入后，用 MCP batch_execute 逐项处理:
    - `ScriptGenerator()`:所有 UI 节点 FindChildComponent/FindChild 绑定(用 TEngine 前缀格式 `m_btn_Xxx`)
    - `RegisterEvent()`:空壳 + 注释标注需注册的事件类型(根据 plan 验收标准)
    - 按钮/交互控件空回调方法签名:`private void OnXxxClicked() { }`
-   - `OnCreate()` / `OnRefresh()` / `OnDestroy()` 空壳
+   - `OnCreate()`:对每个 `m_img_` 节点调 `img.SetSubSprite("Sheet_<屏>", "<子图名>")` 绑切图(无切图项跳过、留占位);`OnRefresh()` / `OnDestroy()` 空壳
    - 引用 `.claude/skills/tengine-dev/references/ui-lifecycle.md` 和 `ui-patterns.md` 确保 API 正确
 
 2. 保存 Prefab:`MCP manage_prefabs action=create_from_gameobject` → `Assets/AssetRaw/UI/Prefabs/<location>.prefab`
@@ -123,7 +107,7 @@ html-to-ugui 导入后，用 MCP batch_execute 逐项处理:
    - **Prefab 路径**:`Assets/AssetRaw/UI/Prefabs/<location>.prefab`
    - **代码骨架路径**:`Assets/GameScripts/HotFix/GameLogic/UI/<WindowName>.cs`
    - **节点清单**:Prefab 中所有 `m_` 前缀节点 + 类型(供 dev 直接引用)
-   - **素材清单**:已生成素材文件名 + 路径；降级为纯色占位的项 + 备注
+   - **素材清单**:已落表子图名 + 归入 Sheet；纯色占位待美术的项 + 目标子图名 + 备注
    - **命名合规自检**:逐项对照 naming-rules 前缀表
    - **已知 UX 取舍**:html-to-ugui 布局 vs 设计稿差异(如有)
    - **需 dev 关注的控件**:GridLayoutGroup 配置、ScrollRect 参数等结构性约束
@@ -161,23 +145,43 @@ Assets/AssetRaw/UI/Prefabs/<WindowName>.prefab(根节点)
 ## 素材目录约定
 
 ```
-Assets/AssetRaw/UI/Sprites/  ← 散图(图标、按钮背景等)
-  ├── btn_xxx.png
-  ├── icon_xxx.png
-  └── ...
+Assets/AssetRaw/UIRaw/Atlas/  ← 生产路径(精灵表)
+  ├── <屏>/              ← 该屏命名切图(打表工具的输入)
+  │   ├── icon_x.png
+  │   └── box1.png
+  └── Sheet_<屏>.png      ← 打表工具产物(Multiple),SetSubSprite 寻址目标
 
-Assets/AssetRaw/UIRaw/Atlas/  ← 图集(多子图精灵表，如需 atlas 打包)
+Assets/AssetRaw/UI/Sprites/   ← 仅真正不打表的零散 sprite
 ```
 
 ## 红线
-- 素材生成依赖 Replicate API;API 不可达时**不阻塞整体流程**——降级为纯色占位 + 交接区标明，dev 可用纯色开发、素材后补
+- 默认素材来源 = 人工切图 + 打表工具(`UIAtlasPacker`);切图缺失时**不阻塞整体流程**——保留纯色占位 + 交接区标明，dev 可用纯色开发、切图后补。Replicate/Flux 仅用于可选概念图，非生产依赖
 - Unity MCP 断连时不上报 BLOCKED 直接暂停——html-to-ugui 的 Step 1-2(HTML+JSON)仍可产出，状态写交接区，补跑命令清单供恢复后继续
 - 命名前缀必须逐项对照 naming-rules.md 自检——命名错误是 dev 接手后最常见的返工源(memory/plan.md 已有多次「类名+prefab 名+[Window] 串连四条改漏」的前例)
 - `html-to-ugui` 生成时 `data-u-name` 必须用 TEngine 格式(带下划线)，**不在 HTML 里写 `m_btnSave`(不带下划线)**，否则导入后需批量改名
 - 写持久文件前遵守 `.claude/rules/conventions.md`
 
 ## 返回契约
-详细产出写 `pipeline/state/ui.md`；最终回复只含:①一句话结论 ②Prefab 路径 + 代码骨架路径 ③素材生成结果(成功/部分降级/失败)④需 boss 决策的阻塞项(无则省略)。
+详细产出写 `pipeline/state/ui.md`；最终回复只含:①一句话结论 ②Prefab 路径 + 代码骨架路径 ③素材落地结果(打表 Sheet 产出 / 部分纯色占位待美术 / 失败)④需 boss 决策的阻塞项(无则省略)。
 
 ## 收尾
 新的可复用经验沉淀到 `pipeline/memory/ui.md`(准入见该文件头)。
+
+## 附录:可选概念图(非生产素材)
+
+仅用于对齐美术方向 / 交给出图的人，**绝不把输出绑为生产 sprite**(无 alpha、长宽比不精确、改任一处都要整图重新生成)。整屏一次生成(风格天然自洽)，不逐元素生成。前置:环境变量 `REPLICATE_API_TOKEN` 有效、账户有余额。
+
+```powershell
+$body = @{
+  version = "black-forest-labs/flux-schnell"   # ~$0.003/张;细节要求高可换 flux-1.1-pro(~$0.04/张)
+  input = @{
+    prompt = "<整屏概念图 prompt>"
+    go_fast = $true; megapixels = "1"; num_outputs = 1
+    aspect_ratio = "9:16"   # 竖屏整屏;实际尺寸略有偏差，概念图无所谓
+    output_format = "png"; output_quality = 100; num_inference_steps = 4
+  }
+} | ConvertTo-Json -Depth 3
+$result = Invoke-RestMethod -Uri "https://api.replicate.com/v1/predictions" -Method Post `
+  -Headers @{Authorization="Bearer $env:REPLICATE_API_TOKEN"; "Content-Type"="application/json"; Prefer="wait"} -Body $body
+Invoke-WebRequest -Uri $result.output -OutFile "<概念图输出路径>.png"
+```
