@@ -183,7 +183,15 @@
     const blocks = scope.querySelectorAll('code.language-mermaid');
     if (!blocks.length) return;
     if (!mermaidReady) {
-      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+      // theme:'dark' 配 --bg:#15171e;fontFamily 对齐正文(渲染 CJK);themeVariables 让图贴文档调色板(共享层调一次,非每图加色)
+      mermaid.initialize({
+        startOnLoad: false, theme: 'dark', securityLevel: 'loose',
+        fontFamily: '-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif',
+        themeVariables: {
+          primaryColor: '#1e2230', primaryBorderColor: '#6c8cff', primaryTextColor: '#dde2f0',
+          lineColor: '#8d96b5', secondaryColor: '#283256', tertiaryColor: '#1a1d27'
+        }
+      });
       mermaidReady = true;
     }
     blocks.forEach(function (c) {

@@ -84,58 +84,29 @@
 
 排行榜底层分三层,职责清晰互不越界:<b>配置层</b>(榜定义 + 奖励档,只读)、<b>数据源层</b>(榜上有谁、各多少分 — 接缝,离线本地 / 远程 stub)、<b>服务层</b>(查榜 / 排序并列 / 结算编排 / 领取 / 红点 — 纯逻辑)。结算时服务层向<b>邮件系统 21</b> 借 `IMailService.Send` 发奖。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="排行榜底层分层结构图">
-    <defs>
-      <marker id="a-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="a-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="a-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 服务层（中心） -->
-    <rect x="350" y="40" width="240" height="92" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.8"></rect>
-    <text x="470" y="66" text-anchor="middle" fill="#7fe0b8" font-size="14" font-weight="bold">RankService（服务层）</text>
-    <text x="470" y="88" text-anchor="middle" fill="#9fd9bf" font-size="10.5">查榜 / 排序并列 / 结算编排</text>
-    <text x="470" y="105" text-anchor="middle" fill="#9fd9bf" font-size="10.5">每日 + 点赞领取 / 红点 getter</text>
-    <text x="470" y="122" text-anchor="middle" fill="#7fc0a0" font-size="9.5">纯逻辑 · 注入时钟 / 数据源 / 邮件 / 持久化</text>
-    <!-- 配置层 -->
-    <rect x="40" y="40" width="230" height="92" rx="10" fill="#1a2440" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="155" y="64" text-anchor="middle" fill="#9db4ff" font-size="12.5" font-weight="bold">配置层 RankConfigMgr</text>
-    <text x="155" y="84" text-anchor="middle" fill="#aebfff" font-size="10">RankDef + RankRewardTier</text>
-    <text x="155" y="100" text-anchor="middle" fill="#8a9bd0" font-size="9.5">榜定义 / 名次档 / 奖励库 id</text>
-    <text x="155" y="116" text-anchor="middle" fill="#8a9bd0" font-size="9.5">结算时机 / 入榜·展示上限（只读）</text>
-    <!-- 数据源层（接缝） -->
-    <rect x="40" y="190" width="230" height="110" rx="10" fill="#2a2418" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="155" y="214" text-anchor="middle" fill="#ffdd80" font-size="12.5" font-weight="bold">数据源接缝 IRankSource</text>
-    <text x="155" y="236" text-anchor="middle" fill="#e8c878" font-size="10.5">LocalRankSource（本地·可测）</text>
-    <text x="155" y="252" text-anchor="middle" fill="#c9b06a" font-size="9.5">本机成绩 + 配置陪榜 → 排序</text>
-    <text x="155" y="274" text-anchor="middle" fill="#e8c878" font-size="10.5">RemoteRankSource（stub）</text>
-    <text x="155" y="290" text-anchor="middle" fill="#c9b06a" font-size="9.5">不连网 · 返空 · TODO（§3.6）</text>
-    <!-- 持久化 -->
-    <rect x="350" y="350" width="240" height="86" rx="10" fill="#2a2418" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="470" y="376" text-anchor="middle" fill="#ffdd80" font-size="12.5" font-weight="bold">RankPersistence</text>
-    <text x="470" y="396" text-anchor="middle" fill="#e8c878" font-size="10">键 Rank.Progress（既有 Provider）</text>
-    <text x="470" y="414" text-anchor="middle" fill="#c9b06a" font-size="9.5">本机最佳分 / 上次结算 / 已结算 /</text>
-    <text x="470" y="428" text-anchor="middle" fill="#c9b06a" font-size="9.5">每日·点赞当天领取标记（元层进度）</text>
-    <!-- 邮件系统 21（复用） -->
-    <rect x="680" y="190" width="220" height="110" rx="10" fill="#241a2e" stroke="#b06ad6" stroke-width="1.5"></rect>
-    <text x="790" y="214" text-anchor="middle" fill="#d3a6f0" font-size="12.5" font-weight="bold">邮件系统 21（复用·不改）</text>
-    <text x="790" y="236" text-anchor="middle" fill="#c79ae0" font-size="10.5">IMailService.Send(draft)</text>
-    <text x="790" y="254" text-anchor="middle" fill="#a98ac0" font-size="9.5">结算奖励经邮件下发</text>
-    <text x="790" y="276" text-anchor="middle" fill="#a98ac0" font-size="9.5">领取链 → 16 GiftOpener/ItemGrant</text>
-    <text x="790" y="292" text-anchor="middle" fill="#8f7aa0" font-size="9.5">（spec mail 字段）</text>
-    <!-- 边 -->
-    <line x1="270" y1="80" x2="350" y2="80" stroke="#6c8cff" stroke-width="2" marker-end="url(#a-blue)"></line>
-    <text x="310" y="72" text-anchor="middle" fill="#9db4ff" font-size="9.5">读配置</text>
-    <line x1="270" y1="240" x2="350" y2="110" stroke="#ffcf5c" stroke-width="2" marker-end="url(#a-gold)"></line>
-    <text x="290" y="185" fill="#e8c878" font-size="9.5">取榜单</text>
-    <line x1="470" y1="132" x2="470" y2="350" stroke="#ffcf5c" stroke-width="2" marker-end="url(#a-gold)"></line>
-    <text x="485" y="245" fill="#e8c878" font-size="9.5">读写元层进度</text>
-    <line x1="590" y1="100" x2="680" y2="230" stroke="#b06ad6" stroke-width="2" marker-end="url(#a-green)"></line>
-    <text x="640" y="150" text-anchor="middle" fill="#c79ae0" font-size="9.5">结算发奖</text>
-    <line x1="40" y1="450" x2="900" y2="450" stroke="#39435c" stroke-width="1" stroke-dasharray="3 4"></line>
-    <text x="40" y="466" fill="#8a93a6" font-size="10">图例:绿 = 服务层(本轮主体);蓝 = 配置(只读);黄 = 数据源接缝 + 持久化;紫 = 复用邮件系统 21(不改,只调用)。实线 = 调用 / 数据流。</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph cfg["配置层 · RankConfigMgr(只读)"]
+        c1["RankConfigMgr<br/>RankDef + RankRewardTier<br/>榜定义 / 名次档 / 奖励库 id<br/>结算时机 / 入榜·展示上限"]
+    end
+    subgraph svc["服务层 · RankService(纯逻辑)"]
+        s1["RankService<br/>查榜 / 排序并列 / 结算编排<br/>每日 + 点赞领取 / 红点 getter<br/>注入时钟 / 数据源 / 邮件 / 持久化"]
+    end
+    subgraph src["数据源接缝 · IRankSource"]
+        d1["LocalRankSource(本地·可测)<br/>本机成绩 + 配置陪榜 → 排序"]
+        d2["RemoteRankSource(stub)<br/>不连网 · 返空 · TODO §3.6"]
+    end
+    subgraph per["持久化 · RankPersistence"]
+        p1["键 Rank.Progress(既有 Provider)<br/>本机最佳分 / 上次结算 / 已结算<br/>每日·点赞当天领取标记(元层进度)"]
+    end
+    subgraph mail["邮件系统 21(复用·不改)"]
+        m1["IMailService.Send(draft)<br/>结算奖励经邮件下发<br/>领取链 → 16 GiftOpener/ItemGrant<br/>(spec mail 字段)"]
+    end
+    cfg -->|读配置| svc
+    src -->|取榜单| svc
+    svc -->|读写元层进度| per
+    svc -->|结算发奖| mail
+```
 
 <b>「一表控所有榜」的行模型(spec 设计思路)</b>:配置表一行 = 一个榜的<mark>一个名次奖励档</mark>。同 `Id` 的多行属同一个榜(共享 Name/group/method/condition/结算时机/mail/上限),各行的 `rank_min/rank_max/reward` 不同(第 1 名一档、2–10 名一档、11–100 名一档…)。桥接时按 `Id` 聚合成 `RankDef`(榜级字段取首行)+ `List<RankRewardTier>`(各名次档,[§3.2](#22-rank-system::poco)),同 16 道具礼包子项 / 20 兑换码奖励子表的「主+子聚合」做法。
 
@@ -511,59 +482,29 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
 
 结算是五方参与的核心流(调用方 / 服务 / 配置 / 数据源 / 邮件系统 21)。查榜与结算两条流,用时序图归纳:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 520" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="查榜与结算的时序图">
-    <defs>
-      <marker id="s-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="s-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="s-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="s-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b06ad6"></path></marker>
-    </defs>
-    <!-- 泳道 -->
-    <text x="95" y="26" text-anchor="middle" fill="#9db4ff" font-size="12" font-weight="bold">调用方 / 排行榜 UI</text>
-    <text x="300" y="26" text-anchor="middle" fill="#7fe0b8" font-size="12" font-weight="bold">RankService</text>
-    <text x="490" y="26" text-anchor="middle" fill="#ffdd80" font-size="12" font-weight="bold">配置 + 数据源</text>
-    <text x="700" y="26" text-anchor="middle" fill="#9fd9bf" font-size="12" font-weight="bold">持久化进度</text>
-    <text x="870" y="26" text-anchor="middle" fill="#d3a6f0" font-size="12" font-weight="bold">邮件 21</text>
-    <line x1="95" y1="36" x2="95" y2="490" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="300" y1="36" x2="300" y2="490" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="490" y1="36" x2="490" y2="490" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="700" y1="36" x2="700" y2="490" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="870" y1="36" x2="870" y2="490" stroke="#39435c" stroke-width="1.5"></line>
-    <!-- A 查榜流 -->
-    <text x="40" y="56" fill="#7fe0b8" font-size="11" font-weight="bold">A · 查榜 / 进度显示</text>
-    <line x1="95" y1="72" x2="300" y2="72" stroke="#6c8cff" stroke-width="2" marker-end="url(#s-blue)"></line>
-    <text x="197" y="64" text-anchor="middle" fill="#9db4ff" font-size="10">GetBoard(rankId)</text>
-    <line x1="300" y1="100" x2="490" y2="100" stroke="#ffcf5c" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="395" y="92" text-anchor="middle" fill="#ffdd80" font-size="10">Fetch（本机 + 陪榜）+ 读配置</text>
-    <rect x="288" y="112" width="24" height="64" rx="4" fill="#16302430" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="300" y="130" text-anchor="middle" fill="#7fe0b8" font-size="9">过滤入榜</text>
-    <text x="300" y="146" text-anchor="middle" fill="#7fe0b8" font-size="9">排序+名次</text>
-    <text x="300" y="162" text-anchor="middle" fill="#7fe0b8" font-size="9">截展示上限</text>
-    <line x1="300" y1="190" x2="95" y2="190" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#s-green)"></line>
-    <text x="197" y="182" text-anchor="middle" fill="#7fe0b8" font-size="10">RankBoard（含我的名次）</text>
-    <line x1="40" y1="216" x2="900" y2="216" stroke="#39435c" stroke-width="1" stroke-dasharray="2 4"></line>
-    <!-- B 结算流 -->
-    <text x="40" y="240" fill="#7fe0b8" font-size="11" font-weight="bold">B · 结算（登录 / tick 触发，本轮纯方法）</text>
-    <line x1="95" y1="256" x2="300" y2="256" stroke="#6c8cff" stroke-width="2" marker-end="url(#s-blue)"></line>
-    <text x="197" y="248" text-anchor="middle" fill="#9db4ff" font-size="10">CheckAndSettle(now)</text>
-    <rect x="288" y="268" width="24" height="170" rx="4" fill="#16302430" stroke="#5bd6a0" stroke-width="1"></rect>
-    <line x1="300" y1="286" x2="700" y2="286" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#s-green)"></line>
-    <text x="500" y="278" text-anchor="middle" fill="#9fd9bf" font-size="9.5">读 lastSettle</text>
-    <text x="300" y="306" text-anchor="middle" fill="#7fe0b8" font-size="9">IsSettleDue?</text>
-    <line x1="300" y1="324" x2="490" y2="324" stroke="#ffcf5c" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="395" y="316" text-anchor="middle" fill="#ffdd80" font-size="9.5">算本机名次 + 查名次档奖</text>
-    <line x1="312" y1="356" x2="870" y2="356" stroke="#b06ad6" stroke-width="2" marker-end="url(#s-purple)"></line>
-    <text x="590" y="348" text-anchor="middle" fill="#c79ae0" font-size="9.5">Send(草稿挂奖励库 id) ← spec mail 字段</text>
-    <line x1="312" y1="392" x2="700" y2="392" stroke="#5bd6a0" stroke-width="2" marker-end="url(#s-green)"></line>
-    <text x="500" y="384" text-anchor="middle" fill="#9fd9bf" font-size="9.5">记 lastSettle = now（防重复结）+ Save</text>
-    <line x1="300" y1="424" x2="95" y2="424" stroke="#5bd6a0" stroke-width="2" marker-end="url(#s-green)"></line>
-    <text x="197" y="416" text-anchor="middle" fill="#7fe0b8" font-size="10">List&lt;SettleResult&gt;（结算了哪些榜）</text>
-    <text x="197" y="440" text-anchor="middle" fill="#9db4ff" font-size="9">UI 提示「X 榜已结算，奖励发邮箱」→ 玩家去 21 领</text>
-    <line x1="40" y1="468" x2="900" y2="468" stroke="#39435c" stroke-width="1" stroke-dasharray="3 4"></line>
-    <text x="40" y="484" fill="#8a93a6" font-size="10">幂等:同周期重复调 → IsSettleDue 因 last 已写返 false,不重复发奖。未入榜 / 无档奖 → 不发邮件仅记已结。实线=调用;虚线=返回/读。</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant U as 调用方 / 排行榜 UI
+    participant R as RankService
+    participant C as 配置 + 数据源
+    participant P as 持久化进度
+    participant M as 邮件 21
+    Note over U,M: A · 查榜 / 进度显示
+    U->>R: GetBoard(rankId)
+    R->>C: Fetch(本机 + 陪榜) + 读配置
+    R->>R: 过滤入榜 / 排序+名次 / 截展示上限
+    R-->>U: RankBoard(含我的名次)
+    Note over U,M: B · 结算(登录 / tick 触发,本轮纯方法)
+    U->>R: CheckAndSettle(now)
+    R-->>P: 读 lastSettle
+    R->>R: IsSettleDue?
+    R->>C: 算本机名次 + 查名次档奖
+    R->>M: Send(草稿挂奖励库 id) ← spec mail 字段
+    R->>P: 记 lastSettle = now(防重复结) + Save
+    R-->>U: List(SettleResult)(结算了哪些榜)
+    Note over U,R: UI 提示「X 榜已结算,奖励发邮箱」→ 玩家去 21 领
+    Note over U,M: 幂等:同周期重复调 → IsSettleDue 因 last 已写返 false,不重复发奖<br/>未入榜 / 无档奖 → 不发邮件仅记已结。实线=调用;虚线=返回/读
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 

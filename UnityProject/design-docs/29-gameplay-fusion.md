@@ -57,80 +57,23 @@
 
 一个入口、一套循环：<mark class="g">体力预算下 → 落子（扣体力）→ 消除（返体力）→ 智能生成发牌 → 产图案 / 合成 / 交订单换灵力 → 宝箱 / 女神 / 神庙叠加奖励</mark>。经典骨架（落子→消除→DDA 发牌）是<b>引擎</b>，合成订单的经济是<b>完整循环</b>，叠加奖励层（连消 / 多消 / 全清、宝箱、女神、神庙）<b>可砍不影响主链</b>。
 
-<div class="diagram">
-    <svg viewBox="0 0 940 540" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="融合后单一玩法总览图">
-      <defs>
-        <marker id="f-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-        <marker id="f-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-        <marker id="f-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      </defs>
-      <!-- 单入口 -->
-      <g>
-        <rect x="370" y="20" width="200" height="56" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="470" y="44" text-anchor="middle" font-size="15" font-weight="700" fill="#e6e9f5">单入口（融合玩法）</text>
-        <text x="470" y="63" text-anchor="middle" font-size="12" fill="#aebcf5">主菜单不再二选一 · §3.1</text>
-      </g>
-      <!-- 引擎：落子→消除→DDA发牌（蓝） -->
-      <g>
-        <rect x="40" y="120" width="220" height="96" rx="12" fill="#2a3566" stroke="#6c8cff"></rect>
-        <text x="150" y="152" text-anchor="middle" font-size="16" font-weight="700" fill="#e6e9f5">经典引擎（底层）</text>
-        <text x="150" y="175" text-anchor="middle" font-size="12" fill="#aebcf5">落子→消除→DDA 发牌</text>
-        <text x="150" y="193" text-anchor="middle" font-size="12" fill="#aebcf5">8 算法 / 71·39 方块库 · §3.4/§3.6</text>
-      </g>
-      <!-- 体力底座（绿） -->
-      <g>
-        <rect x="40" y="430" width="220" height="80" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="150" y="463" text-anchor="middle" font-size="15" font-weight="700" fill="#e6e9f5">体力（预算底座）</text>
-        <text x="150" y="486" text-anchor="middle" font-size="12" fill="#8fd0b4">落子 -1 · 消除返 · 订单 +8</text>
-      </g>
-      <!-- 图案产出+合成（棕） -->
-      <g>
-        <rect x="360" y="130" width="220" height="86" rx="12" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="470" y="162" text-anchor="middle" font-size="15" font-weight="700" fill="#e6e9f5">图案产出 + 合成</text>
-        <text x="470" y="185" text-anchor="middle" font-size="12" fill="#d8a98f">得分驱动产量 → 自动配对升级</text>
-        <text x="470" y="203" text-anchor="middle" font-size="12" fill="#d8a98f">封顶 Lv3 · §3.3</text>
-      </g>
-      <!-- 订单枢纽（绿） -->
-      <g>
-        <rect x="680" y="130" width="220" height="86" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="790" y="162" text-anchor="middle" font-size="15" font-weight="700" fill="#e6e9f5">订单（经济枢纽）</text>
-        <text x="790" y="185" text-anchor="middle" font-size="12" fill="#8fd0b4">交付图案 → 灵力 + 虔诚币</text>
-        <text x="790" y="203" text-anchor="middle" font-size="12" fill="#8fd0b4">双轨并发 · 回灌体力</text>
-      </g>
-      <!-- 叠加奖励层（黄） -->
-      <g>
-        <rect x="350" y="300" width="240" height="76" rx="12" fill="#463c1e" stroke="#ffcf5c"></rect>
-        <text x="470" y="330" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9f5">连消 / 多消 / 全清</text>
-        <text x="470" y="352" text-anchor="middle" font-size="12" fill="#e8d49a">显示分倍率 + 额外图案 · §3.5</text>
-      </g>
-      <g>
-        <rect x="640" y="300" width="240" height="76" rx="12" fill="#463c1e" stroke="#ffcf5c"></rect>
-        <text x="760" y="330" text-anchor="middle" font-size="14" font-weight="700" fill="#e6e9f5">盲盒 / 女神 / 神庙</text>
-        <text x="760" y="352" text-anchor="middle" font-size="12" fill="#e8d49a">叠加进度奖励层</text>
-      </g>
-      <!-- 主链箭头 -->
-      <g fill="none" stroke-width="2">
-        <path d="M470 76 V 126" stroke="#6c8cff" marker-end="url(#f-blue)"></path>
-        <path d="M260 168 H356" stroke="#6c8cff" marker-end="url(#f-blue)"></path>
-        <path d="M580 173 H676" stroke="#5bd6a0" marker-end="url(#f-green)"></path>
-      </g>
-      <!-- 体力回到落子（绿回环） -->
-      <path d="M150 430 V 220" fill="none" stroke="#5bd6a0" stroke-dasharray="6 5" stroke-width="1.8" marker-end="url(#f-green)"></path>
-      <text x="120" y="330" font-size="11.5" fill="#5bd6a0" transform="rotate(-90 120 330)">体力回灌落子</text>
-      <!-- 订单回灌体力 -->
-      <path d="M790 216 C 790 260, 300 470, 264 470" fill="none" stroke="#5bd6a0" stroke-dasharray="6 5" stroke-width="1.6" marker-end="url(#f-green)"></path>
-      <!-- 引擎喂连消/全清；订单喂奖励层 -->
-      <path d="M260 200 C 320 260, 400 270, 440 296" fill="none" stroke="#ffcf5c" stroke-width="1.6" marker-end="url(#f-yellow)"></path>
-      <path d="M790 216 C 790 250, 760 270, 760 296" fill="none" stroke="#ffcf5c" stroke-width="1.6" marker-end="url(#f-yellow)"></path>
-      <!-- 图例 -->
-      <line x1="60" y1="528" x2="96" y2="528" stroke="#6c8cff" stroke-width="2"></line>
-      <text x="104" y="533" font-size="12" fill="#9aa3c4">主产出链 / 发牌</text>
-      <line x1="260" y1="528" x2="296" y2="528" stroke="#5bd6a0" stroke-width="2" stroke-dasharray="6 5"></line>
-      <text x="304" y="533" font-size="12" fill="#9aa3c4">资源回灌</text>
-      <line x1="430" y1="528" x2="466" y2="528" stroke="#ffcf5c" stroke-width="2"></line>
-      <text x="474" y="533" font-size="12" fill="#9aa3c4">叠加奖励层触发（可砍）</text>
-    </svg>
-    </div>
+```mermaid
+flowchart TD
+    a1["单入口(融合玩法)<br/>主菜单不再二选一 · §3.1"]
+    eng["经典引擎(底层)<br/>落子→消除→DDA 发牌<br/>8 算法 / 71·39 方块库 · §3.4/§3.6"]
+    en["体力(预算底座)<br/>落子 -1 · 消除返 · 订单 +8"]
+    pat["图案产出 + 合成<br/>得分驱动产量 → 自动配对升级<br/>封顶 Lv3 · §3.3"]
+    ord["订单(经济枢纽)<br/>交付图案 → 灵力 + 虔诚币<br/>双轨并发 · 回灌体力"]
+    combo["连消 / 多消 / 全清<br/>显示分倍率 + 额外图案 · §3.5"]
+    box["盲盒 / 女神 / 神庙<br/>叠加进度奖励层"]
+    a1 -->|主产出链| eng
+    eng -->|主产出链| pat
+    pat -->|主产出链| ord
+    en -.->|资源回灌·体力回灌落子| eng
+    ord -.->|资源回灌·订单回灌体力| en
+    eng -->|叠加奖励层触发·可砍| combo
+    ord -->|叠加奖励层触发·可砍| box
+```
 
 <h2 id="verdict">三、冲突逐条裁决（本篇核心）</h2>
 

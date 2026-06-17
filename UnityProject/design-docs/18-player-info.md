@@ -76,72 +76,32 @@
 
 系统拆四层,各层职责单一、各自可测。配置层是头像表(Luban),数据模型层持有玩家信息字段(纯 POCO,可序列化),服务层是一组无状态纯逻辑(名字 / 改名 / 屏蔽字 / 解锁 / 等级 / 剪贴板),持久化层把数据模型并入既有 `MergeMetaSave` 跨会话落盘。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 540" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="玩家信息系统四层分层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 配置层 -->
-    <rect x="30" y="24" width="880" height="92" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="50" y="50" fill="#e0b89a" font-size="14" font-weight="bold">配置层 · Luban 头像&amp;框表(数据源,既有 GameConfig 管线)</text>
-    <rect x="56" y="62" width="380" height="44" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="246" y="82" text-anchor="middle" fill="#e8c8aa" font-size="13" font-weight="bold">avatar.xlsx(源) → 导表</text>
-    <text x="246" y="99" text-anchor="middle" fill="#c79a78" font-size="11">5 字段 + EAvatarType/EUnlockCond §3.5</text>
-    <rect x="456" y="62" width="430" height="44" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="671" y="82" text-anchor="middle" fill="#e8c8aa" font-size="13" font-weight="bold">avatar_tbavatar.bytes + GameConfig.avatar.*</text>
-    <text x="671" y="99" text-anchor="middle" fill="#c79a78" font-size="11">运行期经 ConfigSystem.Tables.TbAvatar(YooAsset)</text>
-    <line x1="246" y1="116" x2="246" y2="150" stroke="#5bd6a0" stroke-width="2" marker-end="url(#m-green)"></line>
-    <text x="262" y="138" fill="#7fe0b8" font-size="11">行 → POCO 桥接(AvatarConfigMgr)</text>
-    <!-- 服务层 -->
-    <rect x="30" y="152" width="880" height="150" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="178" fill="#7fe0b8" font-size="14" font-weight="bold">服务层 · 无状态纯逻辑(可单测,不碰 Unity 运行时)</text>
-    <rect x="56" y="190" width="200" height="48" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="156" y="210" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">PlayerNameGenerator</text>
-    <text x="156" y="227" text-anchor="middle" fill="#7fc0a0" font-size="10.5">Player + 6 随机字符 §3.2</text>
-    <rect x="268" y="190" width="200" height="48" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="368" y="210" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">PlayerRenameService</text>
-    <text x="368" y="227" text-anchor="middle" fill="#7fc0a0" font-size="10.5">首免/价格/扣钻/屏蔽字 §3.2</text>
-    <rect x="480" y="190" width="200" height="48" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="580" y="210" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">AvatarUnlockService</text>
-    <text x="580" y="227" text-anchor="middle" fill="#7fc0a0" font-size="10.5">解锁条件→三态 §3.6</text>
-    <rect x="692" y="190" width="190" height="48" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="787" y="210" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">PlayerLevelConfig</text>
-    <text x="787" y="227" text-anchor="middle" fill="#7fc0a0" font-size="10.5">经验↔等级 §3.4</text>
-    <rect x="56" y="246" width="200" height="44" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="156" y="266" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">ProfanityFilter</text>
-    <text x="156" y="282" text-anchor="middle" fill="#7fc0a0" font-size="10.5">可注入词表匹配 §3.3</text>
-    <rect x="268" y="246" width="200" height="44" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="368" y="266" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">ClipboardUtil</text>
-    <text x="368" y="282" text-anchor="middle" fill="#7fc0a0" font-size="10.5">id 复制(可注入 sink)§3.7</text>
-    <rect x="480" y="246" width="402" height="44" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1" stroke-dasharray="4 3"></rect>
-    <text x="681" y="266" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">复用 RewardDisplay.QualityColor(品质色,设计 17)</text>
-    <text x="681" y="282" text-anchor="middle" fill="#7fc0a0" font-size="10.5">头像/框品质显示不另造色表 O5</text>
-    <line x1="468" y1="302" x2="468" y2="336" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <text x="484" y="324" fill="#9fb4ff" font-size="11">读写 PlayerInfo 字段</text>
-    <!-- 数据模型层 -->
-    <rect x="30" y="338" width="540" height="96" rx="12" fill="#16203a" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="50" y="364" fill="#9fb4ff" font-size="14" font-weight="bold">数据模型层 · PlayerInfo(POCO,可序列化)</text>
-    <text x="50" y="386" fill="#cdd9ff" font-size="12">Id / Name / RenameCount / Exp(→Level) / CurrentAvatarId / CurrentFrameId</text>
-    <text x="50" y="405" fill="#cdd9ff" font-size="12">UnlockedAvatarIds[] / UnlockedFrameIds[](已拥有集合)</text>
-    <text x="50" y="423" fill="#8ea2d8" font-size="11">纯 C# new 出来即可跑单测 · §3.1</text>
-    <!-- 持久化层 -->
-    <rect x="590" y="338" width="320" height="96" rx="12" fill="#2a2618" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="610" y="364" fill="#ffcf5c" font-size="14" font-weight="bold">持久化 · 并入既有 MergeMetaSave</text>
-    <text x="610" y="386" fill="#ffe9b0" font-size="12">DTO 加玩家字段 + Export/ImportMeta 拷贝</text>
-    <text x="610" y="405" fill="#cdb277" font-size="11">复用设计 14 落盘/迁移/夹值,不另造</text>
-    <text x="610" y="423" fill="#cdb277" font-size="11">version 不必升(逐字段保底)§3.8</text>
-    <line x1="570" y1="386" x2="588" y2="386" stroke="#ffcf5c" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#m-gold)"></line>
-    <!-- 图例 -->
-    <text x="30" y="464" fill="#6f7d99" font-size="11">图例:</text>
-    <line x1="74" y1="460" x2="104" y2="460" stroke="#b86a45" stroke-width="2"></line><text x="110" y="464" fill="#c79a78" font-size="11">Luban 配置(数据源)</text>
-    <line x1="240" y1="460" x2="270" y2="460" stroke="#5bd6a0" stroke-width="2"></line><text x="276" y="464" fill="#7fe0b8" font-size="11">服务(纯逻辑)</text>
-    <line x1="396" y1="460" x2="426" y2="460" stroke="#6c8cff" stroke-width="2"></line><text x="432" y="464" fill="#9fb4ff" font-size="11">数据模型(POCO)</text>
-    <line x1="560" y1="460" x2="590" y2="460" stroke="#ffcf5c" stroke-width="2"></line><text x="596" y="464" fill="#cdb277" font-size="11">持久化(复用既有)</text>
-    <text x="30" y="486" fill="#6f7d99" font-size="11">实线 = 调用/数据流 · 虚线 = 复用既有设施</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph cfg["配置层 · Luban 头像&框表(数据源,既有 GameConfig 管线)"]
+        c1["avatar.xlsx(源) → 导表<br/>5 字段 + EAvatarType/EUnlockCond §3.5"]
+        c2["avatar_tbavatar.bytes + GameConfig.avatar.*<br/>运行期经 ConfigSystem.Tables.TbAvatar(YooAsset)"]
+        c1 --> c2
+    end
+    subgraph svc["服务层 · 无状态纯逻辑(可单测,不碰 Unity 运行时)"]
+        s1["PlayerNameGenerator<br/>Player + 6 随机字符 §3.2"]
+        s2["PlayerRenameService<br/>首免/价格/扣钻/屏蔽字 §3.2"]
+        s3["AvatarUnlockService<br/>解锁条件→三态 §3.6"]
+        s4["PlayerLevelConfig<br/>经验↔等级 §3.4"]
+        s5["ProfanityFilter<br/>可注入词表匹配 §3.3"]
+        s6["ClipboardUtil<br/>id 复制(可注入 sink)§3.7"]
+        s7["复用 RewardDisplay.QualityColor(品质色,设计 17)<br/>头像/框品质显示不另造色表 O5"]
+    end
+    subgraph model["数据模型层 · PlayerInfo(POCO,可序列化)"]
+        m1["PlayerInfo<br/>Id / Name / RenameCount / Exp(→Level) / CurrentAvatarId / CurrentFrameId<br/>UnlockedAvatarIds[] / UnlockedFrameIds[](已拥有集合)<br/>纯 C# new 出来即可跑单测 · §3.1"]
+    end
+    subgraph persist["持久化 · 并入既有 MergeMetaSave"]
+        p1["DTO 加玩家字段 + Export/ImportMeta 拷贝<br/>复用设计 14 落盘/迁移/夹值,不另造<br/>version 不必升(逐字段保底)§3.8"]
+    end
+    cfg -->|行 → POCO 桥接(AvatarConfigMgr)| svc
+    svc -->|读写 PlayerInfo 字段| model
+    model -.复用既有设施.-> persist
+```
 
 <b>为什么这样切:</b>头像表桥接成 POCO(`AvatarEntry`)隔离 Luban 类型,同 `ItemConfigMgr` 把 `GameConfig.ItemDef` 转 POCO 的做法,业务侧只认 POCO。服务层全做成<b>无状态纯函数 / 静态方法</b>(吃 `PlayerInfo` + 参数,产结果),不持有玩家状态——故验收点全是纯断言,连配置都未必加载。剪贴板与扣钻石这两处「碰外部世界」的操作,经<mark>可注入接缝</mark>(sink / 数值扣减回调)隔离,使单测不碰真实剪贴板、不依赖钻石实装。
 
@@ -422,65 +382,25 @@ spec:「id 界面可点按钮复制到剪贴板」。Unity 标准 API 是 `GUIUt
 
 一次「改名(收费档)」的时序(参与方:UI 入口 / PlayerRenameService / ProfanityFilter / 数值扣减接缝 / PlayerInfo / 持久化),以及解锁三态查询的旁路。UI 节点本轮不建,以「将来 UI 入口」标注:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="改名时序图">
-    <defs>
-      <marker id="t-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="t-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="t-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#ff7a8a"></path></marker>
-    </defs>
-    <!-- 泳道头 -->
-    <rect x="14" y="18" width="150" height="38" rx="8" fill="#2a2618" stroke="#ffcf5c"></rect><text x="89" y="42" text-anchor="middle" fill="#ffe9b0" font-size="11.5" font-weight="bold">UI 入口(将来)</text>
-    <rect x="186" y="18" width="170" height="38" rx="8" fill="#16302440" stroke="#5bd6a0"></rect><text x="271" y="42" text-anchor="middle" fill="#bff0d8" font-size="11.5" font-weight="bold">PlayerRenameService</text>
-    <rect x="378" y="18" width="150" height="38" rx="8" fill="#16302440" stroke="#5bd6a0"></rect><text x="453" y="42" text-anchor="middle" fill="#bff0d8" font-size="11.5" font-weight="bold">ProfanityFilter</text>
-    <rect x="550" y="18" width="160" height="38" rx="8" fill="#16203a" stroke="#6c8cff"></rect><text x="630" y="42" text-anchor="middle" fill="#cdd9ff" font-size="11.5" font-weight="bold">数值扣减接缝</text>
-    <rect x="732" y="18" width="100" height="38" rx="8" fill="#16203a" stroke="#6c8cff"></rect><text x="782" y="42" text-anchor="middle" fill="#cdd9ff" font-size="11.5" font-weight="bold">PlayerInfo</text>
-    <rect x="850" y="18" width="78" height="38" rx="8" fill="#2a2618" stroke="#ffcf5c"></rect><text x="889" y="42" text-anchor="middle" fill="#ffe9b0" font-size="11" font-weight="bold">落盘</text>
-    <!-- 生命线 -->
-    <line x1="89" y1="56" x2="89" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="271" y1="56" x2="271" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="453" y1="56" x2="453" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="630" y1="56" x2="630" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="782" y1="56" x2="782" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="889" y1="56" x2="889" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <!-- 1 提交改名 -->
-    <line x1="89" y1="80" x2="269" y2="80" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-    <text x="100" y="74" fill="#9fb4ff" font-size="11">①TryRename(p, 新名, 词表, trySpend)</text>
-    <!-- 2 屏蔽字 -->
-    <line x1="271" y1="108" x2="451" y2="108" stroke="#5bd6a0" stroke-width="2" marker-end="url(#t-green)"></line>
-    <text x="282" y="102" fill="#7fe0b8" font-size="11">②IsClean(新名, 词表)</text>
-    <line x1="453" y1="132" x2="273" y2="132" stroke="#5bd6a0" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#t-green)"></line>
-    <text x="300" y="126" fill="#7fe0b8" font-size="11">通过 → 继续(不过则拒,见下分支)</text>
-    <!-- 3 计费判定 -->
-    <rect x="186" y="146" width="170" height="30" rx="6" fill="none" stroke="#6c8cff" stroke-dasharray="3 3"></rect>
-    <text x="271" y="165" text-anchor="middle" fill="#9fb4ff" font-size="10.5">RenameCount==0? 免费 : 读价 cost</text>
-    <!-- 4 扣钻 -->
-    <line x1="271" y1="194" x2="628" y2="194" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-    <text x="282" y="188" fill="#9fb4ff" font-size="11">③cost&gt;0 → trySpendDiamond(cost)</text>
-    <line x1="630" y1="218" x2="273" y2="218" stroke="#6c8cff" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#t-blue)"></line>
-    <text x="320" y="212" fill="#9fb4ff" font-size="11">返 true/false(钻石无余额 → 默认 true,§3.2)</text>
-    <!-- 5 写名 -->
-    <line x1="271" y1="246" x2="780" y2="246" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-    <text x="282" y="240" fill="#9fb4ff" font-size="11">④成功 → Name=新名; RenameCount++</text>
-    <!-- 6 落盘 -->
-    <line x1="782" y1="274" x2="887" y2="274" stroke="#ffcf5c" stroke-width="2" marker-end="url(#t-blue)"></line>
-    <text x="700" y="268" fill="#cdb277" font-size="11">⑤SaveAsync(并入 MergeMetaSave §3.8)</text>
-    <!-- 7 返回结果 -->
-    <line x1="271" y1="300" x2="91" y2="300" stroke="#5bd6a0" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#t-green)"></line>
-    <text x="100" y="294" fill="#7fe0b8" font-size="11">⑥RenameResult{Success, Reason, Cost} → UI 提示</text>
-    <!-- 拒绝分支框 -->
-    <rect x="186" y="324" width="430" height="86" rx="8" fill="none" stroke="#ff7a8a" stroke-width="1.4"></rect>
-    <text x="198" y="344" fill="#ff9aa6" font-size="11.5" font-weight="bold">拒绝分支(任一不过即返,不进后续 / 不扣费):</text>
-    <text x="198" y="364" fill="#e6a6ae" font-size="11">· 空 / 超长 → Reason=Empty/TooLong</text>
-    <text x="198" y="382" fill="#e6a6ae" font-size="11">· 屏蔽字命中 → Reason=Profanity(②后即返,不计费)</text>
-    <text x="198" y="400" fill="#e6a6ae" font-size="11">· 钻石不足 → Reason=NotEnoughDiamond(③返 false 后返,不改名)</text>
-    <!-- 图例 -->
-    <text x="640" y="356" fill="#6f7d99" font-size="10.5">实线=调用 · 虚线=返回</text>
-    <line x1="640" y1="372" x2="668" y2="372" stroke="#6c8cff" stroke-width="2"></line><text x="674" y="376" fill="#9fb4ff" font-size="10.5">玩家数据流</text>
-    <line x1="640" y1="390" x2="668" y2="390" stroke="#5bd6a0" stroke-width="2"></line><text x="674" y="394" fill="#7fe0b8" font-size="10.5">服务/校验</text>
-    <line x1="640" y1="408" x2="668" y2="408" stroke="#ff7a8a" stroke-width="2"></line><text x="674" y="412" fill="#ff9aa6" font-size="10.5">拒绝路径</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant U as UI 入口(将来)
+    participant R as PlayerRenameService
+    participant F as ProfanityFilter
+    participant N as 数值扣减接缝
+    participant P as PlayerInfo
+    participant S as 落盘
+    U->>R: ①TryRename(p, 新名, 词表, trySpend)
+    R->>F: ②IsClean(新名, 词表)
+    F-->>R: 通过 → 继续(不过则拒,见下分支)
+    Note over R: RenameCount==0? 免费 : 读价 cost
+    R->>N: ③cost＞0 → trySpendDiamond(cost)
+    N-->>R: 返 true/false(钻石无余额 → 默认 true,§3.2)
+    R->>P: ④成功 → Name=新名; RenameCount++
+    P->>S: ⑤SaveAsync(并入 MergeMetaSave §3.8)
+    R-->>U: ⑥RenameResult{Success, Reason, Cost} → UI 提示
+    Note over R,N: 拒绝分支(任一不过即返,不进后续 / 不扣费)<br/>· 空 / 超长 → Reason=Empty/TooLong<br/>· 屏蔽字命中 → Reason=Profanity(②后即返,不计费)<br/>· 钻石不足 → Reason=NotEnoughDiamond(③返 false 后返,不改名)
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 

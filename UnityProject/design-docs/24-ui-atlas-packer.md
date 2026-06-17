@@ -146,48 +146,16 @@ byte[] png = sheet.EncodeToPNG();</pre>
     <p style="margin:6px 0 0">每张源:<code>var ti = (TextureImporter)AssetImporter.GetAtPath(源png路径); Vector4 b = ti.spriteBorder;</code> → 写进该子图的 <code>SpriteMetaData.border = b</code>(<code>Vector4</code> 的 x/y/z/w = left/bottom/right/top)。已勘察:6 个底图(base_plate/base_plate2/base_plate3/box1/box2/button)源 <code>spriteBorder={24,24,24,24}</code>,其余 15 个图标 ={0,0,0,0}。故「从源继承」<b>逐字段复现</b>现有 <code>Sheet_settings.png</code> 的 6×24 + 15×0 border 分布。这是验收核心锚(<a href="#24-ui-atlas-packer::accept">§9.1 R4</a>)。</p>
   </div>
 
-<div class="diagram">
-    <svg viewBox="0 0 760 250" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif,system-ui" font-size="12">
-      <!-- 源 PNG -->
-      <rect x="20" y="40" width="150" height="100" rx="8" fill="#2a3550" stroke="#6c8cff" stroke-width="1.5"></rect>
-      <text x="95" y="62" text-anchor="middle" fill="#cdd6f4" font-weight="bold">源 PNG</text>
-      <text x="95" y="82" text-anchor="middle" fill="#9aa4bf">button.png</text>
-      <text x="95" y="100" text-anchor="middle" fill="#9aa4bf">像素 + 尺寸</text>
-      <text x="95" y="122" text-anchor="middle" fill="#5bd6a0">importer.spriteBorder</text>
-      <text x="95" y="136" text-anchor="middle" fill="#5bd6a0">= {24,24,24,24}</text>
-      <!-- 箭头 -->
-      <line x1="170" y1="90" x2="300" y2="90" stroke="#6c8cff" stroke-width="2" marker-end="url(#a24)"></line>
-      <text x="235" y="80" text-anchor="middle" fill="#9aa4bf">读取 + 排布</text>
-      <!-- 工具 -->
-      <rect x="300" y="40" width="150" height="100" rx="8" fill="#3a2d1f" stroke="#ffcf5c" stroke-width="1.5"></rect>
-      <text x="375" y="66" text-anchor="middle" fill="#ffcf5c" font-weight="bold">打表工具</text>
-      <text x="375" y="88" text-anchor="middle" fill="#9aa4bf">PackTextures 排 rect</text>
-      <text x="375" y="106" text-anchor="middle" fill="#9aa4bf">name=文件名 / pivot 居中</text>
-      <text x="375" y="124" text-anchor="middle" fill="#9aa4bf">border 继承(+可选覆盖)</text>
-      <!-- 箭头 -->
-      <line x1="450" y1="90" x2="580" y2="90" stroke="#5bd6a0" stroke-width="2" marker-end="url(#a24g)"></line>
-      <text x="515" y="80" text-anchor="middle" fill="#9aa4bf">写盘 + 设 importer</text>
-      <!-- 产出表 -->
-      <rect x="580" y="30" width="160" height="120" rx="8" fill="#22402f" stroke="#5bd6a0" stroke-width="1.5"></rect>
-      <text x="660" y="54" text-anchor="middle" fill="#5bd6a0" font-weight="bold">Sheet_setting.png</text>
-      <text x="660" y="74" text-anchor="middle" fill="#9aa4bf">Multiple / FullRect</text>
-      <text x="660" y="92" text-anchor="middle" fill="#9aa4bf">子图 button</text>
-      <text x="660" y="110" text-anchor="middle" fill="#9aa4bf">rect(排布)+ border 24</text>
-      <text x="660" y="130" text-anchor="middle" fill="#6c8cff">location = "Sheet_setting"</text>
-      <!-- 图例 -->
-      <text x="20" y="180" fill="#9aa4bf" font-size="11">说明:</text>
-      <rect x="60" y="171" width="12" height="12" fill="#2a3550" stroke="#6c8cff"></rect>
-      <text x="78" y="181" fill="#9aa4bf" font-size="11">源(只读不改)</text>
-      <rect x="185" y="171" width="12" height="12" fill="#3a2d1f" stroke="#ffcf5c"></rect>
-      <text x="203" y="181" fill="#9aa4bf" font-size="11">工具(Editor)</text>
-      <rect x="305" y="171" width="12" height="12" fill="#22402f" stroke="#5bd6a0"></rect>
-      <text x="323" y="181" fill="#9aa4bf" font-size="11">产出(被收集器收录 → SetSubSprite 寻址)</text>
-      <defs>
-        <marker id="a24" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#6c8cff"></path></marker>
-        <marker id="a24g" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5bd6a0"></path></marker>
-      </defs>
-    </svg>
-  </div>
+```mermaid
+flowchart LR
+    src["源 PNG<br/>button.png · 像素 + 尺寸<br/>importer.spriteBorder = {24,24,24,24}<br/>(只读不改)"]
+    tool["打表工具(Editor)<br/>PackTextures 排 rect<br/>name=文件名 / pivot 居中<br/>border 继承(+可选覆盖)"]
+    out["Sheet_setting.png(产出)<br/>Multiple / FullRect · 子图 button<br/>rect(排布)+ border 24<br/>location = &quot;Sheet_setting&quot;"]
+    src -->|读取 + 排布| tool
+    tool -->|写盘 + 设 importer| out
+    note["产出被收集器收录 → SetSubSprite 寻址"]
+    out -.-> note
+```
 
 <h2 id="write">五、写盘 + TextureImporter 配置 + 刷新</h2>
 
@@ -235,29 +203,18 @@ ti.SaveAndReimport();</pre>
 1. <b>重建模拟清单</b>:`AssetDatabase.Refresh()` 后调 `YooAsset.EditorSimulateModeHelper.SimulateBuild("DefaultPackage")`,使 EditorSimulateMode 下 `Sheet_setting` 这个 location 立即可被 `GetAssetInfo` 解析(否则要等下次 Play 启动自动重建)。dev 核实包名:用 `_resourceModule.DefaultPackageName` 的实际值(勘察为 `"DefaultPackage"`);若工具拿不到运行期模块,直接传字符串常量 `"DefaultPackage"`。
 2. <b>结果反馈</b>:`EditorUtility.DisplayDialog` 报「打表完成:Sheet\_setting.png,N 个子图;已跳过 / 未递归:…」,并 `EditorGUIUtility.PingObject` 选中产出表便于查看。
 
-<div class="diagram">
-    <svg viewBox="0 0 760 300" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif,system-ui" font-size="12">
-      <!-- 时序图:工具 / Unity 资源库 / YooAsset -->
-      <line x1="130" y1="40" x2="130" y2="280" stroke="#6c8cff" stroke-width="1" stroke-dasharray="3,3"></line>
-      <line x1="400" y1="40" x2="400" y2="280" stroke="#ffcf5c" stroke-width="1" stroke-dasharray="3,3"></line>
-      <line x1="650" y1="40" x2="650" y2="280" stroke="#5bd6a0" stroke-width="1" stroke-dasharray="3,3"></line>
-      <rect x="70" y="20" width="120" height="24" rx="6" fill="#2a3550" stroke="#6c8cff"></rect><text x="130" y="36" text-anchor="middle" fill="#cdd6f4">打表工具</text>
-      <rect x="340" y="20" width="120" height="24" rx="6" fill="#3a2d1f" stroke="#ffcf5c"></rect><text x="400" y="36" text-anchor="middle" fill="#ffcf5c">Unity 资源库</text>
-      <rect x="590" y="20" width="120" height="24" rx="6" fill="#22402f" stroke="#5bd6a0"></rect><text x="650" y="36" text-anchor="middle" fill="#5bd6a0">YooAsset 模拟清单</text>
-      <!-- 调用 -->
-      <line x1="130" y1="70" x2="400" y2="70" stroke="#6c8cff" stroke-width="1.5" marker-end="url(#a5)"></line><text x="265" y="64" text-anchor="middle" fill="#9aa4bf">WriteAllBytes + ImportAsset(PNG)</text>
-      <line x1="130" y1="110" x2="400" y2="110" stroke="#6c8cff" stroke-width="1.5" marker-end="url(#a5)"></line><text x="265" y="104" text-anchor="middle" fill="#9aa4bf">设 importer + spritesheet + SaveAndReimport</text>
-      <line x1="400" y1="145" x2="130" y2="145" stroke="#ffcf5c" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#a5y)"></line><text x="265" y="139" text-anchor="middle" fill="#9aa4bf">切出 N 个命名子图(Multiple)</text>
-      <line x1="130" y1="185" x2="650" y2="185" stroke="#6c8cff" stroke-width="1.5" marker-end="url(#a5)"></line><text x="390" y="179" text-anchor="middle" fill="#9aa4bf">SimulateBuild("DefaultPackage")</text>
-      <line x1="650" y1="220" x2="130" y2="220" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#a5g)"></line><text x="390" y="214" text-anchor="middle" fill="#9aa4bf">location "Sheet_setting" 可寻址</text>
-      <line x1="130" y1="258" x2="400" y2="258" stroke="#6c8cff" stroke-width="1.5" marker-end="url(#a5)"></line><text x="265" y="252" text-anchor="middle" fill="#9aa4bf">DisplayDialog + PingObject</text>
-      <defs>
-        <marker id="a5" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#6c8cff"></path></marker>
-        <marker id="a5y" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#ffcf5c"></path></marker>
-        <marker id="a5g" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#5bd6a0"></path></marker>
-      </defs>
-    </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant T as 打表工具
+    participant U as Unity 资源库
+    participant Y as YooAsset 模拟清单
+    T->>U: WriteAllBytes + ImportAsset(PNG)
+    T->>U: 设 importer + spritesheet + SaveAndReimport
+    U-->>T: 切出 N 个命名子图(Multiple)
+    T->>Y: SimulateBuild("DefaultPackage")
+    Y-->>T: location "Sheet_setting" 可寻址
+    T->>U: DisplayDialog + PingObject
+```
 
 <h2 id="override">六、可选覆盖(border)的承载</h2>
 

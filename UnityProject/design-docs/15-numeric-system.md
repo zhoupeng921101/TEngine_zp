@@ -58,60 +58,26 @@
 
 系统拆三层,各层职责单一、各自可测。配置层是数据源(Luban 表),注册表层把表行桥接成 POCO 并按 id 索引(隔离 Luban 类型),格式化层是与配置无关的纯函数。UI helper 站在格式化层 + 注册表层之上。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 920 480" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="数值系统三层分层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 配置层 -->
-    <rect x="30" y="28" width="860" height="96" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="50" y="54" fill="#e0b89a" font-size="14" font-weight="bold">配置层 · Luban 货币表(数据源,既有 GameConfig 管线)</text>
-    <rect x="56" y="66" width="360" height="46" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="236" y="87" text-anchor="middle" fill="#e8c8aa" font-size="13" font-weight="bold">num.xlsx(源) → 导表</text>
-    <text x="236" y="104" text-anchor="middle" fill="#c79a78" font-size="11">8 字段 + ENumType §3.1/§3.2</text>
-    <rect x="436" y="66" width="420" height="46" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="646" y="87" text-anchor="middle" fill="#e8c8aa" font-size="13" font-weight="bold">num_tbnum.bytes + GameConfig.num.* 代码</text>
-    <text x="646" y="104" text-anchor="middle" fill="#c79a78" font-size="11">运行期经 ConfigSystem.Tables.TbNum(YooAsset)</text>
-    <!-- 箭头 配置→注册表 -->
-    <line x1="460" y1="124" x2="460" y2="166" stroke="#5bd6a0" stroke-width="2" marker-end="url(#m-green)"></line>
-    <text x="476" y="150" fill="#7fe0b8" font-size="11">行 → POCO 桥接</text>
-    <!-- 注册表层 -->
-    <rect x="30" y="168" width="860" height="118" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="194" fill="#7fe0b8" font-size="14" font-weight="bold">注册表层 · NumericConfigMgr(隔离 Luban 类型,纯逻辑可测)</text>
-    <rect x="56" y="206" width="380" height="64" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="246" y="230" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">NumericConfigMgr</text>
-    <text x="246" y="248" text-anchor="middle" fill="#7fc0a0" font-size="11">LoadEntries() · Get(numId) · GetByType()</text>
-    <text x="246" y="263" text-anchor="middle" fill="#7fc0a0" font-size="11">缓存 Dictionary&lt;int, NumericEntry&gt;</text>
-    <rect x="460" y="206" width="396" height="64" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="658" y="230" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">NumericEntry (POCO)</text>
-    <text x="658" y="248" text-anchor="middle" fill="#7fc0a0" font-size="11">NumId / NameTextId / IconName</text>
-    <text x="658" y="263" text-anchor="middle" fill="#7fc0a0" font-size="11">Type(ENumType) / Quality / FuncName</text>
-    <!-- 格式化层 -->
-    <rect x="30" y="320" width="420" height="98" rx="12" fill="#16203a" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="50" y="346" fill="#9fb4ff" font-size="14" font-weight="bold">格式化层 · NumericFormat</text>
-    <text x="50" y="368" fill="#cdd9ff" font-size="12">Abbreviate(long) → "999.9K"(纯函数)</text>
-    <text x="50" y="388" fill="#8ea2d8" font-size="11">与配置无关 · 0–999/K/M 分档 §3.4</text>
-    <text x="50" y="406" fill="#8ea2d8" font-size="11">单测无需任何配置 / Unity 运行时</text>
-    <!-- UI helper -->
-    <rect x="470" y="320" width="386" height="98" rx="12" fill="#2a2618" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="490" y="346" fill="#ffcf5c" font-size="14" font-weight="bold">UI · NumericDisplay(helper)</text>
-    <text x="490" y="368" fill="#ffe9b0" font-size="12">查 Entry + 格式化数字 → 文本 / 图标名</text>
-    <text x="490" y="388" fill="#cdb277" font-size="11">站在注册表 + 格式化之上 §3.5</text>
-    <text x="490" y="406" fill="#cdb277" font-size="11">真实 Sprite 加载列可选 O4</text>
-    <!-- 箭头 注册表/格式化 → helper -->
-    <line x1="246" y1="320" x2="246" y2="296" stroke="#5bd6a0" stroke-width="1.5"></line>
-    <line x1="450" y1="369" x2="470" y2="369" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <line x1="658" y1="286" x2="658" y2="318" stroke="#ffcf5c" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#m-gold)"></line>
-    <!-- 图例 -->
-    <text x="30" y="446" fill="#6f7d99" font-size="11">图例:</text>
-    <line x1="74" y1="442" x2="104" y2="442" stroke="#b86a45" stroke-width="2"></line><text x="110" y="446" fill="#c79a78" font-size="11">Luban 配置(数据源)</text>
-    <line x1="240" y1="442" x2="270" y2="442" stroke="#5bd6a0" stroke-width="2"></line><text x="276" y="446" fill="#7fe0b8" font-size="11">注册表(纯逻辑)</text>
-    <line x1="416" y1="442" x2="446" y2="442" stroke="#6c8cff" stroke-width="2"></line><text x="452" y="446" fill="#9fb4ff" font-size="11">格式化(纯函数)</text>
-    <line x1="572" y1="442" x2="602" y2="442" stroke="#ffcf5c" stroke-width="2"></line><text x="608" y="446" fill="#cdb277" font-size="11">UI helper(表现)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph cfg["配置层 · Luban 货币表(数据源)"]
+        x1["num.xlsx(源) → 导表<br/>8 字段 + ENumType §3.1/§3.2"]
+        x2["num_tbnum.bytes + GameConfig.num.*<br/>运行期经 ConfigSystem.Tables.TbNum"]
+    end
+    subgraph reg["注册表层 · NumericConfigMgr(纯逻辑可测)"]
+        r1["NumericConfigMgr<br/>LoadEntries() · Get(numId) · GetByType()<br/>缓存 Dictionary&lt;int, NumericEntry&gt;"]
+        r2["NumericEntry (POCO)<br/>NumId / NameTextId / IconName · Type / Quality / FuncName"]
+    end
+    subgraph fmt["格式化层 · NumericFormat"]
+        f1["Abbreviate(long) → 999.9K(纯函数)<br/>与配置无关 · 0–999 / K / M 分档 §3.4"]
+    end
+    subgraph ui["UI · NumericDisplay(helper)"]
+        u1["查 Entry + 格式化数字 → 文本 / 图标名<br/>站在注册表 + 格式化之上 §3.5"]
+    end
+    cfg -->|行 → POCO 桥接| reg
+    reg --> ui
+    fmt --> ui
+```
 
 <b>为什么这样切:</b>注册表层桥接成 POCO(`NumericEntry`)是为了<mark>让查询逻辑不直接依赖 Luban 生成类型</mark>——这正是工程现有 `WeightCfgConfigMgr` 把 `GameConfig.WeightCfg` 转 `WeightConfigEntry` 的同款做法,业务侧只认 POCO。格式化层故意与配置完全无关(只吃一个 `long`),所以它的验收点全是纯函数断言、连配置都不需要,是最稳的回归锚。
 
@@ -303,45 +269,27 @@ Scale(abs, unit):  // abs/unit 保留 DECIMALS 位，TRUNCATE 则向零截断
 
 一次「首次查询 → 缓存 → 展示」的时序(参与方:展示侧 / NumericDisplay / NumericConfigMgr / ConfigSystem / 磁盘),及 EditMode 测试的绕行路径:
 
-<div class="diagram">
-  <svg viewBox="0 0 920 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="数值系统加载与查询时序图">
-    <defs>
-      <marker id="t-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="t-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="t-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 泳道头 -->
-    <rect x="20" y="20" width="150" height="40" rx="8" fill="#2a2618" stroke="#ffcf5c"></rect><text x="95" y="45" text-anchor="middle" fill="#ffe9b0" font-size="12" font-weight="bold">展示侧</text>
-    <rect x="200" y="20" width="160" height="40" rx="8" fill="#2a2618" stroke="#ffcf5c"></rect><text x="280" y="45" text-anchor="middle" fill="#ffe9b0" font-size="12" font-weight="bold">NumericDisplay</text>
-    <rect x="390" y="20" width="170" height="40" rx="8" fill="#16302440" stroke="#5bd6a0"></rect><text x="475" y="45" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">NumericConfigMgr</text>
-    <rect x="590" y="20" width="150" height="40" rx="8" fill="#2e2018" stroke="#b86a45"></rect><text x="665" y="45" text-anchor="middle" fill="#e8c8aa" font-size="12" font-weight="bold">ConfigSystem</text>
-    <rect x="770" y="20" width="130" height="40" rx="8" fill="#241a24" stroke="#b86a45"></rect><text x="835" y="45" text-anchor="middle" fill="#e0b89a" font-size="12" font-weight="bold">YooAsset/磁盘</text>
-    <!-- 生命线 -->
-    <line x1="95" y1="60" x2="95" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="280" y1="60" x2="280" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="475" y1="60" x2="475" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="665" y1="60" x2="665" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="835" y1="60" x2="835" y2="430" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <!-- 首次查询 -->
-    <rect x="26" y="74" width="150" height="20" rx="9" fill="none" stroke="#ffcf5c" stroke-width="1"></rect><text x="36" y="89" fill="#ffcf5c" font-size="11">① 展示某货币(首次)</text>
-    <line x1="95" y1="112" x2="276" y2="112" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="105" y="106" fill="#9fb4ff" font-size="11">FormatWith(numId, amount)</text>
-    <line x1="280" y1="140" x2="471" y2="140" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="290" y="134" fill="#9fb4ff" font-size="11">Get(numId) → EnsureLoaded</text>
-    <line x1="475" y1="168" x2="661" y2="168" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="485" y="162" fill="#7fe0b8" font-size="11">Tables.TbNum(懒加载)</text>
-    <line x1="665" y1="196" x2="831" y2="196" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="675" y="190" fill="#7fe0b8" font-size="11">LoadAsset num_tbnum.bytes</text>
-    <line x1="831" y1="224" x2="669" y2="224" stroke="#b86a45" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#t-gold)"></line><text x="675" y="218" fill="#e0b89a" font-size="11">bytes</text>
-    <line x1="661" y1="252" x2="479" y2="252" stroke="#5bd6a0" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#t-green)"></line><text x="485" y="246" fill="#7fe0b8" font-size="11">TbNum → 遍历转 Entry 建缓存</text>
-    <line x1="471" y1="280" x2="284" y2="280" stroke="#6c8cff" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#t-blue)"></line><text x="290" y="274" fill="#9fb4ff" font-size="11">NumericEntry(name/icon/type/quality)</text>
-    <text x="200" y="306" fill="#9fb4ff" font-size="11">→ NumericFormat.Abbreviate(amount)(纯函数,§3.4)</text>
-    <line x1="276" y1="324" x2="99" y2="324" stroke="#6c8cff" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#t-blue)"></line><text x="105" y="318" fill="#9fb4ff" font-size="11">"piety 999.9K" 显示串</text>
-    <!-- 后续查询命中缓存 -->
-    <rect x="26" y="344" width="180" height="20" rx="9" fill="none" stroke="#ffcf5c" stroke-width="1"></rect><text x="36" y="359" fill="#ffcf5c" font-size="11">② 后续查询(缓存命中,不再读盘)</text>
-    <line x1="95" y1="382" x2="471" y2="382" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="105" y="376" fill="#9fb4ff" font-size="11">Get(numId) → 直接命中 Dictionary</text>
-    <!-- EditMode 绕行 -->
-    <rect x="540" y="344" width="360" height="20" rx="9" fill="none" stroke="#5bd6a0" stroke-width="1"></rect><text x="550" y="359" fill="#7fe0b8" font-size="11">EditMode 测试:AssetDatabase 直读 .bytes,绕 ConfigSystem</text>
-    <line x1="540" y1="386" x2="836" y2="386" stroke="#5bd6a0" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#t-green)"></line><text x="548" y="380" fill="#7fe0b8" font-size="11">LoadAssetAtPath → new TbNum(ByteBuf) §3.3</text>
-    <text x="20" y="460" fill="#6f7d99" font-size="11">实线=调用 · 虚线=返回 · 蓝=纯逻辑(注册表/格式化) · 绿=配置加载 · 金=磁盘返回</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant V as 展示侧
+    participant D as NumericDisplay
+    participant M as NumericConfigMgr
+    participant C as ConfigSystem
+    participant Y as YooAsset/磁盘
+    Note over V,Y: ① 展示某货币(首次)
+    V->>D: FormatWith(numId, amount)
+    D->>M: Get(numId) → EnsureLoaded
+    M->>C: Tables.TbNum(懒加载)
+    C->>Y: LoadAsset num_tbnum.bytes
+    Y-->>C: bytes
+    C-->>M: TbNum → 遍历转 Entry 建缓存
+    M-->>D: NumericEntry(name/icon/type/quality)
+    D->>D: NumericFormat.Abbreviate(amount) 纯函数 §3.4
+    D-->>V: "piety 999.9K" 显示串
+    Note over V,M: ② 后续查询(缓存命中,不再读盘)
+    V->>M: Get(numId) → 直接命中 Dictionary
+    Note over C,Y: EditMode 测试 · AssetDatabase 直读 .bytes 绕 ConfigSystem<br/>LoadAssetAtPath → new TbNum(ByteBuf) §3.3
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 

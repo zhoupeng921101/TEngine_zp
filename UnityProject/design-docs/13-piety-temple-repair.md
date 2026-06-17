@@ -55,54 +55,20 @@
 
 三个新系统串成一条单向链:订单是唯一虔诚币来源,神庙是唯一虔诚币出口,经验是修复的副产,等级是经验的派生。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 920 430" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="虔诚币-神庙-经验-等级 长期主线链路结构图">
-    <defs>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-    </defs>
-    <!-- 订单交付（现状） -->
-    <rect x="40" y="30" width="220" height="64" rx="10" fill="#1b2740" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="150" y="56" text-anchor="middle" fill="#cdd9ff" font-size="15" font-weight="bold">订单交付(现状)</text>
-    <text x="150" y="78" text-anchor="middle" fill="#8aa0d0" font-size="12">Deliver / DeliverSpecial</text>
-    <!-- 虔诚币 -->
-    <rect x="350" y="30" width="220" height="64" rx="10" fill="#2e2614" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="460" y="56" text-anchor="middle" fill="#ffe9a8" font-size="15" font-weight="bold">虔诚币 Piety</text>
-    <text x="460" y="78" text-anchor="middle" fill="#d8bd78" font-size="12">长期主线货币(本篇新增)</text>
-    <!-- 神庙修复 -->
-    <rect x="350" y="160" width="220" height="64" rx="10" fill="#2e2614" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="460" y="186" text-anchor="middle" fill="#ffe9a8" font-size="15" font-weight="bold">修复神庙大厅</text>
-    <text x="460" y="208" text-anchor="middle" fill="#d8bd78" font-size="12">12 厅顺序解锁,扣币标记已修</text>
-    <!-- 经验 -->
-    <rect x="350" y="290" width="220" height="64" rx="10" fill="#16301f" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="460" y="316" text-anchor="middle" fill="#aef0cf" font-size="15" font-weight="bold">经验 Exp</text>
-    <text x="460" y="338" text-anchor="middle" fill="#7fcaa0" font-size="12">修复产出(本篇新增)</text>
-    <!-- 守护者等级 -->
-    <rect x="660" y="290" width="220" height="64" rx="10" fill="#16301f" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="770" y="316" text-anchor="middle" fill="#aef0cf" font-size="15" font-weight="bold">守护者等级</text>
-    <text x="770" y="338" text-anchor="middle" fill="#7fcaa0" font-size="12">经验派生 → 升级解锁剧情标记</text>
-    <!-- 体力（旁支返回现状循环） -->
-    <rect x="660" y="160" width="220" height="64" rx="10" fill="#1b2740" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="770" y="186" text-anchor="middle" fill="#cdd9ff" font-size="15" font-weight="bold">体力 + 装饰标记</text>
-    <text x="770" y="208" text-anchor="middle" fill="#8aa0d0" font-size="12">修复/升级附带回血(现状 RefundEnergy)</text>
-    <!-- 边 -->
-    <line x1="260" y1="62" x2="348" y2="62" stroke="#ffcf5c" stroke-width="1.8" marker-end="url(#m-gold)"></line>
-    <text x="304" y="52" text-anchor="middle" fill="#d8bd78" font-size="11">+虔诚币</text>
-    <line x1="460" y1="94" x2="460" y2="158" stroke="#ffcf5c" stroke-width="1.8" marker-end="url(#m-gold)"></line>
-    <text x="510" y="130" text-anchor="middle" fill="#d8bd78" font-size="11">够造价才可修</text>
-    <line x1="460" y1="224" x2="460" y2="288" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#m-green)"></line>
-    <text x="503" y="260" text-anchor="middle" fill="#7fcaa0" font-size="11">修复→+经验</text>
-    <line x1="570" y1="322" x2="658" y2="322" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#m-green)"></line>
-    <text x="614" y="312" text-anchor="middle" fill="#7fcaa0" font-size="11">累积→升级</text>
-    <line x1="570" y1="192" x2="658" y2="192" stroke="#6c8cff" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#m-blue)"></line>
-    <text x="614" y="182" text-anchor="middle" fill="#8aa0d0" font-size="11">修复附带</text>
-    <!-- 图例 -->
-    <rect x="40" y="392" width="14" height="10" fill="#2e2614" stroke="#ffcf5c"></rect><text x="60" y="401" fill="#9fb0c8" font-size="12">虔诚币主线(本篇新增,§3.1–3.2)</text>
-    <rect x="360" y="392" width="14" height="10" fill="#16301f" stroke="#5bd6a0"></rect><text x="380" y="401" fill="#9fb0c8" font-size="12">经验/等级(本篇新增,§3.3–3.5)</text>
-    <rect x="650" y="392" width="14" height="10" fill="#1b2740" stroke="#6c8cff"></rect><text x="670" y="401" fill="#9fb0c8" font-size="12">回流现状循环(体力,复用 RefundEnergy)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    a1["订单交付(现状)<br/>Deliver / DeliverSpecial"]
+    p1["虔诚币 Piety<br/>长期主线货币(本篇新增)"]
+    t1["修复神庙大厅<br/>12 厅顺序解锁,扣币标记已修"]
+    e1["经验 Exp<br/>修复产出(本篇新增)"]
+    g1["守护者等级<br/>经验派生 → 升级解锁剧情标记"]
+    en1["体力 + 装饰标记<br/>修复/升级附带回血(现状 RefundEnergy)"]
+    a1 -->|+虔诚币| p1
+    p1 -->|够造价才可修| t1
+    t1 -->|修复→+经验| e1
+    e1 -->|累积→升级| g1
+    t1 -.->|修复附带| en1
+```
 
 整条链<b>单向、无随机</b>(全确定性,逐档可单测)。虔诚币的唯一来源是订单交付,唯一出口是神庙修复(GDD 明写「唯一出口」);经验只由修复产生;等级只由经验派生。三者互不旁路,链路清晰。
 

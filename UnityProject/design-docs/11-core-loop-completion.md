@@ -55,86 +55,31 @@
 
 原稿四份文档各讲一块,缺一张「谁喂谁」的全局图。补一张:方块层是<b>唯一产出引擎</b>,所有下游系统(合成/订单/宝箱/女神)都靠它驱动;订单是<b>主经济枢纽</b>,宝箱/女神是<b>叠加的进度奖励层</b>。
 
-<div class="diagram">
-  <svg viewBox="0 0 940 560" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="完整核心循环结构图">
-    <defs>
-      <marker id="c-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="c-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="c-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 方块层(产出引擎) 蓝 -->
-    <g>
-      <rect x="40" y="40" width="220" height="92" rx="12" fill="#2a3566" stroke="#6c8cff"></rect>
-      <text x="150" y="76" text-anchor="middle" font-size="17" font-weight="700" fill="#e6e9f5">方块层(产出引擎)</text>
-      <text x="150" y="100" text-anchor="middle" font-size="12.5" fill="#aebcf5">落子 → 消行列 → 得分</text>
-      <text x="150" y="118" text-anchor="middle" font-size="12.5" fill="#aebcf5">消耗体力 · §五/§七</text>
-    </g>
-    <!-- 图案产出 棕 -->
-    <g>
-      <rect x="360" y="40" width="220" height="92" rx="12" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="470" y="76" text-anchor="middle" font-size="16" font-weight="700" fill="#e6e9f5">图案产出 + 合成</text>
-      <text x="470" y="100" text-anchor="middle" font-size="12.5" fill="#d8a98f">得分驱动数量 → 收集区</text>
-      <text x="470" y="118" text-anchor="middle" font-size="12.5" fill="#d8a98f">自动配对升级 · §六</text>
-    </g>
-    <!-- 订单枢纽 绿 -->
-    <g>
-      <rect x="680" y="40" width="220" height="92" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="790" y="70" text-anchor="middle" font-size="17" font-weight="700" fill="#e6e9f5">订单(经济枢纽)</text>
-      <text x="790" y="93" text-anchor="middle" font-size="12.5" fill="#8fd0b4">交付图案 → 灵力 + 宝箱</text>
-      <text x="790" y="111" text-anchor="middle" font-size="12.5" fill="#8fd0b4">双轨并发 · §三/§六</text>
-    </g>
-    <!-- 下游奖励层 -->
-    <g>
-      <rect x="60" y="250" width="240" height="86" rx="12" fill="#463c1e" stroke="#ffcf5c"></rect>
-      <text x="180" y="284" text-anchor="middle" font-size="16" font-weight="700" fill="#e6e9f5">连消 / 多消 / 全清</text>
-      <text x="180" y="308" text-anchor="middle" font-size="12.5" fill="#e8d49a">即时反馈 + 额外图案 · §五</text>
-    </g>
-    <g>
-      <rect x="350" y="250" width="240" height="86" rx="12" fill="#463c1e" stroke="#ffcf5c"></rect>
-      <text x="470" y="284" text-anchor="middle" font-size="16" font-weight="700" fill="#e6e9f5">宝箱</text>
-      <text x="470" y="308" text-anchor="middle" font-size="12.5" fill="#e8d49a">占槽倒计时 → 开箱三选一 · §九</text>
-    </g>
-    <g>
-      <rect x="640" y="250" width="240" height="86" rx="12" fill="#463c1e" stroke="#ffcf5c"></rect>
-      <text x="760" y="284" text-anchor="middle" font-size="16" font-weight="700" fill="#e6e9f5">女神(好评进度)</text>
-      <text x="760" y="308" text-anchor="middle" font-size="12.5" fill="#e8d49a">全清计数 N/10 → 发奖 · §十</text>
-    </g>
-    <!-- 智能生成 与 体力(底座) -->
-    <g>
-      <rect x="60" y="430" width="380" height="80" rx="12" fill="#171b2e" stroke="#6c8cff" stroke-opacity="0.6"></rect>
-      <text x="250" y="463" text-anchor="middle" font-size="15" font-weight="700" fill="#cdd3ea">智能生成(发牌)· §八</text>
-      <text x="250" y="486" text-anchor="middle" font-size="12.5" fill="#9aa3c4">防卡死 &gt; 难度橡皮筋 &gt; 引导 &gt; 常规</text>
-    </g>
-    <g>
-      <rect x="500" y="430" width="380" height="80" rx="12" fill="#171b2e" stroke="#5bd6a0" stroke-opacity="0.6"></rect>
-      <text x="690" y="463" text-anchor="middle" font-size="15" font-weight="700" fill="#cdd3ea">体力(预算底座)· §七</text>
-      <text x="690" y="486" text-anchor="middle" font-size="12.5" fill="#9aa3c4">落子 -1 · 消除返 · 订单 +8 · 恢复</text>
-    </g>
-    <!-- 主链箭头(蓝→棕→绿) -->
-    <g fill="none" stroke-width="2">
-      <path d="M260 86 H356" stroke="#6c8cff" marker-end="url(#c-blue)"></path>
-      <path d="M580 86 H676" stroke="#5bd6a0" marker-end="url(#c-green)"></path>
-    </g>
-    <!-- 订单回灌体力(绿回环) -->
-    <path d="M790 132 C 790 200, 690 360, 690 426" fill="none" stroke="#5bd6a0" stroke-dasharray="6 5" stroke-width="1.8" marker-end="url(#c-green)"></path>
-    <!-- 体力供方块层(回到落子) -->
-    <path d="M500 470 C 250 470, 150 360, 150 136" fill="none" stroke="#5bd6a0" stroke-dasharray="6 5" stroke-width="1.8" marker-end="url(#c-green)"></path>
-    <!-- 方块层喂连消/全清 与 女神 -->
-    <path d="M150 132 C 150 190, 180 200, 180 246" fill="none" stroke="#ffcf5c" stroke-width="1.8" marker-end="url(#c-yellow)"></path>
-    <path d="M210 132 C 400 180, 700 200, 760 246" fill="none" stroke="#ffcf5c" stroke-width="1.8" marker-end="url(#c-yellow)"></path>
-    <!-- 订单喂宝箱 -->
-    <path d="M740 132 C 600 180, 480 200, 470 246" fill="none" stroke="#ffcf5c" stroke-width="1.8" marker-end="url(#c-yellow)"></path>
-    <!-- 智能生成 → 方块层 -->
-    <path d="M150 430 V 136" fill="none" stroke="#6c8cff" stroke-dasharray="6 5" stroke-width="1.8" marker-end="url(#c-blue)"></path>
-    <!-- 图例 -->
-    <line x1="60" y1="544" x2="96" y2="544" stroke="#6c8cff" stroke-width="2"></line>
-    <text x="104" y="549" font-size="12.5" fill="#9aa3c4">主产出链 / 发牌</text>
-    <line x1="260" y1="544" x2="296" y2="544" stroke="#5bd6a0" stroke-width="2" stroke-dasharray="6 5"></line>
-    <text x="304" y="549" font-size="12.5" fill="#9aa3c4">资源回灌</text>
-    <line x1="430" y1="544" x2="466" y2="544" stroke="#ffcf5c" stroke-width="2"></line>
-    <text x="474" y="549" font-size="12.5" fill="#9aa3c4">叠加奖励层触发</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph main["主产出链"]
+        b1["方块层(产出引擎)<br/>落子 → 消行列 → 得分<br/>消耗体力 · §五/§七"]
+        b2["图案产出 + 合成<br/>得分驱动数量 → 收集区<br/>自动配对升级 · §六"]
+        b3["订单(经济枢纽)<br/>交付图案 → 灵力 + 宝箱<br/>双轨并发 · §三/§六"]
+    end
+    subgraph reward["叠加奖励层"]
+        r1["连消 / 多消 / 全清<br/>即时反馈 + 额外图案 · §五"]
+        r2["宝箱<br/>占槽倒计时 → 开箱三选一 · §九"]
+        r3["女神(好评进度)<br/>全清计数 N/10 → 发奖 · §十"]
+    end
+    subgraph base["底座"]
+        g1["智能生成(发牌)· §八<br/>防卡死 &gt; 难度橡皮筋 &gt; 引导 &gt; 常规"]
+        e1["体力(预算底座)· §七<br/>落子 -1 · 消除返 · 订单 +8 · 恢复"]
+    end
+    b1 -->|主产出链| b2
+    b2 -->|主产出链| b3
+    b3 -.->|资源回灌| e1
+    e1 -.->|资源回灌| b1
+    b1 -->|叠加奖励层触发| r1
+    b1 -->|叠加奖励层触发| r3
+    b3 -->|叠加奖励层触发| r2
+    g1 -.->|发牌| b1
+```
 
 - <b>唯一产出动作是落子</b>:体力、图案、连消/多消/全清、女神进度,全部由「落子→消除」这一个动作派生。订单是把图案变现为资源(灵力 + 宝箱)的出口,资源再回灌体力,闭环。
 - <b>叠加奖励层(黄)不参与核心循环的资源平衡</b>:连消/多消/全清、宝箱、女神都是<b>额外</b>给予,拿不到也能正常玩。它们提供节奏惊喜与长线目标,但核心可玩性只依赖「落子→消除→订单」主链。这条原则保证后续按需切片时可以先砍奖励层、保住主链。
@@ -463,45 +408,15 @@ OnPlaced(clearedLines):
 
 原稿仅一句「倒计时开启宝箱获取奖励」+ 浪漫餐厅「开启挑选箱·三选一」截图,订单稿界面图标注「宝箱图标·倒计时 300·直接获取」。补成完整规则。参考截图(`_design_extract/宝箱系统_image1.png`)确认机制是<b>开箱时三选一</b>(选以下奖励之一)。
 
-<div class="diagram">
-  <svg viewBox="0 0 920 340" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="宝箱生命周期流程图">
-    <defs>
-      <marker id="ch-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <g>
-      <rect x="20" y="120" width="170" height="84" rx="11" fill="#2a3566" stroke="#6c8cff"></rect>
-      <text x="105" y="152" text-anchor="middle" font-size="14.5" font-weight="700" fill="#e6e9f5">掉落获取</text>
-      <text x="105" y="174" text-anchor="middle" font-size="12" fill="#aebcf5">消除/加急单</text>
-      <text x="105" y="190" text-anchor="middle" font-size="12" fill="#aebcf5">掉宝箱 → 进箱位</text>
-    </g>
-    <g>
-      <rect x="250" y="120" width="170" height="84" rx="11" fill="#463c1e" stroke="#ffcf5c"></rect>
-      <text x="335" y="152" text-anchor="middle" font-size="14.5" font-weight="700" fill="#e6e9f5">占槽冷却</text>
-      <text x="335" y="174" text-anchor="middle" font-size="12" fill="#e8d49a">4 箱位之一</text>
-      <text x="335" y="190" text-anchor="middle" font-size="12" fill="#e8d49a">倒计时按箱级</text>
-    </g>
-    <g>
-      <rect x="480" y="120" width="170" height="84" rx="11" fill="#463c1e" stroke="#ffcf5c"></rect>
-      <text x="565" y="152" text-anchor="middle" font-size="14.5" font-weight="700" fill="#e6e9f5">倒计时到</text>
-      <text x="565" y="174" text-anchor="middle" font-size="12" fill="#e8d49a">可开启</text>
-      <text x="565" y="190" text-anchor="middle" font-size="12" fill="#e8d49a">(到点直接获取)</text>
-    </g>
-    <g>
-      <rect x="710" y="120" width="190" height="84" rx="11" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="805" y="152" text-anchor="middle" font-size="14.5" font-weight="700" fill="#e6e9f5">开箱三选一</text>
-      <text x="805" y="174" text-anchor="middle" font-size="12" fill="#8fd0b4">3 个奖励选 1</text>
-      <text x="805" y="190" text-anchor="middle" font-size="12" fill="#8fd0b4">领取 → 腾空箱位</text>
-    </g>
-    <g fill="none" stroke="#ffcf5c" stroke-width="2">
-      <path d="M190 162 H246" marker-end="url(#ch-ar)"></path>
-      <path d="M420 162 H476" marker-end="url(#ch-ar)"></path>
-      <path d="M650 162 H706" marker-end="url(#ch-ar)"></path>
-    </g>
-    <text x="335" y="250" text-anchor="middle" font-size="12.5" fill="#9aa3c4">箱位满(4 个)时新宝箱不入位 → 提示先开箱腾位</text>
-    <text x="105" y="60" text-anchor="middle" font-size="13" fill="#aebcf5" font-weight="600">来源</text>
-    <text x="565" y="60" text-anchor="middle" font-size="13" fill="#e8d49a" font-weight="600">时间门(去变现:不能花钱跳过)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart LR
+    c1["掉落获取(来源)<br/>消除/加急单<br/>掉宝箱 → 进箱位"]
+    c2["占槽冷却<br/>4 箱位之一<br/>倒计时按箱级"]
+    c3["倒计时到(时间门 · 去变现:不能花钱跳过)<br/>可开启<br/>(到点直接获取)"]
+    c4["开箱三选一<br/>3 个奖励选 1<br/>领取 → 腾空箱位"]
+    c1 --> c2 --> c3 --> c4
+    note["箱位满(4 个)时新宝箱不入位 → 提示先开箱腾位"]
+```
 
 <h3 id="chest-rules">9.1 规则</h3>
 

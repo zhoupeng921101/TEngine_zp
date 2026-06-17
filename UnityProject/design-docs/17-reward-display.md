@@ -75,67 +75,29 @@
 
 系统两层:<b>归一层</b>(各源 → `RewardView`,纯逻辑)+ <b>显示层</b>(`RewardView` → UI,本轮只到 Widget 骨架)。归一层吃既有产出结构 + 既有元数据注册表,产出与 Unity UI 无关的 `RewardView`(故可纯单测);显示层把 `RewardView` 喂给 Widget。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 560" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="奖励展示归一层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b07cff"></path></marker>
-    </defs>
-    <!-- 奖励源层（既有，只读）-->
-    <rect x="30" y="24" width="880" height="104" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="50" y="50" fill="#e0b89a" font-size="14" font-weight="bold">奖励源层 · 三种既有产出结构(只读,本系统不改)</text>
-    <rect x="56" y="62" width="270" height="52" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="191" y="84" text-anchor="middle" fill="#e8c8aa" font-size="12.5" font-weight="bold">GrantPayload(道具 16)</text>
-    <text x="191" y="103" text-anchor="middle" fill="#c79a78" font-size="11">Kind/TargetId/Amount/Level §2.1</text>
-    <rect x="340" y="62" width="270" height="52" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="475" y="84" text-anchor="middle" fill="#e8c8aa" font-size="12.5" font-weight="bold">ChestReward(盲盒 11)</text>
-    <text x="475" y="103" text-anchor="middle" fill="#c79a78" font-size="11">Kind/Amount/PatternLevel §2.1</text>
-    <rect x="624" y="62" width="262" height="52" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="755" y="84" text-anchor="middle" fill="#e8c8aa" font-size="12.5" font-weight="bold">num_id + 数量(数值 15)</text>
-    <text x="755" y="103" text-anchor="middle" fill="#c79a78" font-size="11">裸货币产出 §2.1</text>
-    <!-- 箭头 源→归一 -->
-    <line x1="475" y1="128" x2="475" y2="160" stroke="#5bd6a0" stroke-width="2" marker-end="url(#m-green)"></line>
-    <text x="490" y="150" fill="#7fe0b8" font-size="11">From(...) 归一</text>
-    <!-- 归一层 -->
-    <rect x="30" y="162" width="880" height="150" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="188" fill="#7fe0b8" font-size="14" font-weight="bold">归一层 · RewardDisplay(纯逻辑,可单测,不碰 Unity 运行时)</text>
-    <rect x="56" y="200" width="400" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="256" y="221" text-anchor="middle" fill="#bff0d8" font-size="12.5" font-weight="bold">From(GrantPayload) · From(ChestReward)</text>
-    <text x="256" y="238" text-anchor="middle" fill="#7fc0a0" font-size="11">FromNumeric · FromItem · FromPattern §3.2</text>
-    <rect x="480" y="200" width="406" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="683" y="221" text-anchor="middle" fill="#bff0d8" font-size="12.5" font-weight="bold">查既有元数据注册表(只读)</text>
-    <text x="683" y="238" text-anchor="middle" fill="#7fc0a0" font-size="11">NumericConfigMgr · ItemConfigMgr · MergeElementVisual</text>
-    <rect x="56" y="256" width="400" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="256" y="277" text-anchor="middle" fill="#bff0d8" font-size="12.5" font-weight="bold">QualityColor(q) 6 档权威 §3.3</text>
-    <text x="256" y="294" text-anchor="middle" fill="#7fc0a0" font-size="11">CountText(n) 复用 NumericFormat §3.4</text>
-    <rect x="480" y="256" width="406" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="683" y="277" text-anchor="middle" fill="#bff0d8" font-size="12.5" font-weight="bold">ChestRewardKind 展示映射表 §3.2</text>
-    <text x="683" y="294" text-anchor="middle" fill="#7fc0a0" font-size="11">Soul/Energy/Undo/Wish → 图标名/名称/品质</text>
-    <!-- 箭头 归一→产出 -->
-    <line x1="475" y1="312" x2="475" y2="344" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <text x="490" y="334" fill="#9fb4ff" font-size="11">产出 RewardView</text>
-    <!-- RewardView -->
-    <rect x="180" y="346" width="580" height="74" rx="12" fill="#16203a" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="470" y="372" text-anchor="middle" fill="#9fb4ff" font-size="14" font-weight="bold">RewardView(POCO 归一结构,无 Unity UI 依赖)§3.1</text>
-    <text x="470" y="394" text-anchor="middle" fill="#cdd9ff" font-size="12">IconName · NameTextId · CountText · QualityColor · Badge · RawAmount</text>
-    <text x="470" y="410" text-anchor="middle" fill="#8ea2d8" font-size="11">任何 UI 拿它都用同一套渲染</text>
-    <!-- 箭头 view→显示 -->
-    <line x1="470" y1="420" x2="470" y2="452" stroke="#b07cff" stroke-width="2" marker-end="url(#m-purple)"></line>
-    <!-- 显示层 -->
-    <rect x="30" y="454" width="880" height="74" rx="12" fill="#241f33" stroke="#b07cff" stroke-width="1.5"></rect>
-    <text x="50" y="480" fill="#c9aaff" font-size="14" font-weight="bold">显示层 · 本轮到 Widget 骨架(不挂 prefab、不投放)§3.6 / §七 O2</text>
-    <text x="50" y="502" fill="#e0d0ff" font-size="12">RewardItemWidget.SetData(RewardView):text 名/数量 · Image.SetSprite(IconName) · 边框上 QualityColor</text>
-    <text x="50" y="519" fill="#a890d0" font-size="11">真实 Sprite 加载(SetSprite)交调用方接 UI 时做 §七 O1;具体窗口投放后续 §七 O2</text>
-    <!-- 图例 -->
-    <text x="30" y="550" fill="#6f7d99" font-size="11">图例:</text>
-    <line x1="74" y1="546" x2="104" y2="546" stroke="#b86a45" stroke-width="2"></line><text x="110" y="550" fill="#c79a78" font-size="11">奖励源(既有,只读)</text>
-    <line x1="252" y1="546" x2="282" y2="546" stroke="#5bd6a0" stroke-width="2"></line><text x="288" y="550" fill="#7fe0b8" font-size="11">归一层(纯逻辑)</text>
-    <line x1="430" y1="546" x2="460" y2="546" stroke="#6c8cff" stroke-width="2"></line><text x="466" y="550" fill="#9fb4ff" font-size="11">RewardView(归一结构)</text>
-    <line x1="630" y1="546" x2="660" y2="546" stroke="#b07cff" stroke-width="2"></line><text x="666" y="550" fill="#c9aaff" font-size="11">显示层(本轮骨架)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph src["奖励源层 · 三种既有产出结构(只读,本系统不改)"]
+        s1["GrantPayload(道具 16)<br/>Kind / TargetId / Amount / Level §2.1"]
+        s2["ChestReward(盲盒 11)<br/>Kind / Amount / PatternLevel §2.1"]
+        s3["num_id + 数量(数值 15)<br/>裸货币产出 §2.1"]
+    end
+    subgraph norm["归一层 · RewardDisplay(纯逻辑,可单测,不碰 Unity 运行时)"]
+        n1["From(GrantPayload) · From(ChestReward)<br/>FromNumeric · FromItem · FromPattern §3.2"]
+        n2["查既有元数据注册表(只读)<br/>NumericConfigMgr · ItemConfigMgr · MergeElementVisual"]
+        n3["QualityColor(q) 6 档权威 §3.3<br/>CountText(n) 复用 NumericFormat §3.4"]
+        n4["ChestRewardKind 展示映射表 §3.2<br/>Soul/Energy/Undo/Wish → 图标名/名称/品质"]
+    end
+    subgraph view["RewardView(POCO 归一结构,无 Unity UI 依赖)§3.1"]
+        v1["IconName · NameTextId · CountText · QualityColor · Badge · RawAmount<br/>任何 UI 拿它都用同一套渲染"]
+    end
+    subgraph disp["显示层 · 本轮到 Widget 骨架(不挂 prefab、不投放)§3.6 / §七 O2"]
+        d1["RewardItemWidget.SetData(RewardView):text 名/数量 · Image.SetSprite(IconName) · 边框上 QualityColor<br/>真实 Sprite 加载(SetSprite)交调用方接 UI 时做 §七 O1;具体窗口投放后续 §七 O2"]
+    end
+    src -->|"From(...) 归一"| norm
+    norm -->|产出 RewardView| view
+    view --> disp
+```
 
 <b>为什么这样切:</b>把「奖励长什么样」从「奖励是什么」里抽出来,各发奖入口不再各写一份显示逻辑——加新发奖通道时只要能转成 `RewardView` 就能复用同一套渲染。归一层<mark>只读既有产出结构和元数据注册表、产出不含 Unity UI 类型的 POCO</mark>(`RewardView` 里唯一的 Unity 类型是 `Color` 值类型,可在 EditMode 单测构造),所以转换 + 格式化 + 品质色全部可纯单测——这是「展示归一可被逐条核对」验收点的地基。显示层只是把 `RewardView` 的字段贴到 UI 控件上,无业务逻辑,故本轮给骨架不投放也不影响逻辑验收。
 
@@ -337,51 +299,22 @@ public class RewardItemWidget : UIWidget {
 
 以「开箱三选一,把一张 `ChestReward` 显示成一项卡」为例,展示从产出结构到渲染的调用链。参与方:开箱窗口(调用方)→ `RewardDisplay` → 既有元数据注册表 → `RewardItemWidget`。
 
-<div class="diagram">
-  <svg viewBox="0 0 940 420" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="奖励归一与渲染时序图">
-    <defs>
-      <marker id="t-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="t-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="t-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b07cff"></path></marker>
-    </defs>
-    <!-- 生命线 -->
-    <g font-size="12" font-weight="bold">
-      <rect x="40" y="20" width="150" height="34" rx="7" fill="#16203a" stroke="#6c8cff"></rect><text x="115" y="42" text-anchor="middle" fill="#9fb4ff">开箱窗口(调用方)</text>
-      <rect x="250" y="20" width="140" height="34" rx="7" fill="#142b22" stroke="#5bd6a0"></rect><text x="320" y="42" text-anchor="middle" fill="#7fe0b8">RewardDisplay</text>
-      <rect x="450" y="20" width="190" height="34" rx="7" fill="#241a24" stroke="#b86a45"></rect><text x="545" y="42" text-anchor="middle" fill="#e0b89a">既有元数据注册表</text>
-      <rect x="700" y="20" width="190" height="34" rx="7" fill="#241f33" stroke="#b07cff"></rect><text x="795" y="42" text-anchor="middle" fill="#c9aaff">RewardItemWidget</text>
-    </g>
-    <g stroke="#3a4660" stroke-dasharray="3 4">
-      <line x1="115" y1="54" x2="115" y2="400"></line><line x1="320" y1="54" x2="320" y2="400"></line><line x1="545" y1="54" x2="545" y2="400"></line><line x1="795" y1="54" x2="795" y2="400"></line>
-    </g>
-    <!-- 消息 -->
-    <g font-size="11">
-      <line x1="115" y1="86" x2="318" y2="86" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-      <text x="120" y="80" fill="#9fb4ff">From(ChestReward 体力 ×12)</text>
-      <line x1="320" y1="120" x2="543" y2="120" stroke="#5bd6a0" stroke-width="2" marker-end="url(#t-green)"></line>
-      <text x="330" y="114" fill="#7fe0b8">Energy→FromNumeric(num_id=4, 12)：查 Get(4)</text>
-      <line x1="543" y1="150" x2="322" y2="150" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-green)"></line>
-      <text x="330" y="144" fill="#7fc0a0">NumericEntry{Icon,NameTextId,Quality}</text>
-      <!-- 格式化 + 品质色 自处理 -->
-      <rect x="245" y="166" width="220" height="42" rx="6" fill="none" stroke="#5bd6a0" stroke-dasharray="4 3"></rect>
-      <text x="253" y="183" fill="#7fe0b8" font-size="10">CountText(12)→"x12"</text>
-      <text x="253" y="199" fill="#7fc0a0" font-size="10">QualityColor(quality)→Color §3.3</text>
-      <line x1="318" y1="232" x2="117" y2="232" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-blue)"></line>
-      <text x="120" y="226" fill="#7fe0b8">返回 RewardView{icon,name,"x12",绿色,Currency}</text>
-      <line x1="115" y1="266" x2="793" y2="266" stroke="#b07cff" stroke-width="2" marker-end="url(#t-purple)"></line>
-      <text x="120" y="260" fill="#c9aaff">widget.SetData(RewardView)</text>
-      <!-- widget 渲染自处理 -->
-      <rect x="690" y="282" width="210" height="58" rx="6" fill="none" stroke="#b07cff" stroke-dasharray="4 3"></rect>
-      <text x="698" y="299" fill="#c9aaff" font-size="10">_imgIcon.SetSprite(IconName) 内置缓存池</text>
-      <text x="698" y="315" fill="#a890d0" font-size="10">_imgQualityFrame.color = QualityColor</text>
-      <text x="698" y="331" fill="#a890d0" font-size="10">_textCount.text = "x12"</text>
-      <line x1="793" y1="364" x2="117" y2="364" stroke="#b07cff" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-blue)"></line>
-      <text x="120" y="358" fill="#c9aaff">渲染完成(一张卡显示「体力 x12 绿框」)</text>
-    </g>
-    <!-- 图例 -->
-    <text x="40" y="398" fill="#6f7d99" font-size="10">实线=调用  虚线=返回   颜色对应上方各参与方</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant W as 开箱窗口(调用方)
+    participant R as RewardDisplay
+    participant M as 既有元数据注册表
+    participant G as RewardItemWidget
+    W->>R: From(ChestReward 体力 ×12)
+    R->>M: Energy→FromNumeric(num_id=4, 12):查 Get(4)
+    M-->>R: NumericEntry{Icon,NameTextId,Quality}
+    R->>R: CountText(12)→"x12"<br/>QualityColor(quality)→Color §3.3
+    R-->>W: 返回 RewardView{icon,name,"x12",绿色,Currency}
+    W->>G: widget.SetData(RewardView)
+    G->>G: _imgIcon.SetSprite(IconName) 内置缓存池<br/>_imgQualityFrame.color = QualityColor<br/>_textCount.text = "x12"
+    G-->>W: 渲染完成(一张卡显示「体力 x12 绿框」)
+    Note over W,G: 实线=调用 虚线=返回 颜色对应上方各参与方
+```
 
 关键点:`RewardDisplay` 全程<mark>只读既有注册表、产出 RewardView</mark>,不碰 YooAsset / Unity 运行时(查注册表经 `Get`,单测用 `InitForTest` 注入);真实 Sprite 加载发生在 `RewardItemWidget.SetData` 内(经既有 `SetSprite`),那一步需 Unity 运行时——但本轮 Widget 不投放,验收只到「`From(...)` 返回的 `RewardView` 字段对不对」。这条边界让归一层可纯单测,渲染层留给接 UI 时验。
 

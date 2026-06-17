@@ -75,73 +75,37 @@
 
 系统拆四层,各层职责单一、各自可测。<b>校验层</b>判码是否有效、能换什么(经接缝,离线查配置 / 未来切远程);<b>去重层</b>判该码本机是否兑换过(经持久化接缝);<b>发奖层</b>复用道具系统既有落点(不新造);<b>服务层</b>编排「规整 → 校验 → 去重 → 发奖 → 出结果码 + 文案」。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 540" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="通用兑换码系统分层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="m-brown" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b86a45"></path></marker>
-    </defs>
-    <!-- 服务层 -->
-    <rect x="30" y="22" width="880" height="92" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="48" fill="#7fe0b8" font-size="14" font-weight="bold">服务层 · RedeemService(编排,纯逻辑可单测)</text>
-    <rect x="56" y="60" width="838" height="44" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="475" y="79" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">Redeem(code)：规整 → 校验 → 去重 → 发奖 → 返 RedeemOutcome(结果码 + 文案 textId + 奖励产出)</text>
-    <text x="475" y="97" text-anchor="middle" fill="#7fc0a0" font-size="10.5">无网络、不阻塞;state 可 null 走纯解析 §3.5</text>
-    <!-- 校验层 -->
-    <rect x="30" y="146" width="290" height="120" rx="12" fill="#1a2440" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="48" y="172" fill="#9db4ff" font-size="13.5" font-weight="bold">校验层 · IRedeemValidator</text>
-    <rect x="48" y="184" width="254" height="34" rx="7" fill="#22305c" stroke="#6c8cff" stroke-width="1"></rect>
-    <text x="175" y="205" text-anchor="middle" fill="#cdd9ff" font-size="11.5" font-weight="bold">LocalConfigRedeemValidator（默认）</text>
-    <rect x="48" y="224" width="254" height="34" rx="7" fill="#2a2030" stroke="#6c8cff" stroke-width="1" stroke-dasharray="5 4"></rect>
-    <text x="175" y="245" text-anchor="middle" fill="#9db4ff" font-size="11.5" font-weight="bold">RemoteRedeemValidator（stub）</text>
-    <!-- 去重层 -->
-    <rect x="336" y="146" width="280" height="120" rx="12" fill="#2a2418" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="354" y="172" fill="#ffdd80" font-size="13.5" font-weight="bold">去重层 · IRedeemStore</text>
-    <rect x="354" y="184" width="244" height="34" rx="7" fill="#332c18" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="476" y="205" text-anchor="middle" fill="#ffe9a8" font-size="11.5" font-weight="bold">PersistenceRedeemStore（生产）</text>
-    <rect x="354" y="224" width="244" height="34" rx="7" fill="#332c18" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="476" y="245" text-anchor="middle" fill="#ffe9a8" font-size="11.5" font-weight="bold">InMemoryRedeemStore（测试）</text>
-    <!-- 发奖层 -->
-    <rect x="632" y="146" width="278" height="120" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="650" y="172" fill="#e0b89a" font-size="13.5" font-weight="bold">发奖层 · 复用 16 道具系统</text>
-    <rect x="650" y="184" width="242" height="34" rx="7" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="771" y="205" text-anchor="middle" fill="#e8c8aa" font-size="11.5" font-weight="bold">ItemGrant.Resolve → GrantPayload</text>
-    <rect x="650" y="224" width="242" height="34" rx="7" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="771" y="245" text-anchor="middle" fill="#e8c8aa" font-size="11.5" font-weight="bold">ApplyNumeric / ApplyPattern → State</text>
-    <!-- 配置 + 持久化底座 -->
-    <rect x="30" y="296" width="586" height="86" rx="12" fill="#20283a" stroke="#39435c" stroke-width="1.5"></rect>
-    <text x="48" y="320" fill="#aeb8cc" font-size="13" font-weight="bold">底座(既有,本轮复用)</text>
-    <rect x="48" y="332" width="270" height="38" rx="7" fill="#1a2233" stroke="#6c8cff" stroke-width="1"></rect>
-    <text x="183" y="350" text-anchor="middle" fill="#9db4ff" font-size="11" font-weight="bold">RedeemConfigMgr → Luban redeemcode 表</text>
-    <text x="183" y="364" text-anchor="middle" fill="#7f8aa6" font-size="10">InitForTest 注入(绕 YooAsset) §3.2</text>
-    <rect x="332" y="332" width="270" height="38" rx="7" fill="#332c18" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="467" y="350" text-anchor="middle" fill="#ffe9a8" font-size="11" font-weight="bold">Persistence.Provider（既有接缝）</text>
-    <text x="467" y="364" text-anchor="middle" fill="#d9b96a" font-size="10">PlayerPrefs / 测试 InMemory §3.4</text>
-    <rect x="632" y="296" width="278" height="86" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="650" y="320" fill="#e0b89a" font-size="13" font-weight="bold">MergeOrderState（既有,被发奖落点写）</text>
-    <text x="650" y="344" fill="#c79a78" font-size="10.5">Exp / Piety / Energy / AddDirect …</text>
-    <text x="650" y="362" fill="#c79a78" font-size="10.5">state==null 时不落、仅产出结构(纯单测) §3.6</text>
-    <!-- 边 -->
-    <line x1="175" y1="114" x2="175" y2="146" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <text x="190" y="134" fill="#9db4ff" font-size="10.5">校验</text>
-    <line x1="476" y1="114" x2="476" y2="146" stroke="#ffcf5c" stroke-width="2" marker-end="url(#m-gold)"></line>
-    <text x="491" y="134" fill="#ffdd80" font-size="10.5">查 / 记已兑换</text>
-    <line x1="771" y1="114" x2="771" y2="146" stroke="#b86a45" stroke-width="2" marker-end="url(#m-brown)"></line>
-    <text x="786" y="134" fill="#e0b89a" font-size="10.5">发奖</text>
-    <line x1="183" y1="266" x2="183" y2="332" stroke="#6c8cff" stroke-width="1.5" marker-end="url(#m-blue)"></line>
-    <line x1="476" y1="266" x2="467" y2="332" stroke="#ffcf5c" stroke-width="1.5" marker-end="url(#m-gold)"></line>
-    <line x1="771" y1="266" x2="771" y2="296" stroke="#b86a45" stroke-width="1.5" marker-end="url(#m-brown)"></line>
-    <!-- 图例 -->
-    <text x="30" y="430" fill="#8a93a6" font-size="11">图例:</text>
-    <rect x="78" y="420" width="14" height="14" rx="3" fill="#142b22" stroke="#5bd6a0"></rect><text x="98" y="431" fill="#7fe0b8" font-size="11">服务编排(纯逻辑可单测）</text>
-    <rect x="250" y="420" width="14" height="14" rx="3" fill="#1a2440" stroke="#6c8cff"></rect><text x="270" y="431" fill="#9db4ff" font-size="11">校验接缝(服务器接缝所在）</text>
-    <rect x="450" y="420" width="14" height="14" rx="3" fill="#2a2418" stroke="#ffcf5c"></rect><text x="470" y="431" fill="#ffdd80" font-size="11">去重存储(隔离 PlayerPrefs）</text>
-    <rect x="630" y="420" width="14" height="14" rx="3" fill="#241a24" stroke="#b86a45"></rect><text x="650" y="431" fill="#e0b89a" font-size="11">发奖落点(复用 16）</text>
-    <text x="30" y="460" fill="#8a93a6" font-size="11">实线 = 调用 / 数据流;虚线框 = stub(未实现);结果码 / 边界细节见正文 §3.3–§3.6。</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph svc["服务层 · RedeemService(编排,纯逻辑可单测)"]
+        s1["Redeem(code):规整 → 校验 → 去重 → 发奖 → 返 RedeemOutcome<br/>(结果码 + 文案 textId + 奖励产出) · 无网络不阻塞 §3.5"]
+    end
+    subgraph val["校验层 · IRedeemValidator(服务器接缝所在)"]
+        v1["LocalConfigRedeemValidator(默认)"]
+        v2["RemoteRedeemValidator(stub)"]
+    end
+    subgraph ded["去重层 · IRedeemStore"]
+        d1["PersistenceRedeemStore(生产)"]
+        d2["InMemoryRedeemStore(测试)"]
+    end
+    subgraph grant["发奖层 · 复用 16 道具系统"]
+        g1["ItemGrant.Resolve → GrantPayload"]
+        g2["ApplyNumeric / ApplyPattern → State"]
+    end
+    subgraph base["底座(既有,本轮复用)"]
+        b1["RedeemConfigMgr → Luban redeemcode 表<br/>InitForTest 注入(绕 YooAsset) §3.2"]
+        b2["Persistence.Provider(既有接缝)<br/>PlayerPrefs / 测试 InMemory §3.4"]
+    end
+    subgraph state["MergeOrderState(既有,被发奖落点写)"]
+        m1["Exp / Piety / Energy / AddDirect …<br/>state==null 时不落、仅产出结构(纯单测) §3.6"]
+    end
+    svc -->|校验| val
+    svc -->|查 / 记已兑换| ded
+    svc -->|发奖| grant
+    val --> b1
+    ded --> b2
+    grant --> m1
+```
 
 <h3 id="seam">2.2 服务器接缝(可注入校验器,离线默认 + 远程 stub)</h3>
 
@@ -400,56 +364,25 @@ namespace GameLogic.Config
 
 玩家输码 → 服务规整 → 校验(查配置)→ 判过期 / 去重 → 发奖(复用 16)→ 记录 → 返结果。四方参与(UI / 服务 / 校验+配置 / 去重存储),用时序图归纳:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 460" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="兑换一个码的时序图">
-    <defs>
-      <marker id="s-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="s-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="s-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="s-brown" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b86a45"></path></marker>
-    </defs>
-    <!-- 泳道 -->
-    <text x="110" y="28" text-anchor="middle" fill="#9db4ff" font-size="13" font-weight="bold">兑换 UI（延后）</text>
-    <text x="350" y="28" text-anchor="middle" fill="#7fe0b8" font-size="13" font-weight="bold">RedeemService</text>
-    <text x="585" y="28" text-anchor="middle" fill="#cdd9ff" font-size="13" font-weight="bold">Validator + 配置 / 去重</text>
-    <text x="840" y="28" text-anchor="middle" fill="#e0b89a" font-size="13" font-weight="bold">ItemGrant → State（16）</text>
-    <line x1="110" y1="38" x2="110" y2="430" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="350" y1="38" x2="350" y2="430" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="585" y1="38" x2="585" y2="430" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="840" y1="38" x2="840" y2="430" stroke="#39435c" stroke-width="1.5"></line>
-    <!-- 1 提交 -->
-    <line x1="110" y1="64" x2="350" y2="64" stroke="#6c8cff" stroke-width="2" marker-end="url(#s-blue)"></line>
-    <text x="230" y="56" text-anchor="middle" fill="#9db4ff" font-size="11">Redeem(raw, state, rng)</text>
-    <!-- 服务激活条 -->
-    <rect x="338" y="78" width="24" height="320" rx="4" fill="#16302430" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="350" y="96" text-anchor="middle" fill="#7fe0b8" font-size="10">Normalize</text>
-    <!-- 2 校验 -->
-    <line x1="362" y1="118" x2="585" y2="118" stroke="#6c8cff" stroke-width="2" marker-end="url(#s-blue)"></line>
-    <text x="475" y="110" text-anchor="middle" fill="#9db4ff" font-size="11">Validate(code) → 查配置表</text>
-    <line x1="585" y1="142" x2="362" y2="142" stroke="#6c8cff" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#s-blue)"></line>
-    <text x="475" y="135" text-anchor="middle" fill="#7f8aa6" font-size="10">ValidationResult(Valid + Def)</text>
-    <!-- 3 过期 / 去重 -->
-    <line x1="362" y1="182" x2="585" y2="182" stroke="#ffcf5c" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="475" y="174" text-anchor="middle" fill="#ffdd80" font-size="11">IsExpired? / HasRedeemed(code)?</text>
-    <line x1="585" y1="206" x2="362" y2="206" stroke="#ffcf5c" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#s-gold)"></line>
-    <text x="475" y="199" text-anchor="middle" fill="#d9b96a" font-size="10">未过期 + 未兑过 → 继续</text>
-    <!-- 4 发奖 -->
-    <line x1="362" y1="246" x2="840" y2="246" stroke="#b86a45" stroke-width="2" marker-end="url(#s-brown)"></line>
-    <text x="600" y="238" text-anchor="middle" fill="#e0b89a" font-size="11">GrantOnAcquire(itemDef, num, state, rng)</text>
-    <line x1="840" y1="270" x2="362" y2="270" stroke="#b86a45" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#s-brown)"></line>
-    <text x="600" y="263" text-anchor="middle" fill="#c79a78" font-size="10">List&lt;GrantPayload&gt;（落 Exp/Piety/图案…）</text>
-    <!-- 5 记录 -->
-    <line x1="362" y1="310" x2="585" y2="310" stroke="#ffcf5c" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="475" y="302" text-anchor="middle" fill="#ffdd80" font-size="11">MarkRedeemed(code)（成功后才记）</text>
-    <!-- 6 返结果 -->
-    <line x1="350" y1="350" x2="110" y2="350" stroke="#5bd6a0" stroke-width="2" marker-end="url(#s-green)"></line>
-    <text x="230" y="342" text-anchor="middle" fill="#7fe0b8" font-size="11">RedeemOutcome(Success, textId, Granted)</text>
-    <text x="230" y="372" text-anchor="middle" fill="#9db4ff" font-size="10">UI 弹「兑换成功」+ RewardView 展示（17）</text>
-    <!-- 失败分支注 -->
-    <line x1="40" y1="396" x2="900" y2="396" stroke="#39435c" stroke-width="1" stroke-dasharray="3 4"></line>
-    <text x="40" y="416" fill="#8a93a6" font-size="10.5">失败短路（任一步未过返对应结果码,不发奖、不记录）：空输入 / NotFound / Expired / AlreadyRedeemed / SourceUnavailable（远程 stub）。实线 = 调用;虚线 = 返回。结果码顺序见 §3.5。</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant UI as 兑换 UI(延后)
+    participant S as RedeemService
+    participant V as Validator + 配置 / 去重
+    participant G as ItemGrant → State(16)
+    UI->>S: Redeem(raw, state, rng)
+    S->>S: Normalize(trim + 大写)
+    S->>V: Validate(code) → 查配置表
+    V-->>S: ValidationResult(Valid + Def)
+    S->>V: IsExpired? / HasRedeemed(code)?
+    V-->>S: 未过期 + 未兑过 → 继续
+    S->>G: GrantOnAcquire(itemDef, num, state, rng)
+    G-->>S: List(GrantPayload)(落 Exp/Piety/图案…)
+    S->>V: MarkRedeemed(code)(成功后才记)
+    S-->>UI: RedeemOutcome(Success, textId, Granted)
+    Note over UI: UI 弹「兑换成功」+ RewardView 展示(17)
+    Note over UI,G: 失败短路(任一步未过返对应结果码,不发奖、不记录):<br/>空输入 / NotFound / Expired / AlreadyRedeemed / SourceUnavailable(远程 stub) · 顺序见 §3.5
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 

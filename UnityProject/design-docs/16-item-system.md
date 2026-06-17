@@ -65,71 +65,31 @@
 
 系统拆四层,各层职责单一、各自可测。配置层是数据源(3 张 Luban 表),注册表层把表行桥接成 POCO 并按 id 索引(隔离 Luban 类型),礼包层是吃注册表 + 随机数的纯逻辑(产出「要发什么」的结构),背包层是与配置无关的纯计数容器。产出落点(UseEffect)由 `ItemGrant` 接到既有系统,本系统不持有发奖逻辑。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 540" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="道具系统四层分层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b07cff"></path></marker>
-    </defs>
-    <!-- 配置层 -->
-    <rect x="30" y="24" width="880" height="100" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="50" y="50" fill="#e0b89a" font-size="14" font-weight="bold">配置层 · 3 张 Luban 表(数据源,既有 GameConfig 管线)</text>
-    <rect x="56" y="62" width="270" height="50" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="191" y="84" text-anchor="middle" fill="#e8c8aa" font-size="12.5" font-weight="bold">item.TbItemDef</text>
-    <text x="191" y="101" text-anchor="middle" fill="#c79a78" font-size="11">道具定义 18 字段 §3.2</text>
-    <rect x="340" y="62" width="270" height="50" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="475" y="84" text-anchor="middle" fill="#e8c8aa" font-size="12.5" font-weight="bold">item.TbGiftRandom</text>
-    <text x="475" y="101" text-anchor="middle" fill="#c79a78" font-size="11">随机礼包池(权重)§3.4</text>
-    <rect x="624" y="62" width="262" height="50" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="755" y="84" text-anchor="middle" fill="#e8c8aa" font-size="12.5" font-weight="bold">item.TbGiftSelect</text>
-    <text x="755" y="101" text-anchor="middle" fill="#c79a78" font-size="11">自选礼包池 §3.4</text>
-    <!-- 箭头 配置→注册表 -->
-    <line x1="200" y1="124" x2="200" y2="156" stroke="#5bd6a0" stroke-width="2" marker-end="url(#m-green)"></line>
-    <text x="216" y="146" fill="#7fe0b8" font-size="11">行 → POCO 桥接</text>
-    <!-- 注册表层 -->
-    <rect x="30" y="158" width="880" height="108" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="184" fill="#7fe0b8" font-size="14" font-weight="bold">注册表层 · ItemConfigMgr(隔离 Luban 类型,纯逻辑可测)</text>
-    <rect x="56" y="196" width="400" height="58" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="256" y="219" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">ItemConfigMgr</text>
-    <text x="256" y="237" text-anchor="middle" fill="#7fc0a0" font-size="11">GetItem(id) · GetGiftRandom(index) · GetGiftSelect(index)</text>
-    <text x="256" y="251" text-anchor="middle" fill="#7fc0a0" font-size="11">缓存 Dictionary&lt;id, ItemDef&gt; + 按 index 聚合礼包池</text>
-    <rect x="480" y="196" width="406" height="58" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="683" y="219" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">ItemDef / GiftEntry (POCO)</text>
-    <text x="683" y="237" text-anchor="middle" fill="#7fc0a0" font-size="11">Id/Name/Icon/Quality/Type/UseEffect/Stacking…</text>
-    <text x="683" y="251" text-anchor="middle" fill="#7fc0a0" font-size="11">GiftEntry: ItemId/Num/Rate</text>
-    <!-- 礼包层 + 产出 -->
-    <rect x="30" y="282" width="430" height="118" rx="12" fill="#241f33" stroke="#b07cff" stroke-width="1.5"></rect>
-    <text x="50" y="308" fill="#c9aaff" font-size="14" font-weight="bold">礼包层 · GiftOpener(纯逻辑 + 注入 Random)</text>
-    <text x="50" y="330" fill="#e0d0ff" font-size="12">OpenRandom(index, rng) → 按 rate 权重抽 1 项</text>
-    <text x="50" y="350" fill="#e0d0ff" font-size="12">ListSelectable(index) → 返回候选列表</text>
-    <text x="50" y="370" fill="#a890d0" font-size="11">注入 System.Random(seed) → 抽样确定可测 §3.6</text>
-    <text x="50" y="388" fill="#a890d0" font-size="11">产出 GrantPayload(要发什么),不自己发</text>
-    <!-- 背包层 -->
-    <rect x="480" y="282" width="406" height="118" rx="12" fill="#16203a" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="500" y="308" fill="#9fb4ff" font-size="14" font-weight="bold">背包层 · ItemBag(纯计数容器)</text>
-    <text x="500" y="330" fill="#cdd9ff" font-size="12">Add(itemId, num) / Remove / Count / SlotUsed</text>
-    <text x="500" y="350" fill="#cdd9ff" font-size="12">叠加夹 999 · 不可叠占格 · 容量 100</text>
-    <text x="500" y="370" fill="#8ea2d8" font-size="11">与配置弱关联(查 Stacking 判叠不叠)§3.8</text>
-    <text x="500" y="388" fill="#8ea2d8" font-size="11">满则拒绝 + 记 TODO(不发邮件)O6</text>
-    <!-- 产出落点 -->
-    <rect x="30" y="424" width="856" height="84" rx="12" fill="#2a2618" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="50" y="450" fill="#ffcf5c" font-size="14" font-weight="bold">产出落点 · ItemGrant(UseEffect → 接既有系统,本系统不复制发奖)</text>
-    <text x="50" y="472" fill="#ffe9b0" font-size="12">UseEffect=1 货币 → MergeOrderState 字段 / 数值系统 num_id(设计 15)</text>
-    <text x="50" y="492" fill="#ffe9b0" font-size="12">UseEffect=2 图案 → MergeOrderState.AddDirect(MergeElement, lvl, num) · =3/4 礼包 → 递归 GiftOpener</text>
-    <!-- 箭头 -->
-    <line x1="256" y1="266" x2="256" y2="280" stroke="#b07cff" stroke-width="2" marker-end="url(#m-purple)"></line>
-    <line x1="683" y1="266" x2="683" y2="280" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <line x1="245" y1="400" x2="245" y2="422" stroke="#ffcf5c" stroke-width="2" marker-end="url(#m-gold)"></line>
-    <!-- 图例 -->
-    <text x="30" y="528" fill="#6f7d99" font-size="11">图例:</text>
-    <line x1="74" y1="524" x2="104" y2="524" stroke="#b86a45" stroke-width="2"></line><text x="110" y="528" fill="#c79a78" font-size="11">Luban 配置(数据源)</text>
-    <line x1="240" y1="524" x2="270" y2="524" stroke="#5bd6a0" stroke-width="2"></line><text x="276" y="528" fill="#7fe0b8" font-size="11">注册表(纯逻辑)</text>
-    <line x1="416" y1="524" x2="446" y2="524" stroke="#b07cff" stroke-width="2"></line><text x="452" y="528" fill="#c9aaff" font-size="11">礼包 / 背包(纯逻辑)</text>
-    <line x1="600" y1="524" x2="630" y2="524" stroke="#ffcf5c" stroke-width="2"></line><text x="636" y="528" fill="#cdb277" font-size="11">产出落点(接既有系统)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph cfg["配置层 · 3 张 Luban 表(数据源,既有 GameConfig 管线)"]
+        c1["item.TbItemDef<br/>道具定义 18 字段 §3.2"]
+        c2["item.TbGiftRandom<br/>随机礼包池(权重)§3.4"]
+        c3["item.TbGiftSelect<br/>自选礼包池 §3.4"]
+    end
+    subgraph reg["注册表层 · ItemConfigMgr(隔离 Luban 类型,纯逻辑可测)"]
+        r1["ItemConfigMgr<br/>GetItem(id) · GetGiftRandom(index) · GetGiftSelect(index)<br/>缓存 Dictionary&lt;id, ItemDef&gt; + 按 index 聚合礼包池"]
+        r2["ItemDef / GiftEntry (POCO)<br/>Id/Name/Icon/Quality/Type/UseEffect/Stacking…<br/>GiftEntry: ItemId/Num/Rate"]
+    end
+    subgraph gift["礼包层 · GiftOpener(纯逻辑 + 注入 Random)"]
+        g1["OpenRandom(index, rng) → 按 rate 权重抽 1 项<br/>ListSelectable(index) → 返回候选列表<br/>注入 System.Random(seed) → 抽样确定可测 §3.6<br/>产出 GrantPayload(要发什么),不自己发"]
+    end
+    subgraph bag["背包层 · ItemBag(纯计数容器)"]
+        b1["Add(itemId, num) / Remove / Count / SlotUsed<br/>叠加夹 999 · 不可叠占格 · 容量 100<br/>与配置弱关联(查 Stacking 判叠不叠)§3.8<br/>满则拒绝 + 记 TODO(不发邮件)O6"]
+    end
+    subgraph grant["产出落点 · ItemGrant(UseEffect → 接既有系统,本系统不复制发奖)"]
+        gr1["UseEffect=1 货币 → MergeOrderState 字段 / 数值系统 num_id(设计 15)<br/>UseEffect=2 图案 → MergeOrderState.AddDirect(MergeElement, lvl, num) · =3/4 礼包 → 递归 GiftOpener"]
+    end
+    cfg -->|行 → POCO 桥接| reg
+    reg --> gift
+    reg --> bag
+    gift --> grant
+```
 
 <b>为什么这样切:</b>注册表层桥接成 POCO(`ItemDef` / `GiftEntry`)让查询逻辑<mark>不直接依赖 Luban 生成类型</mark>——这是工程现有 `NumericConfigMgr` / `WeightCfgConfigMgr` 的同款做法。礼包层把随机数<mark>从外部注入</mark>(`System.Random`),所以抽样在单测里可用固定种子复现,这是「权重抽样确定性」验收点的地基。`ItemGrant` 故意只产出「要发什么」的结构、不自己发奖,这样它的单测只断言「解析出的产出结构对不对」,不需要拉起整个 MergeOrderState;真正的发放由调用方接到既有方法,避免本系统复制一份发奖逻辑导致两处漂移。
 
@@ -432,57 +392,25 @@ public static GrantPayload Resolve(ItemDef def, int count) {
 
 以「玩家获取一个随机礼包道具(automatic=1)」为例,展示从获取到产出落地的调用链。参与方:获取入口(调用方)→ `ItemGrant` → `GiftOpener` → `ItemConfigMgr` → 既有系统(MergeOrderState)。
 
-<div class="diagram">
-  <svg viewBox="0 0 940 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="礼包开启时序图">
-    <defs>
-      <marker id="t-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="t-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="t-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 生命线 -->
-    <g font-size="12" font-weight="bold">
-      <rect x="40" y="20" width="130" height="34" rx="7" fill="#16203a" stroke="#6c8cff"></rect><text x="105" y="42" text-anchor="middle" fill="#9fb4ff">获取入口(调用方)</text>
-      <rect x="230" y="20" width="120" height="34" rx="7" fill="#2a2618" stroke="#ffcf5c"></rect><text x="290" y="42" text-anchor="middle" fill="#ffcf5c">ItemGrant</text>
-      <rect x="410" y="20" width="120" height="34" rx="7" fill="#241f33" stroke="#b07cff"></rect><text x="470" y="42" text-anchor="middle" fill="#c9aaff">GiftOpener</text>
-      <rect x="590" y="20" width="130" height="34" rx="7" fill="#142b22" stroke="#5bd6a0"></rect><text x="655" y="42" text-anchor="middle" fill="#7fe0b8">ItemConfigMgr</text>
-      <rect x="780" y="20" width="130" height="34" rx="7" fill="#16302a" stroke="#5bd6a0"></rect><text x="845" y="42" text-anchor="middle" fill="#7fe0b8">MergeOrderState</text>
-    </g>
-    <g stroke="#3a4660" stroke-dasharray="3 4">
-      <line x1="105" y1="54" x2="105" y2="450"></line><line x1="290" y1="54" x2="290" y2="450"></line><line x1="470" y1="54" x2="470" y2="450"></line><line x1="655" y1="54" x2="655" y2="450"></line><line x1="845" y1="54" x2="845" y2="450"></line>
-    </g>
-    <!-- 消息 -->
-    <g font-size="11">
-      <line x1="105" y1="80" x2="288" y2="80" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-      <text x="110" y="74" fill="#9fb4ff">GrantOnAcquire(def 随机礼包, count=1)</text>
-      <line x1="290" y1="112" x2="653" y2="112" stroke="#ffcf5c" stroke-width="2" marker-end="url(#t-gold)"></line>
-      <text x="300" y="106" fill="#ffe9b0">Resolve→GiftRandom: 调 OpenRandom(6001, times)</text>
-      <line x1="290" y1="118" x2="468" y2="142" stroke="#b07cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-      <text x="300" y="138" fill="#c9aaff">OpenRandom(index=6001, times, rng)</text>
-      <line x1="470" y1="170" x2="653" y2="170" stroke="#5bd6a0" stroke-width="2" marker-end="url(#t-green)"></line>
-      <text x="478" y="164" fill="#7fe0b8">GetGiftRandom(6001) → 奖池(4 项)</text>
-      <line x1="653" y1="196" x2="472" y2="196" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-green)"></line>
-      <text x="478" y="190" fill="#7fc0a0">返回 IReadOnlyList&lt;GiftEntry&gt;</text>
-      <!-- 自抽 -->
-      <rect x="430" y="210" width="200" height="40" rx="6" fill="none" stroke="#b07cff" stroke-dasharray="4 3"></rect>
-      <text x="438" y="226" fill="#c9aaff" font-size="10">权重抽样(注入 rng)</text>
-      <text x="438" y="242" fill="#a890d0" font-size="10">RollRandom: 命中 item_id=30002 体力 ×1</text>
-      <line x1="468" y1="270" x2="292" y2="270" stroke="#b07cff" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-gold)"></line>
-      <text x="300" y="264" fill="#c9aaff">返回抽中道具列表</text>
-      <!-- 递归 Resolve 抽中道具 -->
-      <rect x="200" y="288" width="220" height="40" rx="6" fill="none" stroke="#ffcf5c" stroke-dasharray="4 3"></rect>
-      <text x="208" y="304" fill="#ffe9b0" font-size="10">逐项 Resolve(体力道具 30002)</text>
-      <text x="208" y="320" fill="#cdb277" font-size="10">→ GrantKind.Numeric(num_id=4 体力, 30)</text>
-      <line x1="290" y1="350" x2="843" y2="350" stroke="#5bd6a0" stroke-width="2" marker-end="url(#t-green)"></line>
-      <text x="300" y="344" fill="#7fe0b8">适配器 ApplyNumeric → RefundEnergy(30)</text>
-      <line x1="843" y1="380" x2="292" y2="380" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-green)"></line>
-      <text x="300" y="374" fill="#7fc0a0">体力 += 30(受 EnergyCap 软上限)</text>
-      <line x1="288" y1="410" x2="107" y2="410" stroke="#6c8cff" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#t-blue)"></line>
-      <text x="110" y="404" fill="#9fb4ff">返回发放结果(发了什么)</text>
-    </g>
-    <!-- 图例 -->
-    <text x="40" y="448" fill="#6f7d99" font-size="10">实线=调用  虚线=返回   颜色对应上方各参与方</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant E as 获取入口(调用方)
+    participant G as ItemGrant
+    participant O as GiftOpener
+    participant C as ItemConfigMgr
+    participant M as MergeOrderState
+    E->>G: GrantOnAcquire(def 随机礼包, count=1)
+    G->>C: Resolve→GiftRandom: 调 OpenRandom(6001, times)
+    G->>O: OpenRandom(index=6001, times, rng)
+    O->>C: GetGiftRandom(6001) → 奖池(4 项)
+    C-->>O: 返回 IReadOnlyList&lt;GiftEntry&gt;
+    Note over O: 权重抽样(注入 rng)<br/>RollRandom: 命中 item_id=30002 体力 ×1
+    O-->>G: 返回抽中道具列表
+    Note over G: 逐项 Resolve(体力道具 30002)<br/>→ GrantKind.Numeric(num_id=4 体力, 30)
+    G->>M: 适配器 ApplyNumeric → RefundEnergy(30)
+    M-->>G: 体力 += 30(受 EnergyCap 软上限)
+    G-->>E: 返回发放结果(发了什么)
+```
 
 关键点:抽样发生在 `GiftOpener` 内、注入 `rng`;抽中的「道具」再回 `ItemGrant.Resolve` 二次解析(随机礼包的奖品可能又是货币 / 图案 / 嵌套礼包),最终货币 / 图案落到既有 `MergeOrderState` 方法。`ItemGrant` 与 `GiftOpener` 全程不直接写 MergeOrderState 字段,只产出结构 + 经适配器调既有方法——这条边界让两者可纯逻辑单测。
 

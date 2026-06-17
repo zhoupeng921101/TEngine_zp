@@ -105,71 +105,25 @@
 
 得分驱动生成不自带元素管线，而是<b>构建在</b>一套与合成订单切片共用的元素设施之上：元素词汇表、表现工具、被清元素统计、候选块携带链路。本模型只往这套设施的<b>队列</b>里写、由<b>补牌钩子</b>读，不改设施本身。依赖关系一图概览（谁用了哪一层）：
 
-<div class="diagram">
-  <svg viewBox="0 0 900 592" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="共享元素设施依赖关系图">
-    <defs>
-      <marker id="ar-mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="ar-s1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-    </defs>
-    <!-- 右:共享设施容器 -->
-    <rect x="340" y="18" width="540" height="524" rx="14" fill="none" stroke="#2c3354"></rect>
-    <text x="610" y="48" text-anchor="middle" font-size="15" fill="#9aa3c4">共享元素设施</text>
-    <g>
-      <rect x="370" y="70" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="610" y="103" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">MergeElement 枚举</text>
-      <text x="610" y="128" text-anchor="middle" font-size="13" fill="#d8a98f">元素词汇表(9 种 + Key)</text>
-    </g>
-    <g>
-      <rect x="370" y="162" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="610" y="195" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">MergeElementVisual 静态类</text>
-      <text x="610" y="220" text-anchor="middle" font-size="13" fill="#d8a98f">Glyph · ColorOf 纯表现工具</text>
-    </g>
-    <g>
-      <rect x="370" y="254" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="610" y="287" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">MergeOrderWinWindow + 同名预制</text>
-      <text x="610" y="312" text-anchor="middle" font-size="13" fill="#d8a98f">通关面板</text>
-    </g>
-    <g>
-      <rect x="370" y="346" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="610" y="379" text-anchor="middle" font-size="15" font-weight="600" fill="#e6e9f5">BlockGameState.HarvestClearedElements()</text>
-      <text x="610" y="404" text-anchor="middle" font-size="13" fill="#d8a98f">被清元素统计输出(喂合成区)</text>
-    </g>
-    <g>
-      <rect x="370" y="438" width="480" height="78" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="610" y="464" text-anchor="middle" font-size="16" font-weight="600" fill="#e6e9f5">元素携带链路</text>
-      <text x="610" y="486" text-anchor="middle" font-size="12.5" fill="#d8a98f">PendingPiece.Elements · ElementArr</text>
-      <text x="610" y="505" text-anchor="middle" font-size="12.5" fill="#d8a98f">PlacePiece 转移 · BuildPiece 注入钩子</text>
-    </g>
-    <!-- 左:两个依赖方 -->
-    <g>
-      <rect x="20" y="120" width="250" height="86" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="145" y="157" text-anchor="middle" font-size="17" font-weight="700" fill="#e6e9f5">合成订单切片</text>
-      <text x="145" y="182" text-anchor="middle" font-size="12.5" fill="#8fd0b4">MergeOrderWindow · State · Config</text>
-    </g>
-    <g>
-      <rect x="20" y="330" width="250" height="86" rx="12" fill="#2a3566" stroke="#6c8cff"></rect>
-      <text x="145" y="367" text-anchor="middle" font-size="17" font-weight="700" fill="#e6e9f5">得分驱动元素生成</text>
-      <text x="145" y="392" text-anchor="middle" font-size="12.5" fill="#aebcf5">消除得分 → 元素数</text>
-    </g>
-    <!-- 依赖箭头:绿=合成订单切片,蓝=得分驱动生成 -->
-    <g fill="none" stroke="#5bd6a0" stroke-opacity="0.75" stroke-width="1.6">
-      <path d="M270 163 C 315 163, 320 109, 366 109" marker-end="url(#ar-mo)"></path>
-      <path d="M270 163 C 315 163, 320 201, 366 201" marker-end="url(#ar-mo)"></path>
-      <path d="M270 163 C 315 163, 320 293, 366 293" marker-end="url(#ar-mo)"></path>
-      <path d="M270 163 C 315 163, 320 385, 366 385" marker-end="url(#ar-mo)"></path>
-      <path d="M270 163 C 315 163, 320 477, 366 477" marker-end="url(#ar-mo)"></path>
-    </g>
-    <g fill="none" stroke="#6c8cff" stroke-opacity="0.85" stroke-width="1.6">
-      <path d="M270 373 C 318 373, 312 109, 366 109" marker-end="url(#ar-s1)"></path>
-      <path d="M270 373 C 318 373, 312 477, 366 477" marker-end="url(#ar-s1)"></path>
-    </g>
-    <!-- 图例 -->
-    <line x1="240" y1="572" x2="280" y2="572" stroke="#5bd6a0" stroke-width="2"></line>
-    <text x="288" y="577" font-size="13" fill="#9aa3c4">合成订单切片依赖</text>
-    <line x1="460" y1="572" x2="500" y2="572" stroke="#6c8cff" stroke-width="2"></line>
-    <text x="508" y="577" font-size="13" fill="#9aa3c4">得分驱动生成依赖</text>
-  </svg>
-    </div>
+```mermaid
+flowchart LR
+    subgraph fac["共享元素设施"]
+        f1["MergeElement 枚举<br/>元素词汇表(9 种 + Key)"]
+        f2["MergeElementVisual 静态类<br/>Glyph · ColorOf 纯表现工具"]
+        f3["MergeOrderWinWindow + 同名预制<br/>通关面板"]
+        f4["BlockGameState.HarvestClearedElements()<br/>被清元素统计输出(喂合成区)"]
+        f5["元素携带链路<br/>PendingPiece.Elements · ElementArr<br/>PlacePiece 转移 · BuildPiece 注入钩子"]
+    end
+    mo["合成订单切片<br/>MergeOrderWindow · State · Config"]
+    sc["得分驱动元素生成<br/>消除得分 → 元素数"]
+    mo --> f1
+    mo --> f2
+    mo --> f3
+    mo --> f4
+    mo --> f5
+    sc --> f1
+    sc --> f5
+```
 
 <h3 id="removed">3.1 元素词汇表与表现</h3>
 
@@ -196,87 +150,32 @@
 
 「一次落子」的完整元素流时序——入队发生在<mark>消除分支内、补牌之前</mark>，投放发生在<b>补牌时</b>，两个时机隔了一次交互（这正是「狠消一手 → 下一批候选块更多元素」的玩家感知来源）。各文件承担的角色见下表。
 
-<div class="diagram">
-  <svg viewBox="0 0 1100 985" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="一次落子的元素流时序图">
-    <defs>
-      <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8a93b8"></path></marker>
-    </defs>
-    <!-- 生命线 -->
-    <g stroke="#3a4263" stroke-dasharray="4 4">
-      <line x1="140" y1="76" x2="140" y2="910"></line>
-      <line x1="380" y1="76" x2="380" y2="910"></line>
-      <line x1="580" y1="76" x2="580" y2="910"></line>
-      <line x1="780" y1="76" x2="780" y2="910"></line>
-      <line x1="980" y1="76" x2="980" y2="910"></line>
-    </g>
-    <!-- 参与方头卡 -->
-    <g text-anchor="middle">
-      <rect x="55" y="12" width="170" height="64" rx="10" fill="#2a3566" stroke="#6c8cff"></rect>
-      <text x="140" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">MergeOrderWindow</text>
-      <text x="140" y="61" font-size="12.5" fill="#aebcf5">PlaceAndResolve</text>
-      <rect x="295" y="12" width="170" height="64" rx="10" fill="#2b3140" stroke="#9aa3c4"></rect>
-      <text x="380" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BlockGameState</text>
-      <text x="380" y="61" font-size="12.5" fill="#b9c0d8">共享棋盘态</text>
-      <rect x="495" y="12" width="170" height="64" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="580" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BlockScoring</text>
-      <text x="580" y="61" font-size="12.5" fill="#d8a98f">纯计分函数</text>
-      <rect x="695" y="12" width="170" height="64" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-      <text x="780" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">MergeOrderConfig</text>
-      <text x="780" y="61" font-size="12.5" fill="#d8a98f">常量 + 映射</text>
-      <rect x="895" y="12" width="170" height="64" rx="10" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="980" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">MergeOrderState</text>
-      <text x="980" y="61" font-size="12.5" fill="#8fd0b4">切片状态机</text>
-    </g>
-    <!-- 消息(实线=调用,虚线=返回) -->
-    <g font-size="15.5" fill="#cdd3ea" text-anchor="middle">
-      <line x1="140" y1="120" x2="372" y2="120" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="260" y="112">PlacePiece(落子)</text>
-      <line x1="140" y1="172" x2="372" y2="172" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="260" y="164">ClearRowsAndCols(...)</text>
-      <line x1="380" y1="224" x2="148" y2="224" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-g)"></line>
-      <text x="260" y="216">clearedCells(被清格数)</text>
-    </g>
-    <!-- 分支:本次有消除 -->
-    <rect x="45" y="252" width="1030" height="434" rx="12" fill="none" stroke="#ffcf5c" stroke-opacity="0.7"></rect>
-    <rect x="45" y="252" width="112" height="26" rx="8" fill="#463c1e" stroke="#ffcf5c" stroke-opacity="0.7"></rect>
-    <text x="101" y="270" text-anchor="middle" font-size="13" fill="#ffcf5c">本次有消除</text>
-    <g font-size="15.5" fill="#cdd3ea" text-anchor="middle">
-      <line x1="140" y1="300" x2="372" y2="300" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="260" y="292">HarvestClearedElements()</text>
-      <line x1="380" y1="352" x2="148" y2="352" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-g)"></line>
-      <text x="260" y="344">被清元素列表(入合成区)</text>
-      <line x1="140" y1="404" x2="572" y2="404" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="360" y="396">ClearScore(clearedCells, lines)</text>
-      <line x1="580" y1="456" x2="148" y2="456" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-g)"></line>
-      <text x="360" y="448">clearScore(公式见 §2.3)</text>
-      <line x1="140" y1="508" x2="772" y2="508" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="460" y="500">ElementsForScore(clearScore)</text>
-      <line x1="780" y1="560" x2="148" y2="560" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-g)"></line>
-      <text x="460" y="552">k(保底 1 / 封顶 4)</text>
-      <line x1="140" y1="612" x2="972" y2="612" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="560" y="604">EnqueueScoreElements(k)</text>
-    </g>
-    <!-- M 自调用 -->
-    <path d="M980 638 H1025 V662 H990" fill="none" stroke="#8a93b8" marker-end="url(#ar-g)"></path>
-    <text x="970" y="655" text-anchor="end" font-size="14.5" fill="#cdd3ea">轮转 NeededTypes() 取 k 个入队(超 12 截断)</text>
-    <!-- else:无消除 -->
-    <rect x="45" y="700" width="1030" height="36" rx="8" fill="#171b2e" stroke="#2c3354" stroke-dasharray="5 4"></rect>
-    <text x="560" y="723" text-anchor="middle" font-size="14" fill="#9aa3c4">无消除:不入队 → 队列不增长 → 补牌后候选块纯方块</text>
-    <g font-size="15.5" fill="#cdd3ea" text-anchor="middle">
-      <line x1="140" y1="778" x2="372" y2="778" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="260" y="770">RefillPieces(补牌,手牌耗尽时)</text>
-      <line x1="380" y1="830" x2="972" y2="830" stroke="#8a93b8" marker-end="url(#ar-g)"></line>
-      <text x="680" y="822">DrainPendingElementsInto(piece)</text>
-      <line x1="980" y1="888" x2="388" y2="888" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-g)"></line>
-      <text x="680" y="880">队头 FIFO 抽干 → 按行优先填充格序写入新候选块 Elements</text>
-    </g>
-    <!-- 图例 -->
-    <line x1="380" y1="950" x2="420" y2="950" stroke="#8a93b8" stroke-width="2"></line>
-    <text x="428" y="955" font-size="13" fill="#9aa3c4">调用 / 写入</text>
-    <line x1="560" y1="950" x2="600" y2="950" stroke="#8a93b8" stroke-width="2" stroke-dasharray="6 5"></line>
-    <text x="608" y="955" font-size="13" fill="#9aa3c4">返回 / 数据</text>
-  </svg>
-    </div>
+```mermaid
+sequenceDiagram
+    participant W as MergeOrderWindow
+    participant G as BlockGameState
+    participant S as BlockScoring
+    participant C as MergeOrderConfig
+    participant T as MergeOrderState
+    W->>G: PlacePiece(落子)
+    W->>G: ClearRowsAndCols(...)
+    G-->>W: clearedCells(被清格数)
+    alt 本次有消除
+        W->>G: HarvestClearedElements()
+        G-->>W: 被清元素列表(入合成区)
+        W->>S: ClearScore(clearedCells, lines)
+        S-->>W: clearScore(公式见 §2.3)
+        W->>C: ElementsForScore(clearScore)
+        C-->>W: k(保底 1 / 封顶 4)
+        W->>T: EnqueueScoreElements(k)
+        T->>T: 轮转 NeededTypes() 取 k 个入队(超 12 截断)
+    else 无消除
+        Note over W,T: 不入队 → 队列不增长 → 补牌后候选块纯方块
+    end
+    W->>G: RefillPieces(补牌,手牌耗尽时)
+    G->>T: DrainPendingElementsInto(piece)
+    T-->>G: 队头 FIFO 抽干 → 按行优先填充格序写入新候选块 Elements
+```
 
 | 文件 | 承担的角色 |
 | --- | --- |

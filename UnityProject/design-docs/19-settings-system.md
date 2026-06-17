@@ -76,62 +76,27 @@
 
 系统拆三层 + 一组信息 getter,各层职责单一、各自可测。<b>模型层</b>持有音频设置字段(纯 POCO,两 bool);<b>存储层</b>把模型读 / 写到框架既有 `Constant.Setting` 键(经 `ISettingsStore` 接缝隔离 PlayerPrefs);<b>服务层</b>编排「切换 → 落盘 → 应用音频 → 出提示文案」;信息 getter 是独立薄查询(版本号 / 用户 ID)。应用到 `GameModule.Audio` 经可注入 sink(副作用,不单测)。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 500" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="通用设置系统分层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 服务层 -->
-    <rect x="30" y="24" width="880" height="96" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="50" fill="#7fe0b8" font-size="14" font-weight="bold">服务层 · SettingsService(编排,纯逻辑可单测)</text>
-    <rect x="56" y="62" width="270" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="191" y="82" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">Load / SetMusic / SetSound / Toggle</text>
-    <text x="191" y="99" text-anchor="middle" fill="#7fc0a0" font-size="10.5">改模型 + 落盘 + 应用 + 出文案 §3.4</text>
-    <rect x="340" y="62" width="250" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="465" y="82" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">ToggleTip(kind,on)</text>
-    <text x="465" y="99" text-anchor="middle" fill="#7fc0a0" font-size="10.5">「已打开 / 已关闭」textId §3.4</text>
-    <rect x="604" y="62" width="282" height="46" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="745" y="82" text-anchor="middle" fill="#bff0d8" font-size="12" font-weight="bold">SettingsInfo(Version / UserId)</text>
-    <text x="745" y="99" text-anchor="middle" fill="#7fc0a0" font-size="10.5">薄查询,可注入 provider §3.5</text>
-    <!-- 模型层 -->
-    <rect x="30" y="156" width="430" height="96" rx="12" fill="#1a2440" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="50" y="182" fill="#9db4ff" font-size="14" font-weight="bold">模型层 · AudioSettings(POCO)</text>
-    <rect x="56" y="194" width="378" height="46" rx="8" fill="#22305c" stroke="#6c8cff" stroke-width="1"></rect>
-    <text x="245" y="214" text-anchor="middle" fill="#cdd9ff" font-size="12" font-weight="bold">bool MusicOn / bool SoundOn(默认 true）</text>
-    <text x="245" y="231" text-anchor="middle" fill="#9db4ff" font-size="10.5">两开关纯内存状态 §3.1</text>
-    <!-- 应用 sink -->
-    <rect x="480" y="156" width="430" height="96" rx="12" fill="#241a24" stroke="#b86a45" stroke-width="1.5"></rect>
-    <text x="500" y="182" fill="#e0b89a" font-size="14" font-weight="bold">应用接缝 · Action&lt;bool,bool&gt; sink(副作用)</text>
-    <rect x="506" y="194" width="378" height="46" rx="8" fill="#2e2018" stroke="#b86a45" stroke-width="1"></rect>
-    <text x="695" y="214" text-anchor="middle" fill="#e8c8aa" font-size="12" font-weight="bold">GameModule.Audio.MusicEnable / SoundEnable</text>
-    <text x="695" y="231" text-anchor="middle" fill="#c79a78" font-size="10.5">生产推音频模块 / 测试记录 §3.3</text>
-    <!-- 存储层 -->
-    <rect x="30" y="288" width="880" height="96" rx="12" fill="#2a2418" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="50" y="314" fill="#ffdd80" font-size="14" font-weight="bold">存储层 · ISettingsStore(隔离 PlayerPrefs)</text>
-    <rect x="56" y="326" width="400" height="46" rx="8" fill="#332c18" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="256" y="346" text-anchor="middle" fill="#ffe9a8" font-size="12" font-weight="bold">PlayerPrefsSettingsStore（生产）</text>
-    <text x="256" y="363" text-anchor="middle" fill="#d9b96a" font-size="10.5">Utility.PlayerPrefs + Constant.Setting.MusicMuted/SoundMuted §3.2</text>
-    <rect x="470" y="326" width="416" height="46" rx="8" fill="#332c18" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="678" y="346" text-anchor="middle" fill="#ffe9a8" font-size="12" font-weight="bold">InMemorySettingsStore（测试注入）</text>
-    <text x="678" y="363" text-anchor="middle" fill="#d9b96a" font-size="10.5">往返断言,不碰真实 PlayerPrefs §3.2 / §六 P</text>
-    <!-- 边 -->
-    <line x1="191" y1="120" x2="191" y2="156" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <text x="205" y="142" fill="#9db4ff" font-size="11">读 / 改字段</text>
-    <line x1="465" y1="120" x2="600" y2="156" stroke="#b86a45" stroke-width="2" marker-end="url(#m-gold)"></line>
-    <text x="520" y="140" fill="#e0b89a" font-size="11">应用音频</text>
-    <line x1="245" y1="252" x2="245" y2="288" stroke="#ffcf5c" stroke-width="2" marker-end="url(#m-gold)"></line>
-    <text x="259" y="274" fill="#ffdd80" font-size="11">落盘 / 加载(取反 muted↔on)</text>
-    <!-- 图例 -->
-    <text x="30" y="410" fill="#8a93a6" font-size="11">图例:</text>
-    <rect x="78" y="400" width="14" height="14" rx="3" fill="#1a2440" stroke="#6c8cff"></rect><text x="98" y="411" fill="#9db4ff" font-size="11">模型(纯 POCO）</text>
-    <rect x="200" y="400" width="14" height="14" rx="3" fill="#142b22" stroke="#5bd6a0"></rect><text x="220" y="411" fill="#7fe0b8" font-size="11">服务 / 查询(可单测）</text>
-    <rect x="350" y="400" width="14" height="14" rx="3" fill="#2a2418" stroke="#ffcf5c"></rect><text x="370" y="411" fill="#ffdd80" font-size="11">存储(隔离 PlayerPrefs）</text>
-    <rect x="500" y="400" width="14" height="14" rx="3" fill="#241a24" stroke="#b86a45"></rect><text x="520" y="411" fill="#e0b89a" font-size="11">应用副作用(不单测）</text>
-    <text x="30" y="440" fill="#8a93a6" font-size="11">实线 = 调用 / 数据流;公式 / 键映射细节见正文 §3.1–§3.5。</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph svc["服务层 · SettingsService(编排,纯逻辑可单测)"]
+        s1["Load / SetMusic / SetSound / Toggle<br/>改模型 + 落盘 + 应用 + 出文案 §3.4"]
+        s2["ToggleTip(kind,on)<br/>「已打开 / 已关闭」textId §3.4"]
+        s3["SettingsInfo(Version / UserId)<br/>薄查询,可注入 provider §3.5"]
+    end
+    subgraph mdl["模型层 · AudioSettings(POCO)"]
+        m1["bool MusicOn / bool SoundOn(默认 true)<br/>两开关纯内存状态 §3.1"]
+    end
+    subgraph app["应用接缝 · Action&lt;bool,bool&gt; sink(副作用)"]
+        a1["GameModule.Audio.MusicEnable / SoundEnable<br/>生产推音频模块 / 测试记录 §3.3"]
+    end
+    subgraph sto["存储层 · ISettingsStore(隔离 PlayerPrefs)"]
+        t1["PlayerPrefsSettingsStore(生产)<br/>Utility.PlayerPrefs + Constant.Setting.MusicMuted/SoundMuted §3.2"]
+        t2["InMemorySettingsStore(测试注入)<br/>往返断言,不碰真实 PlayerPrefs §3.2 / §六 P"]
+    end
+    svc -->|读 / 改字段| mdl
+    svc -->|应用音频| app
+    mdl -->|"落盘 / 加载(取反 muted↔on)"| sto
+```
 
 <h3 id="additive">2.2 加法式接入(复用框架既有设置约定)</h3>
 
@@ -319,49 +284,22 @@ spec 列了多个「跳转到其它系统」的入口,这些系统多数未建�
 
 玩家点音乐开关 → 服务改模型 → 落盘(写框架键)→ 应用到音频模块 → 出提示文案;下次登录启动流程读同键应用。三方参与(UI / 服务 / 存储+音频),用时序图归纳:
 
-<div class="diagram">
-  <svg viewBox="0 0 920 420" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="切换音乐开关时序图">
-    <defs>
-      <marker id="s-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="s-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="s-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-    </defs>
-    <!-- 泳道 -->
-    <text x="120" y="30" text-anchor="middle" fill="#9db4ff" font-size="13" font-weight="bold">设置 UI（延后）</text>
-    <text x="370" y="30" text-anchor="middle" fill="#7fe0b8" font-size="13" font-weight="bold">SettingsService</text>
-    <text x="620" y="30" text-anchor="middle" fill="#ffdd80" font-size="13" font-weight="bold">ISettingsStore（框架键）</text>
-    <text x="830" y="30" text-anchor="middle" fill="#e0b89a" font-size="13" font-weight="bold">GameModule.Audio</text>
-    <line x1="120" y1="40" x2="120" y2="390" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="370" y1="40" x2="370" y2="390" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="620" y1="40" x2="620" y2="390" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="830" y1="40" x2="830" y2="390" stroke="#39435c" stroke-width="1.5"></line>
-    <!-- 1 切换 -->
-    <line x1="120" y1="70" x2="370" y2="70" stroke="#6c8cff" stroke-width="2" marker-end="url(#s-blue)"></line>
-    <text x="245" y="62" text-anchor="middle" fill="#9db4ff" font-size="11">SetMusic(!on) / ToggleMusic()</text>
-    <!-- 2 改模型 -->
-    <rect x="356" y="84" width="28" height="250" rx="4" fill="#16302430" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="370" y="104" text-anchor="middle" fill="#7fe0b8" font-size="10.5">改 Audio.MusicOn</text>
-    <!-- 3 落盘 -->
-    <line x1="384" y1="130" x2="620" y2="130" stroke="#ffcf5c" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="500" y="122" text-anchor="middle" fill="#ffdd80" font-size="11">SetBool(MusicMuted, !MusicOn)</text>
-    <line x1="620" y1="158" x2="384" y2="158" stroke="#ffcf5c" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#s-gold)"></line>
-    <text x="500" y="150" text-anchor="middle" fill="#d9b96a" font-size="10.5">PlayerPrefs.Save()（落盘完成）</text>
-    <!-- 4 应用音频 -->
-    <line x1="384" y1="200" x2="830" y2="200" stroke="#b86a45" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="600" y="192" text-anchor="middle" fill="#e0b89a" font-size="11">AudioSink(MusicOn, SoundOn) → MusicEnable=…</text>
-    <!-- 5 出文案 -->
-    <line x1="370" y1="250" x2="120" y2="250" stroke="#5bd6a0" stroke-width="2" marker-end="url(#s-green)"></line>
-    <text x="245" y="242" text-anchor="middle" fill="#7fe0b8" font-size="11">返新态 + ToggleTipTextId</text>
-    <text x="245" y="272" text-anchor="middle" fill="#9db4ff" font-size="10.5">UI 弹「音乐已关闭」（textId 占位）</text>
-    <!-- 分隔：下次登录 -->
-    <line x1="40" y1="300" x2="880" y2="300" stroke="#39435c" stroke-width="1" stroke-dasharray="3 4"></line>
-    <text x="40" y="320" fill="#8a93a6" font-size="11" font-weight="bold">— 下次登录（启动流程，零改动复用）—</text>
-    <line x1="620" y1="345" x2="830" y2="345" stroke="#ffcf5c" stroke-width="2" marker-end="url(#s-gold)"></line>
-    <text x="725" y="337" text-anchor="middle" fill="#ffdd80" font-size="11">InitSoundSettings 读同键</text>
-    <text x="725" y="362" text-anchor="middle" fill="#d9b96a" font-size="10.5">MusicEnable = !GetBool(MusicMuted)</text>
-    <text x="40" y="392" fill="#8a93a6" font-size="10.5">实线 = 调用 / 数据流;虚线 = 返回 / 完成。键映射(muted↔on 取反)见 §3.2。</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant U as 设置 UI(延后)
+    participant S as SettingsService
+    participant T as ISettingsStore(框架键)
+    participant A as GameModule.Audio
+    U->>S: SetMusic(!on) / ToggleMusic()
+    S->>S: 改 Audio.MusicOn
+    S->>T: SetBool(MusicMuted, !MusicOn)
+    T-->>S: PlayerPrefs.Save()(落盘完成)
+    S->>A: AudioSink(MusicOn, SoundOn) → MusicEnable=…
+    S-->>U: 返新态 + ToggleTipTextId<br/>UI 弹「音乐已关闭」(textId 占位)
+    Note over U,A: — 下次登录(启动流程,零改动复用)—
+    T->>A: InitSoundSettings 读同键<br/>MusicEnable = !GetBool(MusicMuted)
+    Note over U,A: 实线 = 调用 / 数据流;虚线 = 返回 / 完成。键映射(muted↔on 取反)见 §3.2
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 

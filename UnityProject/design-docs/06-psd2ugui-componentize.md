@@ -37,48 +37,16 @@ TabGroup(项目自定义 CustomTab)后续补一颗按钮即可,同样是「挂�
 
 放弃了「缩略图角色指派 / 自动连 spriteState / 删状态节点 / 几何推断」那一整套——<mark class="y">美术命名不可靠</mark>、自动猜角色脆且收益有限。改为<b>极简流</b>,全链路如下:
 
-<div class="diagram">
-    <svg viewBox="0 0 900 300" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="PSD2UGUI 组件化管线流程图">
-      <defs>
-        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-        <marker id="ar-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      </defs>
-      <!-- 主链 -->
-      <g text-anchor="middle">
-        <rect x="20" y="50" width="190" height="78" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="115" y="84" font-size="16" font-weight="700" fill="#f2f4fc">PSD 直解导入</text>
-        <text x="115" y="108" font-size="12.5" fill="#8d96b5">位置·层级·切图·文本等机械活</text>
-        <rect x="252" y="50" width="190" height="78" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="347" y="84" font-size="16" font-weight="700" fill="#f2f4fc">扁平脚手架</text>
-        <text x="347" y="108" font-size="12.5" fill="#8d96b5">Image / Text / 空容器</text>
-        <rect x="484" y="50" width="190" height="78" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="579" y="84" font-size="16" font-weight="700" fill="#f2f4fc">一键挂组件</text>
-        <text x="579" y="108" font-size="12.5" fill="#aebcf5">选中节点 → 点调色板按钮</text>
-        <rect x="716" y="50" width="165" height="78" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="798" y="84" font-size="16" font-weight="700" fill="#f2f4fc">Inspector 收尾</text>
-        <text x="798" y="108" font-size="12.5" fill="#8fd0b4">手动连具体引用</text>
-      </g>
-      <g stroke="#8d96b5" stroke-width="1.6">
-        <line x1="210" y1="89" x2="244" y2="89" marker-end="url(#ar)"></line>
-        <line x1="442" y1="89" x2="476" y2="89" marker-end="url(#ar)"></line>
-        <line x1="674" y1="89" x2="708" y2="89" marker-end="url(#ar)"></line>
-      </g>
-      <!-- 挂组件的自动附带动作 -->
-      <path d="M579 128 V 168" fill="none" stroke="#6c8cff" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar-b)"></path>
-      <g text-anchor="middle">
-        <rect x="394" y="172" width="370" height="74" rx="12" fill="#283256" stroke="#6c8cff" stroke-dasharray="5 4"></rect>
-        <text x="579" y="200" font-size="13.5" font-weight="700" fill="#aebcf5">工具自动附带(详见 §四)</text>
-        <text x="579" y="224" font-size="12.5" fill="#aebcf5">控件补 Image 作 targetGraphic · 按生成器前缀重命名 · 去 @ 标签</text>
-      </g>
-      <!-- 图例 -->
-      <line x1="220" y1="280" x2="256" y2="280" stroke="#8d96b5" stroke-width="2"></line>
-      <text x="264" y="285" font-size="13" fill="#8d96b5">管线推进</text>
-      <line x1="380" y1="280" x2="416" y2="280" stroke="#6c8cff" stroke-width="2" stroke-dasharray="5 4"></line>
-      <text x="424" y="285" font-size="13" fill="#8d96b5">挂载时自动执行</text>
-      <rect x="570" y="271" width="26" height="16" rx="4" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="604" y="285" font-size="13" fill="#8d96b5">人工收尾环节</text>
-    </svg>
-    </div>
+```mermaid
+flowchart LR
+    a1["PSD 直解导入<br/>位置·层级·切图·文本等机械活"]
+    a2["扁平脚手架<br/>Image / Text / 空容器"]
+    a3["一键挂组件<br/>选中节点 → 点调色板按钮"]
+    a4["Inspector 收尾<br/>手动连具体引用"]
+    auto["工具自动附带(详见 §四)<br/>控件补 Image 作 targetGraphic · 按生成器前缀重命名 · 去 @ 标签"]
+    a1 --> a2 --> a3 --> a4
+    a3 -.挂载时自动执行.-> auto
+```
 
 对应的操作只有三步:
 

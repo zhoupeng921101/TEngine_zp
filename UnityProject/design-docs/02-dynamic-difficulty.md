@@ -14,100 +14,32 @@
 
 每次手牌用完补 3 块时,`DynamicWeightDiff.OfferTrio()` 按优先级从上到下决策,<mark>命中即返回</mark>。整条决策流如下图:
 
-<div class="diagram">
-    <svg viewBox="0 0 880 660" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="发牌调度决策流程图">
-      <defs>
-        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-        <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-        <marker id="ar-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      </defs>
-      <!-- 左列:决策链 -->
-      <g text-anchor="middle">
-        <rect x="30" y="14" width="250" height="64" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="155" y="42" font-size="15" font-weight="700" fill="#f2f4fc">手牌用完,补 3 块</text>
-        <text x="155" y="62" font-size="12" fill="#aebcf5">OfferTrio() 入口</text>
-        <rect x="30" y="118" width="250" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="155" y="146" font-size="15" font-weight="700" fill="#f2f4fc">① 调试强制档?</text>
-        <text x="155" y="166" font-size="12" fill="#8d96b5">ForceAlgorithm 非空</text>
-        <rect x="30" y="222" width="250" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="155" y="250" font-size="15" font-weight="700" fill="#f2f4fc">② 清屏窗口?</text>
-        <text x="155" y="270" font-size="12" fill="#8d96b5">分数 &lt; 15000 且窗口开启</text>
-        <rect x="30" y="326" width="250" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="155" y="354" font-size="15" font-weight="700" fill="#f2f4fc">③ Override 命中?</text>
-        <text x="155" y="374" font-size="12" fill="#8d96b5">开局首发 / 空盘保护</text>
-        <rect x="30" y="430" width="250" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="155" y="458" font-size="15" font-weight="700" fill="#f2f4fc">④ 未激活?</text>
-        <text x="155" y="478" font-size="12" fill="#8d96b5">未初始化 或 分数 &lt; 1000</text>
-      </g>
-      <!-- 左列向下箭头(否) -->
-      <g stroke="#8d96b5" stroke-width="1.6">
-        <line x1="155" y1="78" x2="155" y2="110" marker-end="url(#ar)"></line>
-        <line x1="155" y1="182" x2="155" y2="214" marker-end="url(#ar)"></line>
-        <line x1="155" y1="286" x2="155" y2="318" marker-end="url(#ar)"></line>
-        <line x1="155" y1="390" x2="155" y2="422" marker-end="url(#ar)"></line>
-        <line x1="155" y1="494" x2="155" y2="540" marker-end="url(#ar)"></line>
-      </g>
-      <g font-size="12" fill="#8d96b5">
-        <text x="168" y="204">否</text>
-        <text x="168" y="308">否</text>
-        <text x="168" y="412">否</text>
-        <text x="168" y="522">否</text>
-      </g>
-      <!-- 右列:命中出口 -->
-      <g text-anchor="middle">
-        <rect x="520" y="118" width="330" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="685" y="146" font-size="15" font-weight="700" fill="#f2f4fc">指定算法</text>
-        <text x="685" y="166" font-size="12" fill="#8d96b5">HUD 调试用,线上不触发</text>
-        <rect x="520" y="222" width="330" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="685" y="250" font-size="15" font-weight="700" fill="#f2f4fc">贪心钥匙算法</text>
-        <text x="685" y="270" font-size="12" fill="#8fd0b4">强制喂「能清空棋盘」的块(§一·2)</text>
-        <rect x="520" y="326" width="330" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="685" y="354" font-size="15" font-weight="700" fill="#f2f4fc">FILL / 随机无死亡</text>
-        <text x="685" y="374" font-size="12" fill="#8fd0b4">首发走 FILL,空盘走随机无死(§一·3)</text>
-        <rect x="520" y="430" width="330" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="685" y="458" font-size="15" font-weight="700" fill="#f2f4fc">随机无死亡</text>
-        <text x="685" y="478" font-size="12" fill="#8fd0b4">新手期保底,绝不卡死</text>
-      </g>
-      <!-- 命中横向箭头(是) -->
-      <g stroke="#5bd6a0" stroke-width="1.6">
-        <line x1="280" y1="150" x2="512" y2="150" marker-end="url(#ar-g)"></line>
-        <line x1="280" y1="254" x2="512" y2="254" marker-end="url(#ar-g)"></line>
-        <line x1="280" y1="358" x2="512" y2="358" marker-end="url(#ar-g)"></line>
-        <line x1="280" y1="462" x2="512" y2="462" marker-end="url(#ar-g)"></line>
-      </g>
-      <g font-size="12" fill="#5bd6a0" text-anchor="middle">
-        <text x="396" y="142">是</text>
-        <text x="396" y="246">是</text>
-        <text x="396" y="350">是</text>
-        <text x="396" y="454">是</text>
-      </g>
-      <!-- 底行:动态调度 → 后处理 → 出牌 -->
-      <g text-anchor="middle">
-        <rect x="30" y="548" width="260" height="64" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="160" y="576" font-size="15" font-weight="700" fill="#f2f4fc">⑤ 正式动态调度</text>
-        <text x="160" y="596" font-size="12" fill="#aebcf5">weight+分数选 tier → odds 抽算法(§二)</text>
-        <rect x="340" y="548" width="250" height="64" rx="12" fill="#3a331c" stroke="#ffcf5c"></rect>
-        <text x="465" y="576" font-size="15" font-weight="700" fill="#f2f4fc">⑥ 后处理</text>
-        <text x="465" y="596" font-size="12" fill="#e8d49a">早期屏蔽 · 三块去重(§一·6)</text>
-        <rect x="640" y="548" width="210" height="64" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="745" y="576" font-size="15" font-weight="700" fill="#f2f4fc">返回 3 块</text>
-        <text x="745" y="596" font-size="12" fill="#aebcf5">3 个 shapeId 进手牌</text>
-      </g>
-      <g stroke="#6c8cff" stroke-width="1.6">
-        <line x1="290" y1="580" x2="332" y2="580" marker-end="url(#ar-b)"></line>
-        <line x1="590" y1="580" x2="632" y2="580" marker-end="url(#ar-b)"></line>
-      </g>
-      <!-- 图例 -->
-      <g font-size="13" fill="#8d96b5">
-        <line x1="60" y1="644" x2="96" y2="644" stroke="#8d96b5" stroke-width="2"></line>
-        <text x="104" y="649">未命中,继续向下</text>
-        <line x1="250" y1="644" x2="286" y2="644" stroke="#5bd6a0" stroke-width="2"></line>
-        <text x="294" y="649">命中即返回</text>
-        <line x1="420" y1="644" x2="456" y2="644" stroke="#6c8cff" stroke-width="2"></line>
-        <text x="464" y="649">兜底主流程</text>
-      </g>
-    </svg>
-    </div>
+```mermaid
+flowchart TD
+    e1["手牌用完,补 3 块<br/>OfferTrio() 入口"]
+    q1["① 调试强制档?<br/>ForceAlgorithm 非空"]
+    q2["② 清屏窗口?<br/>分数 &lt; 15000 且窗口开启"]
+    q3["③ Override 命中?<br/>开局首发 / 空盘保护"]
+    q4["④ 未激活?<br/>未初始化 或 分数 &lt; 1000"]
+    o1["指定算法<br/>HUD 调试用,线上不触发"]
+    o2["贪心钥匙算法<br/>强制喂能清空棋盘的块(§一·2)"]
+    o3["FILL / 随机无死亡<br/>首发走 FILL,空盘走随机无死(§一·3)"]
+    o4["随机无死亡<br/>新手期保底,绝不卡死"]
+    s5["⑤ 正式动态调度<br/>weight+分数选 tier → odds 抽算法(§二)"]
+    s6["⑥ 后处理<br/>早期屏蔽 · 三块去重(§一·6)"]
+    ret["返回 3 块<br/>3 个 shapeId 进手牌"]
+    e1 --> q1
+    q1 -->|是| o1
+    q1 -->|否| q2
+    q2 -->|是| o2
+    q2 -->|否| q3
+    q3 -->|是| o3
+    q3 -->|否| q4
+    q4 -->|是| o4
+    q4 -->|否| s5
+    s5 --> s6
+    s6 --> ret
+```
 
 各级的判定细节与数值:
 
@@ -145,57 +77,18 @@
 
 关键在 <b>tier 表的设计</b>:`dynamicWeight` 越高,档内越偏向发<b>难块</b>。于是形成<mark class="g">自动负反馈</mark>,循环如下:
 
-<div class="diagram">
-    <svg viewBox="0 0 880 460" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="dynamicWeight 负反馈回路图">
-      <defs>
-        <marker id="lr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-        <marker id="lr-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff7a8a"></path></marker>
-        <marker id="lr-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      </defs>
-      <!-- 顶:放水 -->
-      <g text-anchor="middle">
-        <rect x="320" y="16" width="240" height="68" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="440" y="44" font-size="15" font-weight="700" fill="#f2f4fc">玩家顺:一直喂简单块</text>
-        <text x="440" y="64" font-size="12" fill="#8fd0b4">Fill / ClearAll 等放水算法</text>
-        <!-- 右:权重升 -->
-        <rect x="620" y="190" width="240" height="68" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="740" y="218" font-size="15" font-weight="700" fill="#f2f4fc">dynamicWeight 升高</text>
-        <text x="740" y="238" font-size="12" fill="#aebcf5">简单块 = 正增量(§二 因子表)</text>
-        <!-- 底:做局 -->
-        <rect x="320" y="364" width="240" height="68" rx="12" fill="#3a1f26" stroke="#ff7a8a"></rect>
-        <text x="440" y="392" font-size="15" font-weight="700" fill="#ffb3bd">切高权重档:狂发难块</text>
-        <text x="440" y="412" font-size="12" fill="#d49aa4">Diff / 死亡难题等做局算法</text>
-        <!-- 左:权重落 -->
-        <rect x="20" y="190" width="240" height="68" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="140" y="218" font-size="15" font-weight="700" fill="#f2f4fc">dynamicWeight 回落</text>
-        <text x="140" y="238" font-size="12" fill="#aebcf5">难块 = 负增量,玩家被卡住</text>
-        <!-- 中心 -->
-        <text x="440" y="212" font-size="14" font-weight="700" fill="#f2f4fc">负反馈闭环</text>
-        <text x="440" y="234" font-size="12.5" fill="#8d96b5">临界点 dynamicWeight ≈ 10</text>
-        <text x="440" y="254" font-size="12.5" fill="#8d96b5">永远把玩家按在心流区</text>
-      </g>
-      <!-- 顺时针箭头 -->
-      <path d="M562 50 Q 740 60 740 182" fill="none" stroke="#8d96b5" stroke-width="1.8" marker-end="url(#lr)"></path>
-      <path d="M740 260 Q 740 388 568 396" fill="none" stroke="#ff7a8a" stroke-width="1.8" marker-end="url(#lr-r)"></path>
-      <path d="M318 396 Q 140 388 140 266" fill="none" stroke="#8d96b5" stroke-width="1.8" marker-end="url(#lr)"></path>
-      <path d="M140 182 Q 140 60 312 52" fill="none" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#lr-g)"></path>
-      <g font-size="12.5" text-anchor="middle">
-        <text x="722" y="120" fill="#8d96b5">每发一组都在累加</text>
-        <text x="712" y="346" fill="#ff7a8a">权重 ≥ 10:翻脸进做局档</text>
-        <text x="158" y="346" fill="#8d96b5">连吃难块,权重被拉低</text>
-        <text x="166" y="120" fill="#5bd6a0">权重 &lt; 10:切回放水档</text>
-      </g>
-      <!-- 图例 -->
-      <g font-size="13" fill="#8d96b5">
-        <line x1="240" y1="452" x2="276" y2="452" stroke="#8d96b5" stroke-width="2"></line>
-        <text x="284" y="457">权重累加流转</text>
-        <line x1="410" y1="452" x2="446" y2="452" stroke="#ff7a8a" stroke-width="2"></line>
-        <text x="454" y="457">过临界,转做局</text>
-        <line x1="590" y1="452" x2="626" y2="452" stroke="#5bd6a0" stroke-width="2"></line>
-        <text x="634" y="457">回临界下,转放水</text>
-      </g>
-    </svg>
-    </div>
+```mermaid
+flowchart LR
+    n1["玩家顺:一直喂简单块<br/>Fill / ClearAll 等放水算法"]
+    n2["dynamicWeight 升高<br/>简单块 = 正增量(§二 因子表)"]
+    n3["切高权重档:狂发难块<br/>Diff / 死亡难题等做局算法"]
+    n4["dynamicWeight 回落<br/>难块 = 负增量,玩家被卡住"]
+    n1 -->|每发一组都在累加| n2
+    n2 -->|权重 ≥ 10:翻脸进做局档| n3
+    n3 -->|连吃难块,权重被拉低| n4
+    n4 -->|权重 &lt; 10:切回放水档| n1
+    note["负反馈闭环 · 临界点 dynamicWeight ≈ 10<br/>永远把玩家按在心流区"]
+```
 
 临界点大约在 <mark><code>dynamicWeight = 10</code></mark>:低于它是「放水档」,达到/超过它就翻脸进「做局档」。下表是<b>从真实配置表解出</b>的第 1 分数段(1000–3795 分)数据,看「做局占比」如何随权重陡然翻倍:
 

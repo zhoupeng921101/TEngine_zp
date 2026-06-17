@@ -83,56 +83,25 @@
 
 一封邮件有两个正交维度:<b>读态</b>(未读/已读)与<b>奖励态</b>(无奖励 / 有奖励未领 / 有奖励已领)。spec 的红点、删除、领取规则都由这两维派生。状态图:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 420" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="邮件状态机:读态×奖励态">
-    <defs>
-      <marker id="ms-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="ms-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="ms-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff7a8a"></path></marker>
-    </defs>
-    <!-- 收件 -->
-    <rect x="30" y="30" width="160" height="60" rx="10" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="110" y="55" text-anchor="middle" fill="#7fe0b8" font-size="13" font-weight="bold">Send 收件</text>
-    <text x="110" y="74" text-anchor="middle" fill="#7fc0a0" font-size="10">未读 · 奖励态由 RewardPoolId 定</text>
-    <!-- 未读+有奖未领 -->
-    <rect x="280" y="22" width="240" height="76" rx="10" fill="#2a1a1c" stroke="#ff7a8a" stroke-width="1.5"></rect>
-    <text x="400" y="48" text-anchor="middle" fill="#ffb3bd" font-size="12.5" font-weight="bold">未读 · 有奖励未领</text>
-    <text x="400" y="68" text-anchor="middle" fill="#ff9aa6" font-size="10.5">红点 ●（未读 OR 未领,双中）</text>
-    <text x="400" y="84" text-anchor="middle" fill="#c98a90" font-size="10">不可删(未读 + 未领)</text>
-    <!-- 已读+有奖未领 -->
-    <rect x="610" y="22" width="240" height="76" rx="10" fill="#2a2418" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="730" y="48" text-anchor="middle" fill="#ffdd80" font-size="12.5" font-weight="bold">已读 · 有奖励未领</text>
-    <text x="730" y="68" text-anchor="middle" fill="#e8c878" font-size="10.5">红点 ●（仍未领）</text>
-    <text x="730" y="84" text-anchor="middle" fill="#c9b06a" font-size="10">不可删(奖励未领)</text>
-    <!-- 已读+已领/无奖 -->
-    <rect x="610" y="180" width="240" height="76" rx="10" fill="#1a2440" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="730" y="206" text-anchor="middle" fill="#9db4ff" font-size="12.5" font-weight="bold">已读 · 已领 / 无奖励</text>
-    <text x="730" y="226" text-anchor="middle" fill="#aebfff" font-size="10.5">无红点</text>
-    <text x="730" y="242" text-anchor="middle" fill="#8a9bd0" font-size="10">可删(DeleteRead 允许)</text>
-    <!-- 未读+无奖励 -->
-    <rect x="280" y="180" width="240" height="76" rx="10" fill="#2a1a1c" stroke="#ff7a8a" stroke-width="1.5"></rect>
-    <text x="400" y="206" text-anchor="middle" fill="#ffb3bd" font-size="12.5" font-weight="bold">未读 · 无奖励</text>
-    <text x="400" y="226" text-anchor="middle" fill="#ff9aa6" font-size="10.5">红点 ●（未读）</text>
-    <text x="400" y="242" text-anchor="middle" fill="#c98a90" font-size="10">不可删(未读)</text>
-    <!-- 边 -->
-    <line x1="190" y1="50" x2="280" y2="55" stroke="#5bd6a0" stroke-width="2" marker-end="url(#ms-green)"></line>
-    <text x="235" y="40" text-anchor="middle" fill="#7fe0b8" font-size="10">有奖励</text>
-    <line x1="190" y1="72" x2="280" y2="200" stroke="#5bd6a0" stroke-width="2" marker-end="url(#ms-green)"></line>
-    <text x="205" y="150" fill="#7fe0b8" font-size="10">无奖励</text>
-    <line x1="520" y1="60" x2="610" y2="60" stroke="#6c8cff" stroke-width="2" marker-end="url(#ms-blue)"></line>
-    <text x="565" y="50" text-anchor="middle" fill="#9db4ff" font-size="10">MarkRead</text>
-    <line x1="730" y1="98" x2="730" y2="180" stroke="#5bd6a0" stroke-width="2" marker-end="url(#ms-green)"></line>
-    <text x="745" y="142" fill="#7fe0b8" font-size="10">Claim 领取</text>
-    <line x1="400" y1="180" x2="680" y2="180" stroke="#6c8cff" stroke-width="2" marker-end="url(#ms-blue)"></line>
-    <text x="540" y="172" text-anchor="middle" fill="#9db4ff" font-size="10">MarkRead</text>
-    <!-- 一键领取注 -->
-    <line x1="40" y1="300" x2="900" y2="300" stroke="#39435c" stroke-width="1" stroke-dasharray="3 4"></line>
-    <text x="40" y="322" fill="#8a93a6" font-size="11">一键领取 ClaimAll:把所有「有奖励未领」邮件一次性领 + 涉及邮件标已读 → 落到「已读 · 已领」。</text>
-    <text x="40" y="342" fill="#8a93a6" font-size="11">自动清理(§3.5.2):过期(SendTime+有效期&lt;today)或 超 maxCount 删最早 → 邮件移出收件箱(任意态均可被清理)。</text>
-    <text x="40" y="362" fill="#8a93a6" font-size="11">红点规则(§3.6):未读 OR 有奖励未领 → 红点。两条件任一成立即亮(图中红框 = 有红点)。</text>
-    <text x="40" y="388" fill="#8a93a6" font-size="10.5">图例:红框 = 有红点(未读或未领);黄框 = 已读但仍有红点(未领);蓝框 = 无红点可删。绿 = 收件/领取流,蓝 = 标读流。</text>
-  </svg>
-  </div>
+```mermaid
+stateDiagram-v2
+    [*] --> Send
+    Send : Send 收件(未读 · 奖励态由 RewardPoolId 定)
+    UnreadReward : 未读 · 有奖励未领(红点 · 不可删)
+    ReadReward : 已读 · 有奖励未领(红点仍亮 · 不可删)
+    ReadDone : 已读 · 已领 / 无奖励(无红点 · 可删 DeleteRead)
+    UnreadNone : 未读 · 无奖励(红点 · 不可删)
+    Send --> UnreadReward: 有奖励
+    Send --> UnreadNone: 无奖励
+    UnreadReward --> ReadReward: MarkRead
+    ReadReward --> ReadDone: Claim 领取
+    UnreadNone --> ReadDone: MarkRead
+    note right of ReadDone
+        一键领取 ClaimAll:把所有「有奖励未领」邮件一次性领 + 涉及邮件标已读 → 落「已读 · 已领」
+        自动清理(§3.5.2):过期(SendTime+有效期＜today)或超 maxCount 删最早 → 移出收件箱(任意态)
+        红点规则(§3.6):未读 OR 有奖励未领 → 红点,任一成立即亮
+    end note
+```
 
 <b>删除前置(spec「删除已读」)</b>:`DeleteRead` 仅当 <mark>已读 &amp;&amp;(RewardPoolId==0 ‖ Claimed)</mark> 才允许。「未读」或「有奖励未领」拒绝删除(防玩家误删未领奖励)——这是 spec「已读且奖励已领或无奖励」的逐字落法。
 
@@ -506,58 +475,28 @@ spec 红点 = 「邮件未读时 / 有奖励未领时」,显示在<b>主界面�
 
 系统发奖(收件)与玩家领取是两条独立流。四方参与(发奖来源 / 服务 / 持久化+清理 / 礼包库+落点),用时序图归纳:
 
-<div class="diagram">
-  <svg viewBox="0 0 940 500" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="收件与领取邮件的时序图">
-    <defs>
-      <marker id="t-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="t-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      <marker id="t-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="t-brown" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#b86a45"></path></marker>
-    </defs>
-    <!-- 泳道 -->
-    <text x="110" y="28" text-anchor="middle" fill="#9db4ff" font-size="12.5" font-weight="bold">发奖来源 / 邮件 UI</text>
-    <text x="350" y="28" text-anchor="middle" fill="#7fe0b8" font-size="12.5" font-weight="bold">MailboxService</text>
-    <text x="585" y="28" text-anchor="middle" fill="#ffdd80" font-size="12.5" font-weight="bold">持久化 + 清理</text>
-    <text x="840" y="28" text-anchor="middle" fill="#e0b89a" font-size="12.5" font-weight="bold">GiftOpener → ItemGrant（16）</text>
-    <line x1="110" y1="38" x2="110" y2="470" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="350" y1="38" x2="350" y2="470" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="585" y1="38" x2="585" y2="470" stroke="#39435c" stroke-width="1.5"></line>
-    <line x1="840" y1="38" x2="840" y2="470" stroke="#39435c" stroke-width="1.5"></line>
-    <!-- A 收件流 -->
-    <text x="40" y="58" fill="#7fe0b8" font-size="11" font-weight="bold">A · 收件(系统发奖,本轮真做)</text>
-    <line x1="110" y1="74" x2="350" y2="74" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-    <text x="230" y="66" text-anchor="middle" fill="#9db4ff" font-size="10.5">Send(draft) ← 排行榜/活动/补偿</text>
-    <rect x="338" y="86" width="24" height="120" rx="4" fill="#16302430" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="350" y="102" text-anchor="middle" fill="#7fe0b8" font-size="9.5">建 MailItem</text>
-    <line x1="362" y1="128" x2="585" y2="128" stroke="#ffcf5c" stroke-width="2" marker-end="url(#t-gold)"></line>
-    <text x="475" y="120" text-anchor="middle" fill="#ffdd80" font-size="10.5">插尾 + 清过期 + 清超量</text>
-    <line x1="362" y1="166" x2="585" y2="166" stroke="#ffcf5c" stroke-width="2" marker-end="url(#t-gold)"></line>
-    <text x="475" y="158" text-anchor="middle" fill="#ffdd80" font-size="10.5">Save(inbox) → 键 Mail.Inbox</text>
-    <line x1="350" y1="198" x2="110" y2="198" stroke="#5bd6a0" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#t-green)"></line>
-    <text x="230" y="190" text-anchor="middle" fill="#7fe0b8" font-size="10">返新邮件 id</text>
-    <line x1="40" y1="232" x2="900" y2="232" stroke="#39435c" stroke-width="1" stroke-dasharray="2 4"></line>
-    <!-- B 领取流 -->
-    <text x="40" y="256" fill="#7fe0b8" font-size="11" font-weight="bold">B · 领取(玩家点领,UI 延后)</text>
-    <line x1="110" y1="272" x2="350" y2="272" stroke="#6c8cff" stroke-width="2" marker-end="url(#t-blue)"></line>
-    <text x="230" y="264" text-anchor="middle" fill="#9db4ff" font-size="10.5">Claim(id, state) / ClaimAll(state)</text>
-    <rect x="338" y="284" width="24" height="150" rx="4" fill="#16302430" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="350" y="300" text-anchor="middle" fill="#7fe0b8" font-size="9.5">校验态</text>
-    <!-- 抽库 -->
-    <line x1="362" y1="324" x2="840" y2="324" stroke="#b86a45" stroke-width="2" marker-end="url(#t-brown)"></line>
-    <text x="600" y="316" text-anchor="middle" fill="#e0b89a" font-size="10.5">OpenRandom(reward_id,1,rng) → GrantOnAcquire</text>
-    <line x1="840" y1="350" x2="362" y2="350" stroke="#b86a45" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#t-brown)"></line>
-    <text x="600" y="343" text-anchor="middle" fill="#c79a78" font-size="10">List&lt;GrantPayload&gt;（落 Exp/Piety/图案…）</text>
-    <!-- 标态 + 落盘 -->
-    <line x1="362" y1="384" x2="585" y2="384" stroke="#ffcf5c" stroke-width="2" marker-end="url(#t-gold)"></line>
-    <text x="475" y="376" text-anchor="middle" fill="#ffdd80" font-size="10.5">标已领+已读 → Save(inbox)</text>
-    <!-- 返结果 -->
-    <line x1="350" y1="418" x2="110" y2="418" stroke="#5bd6a0" stroke-width="2" marker-end="url(#t-green)"></line>
-    <text x="230" y="410" text-anchor="middle" fill="#7fe0b8" font-size="10.5">ClaimResult(Success, textId, Granted)</text>
-    <text x="230" y="436" text-anchor="middle" fill="#9db4ff" font-size="9.5">UI 弹「奖励已领」+ RewardView 展示（17）</text>
-    <line x1="40" y1="452" x2="900" y2="452" stroke="#39435c" stroke-width="1" stroke-dasharray="3 4"></line>
-    <text x="40" y="468" fill="#8a93a6" font-size="10">失败短路:NotFound / NoReward / AlreadyClaimed / Expired 返对应结果码,不发奖、不改态(§3.4.2)。实线=调用;虚线=返回。</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant U as 发奖来源 / 邮件 UI
+    participant S as MailboxService
+    participant P as 持久化 + 清理
+    participant G as GiftOpener → ItemGrant(16)
+    Note over U,G: A · 收件(系统发奖,本轮真做)
+    U->>S: Send(draft) ← 排行榜/活动/补偿
+    S->>S: 建 MailItem
+    S->>P: 插尾 + 清过期 + 清超量
+    S->>P: Save(inbox) → 键 Mail.Inbox
+    S-->>U: 返新邮件 id
+    Note over U,G: B · 领取(玩家点领,UI 延后)
+    U->>S: Claim(id, state) / ClaimAll(state)
+    S->>S: 校验态
+    S->>G: OpenRandom(reward_id,1,rng) → GrantOnAcquire
+    G-->>S: List&lt;GrantPayload&gt;(落 Exp/Piety/图案…)
+    S->>P: 标已领+已读 → Save(inbox)
+    S-->>U: ClaimResult(Success, textId, Granted)
+    Note over U,S: UI 弹「奖励已领」+ RewardView 展示(17)
+    Note over U,G: 失败短路:NotFound / NoReward / AlreadyClaimed / Expired 返对应结果码,不发奖、不改态(§3.4.2)
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 

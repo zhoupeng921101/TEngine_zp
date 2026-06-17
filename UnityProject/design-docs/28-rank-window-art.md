@@ -218,44 +218,24 @@ private void InitRank()
 
 <h3 id="row-flow">5.2 查榜 → 渲染 数据流</h3>
 
-<div class="diagram">
-    <svg viewBox="0 0 720 300" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif,system-ui" font-size="12">
-      <!-- nodes -->
-      <rect x="20" y="20" width="150" height="48" rx="8" fill="#27324a" stroke="#6c8cff"></rect>
-      <text x="95" y="40" text-anchor="middle" fill="#cdd6f4" font-weight="bold">RankWindow</text>
-      <text x="95" y="56" text-anchor="middle" fill="#9aa6c4">OnRefresh</text>
-      <rect x="285" y="20" width="160" height="48" rx="8" fill="#1f3a2e" stroke="#5bd6a0"></rect>
-      <text x="365" y="40" text-anchor="middle" fill="#cdd6f4" font-weight="bold">RankService</text>
-      <text x="365" y="56" text-anchor="middle" fill="#9aa6c4">GetBoard(rankId)</text>
-      <rect x="560" y="20" width="140" height="48" rx="8" fill="#3a2e1f" stroke="#ffcf5c"></rect>
-      <text x="630" y="40" text-anchor="middle" fill="#cdd6f4" font-weight="bold">IRankSource</text>
-      <text x="630" y="56" text-anchor="middle" fill="#9aa6c4">Fetch (本机+陪榜)</text>
-      <rect x="285" y="120" width="160" height="64" rx="8" fill="#1f3a2e" stroke="#5bd6a0"></rect>
-      <text x="365" y="142" text-anchor="middle" fill="#cdd6f4" font-weight="bold">排序 + 回填名次</text>
-      <text x="365" y="158" text-anchor="middle" fill="#9aa6c4">分降序 / 同分 ticks 升</text>
-      <text x="365" y="173" text-anchor="middle" fill="#9aa6c4">截 CountMax / ShowMax</text>
-      <rect x="20" y="120" width="170" height="64" rx="8" fill="#27324a" stroke="#6c8cff"></rect>
-      <text x="105" y="142" text-anchor="middle" fill="#cdd6f4" font-weight="bold">RankBoard</text>
-      <text x="105" y="158" text-anchor="middle" fill="#9aa6c4">Entries / Self</text>
-      <text x="105" y="173" text-anchor="middle" fill="#9aa6c4">SelfRank / SelfScore</text>
-      <rect x="20" y="232" width="240" height="48" rx="8" fill="#27324a" stroke="#6c8cff"></rect>
-      <text x="140" y="252" text-anchor="middle" fill="#cdd6f4" font-weight="bold">榜行列表(占位行底/徽章/头像)</text>
-      <text x="140" y="268" text-anchor="middle" fill="#9aa6c4">名次/名/分 = 真实数据</text>
-      <rect x="320" y="232" width="240" height="48" rx="8" fill="#3a2733" stroke="#ff7a8a"></rect>
-      <text x="440" y="252" text-anchor="middle" fill="#cdd6f4" font-weight="bold">我的名次条</text>
-      <text x="440" y="268" text-anchor="middle" fill="#9aa6c4">读 Self / SelfRank / SelfScore</text>
-      <!-- arrows (实线=调用/数据流) -->
-      <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#9aa6c4"></path></marker></defs>
-      <line x1="170" y1="44" x2="283" y2="44" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-      <line x1="445" y1="44" x2="558" y2="44" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-      <line x1="630" y1="68" x2="630" y2="100" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-      <line x1="630" y1="100" x2="447" y2="140" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-      <line x1="285" y1="152" x2="192" y2="152" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-      <line x1="105" y1="184" x2="120" y2="230" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-      <line x1="160" y1="184" x2="420" y2="230" stroke="#9aa6c4" marker-end="url(#ah)"></line>
-    </svg>
-    <div class="legend">实线 = 调用 / 数据流。蓝 = 表现层(窗口 / 行);绿 = 数据层服务(排序 / 名次回填,§3.3);黄 = 数据源接缝(本机 + 陪榜,远程 stub 返空);红 = 本人专属渲染。名次 / 名 / 分始终是真实数据,占位的只是行底 / 徽章 / 头像视觉。</div>
-  </div>
+```mermaid
+flowchart TD
+    a1["RankWindow<br/>OnRefresh"]
+    a2["RankService<br/>GetBoard(rankId)"]
+    a3["IRankSource<br/>Fetch(本机 + 陪榜)"]
+    a4["排序 + 回填名次<br/>分降序 / 同分 ticks 升<br/>截 CountMax / ShowMax"]
+    a5["RankBoard<br/>Entries / Self<br/>SelfRank / SelfScore"]
+    a6["榜行列表(占位行底 / 徽章 / 头像)<br/>名次 / 名 / 分 = 真实数据"]
+    a7["我的名次条<br/>读 Self / SelfRank / SelfScore"]
+    a1 --> a2
+    a2 --> a3
+    a3 --> a4
+    a4 --> a5
+    a5 --> a6
+    a5 --> a7
+    Note["名次 / 名 / 分始终是真实数据,占位的只是行底 / 徽章 / 头像视觉"]
+    a6 -.- Note
+```
 
 <h2 id="window">六、窗口脚本设计(RankWindow)</h2>
 

@@ -37,73 +37,24 @@
 
 七个环节首尾相接成环：奖励的体力回填到「落子」预算（正反馈回路），订单需求<b>反向拉动</b>候选块注入（只产订单要的元素）：
 
-<div class="diagram">
-    <svg viewBox="0 0 880 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="合成订单体力核心循环图">
-      <defs>
-        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-        <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-        <marker id="ar-y" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-      </defs>
-      <!-- 上排：体力 → 落子 → 消除 → 元素 -->
-      <g text-anchor="middle">
-        <rect x="30" y="40" width="180" height="76" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="120" y="74" font-size="16" font-weight="700" fill="#f2f4fc">体力</text>
-        <text x="120" y="98" font-size="12.5" fill="#aebcf5">落子前的预算（§3.3）</text>
-        <rect x="245" y="40" width="180" height="76" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="335" y="74" font-size="16" font-weight="700" fill="#f2f4fc">落子</text>
-        <text x="335" y="98" font-size="12.5" fill="#8fd0b4">使用候选块 · 消耗体力</text>
-        <rect x="460" y="40" width="180" height="76" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="550" y="74" font-size="16" font-weight="700" fill="#f2f4fc">消除</text>
-        <text x="550" y="98" font-size="12.5" fill="#8fd0b4">消行/列 · 返还体力</text>
-        <rect x="675" y="40" width="180" height="76" rx="12" fill="#3a3120" stroke="#ffcf5c"></rect>
-        <text x="765" y="74" font-size="16" font-weight="700" fill="#f2f4fc">元素</text>
-        <text x="765" y="98" font-size="12.5" fill="#e8c98a">被清格元素入合成区</text>
-      </g>
-      <g stroke="#8d96b5" stroke-width="1.6">
-        <line x1="210" y1="78" x2="237" y2="78" marker-end="url(#ar)"></line>
-        <line x1="425" y1="78" x2="452" y2="78" marker-end="url(#ar)"></line>
-        <line x1="640" y1="78" x2="667" y2="78" marker-end="url(#ar)"></line>
-      </g>
-      <!-- 下排：奖励 ← 订单交付 ← 合成 -->
-      <g text-anchor="middle">
-        <rect x="660" y="260" width="180" height="76" rx="12" fill="#3a3120" stroke="#ffcf5c"></rect>
-        <text x="750" y="294" font-size="16" font-weight="700" fill="#f2f4fc">合成</text>
-        <text x="750" y="318" font-size="12.5" fill="#e8c98a">相同两两合并升级（§3.1）</text>
-        <rect x="395" y="260" width="180" height="76" rx="12" fill="#3a3120" stroke="#ffcf5c"></rect>
-        <text x="485" y="294" font-size="16" font-weight="700" fill="#f2f4fc">订单交付</text>
-        <text x="485" y="318" font-size="12.5" fill="#e8c98a">满足要求 · 消耗合成物（§3.2）</text>
-        <rect x="130" y="260" width="180" height="76" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="220" y="294" font-size="16" font-weight="700" fill="#f2f4fc">奖励</text>
-        <text x="220" y="318" font-size="12.5" fill="#aebcf5">补体力 + 分 · 刷新下一单</text>
-      </g>
-      <!-- 主链：元素↓合成 → 订单交付 → 奖励 -->
-      <g stroke="#8d96b5" stroke-width="1.6" fill="none">
-        <line x1="790" y1="116" x2="790" y2="252" marker-end="url(#ar)"></line>
-        <line x1="652" y1="298" x2="583" y2="298" marker-end="url(#ar)"></line>
-        <line x1="387" y1="298" x2="318" y2="298" marker-end="url(#ar)"></line>
-      </g>
-      <!-- 正反馈回路：奖励 → 体力 -->
-      <path d="M130 298 H105 V124" fill="none" stroke="#5bd6a0" stroke-width="2" marker-end="url(#ar-g)"></path>
-      <text x="118" y="200" font-size="13" fill="#5bd6a0">奖励回补体力</text>
-      <text x="118" y="220" font-size="13" fill="#5bd6a0">正反馈 · 玩得久</text>
-      <!-- 反向拉动：订单需求 → 元素注入 -->
-      <path d="M485 260 V170 H730 V124" fill="none" stroke="#ffcf5c" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ar-y)"></path>
-      <text x="600" y="160" text-anchor="middle" font-size="13" fill="#ffcf5c">订单需求反向拉动注入（§四·风险1）</text>
-      <!-- 图例 -->
-      <line x1="60" y1="390" x2="96" y2="390" stroke="#8d96b5" stroke-width="2"></line>
-      <text x="104" y="395" font-size="13" fill="#8d96b5">主循环推进</text>
-      <line x1="240" y1="390" x2="276" y2="390" stroke="#5bd6a0" stroke-width="2"></line>
-      <text x="284" y="395" font-size="13" fill="#8d96b5">体力回补（正反馈）</text>
-      <line x1="470" y1="390" x2="506" y2="390" stroke="#ffcf5c" stroke-width="2" stroke-dasharray="6 5"></line>
-      <text x="514" y="395" font-size="13" fill="#8d96b5">需求反向拉动（虚线）</text>
-      <rect x="60" y="418" width="24" height="14" rx="4" fill="#283256" stroke="#6c8cff"></rect>
-      <text x="92" y="430" font-size="13" fill="#8d96b5">体力资源层</text>
-      <rect x="240" y="418" width="24" height="14" rx="4" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="272" y="430" font-size="13" fill="#8d96b5">方块技巧层</text>
-      <rect x="470" y="418" width="24" height="14" rx="4" fill="#3a3120" stroke="#ffcf5c"></rect>
-      <text x="502" y="430" font-size="13" fill="#8d96b5">合成经济层</text>
-    </svg>
-    </div>
+```mermaid
+flowchart TD
+    energy["体力<br/>落子前的预算 §3.3"]
+    place["落子<br/>使用候选块 · 消耗体力"]
+    clear["消除<br/>消行/列 · 返还体力"]
+    elem["元素<br/>被清格元素入合成区"]
+    merge["合成<br/>相同两两合并升级 §3.1"]
+    deliver["订单交付<br/>满足要求 · 消耗合成物 §3.2"]
+    reward["奖励<br/>补体力 + 分 · 刷新下一单"]
+    energy --> place
+    place --> clear
+    clear --> elem
+    elem --> merge
+    merge --> deliver
+    deliver --> reward
+    reward -->|"奖励回补体力 · 正反馈 · 玩得久"| energy
+    deliver -.->|"订单需求反向拉动注入(§四·风险1)"| elem
+```
 
 正反馈链：奖励的体力回填到「落子」预算；订单需求<b>反向拉动</b>注入与消除（只产/只消订单要的元素）。<mark class="g">技巧（多消除）→ 体力净正 → 玩得久</mark>。
 
@@ -235,58 +186,24 @@ boss 代决 §6 要求三个风险点在设计中给出明确方案，逐条如�
 
 <b>加法式 + 独立窗口 + 模式门控</b>策略：`MergeOrderMode` 门控本切片全部新逻辑；off 时（Classic）<mark>行为零变化</mark>。元素生成走得分驱动映射（`MergeOrderConfig.ElementsForScore` 算数量 → `MergeOrderState.PendingElements` 队列 → 补牌抽干），详见 [10·§四](#10-score-element-rm-collect::hook)。
 
-<div class="diagram">
-    <svg viewBox="0 0 880 400" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="模块挂接关系图">
-      <defs>
-        <marker id="har" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-      </defs>
-      <g text-anchor="middle">
-        <!-- 左列 -->
-        <rect x="40" y="40" width="210" height="64" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="145" y="68" font-size="15" font-weight="700" fill="#f2f4fc">MainMenuWindow</text>
-        <text x="145" y="90" font-size="12" fill="#aebcf5">加「合成订单 Demo」入口</text>
-        <rect x="40" y="170" width="210" height="64" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="145" y="198" font-size="15" font-weight="700" fill="#f2f4fc">BlockGameState</text>
-        <text x="145" y="220" font-size="12" fill="#aebcf5">复用元素层 · 门控扩展</text>
-        <rect x="40" y="292" width="210" height="64" rx="12" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="145" y="320" font-size="14" font-weight="700" fill="#f2f4fc">BinaryBoard / ShapeMap</text>
-        <text x="145" y="342" font-size="12" fill="#8d96b5">不改 · 仅调用</text>
-        <!-- 中列 -->
-        <rect x="340" y="40" width="220" height="80" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="450" y="72" font-size="16" font-weight="700" fill="#f2f4fc">MergeOrderWindow</text>
-        <text x="450" y="98" font-size="12" fill="#8fd0b4">切片主体窗口（新增）</text>
-        <rect x="340" y="200" width="200" height="60" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="440" y="226" font-size="14" font-weight="700" fill="#f2f4fc">MergeOrderWinWindow</text>
-        <text x="440" y="246" font-size="12" fill="#8fd0b4">demo 通关面板（新增）</text>
-        <rect x="340" y="300" width="200" height="60" rx="12" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="440" y="326" font-size="14" font-weight="700" fill="#f2f4fc">GameOverWindow</text>
-        <text x="440" y="346" font-size="12" fill="#aebcf5">双失败条件兜底复用</text>
-        <!-- 右列 -->
-        <rect x="650" y="40" width="210" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="755" y="68" font-size="15" font-weight="700" fill="#f2f4fc">MergeOrderState</text>
-        <text x="755" y="90" font-size="12" fill="#8fd0b4">纯逻辑状态机（新增）</text>
-        <rect x="650" y="160" width="210" height="64" rx="12" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="755" y="188" font-size="15" font-weight="700" fill="#f2f4fc">MergeOrderConfig</text>
-        <text x="755" y="210" font-size="12" fill="#8fd0b4">可调常量 + 订单池（新增）</text>
-      </g>
-      <g stroke="#8d96b5" stroke-width="1.6" fill="none">
-        <line x1="250" y1="72" x2="332" y2="72" marker-end="url(#har)"></line>
-        <line x1="560" y1="68" x2="642" y2="68" marker-end="url(#har)"></line>
-        <path d="M560 96 H600 V192 H642" marker-end="url(#har)"></path>
-        <line x1="350" y1="120" x2="220" y2="162" marker-end="url(#har)"></line>
-        <line x1="145" y1="234" x2="145" y2="284" marker-end="url(#har)"></line>
-        <line x1="440" y1="120" x2="440" y2="192" marker-end="url(#har)"></line>
-        <path d="M520 120 V150 H610 V330 H548" marker-end="url(#har)"></path>
-      </g>
-      <!-- 图例 -->
-      <rect x="60" y="378" width="24" height="14" rx="4" fill="#16382c" stroke="#5bd6a0"></rect>
-      <text x="92" y="390" font-size="13" fill="#8d96b5">新增</text>
-      <rect x="180" y="378" width="24" height="14" rx="4" fill="#283256" stroke="#6c8cff"></rect>
-      <text x="212" y="390" font-size="13" fill="#8d96b5">复用 / 门控扩展</text>
-      <rect x="360" y="378" width="24" height="14" rx="4" fill="#1e2230" stroke="#8d96b5"></rect>
-      <text x="392" y="390" font-size="13" fill="#8d96b5">不改</text>
-    </svg>
-    </div>
+```mermaid
+flowchart TD
+    main["MainMenuWindow<br/>加「合成订单 Demo」入口"]
+    state["BlockGameState<br/>复用元素层 · 门控扩展"]
+    board["BinaryBoard / ShapeMap<br/>不改 · 仅调用"]
+    win["MergeOrderWindow<br/>切片主体窗口(新增)"]
+    winwin["MergeOrderWinWindow<br/>demo 通关面板(新增)"]
+    gameover["GameOverWindow<br/>双失败条件兜底复用"]
+    mstate["MergeOrderState<br/>纯逻辑状态机(新增)"]
+    mcfg["MergeOrderConfig<br/>可调常量 + 订单池(新增)"]
+    main --> win
+    win --> mstate
+    win --> mcfg
+    win --> state
+    state --> board
+    win --> winwin
+    win --> gameover
+```
 
 | 现有 / 新增 | 挂接方式 |
 | --- | --- |

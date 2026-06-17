@@ -43,92 +43,34 @@
 
 按职责归层后，整个模块是一座<mark>依赖方向单向向下</mark>的四层塔，随机与存档作为可注入基础设施贯穿各层：
 
-<div class="diagram">
-    <svg viewBox="0 0 880 615" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="BlockBlast 三层分层结构图">
-      <defs>
-        <marker id="ar-l" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-      </defs>
-      <!-- 门面层 -->
-      <rect x="20" y="20" width="690" height="108" rx="12" fill="#6c8cff" fill-opacity="0.04" stroke="#6c8cff" stroke-opacity="0.55"></rect>
-      <text x="34" y="42" font-size="13" fill="#aebcf5">门面层</text>
-      <g text-anchor="middle">
-        <rect x="240" y="52" width="250" height="62" rx="10" fill="#2a3566" stroke="#6c8cff"></rect>
-        <text x="365" y="78" font-size="15.5" font-weight="700" fill="#f2f4fc">BlockGameState</text>
-        <text x="365" y="100" font-size="12.5" fill="#aebcf5">棋盘 / 手牌 / 分数 / 存档 · UI 唯一入口</text>
-      </g>
-      <!-- 调度层 -->
-      <rect x="20" y="164" width="690" height="108" rx="12" fill="#ffcf5c" fill-opacity="0.04" stroke="#ffcf5c" stroke-opacity="0.55"></rect>
-      <text x="34" y="186" font-size="13" fill="#ffcf5c">调度层</text>
-      <g text-anchor="middle">
-        <rect x="36" y="196" width="230" height="62" rx="10" fill="#463c1e" stroke="#ffcf5c"></rect>
-        <text x="151" y="222" font-size="15.5" font-weight="700" fill="#f2f4fc">DynamicWeightDiff ★</text>
-        <text x="151" y="244" font-size="12.5" fill="#e8d9a0">选 tier → 抽算法 → 反馈调权</text>
-        <rect x="286" y="196" width="200" height="62" rx="10" fill="#463c1e" stroke="#ffcf5c"></rect>
-        <text x="386" y="222" font-size="15.5" font-weight="700" fill="#f2f4fc">OfferOverrides</text>
-        <text x="386" y="244" font-size="12.5" fill="#e8d9a0">优先级覆盖层(开局/空盘)</text>
-        <rect x="506" y="196" width="190" height="62" rx="10" fill="#463c1e" stroke="#ffcf5c"></rect>
-        <text x="601" y="222" font-size="14.5" font-weight="700" fill="#f2f4fc">GameConfigBB</text>
-        <text x="601" y="244" font-size="12" fill="#e8d9a0">WeightConfigEntry · 配置</text>
-      </g>
-      <!-- 算法层 -->
-      <rect x="20" y="308" width="690" height="108" rx="12" fill="#b86a45" fill-opacity="0.05" stroke="#b86a45" stroke-opacity="0.6"></rect>
-      <text x="34" y="330" font-size="13" fill="#d8a98f">算法层</text>
-      <g text-anchor="middle">
-        <rect x="36" y="340" width="230" height="62" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="151" y="366" font-size="15.5" font-weight="700" fill="#f2f4fc">BlockAlgorithms</text>
-        <text x="151" y="388" font-size="12.5" fill="#d8a98f">8 种发牌算法 + 主分发器</text>
-        <rect x="286" y="340" width="200" height="62" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="386" y="366" font-size="15.5" font-weight="700" fill="#f2f4fc">BoardEvaluator</text>
-        <text x="386" y="388" font-size="12.5" fill="#d8a98f">枚举解 / 模拟消除 / 熵</text>
-        <rect x="506" y="340" width="190" height="62" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="601" y="366" font-size="15.5" font-weight="700" fill="#f2f4fc">BoardAnalysis</text>
-        <text x="601" y="388" font-size="12.5" fill="#d8a98f">棋盘模式识别</text>
-      </g>
-      <!-- 核心层 -->
-      <rect x="20" y="452" width="690" height="108" rx="12" fill="#5bd6a0" fill-opacity="0.04" stroke="#5bd6a0" stroke-opacity="0.55"></rect>
-      <text x="34" y="474" font-size="13" fill="#8fd0b4">核心层（纯棋盘数学）</text>
-      <g text-anchor="middle">
-        <rect x="36" y="484" width="230" height="62" rx="10" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="151" y="510" font-size="15.5" font-weight="700" fill="#f2f4fc">BinaryBoard</text>
-        <text x="151" y="532" font-size="12.5" fill="#8fd0b4">8×8 位掩码棋盘</text>
-        <rect x="286" y="484" width="200" height="62" rx="10" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="386" y="510" font-size="15.5" font-weight="700" fill="#f2f4fc">BlockShape(Map)</text>
-        <text x="386" y="532" font-size="12.5" fill="#8fd0b4">39 白名单形状 + 难块子池</text>
-        <rect x="506" y="484" width="190" height="62" rx="10" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="601" y="510" font-size="15.5" font-weight="700" fill="#f2f4fc">Vec2Int / ClearResult</text>
-        <text x="601" y="532" font-size="12.5" fill="#8fd0b4">基础数据类型</text>
-      </g>
-      <!-- 层间依赖箭头 -->
-      <g stroke="#8d96b5" stroke-width="1.8">
-        <line x1="365" y1="128" x2="365" y2="158" marker-end="url(#ar-l)"></line>
-        <line x1="365" y1="272" x2="365" y2="302" marker-end="url(#ar-l)"></line>
-        <line x1="365" y1="416" x2="365" y2="446" marker-end="url(#ar-l)"></line>
-      </g>
-      <g font-size="12.5" fill="#8d96b5">
-        <text x="380" y="149">RefillPieces → OfferTrio（§三）</text>
-        <text x="380" y="293">GenerateTrio / 候选打分</text>
-        <text x="380" y="437">位运算盘面操作</text>
-      </g>
-      <!-- 基础设施列 -->
-      <rect x="724" y="20" width="136" height="540" rx="12" fill="none" stroke="#9aa3c4" stroke-dasharray="6 5"></rect>
-      <g text-anchor="middle">
-        <text x="792" y="46" font-size="13" fill="#9aa3c4">基础设施</text>
-        <rect x="736" y="210" width="112" height="58" rx="10" fill="#2b3140" stroke="#9aa3c4"></rect>
-        <text x="792" y="234" font-size="13.5" font-weight="700" fill="#f2f4fc">RandomSource</text>
-        <text x="792" y="254" font-size="11.5" fill="#b9c0d8">可注入随机源</text>
-        <rect x="736" y="300" width="112" height="58" rx="10" fill="#2b3140" stroke="#9aa3c4"></rect>
-        <text x="792" y="324" font-size="13.5" font-weight="700" fill="#f2f4fc">Persistence</text>
-        <text x="792" y="344" font-size="11.5" fill="#b9c0d8">可注入存档后端</text>
-        <text x="792" y="398" font-size="12" fill="#9aa3c4">贯穿各层注入</text>
-      </g>
-      <!-- 图例 -->
-      <line x1="60" y1="595" x2="96" y2="595" stroke="#8d96b5" stroke-width="2" marker-end="url(#ar-l)"></line>
-      <text x="106" y="600" font-size="13" fill="#8d96b5">依赖 / 调用方向（单向向下）</text>
-      <rect x="320" y="586" width="30" height="16" rx="5" fill="none" stroke="#9aa3c4" stroke-dasharray="5 4"></rect>
-      <text x="360" y="600" font-size="13" fill="#8d96b5">可注入基础设施（接口）</text>
-      <text x="600" y="600" font-size="13" fill="#8d96b5">底色 = 所属层（见各层标签）</text>
-    </svg>
-    </div>
+```mermaid
+flowchart TD
+    subgraph facade["门面层"]
+        f1["BlockGameState<br/>棋盘 / 手牌 / 分数 / 存档 · UI 唯一入口"]
+    end
+    subgraph sched["调度层"]
+        s1["DynamicWeightDiff ★<br/>选 tier → 抽算法 → 反馈调权"]
+        s2["OfferOverrides<br/>优先级覆盖层(开局/空盘)"]
+        s3["GameConfigBB<br/>WeightConfigEntry · 配置"]
+    end
+    subgraph algo["算法层"]
+        a1["BlockAlgorithms<br/>8 种发牌算法 + 主分发器"]
+        a2["BoardEvaluator<br/>枚举解 / 模拟消除 / 熵"]
+        a3["BoardAnalysis<br/>棋盘模式识别"]
+    end
+    subgraph core["核心层(纯棋盘数学)"]
+        c1["BinaryBoard<br/>8×8 位掩码棋盘"]
+        c2["BlockShape(Map)<br/>39 白名单形状 + 难块子池"]
+        c3["Vec2Int / ClearResult<br/>基础数据类型"]
+    end
+    subgraph infra["基础设施(可注入接口 · 贯穿各层注入)"]
+        i1["RandomSource<br/>可注入随机源"]
+        i2["Persistence<br/>可注入存档后端"]
+    end
+    facade -->|"RefillPieces → OfferTrio(§三)"| sched
+    sched -->|"GenerateTrio / 候选打分"| algo
+    algo -->|"位运算盘面操作"| core
+```
 
 <div class="callout good">
       分层很干净：<b>Core 不知道难度存在，Algorithms 不知道调度存在，调度器只编排不实现棋盘操作</b>。依赖方向单向向下，所以每层都能独立替换与测试。
@@ -151,109 +93,31 @@
 
 玩家落子后若手牌用空，`RefillPieces` 触发整条调度链。下图是一次补牌的完整数据流：`OfferTrio` 先走短路链（命中即返回），没命中才进入正式调度，向下穿过算法层与评分器，最终落到位掩码棋盘上做位运算。
 
-<div class="diagram">
-    <svg viewBox="0 0 1100 1050" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="一次补牌的调度数据流时序图">
-      <defs>
-        <marker id="ar-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8a93b8"></path></marker>
-      </defs>
-      <!-- 生命线 -->
-      <g stroke="#3a4263" stroke-dasharray="4 4">
-        <line x1="140" y1="76" x2="140" y2="1000"></line>
-        <line x1="380" y1="76" x2="380" y2="1000"></line>
-        <line x1="580" y1="76" x2="580" y2="1000"></line>
-        <line x1="780" y1="76" x2="780" y2="1000"></line>
-        <line x1="980" y1="76" x2="980" y2="1000"></line>
-      </g>
-      <!-- 参与方头卡 -->
-      <g text-anchor="middle">
-        <rect x="55" y="12" width="170" height="64" rx="10" fill="#2a3566" stroke="#6c8cff"></rect>
-        <text x="140" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BlockGameState</text>
-        <text x="140" y="61" font-size="12.5" fill="#aebcf5">门面 · 手牌/棋盘</text>
-        <rect x="295" y="12" width="170" height="64" rx="10" fill="#463c1e" stroke="#ffcf5c"></rect>
-        <text x="380" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">DynamicWeightDiff</text>
-        <text x="380" y="61" font-size="12.5" fill="#e8d9a0">★ 调度大脑</text>
-        <rect x="495" y="12" width="170" height="64" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="580" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BlockAlgorithms</text>
-        <text x="580" y="61" font-size="12.5" fill="#d8a98f">8 种发牌算法</text>
-        <rect x="695" y="12" width="170" height="64" rx="10" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="780" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BoardEvaluator</text>
-        <text x="780" y="61" font-size="12.5" fill="#d8a98f">评分发动机</text>
-        <rect x="895" y="12" width="170" height="64" rx="10" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="980" y="40" font-size="15.5" font-weight="700" fill="#e6e9f5">BinaryBoard</text>
-        <text x="980" y="61" font-size="12.5" fill="#8fd0b4">+ BoardAnalysis</text>
-      </g>
-      <!-- 落子与反馈 -->
-      <path d="M140 112 H188 V136 H148" fill="none" stroke="#8a93b8" marker-end="url(#ar-s)"></path>
-      <text x="198" y="130" font-size="15" fill="#cdd3ea">玩家落子 PlacePiece()</text>
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="140" y1="178" x2="372" y2="178" stroke="#8a93b8" marker-end="url(#ar-s)"></line>
-        <text x="260" y="170">AddWeight：dynamicWeight ±= factor</text>
-        <text x="260" y="206">手牌空 → RefillPieces(board)</text>
-        <text x="260" y="224">→ OfferTrio(board, score)</text>
-        <line x1="140" y1="238" x2="372" y2="238" stroke="#8a93b8" marker-end="url(#ar-s)"></line>
-      </g>
-      <!-- 短路链 -->
-      <text x="560" y="272" text-anchor="middle" font-size="13.5" fill="#9aa3c4">OfferTrio 短路链：自上而下命中即返回（完整优先级表见 §五）</text>
-      <g>
-        <rect x="45" y="282" width="1030" height="34" rx="8" fill="#171b2e" stroke="#2c3354" stroke-dasharray="5 4"></rect>
-        <text x="560" y="304" text-anchor="middle" font-size="14" fill="#9aa3c4">① 清屏窗口 score &lt; 15000 → BoardClearGreedyTrio（放水）直接返回</text>
-        <rect x="45" y="326" width="1030" height="34" rx="8" fill="#171b2e" stroke="#2c3354" stroke-dasharray="5 4"></rect>
-        <text x="560" y="348" text-anchor="middle" font-size="14" fill="#9aa3c4">② 覆盖层命中 → OfferRegistry.Dispatch：开局 Fill / 空盘 RandomNoDie</text>
-        <rect x="45" y="370" width="1030" height="34" rx="8" fill="#171b2e" stroke="#2c3354" stroke-dasharray="5 4"></rect>
-        <text x="560" y="392" text-anchor="middle" font-size="14" fill="#9aa3c4">③ 未激活 score &lt; 1000 → RandomNoDie</text>
-      </g>
-      <!-- 正式调度分支框 -->
-      <rect x="45" y="420" width="1030" height="460" rx="12" fill="none" stroke="#ffcf5c" stroke-opacity="0.7"></rect>
-      <rect x="45" y="420" width="130" height="26" rx="8" fill="#463c1e" stroke="#ffcf5c" stroke-opacity="0.7"></rect>
-      <text x="110" y="438" text-anchor="middle" font-size="13" fill="#ffcf5c">④ 正式调度</text>
-      <path d="M380 458 H430 V482 H388" fill="none" stroke="#8a93b8" marker-end="url(#ar-s)"></path>
-      <text x="440" y="476" font-size="15" fill="#cdd3ea">GetCurrentTier(weight, score) → PickAlgorithmFromTier（8 odds 加权）</text>
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="380" y1="530" x2="572" y2="530" stroke="#8a93b8" marker-end="url(#ar-s)"></line>
-        <text x="480" y="522">GenerateTrio(algo)</text>
-      </g>
-      <path d="M580 556 H630 V580 H588" fill="none" stroke="#8a93b8" marker-end="url(#ar-s)"></path>
-      <text x="640" y="574" font-size="15" fill="#cdd3ea">蒙特卡洛：采样 N 次随机 trio（Fill / Diff / StraightDeath…）</text>
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="580" y1="628" x2="772" y2="628" stroke="#8a93b8" marker-end="url(#ar-s)"></line>
-        <text x="680" y="620">每个候选 trio 打分</text>
-      </g>
-      <path d="M780 654 H830 V678 H788" fill="none" stroke="#8a93b8" marker-end="url(#ar-s)"></path>
-      <text x="770" y="672" text-anchor="end" font-size="14.5" fill="#cdd3ea">EnumerateSolutions（DFS 枚举解）/ Simulate（模拟消除）/ Entropy（熵）</text>
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="780" y1="726" x2="972" y2="726" stroke="#8a93b8" marker-end="url(#ar-s)"></line>
-        <text x="880" y="718">CanPutBlock / GetCanPutPoss</text>
-      </g>
-      <path d="M980 752 H1025 V776 H988" fill="none" stroke="#8a93b8" marker-end="url(#ar-s)"></path>
-      <text x="970" y="770" text-anchor="end" font-size="14.5" fill="#cdd3ea">BoardAnalysis：近满行 / 最大空矩形识别</text>
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="980" y1="824" x2="788" y2="824" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-s)"></line>
-        <text x="880" y="816">位运算结果</text>
-        <line x1="780" y1="862" x2="588" y2="862" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-s)"></line>
-        <text x="680" y="854">CountSolutions：解数 = 难度量化（§四·支柱2）</text>
-      </g>
-      <!-- 返回与后处理 -->
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="580" y1="908" x2="388" y2="908" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-s)"></line>
-        <text x="480" y="900">最优 trio（3 个 shapeId）</text>
-      </g>
-      <path d="M380 924 H430 V948 H388" fill="none" stroke="#8a93b8" marker-end="url(#ar-s)"></path>
-      <text x="440" y="942" font-size="15" fill="#cdd3ea">后处理：早期屏蔽 + 三块去重（每次返回前）</text>
-      <g font-size="15" fill="#cdd3ea" text-anchor="middle">
-        <line x1="380" y1="988" x2="148" y2="988" stroke="#8a93b8" stroke-dasharray="6 5" marker-end="url(#ar-s)"></line>
-        <text x="260" y="980">trio 上手牌（PendingPiece ×3）</text>
-      </g>
-      <!-- 图例 -->
-      <line x1="120" y1="1030" x2="160" y2="1030" stroke="#8a93b8" stroke-width="2"></line>
-      <text x="168" y="1035" font-size="13" fill="#9aa3c4">调用 / 数据流</text>
-      <line x1="300" y1="1030" x2="340" y2="1030" stroke="#8a93b8" stroke-width="2" stroke-dasharray="6 5"></line>
-      <text x="348" y="1035" font-size="13" fill="#9aa3c4">返回 / 数据</text>
-      <rect x="480" y="1021" width="30" height="16" rx="5" fill="none" stroke="#ffcf5c" stroke-opacity="0.7"></rect>
-      <text x="520" y="1035" font-size="13" fill="#9aa3c4">正式调度分支</text>
-      <rect x="660" y="1021" width="30" height="16" rx="5" fill="#171b2e" stroke="#2c3354" stroke-dasharray="5 4"></rect>
-      <text x="700" y="1035" font-size="13" fill="#9aa3c4">短路出口（命中即返回）</text>
-    </svg>
-    </div>
+```mermaid
+sequenceDiagram
+    participant G as BlockGameState
+    participant D as DynamicWeightDiff
+    participant A as BlockAlgorithms
+    participant E as BoardEvaluator
+    participant B as BinaryBoard + BoardAnalysis
+    G->>G: 玩家落子 PlacePiece()
+    G->>D: AddWeight：dynamicWeight ±= factor<br/>手牌空 → RefillPieces(board) → OfferTrio(board, score)
+    Note over G,B: OfferTrio 短路链：自上而下命中即返回(完整优先级表见 §五)
+    Note over G,B: ① 清屏窗口 score ＜ 15000 → BoardClearGreedyTrio(放水)直接返回<br/>② 覆盖层命中 → OfferRegistry.Dispatch：开局 Fill / 空盘 RandomNoDie<br/>③ 未激活 score ＜ 1000 → RandomNoDie
+    Note over G,B: ④ 正式调度
+    D->>D: GetCurrentTier(weight, score) → PickAlgorithmFromTier(8 odds 加权)
+    D->>A: GenerateTrio(algo)
+    A->>A: 蒙特卡洛：采样 N 次随机 trio(Fill / Diff / StraightDeath…)
+    A->>E: 每个候选 trio 打分
+    E->>E: EnumerateSolutions(DFS 枚举解) / Simulate(模拟消除) / Entropy(熵)
+    E->>B: CanPutBlock / GetCanPutPoss
+    B->>B: BoardAnalysis：近满行 / 最大空矩形识别
+    B-->>E: 位运算结果
+    E-->>A: CountSolutions：解数 = 难度量化(§四·支柱2)
+    A-->>D: 最优 trio(3 个 shapeId)
+    D->>D: 后处理：早期屏蔽 + 三块去重(每次返回前)
+    D-->>G: trio 上手牌(PendingPiece ×3)
+```
 
 <h2 id="pillars">四、三大支柱拆解</h2>
 

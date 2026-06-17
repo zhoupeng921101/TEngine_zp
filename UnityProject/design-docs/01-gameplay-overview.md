@@ -11,82 +11,27 @@
 
 经典 <mark>8×8 棋盘 + 三块拖放消除</mark>(同类:Block Blast / 1010!)是整套玩法的<b>底层引擎</b>:落子 → 行列消除 → 补牌,这条裸循环每局全程在跑。融合后它<b>不是整个游戏的唯一循环、也不是唯一出口</b>——其上叠了体力预算、图案产出、订单交付,出口扩为三条。下图分两层:内层蓝框是经典裸循环(底层引擎),外层是融合上层与三出口。
 
-<div class="diagram">
-    <svg viewBox="0 0 920 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="融合核心循环图(经典底层引擎 + 上层 + 三出口)">
-      <defs>
-        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8d96b5"></path></marker>
-        <marker id="ar-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-        <marker id="ar-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-        <marker id="ar-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ff7a8a"></path></marker>
-      </defs>
-      <!-- 底层引擎容器框(经典裸循环) -->
-      <rect x="20" y="40" width="610" height="190" rx="14" fill="#11162a" stroke="#6c8cff" stroke-opacity="0.45" stroke-dasharray="7 5"></rect>
-      <text x="32" y="62" font-size="12.5" fill="#aebcf5" font-weight="700">经典底层引擎(裸循环 · 每局全程在跑)</text>
-      <!-- 引擎主链四节点 -->
-      <g text-anchor="middle">
-        <rect x="36" y="80" width="138" height="74" rx="11" fill="#283256" stroke="#6c8cff"></rect>
-        <text x="105" y="111" font-size="14.5" font-weight="700" fill="#f2f4fc">手牌 3 块</text>
-        <text x="105" y="133" font-size="11.5" fill="#aebcf5">调度发牌 · §四</text>
-        <rect x="194" y="80" width="138" height="74" rx="11" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="263" y="111" font-size="14.5" font-weight="700" fill="#f2f4fc">拖放落子</text>
-        <text x="263" y="133" font-size="11.5" fill="#8d96b5">ghost 绿可放/红不可</text>
-        <rect x="352" y="80" width="138" height="74" rx="11" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="421" y="111" font-size="14.5" font-weight="700" fill="#f2f4fc">行/列消除</text>
-        <text x="421" y="133" font-size="11.5" fill="#8fd0b4">整行/列填满即消</text>
-        <rect x="510" y="80" width="104" height="74" rx="11" fill="#1e2230" stroke="#8d96b5"></rect>
-        <text x="562" y="111" font-size="14.5" font-weight="700" fill="#f2f4fc">手牌用尽?</text>
-        <text x="562" y="133" font-size="11.5" fill="#8d96b5">3 块全落</text>
-      </g>
-      <g stroke="#8d96b5" stroke-width="1.6">
-        <line x1="174" y1="117" x2="188" y2="117" marker-end="url(#ar)"></line>
-        <line x1="332" y1="117" x2="346" y2="117" marker-end="url(#ar)"></line>
-        <line x1="490" y1="117" x2="504" y2="117" marker-end="url(#ar)"></line>
-      </g>
-      <!-- 引擎内回环:补牌 -->
-      <path d="M562 154 V 200 H 105 V 158" fill="none" stroke="#6c8cff" stroke-width="1.7" marker-end="url(#ar-b)"></path>
-      <text x="333" y="194" text-anchor="middle" font-size="12" fill="#6c8cff">是 → 补满下一组 3 块(动态难度调度,见 §四)</text>
-      <!-- 融合上层:体力预算底座(绿) -->
-      <g text-anchor="middle">
-        <rect x="36" y="262" width="262" height="64" rx="11" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="167" y="290" font-size="14" font-weight="700" fill="#e6e9f5">体力(预算底座)· 融合上层</text>
-        <text x="167" y="311" font-size="11.5" fill="#8fd0b4">落子 -1 · 消除返 · 订单回灌</text>
-      </g>
-      <!-- 融合上层:图案产出 + 订单(棕/绿) -->
-      <g text-anchor="middle">
-        <rect x="330" y="262" width="262" height="64" rx="11" fill="#3f2718" stroke="#b86a45"></rect>
-        <text x="461" y="290" font-size="14" font-weight="700" fill="#e6e9f5">产图案 / 合成 / 交订单</text>
-        <text x="461" y="311" font-size="11.5" fill="#d8a98f">消除驱动 → 换灵力 · 见 11</text>
-      </g>
-      <!-- 体力供落子 / 消除产图案 的上下连线 -->
-      <path d="M167 262 V 230 V 200" fill="none" stroke="#5bd6a0" stroke-dasharray="5 4" stroke-width="1.5" marker-end="url(#ar-g)"></path>
-      <text x="150" y="248" text-anchor="end" font-size="10.5" fill="#5bd6a0">体力喂落子</text>
-      <path d="M421 158 V 262" fill="none" stroke="#b86a45" stroke-dasharray="5 4" stroke-width="1.5" marker-end="url(#ar)"></path>
-      <text x="434" y="210" font-size="10.5" fill="#d8a98f">消除产图案</text>
-      <!-- 三出口(右侧竖排) -->
-      <g text-anchor="middle">
-        <rect x="690" y="60" width="210" height="58" rx="11" fill="#16382c" stroke="#5bd6a0"></rect>
-        <text x="795" y="84" font-size="13.5" font-weight="700" fill="#bfe9d2">① 通关</text>
-        <text x="795" y="104" font-size="11" fill="#8fd0b4">完成目标订单数</text>
-        <rect x="690" y="138" width="210" height="58" rx="11" fill="#3a331c" stroke="#ffcf5c"></rect>
-        <text x="795" y="162" font-size="13.5" font-weight="700" fill="#ffe39a">② 软 GameOver</text>
-        <text x="795" y="182" font-size="11" fill="#e8d49a">体力耗尽(先给三出路)</text>
-        <rect x="690" y="216" width="210" height="58" rx="11" fill="#3a1f26" stroke="#ff7a8a"></rect>
-        <text x="795" y="240" font-size="13.5" font-weight="700" fill="#ffb3bd">③ 硬 GameOver</text>
-        <text x="795" y="260" font-size="11" fill="#d49aa4">无处可落(防卡死兜底后)</text>
-      </g>
-      <!-- 出口箭头 -->
-      <path d="M592 285 C 660 285, 660 110, 686 92" fill="none" stroke="#5bd6a0" stroke-width="1.6" marker-end="url(#ar-g)"></path>
-      <path d="M298 300 C 360 360, 660 340, 686 178" fill="none" stroke="#ffcf5c" stroke-width="1.6" marker-end="url(#ar)"></path>
-      <path d="M614 117 C 660 130, 660 230, 686 244" fill="none" stroke="#ff7a8a" stroke-width="1.6" marker-end="url(#ar-r)"></path>
-      <!-- 图例 -->
-      <line x1="36" y1="358" x2="68" y2="358" stroke="#6c8cff" stroke-width="2" stroke-dasharray="7 5"></line>
-      <text x="76" y="363" font-size="12" fill="#9aa3c4">经典底层引擎</text>
-      <line x1="210" y1="358" x2="242" y2="358" stroke="#5bd6a0" stroke-width="2" stroke-dasharray="5 4"></line>
-      <text x="250" y="363" font-size="12" fill="#9aa3c4">融合上层(体力/图案)</text>
-      <line x1="430" y1="358" x2="462" y2="358" stroke="#ff7a8a" stroke-width="2"></line>
-      <text x="470" y="363" font-size="12" fill="#9aa3c4">三出口之一</text>
-    </svg>
-    </div>
+```mermaid
+flowchart TD
+    subgraph eng["经典底层引擎(裸循环 · 每局全程在跑)"]
+        h1["手牌 3 块<br/>调度发牌 · §四"]
+        h2["拖放落子<br/>ghost 绿可放/红不可"]
+        h3["行/列消除<br/>整行/列填满即消"]
+        h4["手牌用尽?<br/>3 块全落"]
+        h1 --> h2 --> h3 --> h4
+        h4 -->|"是 → 补满下一组 3 块(动态难度调度,见 §四)"| h1
+    end
+    stam["体力(预算底座)· 融合上层<br/>落子 -1 · 消除返 · 订单回灌"]
+    pat["产图案 / 合成 / 交订单<br/>消除驱动 → 换灵力 · 见 11"]
+    o1["① 通关<br/>完成目标订单数"]
+    o2["② 软 GameOver<br/>体力耗尽(先给三出路)"]
+    o3["③ 硬 GameOver<br/>无处可落(防卡死兜底后)"]
+    stam -->|体力喂落子| h2
+    h3 -->|消除产图案| pat
+    pat --> o1
+    stam --> o2
+    h4 --> o3
+```
 
 <div class="callout note">
       <b>三出口取代经典「无处可落即唯一结束」</b>:融合后结束条件为三条并列——<b>① 通关</b>(完成目标订单数)<b>② 软 GameOver</b>(体力耗尽且无单可交付,先给「自然恢复 / 祈愿兑体力 / 领奖含体力」三出路缓冲)<b>③ 硬 GameOver</b>(无处可落,由智能生成防卡死兜底后仍兜不住时触发)。经典的「剩余手牌无合法落点 → GameOver」被覆盖为<mark>三条出口之一</mark>(③)。完整结束模型见 <a href="#11-core-loop-completion::energy-empty">11·§7.3</a>,融合裁决见 <a href="#29-gameplay-fusion::v2">29·§3.2</a>。

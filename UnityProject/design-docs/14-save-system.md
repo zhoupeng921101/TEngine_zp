@@ -57,62 +57,25 @@
 
 存档系统拆三层,各层职责单一、各自可测。下游依赖上游:序列化层产/吃字符串(纯逻辑),存储层把字符串落盘/读盘(异步 IO),时机层决定何时触发。结构图:
 
-<div class="diagram">
-  <svg viewBox="0 0 920 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="存档系统三层分层结构图">
-    <defs>
-      <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 时机层 -->
-    <rect x="30" y="30" width="860" height="96" rx="12" fill="#1a2238" stroke="#ffcf5c" stroke-width="1.5"></rect>
-    <text x="50" y="56" fill="#ffcf5c" font-size="14" font-weight="bold">时机层 · MergeOrderWindow / 生命周期</text>
-    <rect x="56" y="68" width="180" height="44" rx="8" fill="#2a2618" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="146" y="89" text-anchor="middle" fill="#ffe9b0" font-size="13" font-weight="bold">启动 / 进入模式</text>
-    <text x="146" y="105" text-anchor="middle" fill="#cdb277" font-size="11">→ 触发加载 §3.4</text>
-    <rect x="256" y="68" width="220" height="44" rx="8" fill="#2a2618" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="366" y="89" text-anchor="middle" fill="#ffe9b0" font-size="13" font-weight="bold">元变更(交付/修复/开盒/祈愿)</text>
-    <text x="366" y="105" text-anchor="middle" fill="#cdb277" font-size="11">→ 标脏 RequestSave §3.4</text>
-    <rect x="496" y="68" width="180" height="44" rx="8" fill="#2a2618" stroke="#ffcf5c" stroke-width="1"></rect>
-    <text x="586" y="89" text-anchor="middle" fill="#ffe9b0" font-size="13" font-weight="bold">退出 / 暂停 / 销毁</text>
-    <text x="586" y="105" text-anchor="middle" fill="#cdb277" font-size="11">→ 兜底落盘 §3.4</text>
-    <!-- 箭头 时机→序列化 -->
-    <line x1="460" y1="126" x2="460" y2="168" stroke="#6c8cff" stroke-width="2" marker-end="url(#m-blue)"></line>
-    <text x="476" y="152" fill="#9fb4ff" font-size="11">Export/Import</text>
-    <!-- 序列化层 -->
-    <rect x="30" y="170" width="860" height="120" rx="12" fill="#16203a" stroke="#6c8cff" stroke-width="1.5"></rect>
-    <text x="50" y="196" fill="#9fb4ff" font-size="14" font-weight="bold">序列化层 · 纯逻辑,可单测,不碰磁盘</text>
-    <rect x="56" y="208" width="240" height="64" rx="8" fill="#1b2740" stroke="#6c8cff" stroke-width="1"></rect>
-    <text x="176" y="232" text-anchor="middle" fill="#cdd9ff" font-size="13" font-weight="bold">MergeOrderState</text>
-    <text x="176" y="250" text-anchor="middle" fill="#8ea2d8" font-size="11">ExportMeta() → DTO</text>
-    <text x="176" y="265" text-anchor="middle" fill="#8ea2d8" font-size="11">ImportMeta(DTO) ← 覆盖元字段</text>
-    <rect x="340" y="208" width="240" height="64" rx="8" fill="#1b2740" stroke="#6c8cff" stroke-width="1"></rect>
-    <text x="460" y="232" text-anchor="middle" fill="#cdd9ff" font-size="13" font-weight="bold">MergeMetaSave (DTO)</text>
-    <text x="460" y="250" text-anchor="middle" fill="#8ea2d8" font-size="11">[Serializable] + version</text>
-    <text x="460" y="265" text-anchor="middle" fill="#8ea2d8" font-size="11">JsonUtility ↔ string</text>
-    <rect x="624" y="208" width="240" height="64" rx="8" fill="#1b2740" stroke="#6c8cff" stroke-width="1"></rect>
-    <text x="744" y="228" text-anchor="middle" fill="#cdd9ff" font-size="13" font-weight="bold">MergeMetaPersistence</text>
-    <text x="744" y="246" text-anchor="middle" fill="#8ea2d8" font-size="11">Serialize/Deserialize(string)</text>
-    <text x="744" y="261" text-anchor="middle" fill="#8ea2d8" font-size="11">迁移 §3.5 / 跨天 §3.6</text>
-    <!-- 箭头 序列化→存储 -->
-    <line x1="744" y1="290" x2="744" y2="332" stroke="#5bd6a0" stroke-width="2" marker-end="url(#m-green)"></line>
-    <text x="760" y="316" fill="#7fe0b8" font-size="11">string</text>
-    <!-- 存储层 -->
-    <rect x="30" y="334" width="860" height="110" rx="12" fill="#142b22" stroke="#5bd6a0" stroke-width="1.5"></rect>
-    <text x="50" y="360" fill="#7fe0b8" font-size="14" font-weight="bold">存储层 · 字符串 ↔ 持久介质(IO 异步)</text>
-    <rect x="56" y="372" width="370" height="58" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="241" y="395" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">生产:沙盒文件(UniTask 异步读写)</text>
-    <text x="241" y="414" text-anchor="middle" fill="#7fc0a0" font-size="11">PlayerPrefsProvider 同接缝 / 沙盒 JSON 文件 §3.2</text>
-    <rect x="450" y="372" width="370" height="58" rx="8" fill="#16302440" stroke="#5bd6a0" stroke-width="1"></rect>
-    <text x="635" y="395" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">测试:InMemoryPersistenceProvider</text>
-    <text x="635" y="414" text-anchor="middle" fill="#7fc0a0" font-size="11">注入即换,单测往返不碰真实磁盘 §3.3</text>
-    <!-- 图例 -->
-    <text x="30" y="462" fill="#6f7d99" font-size="11">图例:</text>
-    <line x1="74" y1="458" x2="104" y2="458" stroke="#ffcf5c" stroke-width="2"></line><text x="110" y="462" fill="#cdb277" font-size="11">时机触发</text>
-    <line x1="186" y1="458" x2="216" y2="458" stroke="#6c8cff" stroke-width="2"></line><text x="222" y="462" fill="#9fb4ff" font-size="11">对象↔DTO(同步)</text>
-    <line x1="346" y1="458" x2="376" y2="458" stroke="#5bd6a0" stroke-width="2"></line><text x="382" y="462" fill="#7fe0b8" font-size="11">字符串↔磁盘(异步 IO)</text>
-  </svg>
-  </div>
+```mermaid
+flowchart TD
+    subgraph timing["时机层 · MergeOrderWindow / 生命周期"]
+        t1["启动 / 进入模式<br/>→ 触发加载 §3.4"]
+        t2["元变更(交付/修复/开盒/祈愿)<br/>→ 标脏 RequestSave §3.4"]
+        t3["退出 / 暂停 / 销毁<br/>→ 兜底落盘 §3.4"]
+    end
+    subgraph serial["序列化层 · 纯逻辑,可单测,不碰磁盘"]
+        s1["MergeOrderState<br/>ExportMeta() → DTO<br/>ImportMeta(DTO) ← 覆盖元字段"]
+        s2["MergeMetaSave (DTO)<br/>[Serializable] + version<br/>JsonUtility ↔ string"]
+        s3["MergeMetaPersistence<br/>Serialize/Deserialize(string)<br/>迁移 §3.5 / 跨天 §3.6"]
+    end
+    subgraph store["存储层 · 字符串 ↔ 持久介质(IO 异步)"]
+        d1["生产:沙盒文件(UniTask 异步读写)<br/>PlayerPrefsProvider 同接缝 / 沙盒 JSON 文件 §3.2"]
+        d2["测试:InMemoryPersistenceProvider<br/>注入即换,单测往返不碰真实磁盘 §3.3"]
+    end
+    timing -->|Export/Import| serial
+    serial -->|string| store
+```
 
 <b>为什么这样切:</b>把「对象↔字符串」与「字符串↔磁盘」拆成两层,是为了让<mark>序列化逻辑可单测而不依赖真实文件</mark>——这正是工程现有 `Persistence.Provider` 接缝的设计意图(生产 PlayerPrefs / 测试 InMemory)。序列化层只做纯转换,断言全在 string / DTO 上;磁盘 IO 的异步与失败兜底封在存储层,单测用 InMemory Provider 绕过。
 
@@ -264,45 +227,29 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 
 一次完整的「进入模式 → 元变更 → 退出」的存读时序(参与方:窗口 / MergeOrderState / 持久化层 / 磁盘):
 
-<div class="diagram">
-  <svg viewBox="0 0 920 540" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" role="img" aria-label="存档系统存读时序图">
-    <defs>
-      <marker id="t-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#6c8cff"></path></marker>
-      <marker id="t-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#5bd6a0"></path></marker>
-      <marker id="t-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#ffcf5c"></path></marker>
-    </defs>
-    <!-- 泳道头 -->
-    <rect x="40" y="20" width="160" height="40" rx="8" fill="#2a2618" stroke="#ffcf5c"></rect><text x="120" y="45" text-anchor="middle" fill="#ffe9b0" font-size="13" font-weight="bold">MergeOrderWindow</text>
-    <rect x="270" y="20" width="160" height="40" rx="8" fill="#1b2740" stroke="#6c8cff"></rect><text x="350" y="45" text-anchor="middle" fill="#cdd9ff" font-size="13" font-weight="bold">MergeOrderState</text>
-    <rect x="500" y="20" width="180" height="40" rx="8" fill="#16302440" stroke="#5bd6a0"></rect><text x="590" y="45" text-anchor="middle" fill="#bff0d8" font-size="13" font-weight="bold">MergeMetaPersistence</text>
-    <rect x="740" y="20" width="140" height="40" rx="8" fill="#241a24" stroke="#b86a45"></rect><text x="810" y="45" text-anchor="middle" fill="#e0b89a" font-size="13" font-weight="bold">磁盘 / Provider</text>
-    <!-- 生命线 -->
-    <line x1="120" y1="60" x2="120" y2="520" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="350" y1="60" x2="350" y2="520" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="590" y1="60" x2="590" y2="520" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <line x1="810" y1="60" x2="810" y2="520" stroke="#4a5168" stroke-dasharray="3 4"></line>
-    <!-- 进入：加载 -->
-    <rect x="46" y="74" width="140" height="20" rx="9" fill="none" stroke="#ffcf5c" stroke-width="1"></rect><text x="56" y="89" fill="#ffcf5c" font-size="11">① 进入模式 OnCreate</text>
-    <line x1="120" y1="110" x2="346" y2="110" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="130" y="104" fill="#9fb4ff" font-size="11">Reset()(局内瞬态 + 元层归零)</text>
-    <line x1="120" y1="138" x2="586" y2="138" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="130" y="132" fill="#7fe0b8" font-size="11">LoadAsync()</text>
-    <line x1="590" y1="162" x2="806" y2="162" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="600" y="156" fill="#7fe0b8" font-size="11">异步读文件</text>
-    <line x1="806" y1="186" x2="594" y2="186" stroke="#b86a45" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#t-gold)"></line><text x="600" y="180" fill="#e0b89a" font-size="11">string(或空→缺省)</text>
-    <line x1="586" y1="210" x2="354" y2="210" stroke="#5bd6a0" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#t-green)"></line><text x="360" y="204" fill="#7fe0b8" font-size="11">Deserialize+迁移+跨天 → DTO</text>
-    <line x1="586" y1="238" x2="354" y2="238" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="360" y="232" fill="#9fb4ff" font-size="11">ImportMeta(DTO):覆盖元字段</text>
-    <!-- 元变更：标脏+落盘 -->
-    <rect x="46" y="264" width="160" height="20" rx="9" fill="none" stroke="#ffcf5c" stroke-width="1"></rect><text x="56" y="279" fill="#ffcf5c" font-size="11">② 玩家交付/修复/开盒/祈愿</text>
-    <line x1="120" y1="300" x2="346" y2="300" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="130" y="294" fill="#9fb4ff" font-size="11">Deliver()/RepairTemple()…(元字段变)</text>
-    <line x1="120" y1="328" x2="346" y2="328" stroke="#6c8cff" stroke-width="1.8" marker-end="url(#t-blue)"></line><text x="130" y="322" fill="#9fb4ff" font-size="11">RequestSave():标脏(不立即写)</text>
-    <line x1="120" y1="356" x2="586" y2="356" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="130" y="350" fill="#7fe0b8" font-size="11">SaveAsync()(脏则落盘)</text>
-    <line x1="586" y1="380" x2="354" y2="380" stroke="#6c8cff" stroke-width="1.6" stroke-dasharray="5 3" marker-end="url(#t-blue)"></line><text x="360" y="374" fill="#9fb4ff" font-size="11">ExportMeta()→DTO→Serialize</text>
-    <line x1="590" y1="404" x2="806" y2="404" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="600" y="398" fill="#7fe0b8" font-size="11">异步写文件 → 清脏</text>
-    <!-- 退出：兜底 -->
-    <rect x="46" y="432" width="160" height="20" rx="9" fill="none" stroke="#ffcf5c" stroke-width="1"></rect><text x="56" y="447" fill="#ffcf5c" font-size="11">③ 退出/暂停/OnDestroy</text>
-    <line x1="120" y1="468" x2="586" y2="468" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="130" y="462" fill="#7fe0b8" font-size="11">脏则强制 SaveAsync()(退出兜底)</text>
-    <line x1="590" y1="492" x2="806" y2="492" stroke="#5bd6a0" stroke-width="1.8" marker-end="url(#t-green)"></line><text x="600" y="486" fill="#7fe0b8" font-size="11">落盘,保证不丢末次元变更</text>
-    <text x="40" y="534" fill="#6f7d99" font-size="11">实线=调用/数据流 · 虚线=返回 · 蓝=同步纯逻辑 · 绿=异步 IO 外壳 · 金=磁盘返回</text>
-  </svg>
-  </div>
+```mermaid
+sequenceDiagram
+    participant W as MergeOrderWindow
+    participant S as MergeOrderState
+    participant P as MergeMetaPersistence
+    participant D as 磁盘 / Provider
+    Note over W,D: ① 进入模式 OnCreate
+    W->>S: Reset()(局内瞬态 + 元层归零)
+    W->>P: LoadAsync()
+    P->>D: 异步读文件
+    D-->>P: string(或空→缺省)
+    P-->>S: Deserialize+迁移+跨天 → DTO
+    P->>S: ImportMeta(DTO):覆盖元字段
+    Note over W,D: ② 玩家交付/修复/开盒/祈愿
+    W->>S: Deliver()/RepairTemple()…(元字段变)
+    W->>S: RequestSave():标脏(不立即写)
+    W->>P: SaveAsync()(脏则落盘)
+    P-->>S: ExportMeta()→DTO→Serialize
+    P->>D: 异步写文件 → 清脏
+    Note over W,D: ③ 退出/暂停/OnDestroy
+    W->>P: 脏则强制 SaveAsync()(退出兜底)
+    P->>D: 落盘,保证不丢末次元变更
+```
 
 <h2 id="hook">五、挂接点 / dev 改动清单</h2>
 
