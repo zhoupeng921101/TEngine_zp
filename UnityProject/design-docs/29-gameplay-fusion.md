@@ -102,13 +102,12 @@ flowchart TD
 
 <h3 id="v3">3.3 计分语义</h3>
 
-<table class="tight">
-      <tbody><tr><th>维度</th><th>取定</th></tr>
-      <tr><td>经典（01）现状</td><td><code>BlockGameState.Score</code> = 刷分目标，同时驱动 DDA 分数段、存 <code>HighScore</code>。落子 +格数、消除 <code>×10 + 行列² ×30</code>（<code>BlockScoring</code>）。连击 <code>Combo</code> 有计数但<b>未进任何得分公式</b>（死钩子，见 <a href="#29-gameplay-fusion::v5">§3.5</a>）</td></tr>
-      <tr><td>合成订单（11）现状</td><td>局内不刷 <code>BlockGameState.Score</code>（落子 / 消除均不调 <code>AddScore</code>）；用 <code>BlockScoring.ClearScore</code> 作<b>元素产出的内部驱动量</b>（<code>ElementsForScore</code>），不计入玩家可见分；交付累计 <code>MergeOrderState.TotalScore</code> 作通关 / 结算摘要。结束时一次性把 <code>TotalScore</code> 镜像给 <code>Score</code> 供结算窗显示</td></tr>
-      <tr><td><span class="verdict">融合后取定</span></td><td><b>三个量各司其职、口径写明，不强行合并</b>：<br>① <b>消除基础分</b>（<code>ClearScore</code>）= 驱动量，喂元素产出与连消倍率，<b>不是玩家可见的「真分数」</b>；<br>② <b>交付累计分</b>（<code>TotalScore</code>）= 经营成绩，通关 / 结算摘要；<br>③ <b>最高分</b>（<code>HighScore</code>）= 经典遗产，跨局存储的长期挑战指标。<br><mark class="y">融合后须明确「玩家可见的主分数」口径</mark>，并理清 <code>Score</code> 在融合窗口的角色（详见 <a href="#29-gameplay-fusion::dev">§6.3</a> 隐患 A）</td></tr>
-      <tr><td>落点</td><td><b>设计层裁决 + 跨模式状态</b>：见 <a href="#29-gameplay-fusion::dev">§6.3 隐患 A</a>（<code>Score</code> / <code>Combo</code> 在单窗口下的角色归一）。本篇<b>不改计分公式</b>（<code>BlockScoring</code> 是单一信息源，两路共用）</td></tr>
-    </tbody></table>
+| 维度 | 取定 |
+|---|---|
+| 经典（01）现状 | <code>BlockGameState.Score</code> = 刷分目标，同时驱动 DDA 分数段、存 <code>HighScore</code>。落子 +格数、消除 <code>×10 + 行列² ×30</code>（<code>BlockScoring</code>）。连击 <code>Combo</code> 有计数但<b>未进任何得分公式</b>（死钩子，见 <a href="#29-gameplay-fusion::v5">§3.5</a>） |
+| 合成订单（11）现状 | 局内不刷 <code>BlockGameState.Score</code>（落子 / 消除均不调 <code>AddScore</code>）；用 <code>BlockScoring.ClearScore</code> 作<b>元素产出的内部驱动量</b>（<code>ElementsForScore</code>），不计入玩家可见分；交付累计 <code>MergeOrderState.TotalScore</code> 作通关 / 结算摘要。结束时一次性把 <code>TotalScore</code> 镜像给 <code>Score</code> 供结算窗显示 |
+| <span class="verdict">融合后取定</span> | <b>三个量各司其职、口径写明，不强行合并</b>：<br>① <b>消除基础分</b>（<code>ClearScore</code>）= 驱动量，喂元素产出与连消倍率，<b>不是玩家可见的「真分数」</b>；<br>② <b>交付累计分</b>（<code>TotalScore</code>）= 经营成绩，通关 / 结算摘要；<br>③ <b>最高分</b>（<code>HighScore</code>）= 经典遗产，跨局存储的长期挑战指标。<br><mark class="y">融合后须明确「玩家可见的主分数」口径</mark>，并理清 <code>Score</code> 在融合窗口的角色（详见 <a href="#29-gameplay-fusion::dev">§6.3</a> 隐患 A） |
+| 落点 | <b>设计层裁决 + 跨模式状态</b>：见 <a href="#29-gameplay-fusion::dev">§6.3 隐患 A</a>（<code>Score</code> / <code>Combo</code> 在单窗口下的角色归一）。本篇<b>不改计分公式</b>（<code>BlockScoring</code> 是单一信息源，两路共用） |
 
 <h3 id="v4">3.4 发牌</h3>
 
@@ -151,13 +150,12 @@ flowchart TD
 
 <h3 id="v8">3.8 DDA 强度适配</h3>
 
-<table class="tight">
-      <tbody><tr><th>维度</th><th>取定</th></tr>
-      <tr><td>经典（01）现状</td><td>DDA 以 <code>Score</code> 为强度信号：&lt;1000 不激活、1000~15000 叠清屏窗口、≥1000 激活 8 算法权重段（02）。高分 → 难度递增</td></tr>
-      <tr><td>合成订单（11）现状</td><td>局内 <code>Score</code> 恒 0（不刷分），故 <code>OfferTrio(board, 0)</code> <b>永远落在「分数 &lt; 1000 未激活」+「分数 &lt; 15000 清屏窗口」分支</b>——DDA 的 8 算法权重段在合成订单里<b>从不触发</b>，实际全程走「清屏窗口 / 随机无死亡」。即：合成订单现状下 DDA 的「橡皮筋做局」能力是<b>休眠</b>的</td></tr>
-      <tr><td><span class="verdict">融合后取定</span></td><td>融合后分数语义重新理清（<a href="#29-gameplay-fusion::v3">§3.3</a>）。<mark class="y">DDA 用哪个分量作强度信号，决定它在融合玩法里是否激活做局</mark>——这是一个需配平的范围开关（见 <a href="#29-gameplay-fusion::decisions">§七 #2</a>）：<br><b>选项甲（保守）</b>：DDA 维持现状以 <code>BlockGameState.Score</code> 为信号，融合后该量若仍恒低 → DDA 继续休眠在清屏窗口（行为同合成订单现状，最稳）；<br><b>选项乙（启用做局）</b>：把 DDA 强度信号改接<b>经营进度量</b>（如 <code>TotalScore</code> 或完成单数），让 DDA 随经营推进而升难度，与体力 / 订单节奏配合。<br>两选项都<b>不改 8 算法与权重表</b>，只改「喂给 <code>OfferTrio</code> 的强度参数」</td></tr>
-      <tr><td>落点</td><td><b>跨模式状态 + 配平</b>：见 <a href="#29-gameplay-fusion::dev">§6.3 隐患 C</a>。选项乙需 test 配平「经营进度 → 难度」曲线；选项甲零配平。默认取甲（最小变更、零回归），乙记入待拍板（<a href="#29-gameplay-fusion::decisions">§七 #2</a>）</td></tr>
-    </tbody></table>
+| 维度 | 取定 |
+|---|---|
+| 经典（01）现状 | DDA 以 <code>Score</code> 为强度信号：&lt;1000 不激活、1000~15000 叠清屏窗口、≥1000 激活 8 算法权重段（02）。高分 → 难度递增 |
+| 合成订单（11）现状 | 局内 <code>Score</code> 恒 0（不刷分），故 <code>OfferTrio(board, 0)</code> <b>永远落在「分数 &lt; 1000 未激活」+「分数 &lt; 15000 清屏窗口」分支</b>——DDA 的 8 算法权重段在合成订单里<b>从不触发</b>，实际全程走「清屏窗口 / 随机无死亡」。即：合成订单现状下 DDA 的「橡皮筋做局」能力是<b>休眠</b>的 |
+| <span class="verdict">融合后取定</span> | 融合后分数语义重新理清（<a href="#29-gameplay-fusion::v3">§3.3</a>）。<mark class="y">DDA 用哪个分量作强度信号，决定它在融合玩法里是否激活做局</mark>——这是一个需配平的范围开关（见 <a href="#29-gameplay-fusion::decisions">§七 #2</a>）：<br><b>选项甲（保守）</b>：DDA 维持现状以 <code>BlockGameState.Score</code> 为信号，融合后该量若仍恒低 → DDA 继续休眠在清屏窗口（行为同合成订单现状，最稳）；<br><b>选项乙（启用做局）</b>：把 DDA 强度信号改接<b>经营进度量</b>（如 <code>TotalScore</code> 或完成单数），让 DDA 随经营推进而升难度，与体力 / 订单节奏配合。<br>两选项都<b>不改 8 算法与权重表</b>，只改「喂给 <code>OfferTrio</code> 的强度参数」 |
+| 落点 | <b>跨模式状态 + 配平</b>：见 <a href="#29-gameplay-fusion::dev">§6.3 隐患 C</a>。选项乙需 test 配平「经营进度 → 难度」曲线；选项甲零配平。默认取甲（最小变更、零回归），乙记入待拍板（<a href="#29-gameplay-fusion::decisions">§七 #2</a>） |
 
 <h2 id="absorb">四、经典被吸收后的去向</h2>
 

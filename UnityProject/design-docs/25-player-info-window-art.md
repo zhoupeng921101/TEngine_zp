@@ -68,18 +68,17 @@
 
 美术基准 `个人信息.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木牌面板。自上而下:
 
-<table class="tight">
-    <tbody><tr><th>区块</th><th>效果图内容</th><th>取图(<code>Sheet_settings</code> 子图 / 占位)</th><th>节点类型</th><th>处置</th></tr>
-    <tr><td>① 遮罩</td><td>盖住整屏的半透明深色背景(透出底层 HUD)</td><td>无(纯色 <code>Image</code>,alpha≈0.6)</td><td><code>Button</code>(点击关窗)</td><td class="yes">实做</td></tr>
-    <tr><td>② 标题木牌</td><td>顶部木牌「个人信息」</td><td><code>box2</code>(木牌底,设置窗上面板同用)+ 文本节点「个人信息」</td><td><code>Image</code> + <code>Text</code></td><td class="yes">实做</td></tr>
-    <tr><td>③ 关闭按钮</td><td>右上角圆形 × 按钮</td><td><code>icon_x</code>(圆 + X 一体图,设置窗同用)</td><td><code>Button</code></td><td class="yes">实做</td></tr>
-    <tr><td>④ 主面板底板</td><td>居中大木板</td><td><code>box1</code> 或 <code>box2</code>(木板底,设置窗面板同用)</td><td><code>Image</code></td><td class="yes">实做</td></tr>
-    <tr><td>⑤ 头像</td><td>圆形头像 + 圆形描边框,右下角编辑铅笔</td><td>头像本体:当前佩戴头像 Sprite(<mark>无美术,占位纯色圆 / 通用图</mark>);圆框 + 铅笔:<mark>Sheet_settings 无圆头像框 / 铅笔图 → 占位</mark>(<a href="#25-player-info-window-art::placeholder">§3.2</a>)</td><td><code>Image</code> + <code>Button</code>(铅笔=编辑头像)</td><td class="yes">显当前头像实做<br><span class="pill-no">框/铅笔图占位</span></td></tr>
-    <tr><td>⑥ 玩家名</td><td>居中「玩家123」+ 右侧编辑铅笔</td><td>名字:文本节点(读 <code>PlayerInfo.Name</code>);铅笔:占位</td><td><code>Text</code> + <code>InputField</code>(改名)+ <code>Button</code>(铅笔)</td><td class="yes">实做改名</td></tr>
-    <tr><td>⑦ 生日 + 3 下拉</td><td>「🎂 生日」标题 + 一行 3 个下拉框(各显「3 ▾」)</td><td>下拉底:<code>button</code>(条底,设置窗同用);下拉箭头:<mark>占位</mark>;标题:文本节点</td><td><code>Text</code> + <code>Dropdown</code>×3(或 <code>Image</code>+<code>Text</code> 占位)</td><td class="no">占位(数据层无生日,<a href="#25-player-info-window-art::birthday">§5.3</a>)</td></tr>
-    <tr><td>⑧ 确定按钮</td><td>底部黄色「确定」长条</td><td><code>button</code>(长条底,设置窗同用)+ 文本「确定」</td><td><code>Button</code></td><td class="yes">实做(保存并关)</td></tr>
-    <tr><td>⑨ 关闭提示</td><td>面板下方小字「点击任意位置置关闭」</td><td>无(文本节点)</td><td><code>Text</code></td><td class="yes">实做(纯文本)</td></tr>
-  </tbody></table>
+| 区块 | 效果图内容 | 取图(<code>Sheet_settings</code> 子图 / 占位) | 节点类型 | 处置 |
+|---|---|---|---|---|
+| ① 遮罩 | 盖住整屏的半透明深色背景(透出底层 HUD) | 无(纯色 <code>Image</code>,alpha≈0.6) | <code>Button</code>(点击关窗) | 实做 |
+| ② 标题木牌 | 顶部木牌「个人信息」 | <code>box2</code>(木牌底,设置窗上面板同用)+ 文本节点「个人信息」 | <code>Image</code> + <code>Text</code> | 实做 |
+| ③ 关闭按钮 | 右上角圆形 × 按钮 | <code>icon_x</code>(圆 + X 一体图,设置窗同用) | <code>Button</code> | 实做 |
+| ④ 主面板底板 | 居中大木板 | <code>box1</code> 或 <code>box2</code>(木板底,设置窗面板同用) | <code>Image</code> | 实做 |
+| ⑤ 头像 | 圆形头像 + 圆形描边框,右下角编辑铅笔 | 头像本体:当前佩戴头像 Sprite(<mark>无美术,占位纯色圆 / 通用图</mark>);圆框 + 铅笔:<mark>Sheet_settings 无圆头像框 / 铅笔图 → 占位</mark>(<a href="#25-player-info-window-art::placeholder">§3.2</a>) | <code>Image</code> + <code>Button</code>(铅笔=编辑头像) | 显当前头像实做<br><span class="pill-no">框/铅笔图占位</span> |
+| ⑥ 玩家名 | 居中「玩家123」+ 右侧编辑铅笔 | 名字:文本节点(读 <code>PlayerInfo.Name</code>);铅笔:占位 | <code>Text</code> + <code>InputField</code>(改名)+ <code>Button</code>(铅笔) | 实做改名 |
+| ⑦ 生日 + 3 下拉 | 「🎂 生日」标题 + 一行 3 个下拉框(各显「3 ▾」) | 下拉底:<code>button</code>(条底,设置窗同用);下拉箭头:<mark>占位</mark>;标题:文本节点 | <code>Text</code> + <code>Dropdown</code>×3(或 <code>Image</code>+<code>Text</code> 占位) | 占位(数据层无生日,<a href="#25-player-info-window-art::birthday">§5.3</a>) |
+| ⑧ 确定按钮 | 底部黄色「确定」长条 | <code>button</code>(长条底,设置窗同用)+ 文本「确定」 | <code>Button</code> | 实做(保存并关) |
+| ⑨ 关闭提示 | 面板下方小字「点击任意位置置关闭」 | 无(文本节点) | <code>Text</code> | 实做(纯文本) |
 
 > [!NOTE]
 > **取图须 dev 读图二次核实**
@@ -332,19 +331,18 @@ namespace GameLogic.UI
 
 按「实做 / 占位 / 不做(本屏)」三档。占位项不阻塞验收——只要点击不报错、留清晰接线点即可。
 
-<table class="tight">
-    <tbody><tr><th>功能位</th><th>本轮处置</th><th>接什么 / 留什么</th></tr>
-    <tr><td><b>玩家名显示</b>(<code>m_text_Name</code>)</td><td class="yes">实做</td><td><code>OnRefresh</code> 读 <code>GameContext.Instance.Player.Name</code> → 文本。<b>核心验收项</b>(W2)。</td></tr>
-    <tr><td><b>改名</b>(铅笔 → <code>m_input_Name</code>)</td><td class="yes">实做(贯通数据层)</td><td>点铅笔进改名态 → 输入 → <code>PlayerRenameService.TryRename(P, newName, 空词表, cost=&gt;true)</code> → <code>RenameResult</code>:成功刷名 + 落盘;失败按 <code>Reason</code> 分支提示(空 / 超长 / 屏蔽字 / 钻石不足)。<b>核心验收项</b>(W3)。屏蔽字词表本轮注空表(去变现 / 不阻塞,设计 18 O6);扣钻 <code>trySpendDiamond</code> 默认 <code>true</code>(去变现,设计 18 O8)。</td></tr>
-    <tr><td><b>头像显示</b>(<code>m_img_Avatar</code>)</td><td class="yes">实做(显当前)<br><span class="pill-no">真图占位</span></td><td><code>OnRefresh</code> 读 <code>CurrentAvatarId</code>。<mark>头像 Sprite 无美术</mark>(设计 18 O2)→ 占位纯色圆 / 通用图,留 TODO 接 <code>AvatarConfigMgr.GetAvatar(id).Image</code>。</td></tr>
-    <tr><td><b>编辑头像</b>(<code>m_btn_EditAvatar</code> 铅笔)</td><td class="no">占位</td><td>头像三态选择网格是设计 18 完整界面元素,<mark>效果图本屏未画</mark>(本屏只显当前头像)。点击 → Toast「头像选择待建」+ TODO。完整网格(<code>AvatarUnlockService.StateOf</code> + 换装 <code>TryEquip</code>)属设计 18 后续屏 / 后续轮(<a href="#25-player-info-window-art::open">§十一 D3</a>)。</td></tr>
-    <tr><td><b>生日 + 3 下拉</b>(<code>BirthdayBlock</code>)</td><td class="no">占位(整块)</td><td>数据层无生日字段(<a href="#25-player-info-window-art::birthday">§5.3</a> D2)。摆 3 个下拉框对位,值固定「3」,不绑数据 / 不入盘。点击 → Toast「生日待接数据层」+ TODO。是否真做交 boss / 产品。</td></tr>
-    <tr><td><b>确定</b>(<code>m_btn_Confirm</code>)</td><td class="yes">实做</td><td>保存玩家信息(<code>ExportToMeta</code> + 落既有存档,<a href="#25-player-info-window-art::holder">§5.2 B1</a>)+ <code>CloseUI</code>。本轮玩家信息的运行期改动主要是改名(已在改名时落盘),确定再保险存一次 + 关。</td></tr>
-    <tr><td><b>关闭 X</b> + <b>遮罩(点任意处)</b></td><td class="yes">实做</td><td>同确定:保存 + <code>CloseUI&lt;PlayerInfoWindow&gt;()</code>。效果图「点击任意位置置关闭」= 遮罩 <code>m_btn_Mask</code> 点击关窗(遮罩须在节点树最底,面板内容盖其上,点面板不穿透)。</td></tr>
-    <tr><td><b>关闭提示文本</b>(<code>m_text_CloseHint</code>)</td><td class="yes">实做</td><td>纯文本「点击任意位置置关闭」,无逻辑。</td></tr>
-    <tr><td><b>等级 / 经验槽</b></td><td class="no">不做(本屏)</td><td><mark>效果图本屏无等级 / 经验槽位</mark>。数据层有 <code>PlayerInfo.Level</code> / <code>PlayerLevelConfig</code> 可显,但效果图未画 → 本轮不强加(设计 18 完整界面有此位,属后续屏)。</td></tr>
-    <tr><td><b>id 复制</b></td><td class="no">不做(本屏)</td><td>效果图本屏无 id 显示 / 复制位。数据层有 <code>ClipboardUtil.Copy</code> + <code>PlayerInfo.Id</code>,设计 18 完整界面有此位,属后续屏。</td></tr>
-  </tbody></table>
+| 功能位 | 本轮处置 | 接什么 / 留什么 |
+|---|---|---|
+| <b>玩家名显示</b>(<code>m_text_Name</code>) | 实做 | <code>OnRefresh</code> 读 <code>GameContext.Instance.Player.Name</code> → 文本。<b>核心验收项</b>(W2)。 |
+| <b>改名</b>(铅笔 → <code>m_input_Name</code>) | 实做(贯通数据层) | 点铅笔进改名态 → 输入 → <code>PlayerRenameService.TryRename(P, newName, 空词表, cost=&gt;true)</code> → <code>RenameResult</code>:成功刷名 + 落盘;失败按 <code>Reason</code> 分支提示(空 / 超长 / 屏蔽字 / 钻石不足)。<b>核心验收项</b>(W3)。屏蔽字词表本轮注空表(去变现 / 不阻塞,设计 18 O6);扣钻 <code>trySpendDiamond</code> 默认 <code>true</code>(去变现,设计 18 O8)。 |
+| <b>头像显示</b>(<code>m_img_Avatar</code>) | 实做(显当前)<br><span class="pill-no">真图占位</span> | <code>OnRefresh</code> 读 <code>CurrentAvatarId</code>。<mark>头像 Sprite 无美术</mark>(设计 18 O2)→ 占位纯色圆 / 通用图,留 TODO 接 <code>AvatarConfigMgr.GetAvatar(id).Image</code>。 |
+| <b>编辑头像</b>(<code>m_btn_EditAvatar</code> 铅笔) | 占位 | 头像三态选择网格是设计 18 完整界面元素,<mark>效果图本屏未画</mark>(本屏只显当前头像)。点击 → Toast「头像选择待建」+ TODO。完整网格(<code>AvatarUnlockService.StateOf</code> + 换装 <code>TryEquip</code>)属设计 18 后续屏 / 后续轮(<a href="#25-player-info-window-art::open">§十一 D3</a>)。 |
+| <b>生日 + 3 下拉</b>(<code>BirthdayBlock</code>) | 占位(整块) | 数据层无生日字段(<a href="#25-player-info-window-art::birthday">§5.3</a> D2)。摆 3 个下拉框对位,值固定「3」,不绑数据 / 不入盘。点击 → Toast「生日待接数据层」+ TODO。是否真做交 boss / 产品。 |
+| <b>确定</b>(<code>m_btn_Confirm</code>) | 实做 | 保存玩家信息(<code>ExportToMeta</code> + 落既有存档,<a href="#25-player-info-window-art::holder">§5.2 B1</a>)+ <code>CloseUI</code>。本轮玩家信息的运行期改动主要是改名(已在改名时落盘),确定再保险存一次 + 关。 |
+| <b>关闭 X</b> + <b>遮罩(点任意处)</b> | 实做 | 同确定:保存 + <code>CloseUI&lt;PlayerInfoWindow&gt;()</code>。效果图「点击任意位置置关闭」= 遮罩 <code>m_btn_Mask</code> 点击关窗(遮罩须在节点树最底,面板内容盖其上,点面板不穿透)。 |
+| <b>关闭提示文本</b>(<code>m_text_CloseHint</code>) | 实做 | 纯文本「点击任意位置置关闭」,无逻辑。 |
+| <b>等级 / 经验槽</b> | 不做(本屏) | <mark>效果图本屏无等级 / 经验槽位</mark>。数据层有 <code>PlayerInfo.Level</code> / <code>PlayerLevelConfig</code> 可显,但效果图未画 → 本轮不强加(设计 18 完整界面有此位,属后续屏)。 |
+| <b>id 复制</b> | 不做(本屏) | 效果图本屏无 id 显示 / 复制位。数据层有 <code>ClipboardUtil.Copy</code> + <code>PlayerInfo.Id</code>,设计 18 完整界面有此位,属后续屏。 |
 
 <h2 id="entry">八、打开入口 + 关闭</h2>
 

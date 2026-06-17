@@ -75,20 +75,19 @@
 
 美术基准 `排行榜.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木牌面板。顶部有一排状态栏(头像 + 3 个资源条 + 齿轮,属底层 HUD 透出,非本窗内容)。本窗自上而下:
 
-<table class="tight">
-    <tbody><tr><th>区块</th><th>效果图内容</th><th>取图(<code>Sheet_settings</code> 子图 / 占位)</th><th>节点类型</th><th>处置</th></tr>
-    <tr><td>① 遮罩</td><td>盖住整屏的半透明深色背景(透出底层 HUD)</td><td>无(纯色 <code>Image</code>,alpha≈0.6)</td><td><code>Button</code>(点击关窗)</td><td class="yes">实做</td></tr>
-    <tr><td>② 标题木牌</td><td>顶部木牌「排行榜」</td><td><code>box2</code>(木牌底,设置窗上面板同用)+ 文本「排行榜」</td><td><code>Image</code> + <code>Text</code></td><td class="yes">实做</td></tr>
-    <tr><td>③ 关闭按钮</td><td>右上角圆形 × 按钮</td><td><code>icon_x</code>(圆 + X 一体图,设置窗同用)</td><td><code>Button</code></td><td class="yes">实做</td></tr>
-    <tr><td>④ 主面板底板</td><td>居中大木板(米色,长竖)</td><td><code>box1</code>(木板底,设置窗面板同用)</td><td><code>Image</code></td><td class="yes">实做</td></tr>
-    <tr><td>⑤ 榜单列表</td><td>5 行可见(前 3 名带金 / 银 / 铜奖杯徽章,4/5 名圆圈纯数字)。每行:左名次徽章 + 圆头像 + 「玩家1」+ 右侧分数胶囊「★2289」。第 5 行底部渐隐(暗示可滚动 / 更多)</td><td>榜行底:<mark>无切图 → 占位</mark>(纯色圆角条,前 3 名暖金 / 银灰 / 铜棕,4/5 名浅米);名次徽章:<mark>无切图 → 占位</mark>(纯色圆 + 数字 / 字符);头像:<mark>无切图 → 占位</mark>(纯色块);分数胶囊:文本 + 可用 <code>button</code> 子图缩成小胶囊底</td><td>列表容器 + 行 Widget</td><td class="yes">列表渲染实做<br><span class="pill-no">行底/徽章/头像占位</span></td></tr>
-    <tr><td>⑥「我的排名」分隔</td><td>列表下方虚线分隔 + 居中「我的排名」小标</td><td>无(<code>Text</code> + 可选分隔线 <code>Image</code>)</td><td><code>Text</code></td><td class="yes">实做(纯文本)</td></tr>
-    <tr><td>⑦ 我的名次条</td><td>突出一行:左大「999」+ 圆头像 + 「玩家1」+ 「★2289」(同榜行结构,更醒目)</td><td>同榜行占位(高亮色区分,如暖金底)</td><td>行 Widget(复用)</td><td class="yes">实做(读 <code>Self</code>/<code>SelfRank</code>/<code>SelfScore</code>)</td></tr>
-    <tr><td>⑧ 底部按钮</td><td>底部黄色「再来一次」长条</td><td><code>button</code>(长条底,设置窗同用)+ 文本「再来一次」</td><td><code>Button</code></td><td class="yes">实做(语义见 <a href="#28-rank-window-art::dispatch">§七</a> D3)</td></tr>
-    <tr><td>(无)点赞按钮</td><td>效果图<mark>未出现点赞 / 喜欢按钮</mark></td><td>—</td><td>—</td><td class="no">默认省略,数据层 <code>ClaimPraise</code> 留接线点(<a href="#28-rank-window-art::dispatch">§七</a> D2)</td></tr>
-    <tr><td>(无)奖励预览</td><td>效果图<mark>未出现奖励图标 / 名次档奖预览</mark></td><td>—</td><td>—</td><td class="no">默认省略,数据层 <code>TierForRank</code>/<code>ShowRewardPoolId</code> 留接线点(<a href="#28-rank-window-art::dispatch">§七</a> D5)</td></tr>
-    <tr><td>(无)多榜页签</td><td>效果图<mark>只显一个榜,无页签 / 分组切换</mark></td><td>—</td><td>—</td><td class="no">默认单榜,数据层 <code>RankDef.Group</code>/<code>All()</code> 支持多榜则可选接(<a href="#28-rank-window-art::dispatch">§七</a> D1)</td></tr>
-  </tbody></table>
+| 区块 | 效果图内容 | 取图(<code>Sheet_settings</code> 子图 / 占位) | 节点类型 | 处置 |
+|---|---|---|---|---|
+| ① 遮罩 | 盖住整屏的半透明深色背景(透出底层 HUD) | 无(纯色 <code>Image</code>,alpha≈0.6) | <code>Button</code>(点击关窗) | 实做 |
+| ② 标题木牌 | 顶部木牌「排行榜」 | <code>box2</code>(木牌底,设置窗上面板同用)+ 文本「排行榜」 | <code>Image</code> + <code>Text</code> | 实做 |
+| ③ 关闭按钮 | 右上角圆形 × 按钮 | <code>icon_x</code>(圆 + X 一体图,设置窗同用) | <code>Button</code> | 实做 |
+| ④ 主面板底板 | 居中大木板(米色,长竖) | <code>box1</code>(木板底,设置窗面板同用) | <code>Image</code> | 实做 |
+| ⑤ 榜单列表 | 5 行可见(前 3 名带金 / 银 / 铜奖杯徽章,4/5 名圆圈纯数字)。每行:左名次徽章 + 圆头像 + 「玩家1」+ 右侧分数胶囊「★2289」。第 5 行底部渐隐(暗示可滚动 / 更多) | 榜行底:<mark>无切图 → 占位</mark>(纯色圆角条,前 3 名暖金 / 银灰 / 铜棕,4/5 名浅米);名次徽章:<mark>无切图 → 占位</mark>(纯色圆 + 数字 / 字符);头像:<mark>无切图 → 占位</mark>(纯色块);分数胶囊:文本 + 可用 <code>button</code> 子图缩成小胶囊底 | 列表容器 + 行 Widget | 列表渲染实做<br><span class="pill-no">行底/徽章/头像占位</span> |
+| ⑥「我的排名」分隔 | 列表下方虚线分隔 + 居中「我的排名」小标 | 无(<code>Text</code> + 可选分隔线 <code>Image</code>) | <code>Text</code> | 实做(纯文本) |
+| ⑦ 我的名次条 | 突出一行:左大「999」+ 圆头像 + 「玩家1」+ 「★2289」(同榜行结构,更醒目) | 同榜行占位(高亮色区分,如暖金底) | 行 Widget(复用) | 实做(读 <code>Self</code>/<code>SelfRank</code>/<code>SelfScore</code>) |
+| ⑧ 底部按钮 | 底部黄色「再来一次」长条 | <code>button</code>(长条底,设置窗同用)+ 文本「再来一次」 | <code>Button</code> | 实做(语义见 <a href="#28-rank-window-art::dispatch">§七</a> D3) |
+| (无)点赞按钮 | 效果图<mark>未出现点赞 / 喜欢按钮</mark> | — | — | 默认省略,数据层 <code>ClaimPraise</code> 留接线点(<a href="#28-rank-window-art::dispatch">§七</a> D2) |
+| (无)奖励预览 | 效果图<mark>未出现奖励图标 / 名次档奖预览</mark> | — | — | 默认省略,数据层 <code>TierForRank</code>/<code>ShowRewardPoolId</code> 留接线点(<a href="#28-rank-window-art::dispatch">§七</a> D5) |
+| (无)多榜页签 | 效果图<mark>只显一个榜,无页签 / 分组切换</mark> | — | — | 默认单榜,数据层 <code>RankDef.Group</code>/<code>All()</code> 支持多榜则可选接(<a href="#28-rank-window-art::dispatch">§七</a> D1) |
 
 > [!NOTE]
 > **取图须 dev 读图二次核实**
@@ -344,20 +343,19 @@ namespace GameLogic.UI
 
 按「实做 / 占位 / 不做(本屏)」三档。占位项不阻塞验收——只要点击不报错、留清晰接线点即可。
 
-<table class="tight">
-    <tbody><tr><th>功能位</th><th>本轮处置</th><th>接什么 / 留什么</th></tr>
-    <tr><td><b>榜单列表渲染</b></td><td class="yes">实做(数据贯通)</td><td><code>OnRefresh</code> 读 <code>Svc.GetBoard(RankId).Entries</code> → 逐行渲染名次 / 名 / 分。<b>核心验收项</b>(W3/V2)。行底 / 徽章 / 头像占位(<a href="#28-rank-window-art::placeholder">§3.2</a>),名次 / 名 / 分真实。</td></tr>
-    <tr><td><b>我的名次条</b></td><td class="yes">实做(数据贯通)</td><td>读 <code>board.Self</code>/<code>SelfRank</code>/<code>SelfScore</code>;未入榜(<code>SelfRank==0</code>)显「未上榜」+ 当前最佳分。<b>核心验收项</b>(W3)。</td></tr>
-    <tr><td><b>名次徽章(金银铜)</b></td><td class="yes">名次实做<br><span class="pill-no">徽章图占位</span></td><td>名次数字 = 真实 <code>RankEntry.Rank</code>;徽章外观无切图 → 前 3 名占位金 / 银 / 铜色圆 + 字符,4 名起浅色圆 + 数字(<a href="#28-rank-window-art::placeholder">§3.2</a>)。</td></tr>
-    <tr><td><b>头像</b></td><td class="yes">摆位实做<br><span class="pill-no">真图占位</span></td><td>头像 Sprite 无美术(同设计 25)→ 占位纯色块(<code>IsSelf</code> / 名取稳定色)。TODO 接真实头像资源。</td></tr>
-    <tr><td><b>关闭 X</b> + <b>遮罩(点任意处)</b></td><td class="yes">实做</td><td><code>CloseUI&lt;RankWindow&gt;()</code>。遮罩 <code>m_btn_Mask</code> 在节点树最底,面板内容盖其上,点面板不穿透(同设计 25)。</td></tr>
-    <tr><td><b>底部「再来一次」按钮</b></td><td class="yes">实做</td><td>语义见 D3。默认 = 关窗(回上一界面);若要「再开一局」dev 接 <code>ShowUIAsync&lt;GameWindow&gt;</code>。</td></tr>
-    <tr><td><b>点赞按钮</b></td><td class="no">占位 / 省略(可选接)</td><td><mark>效果图无该钮</mark>(D2)。默认不加;留 <code>ClaimPraise</code> 接线点(<a href="#28-rank-window-art::praise">§6.1</a>)。若产品要 → 加 <code>m_btn_Praise</code> 接数据层,奖进邮箱。</td></tr>
-    <tr><td><b>奖励预览</b></td><td class="no">不做(本屏)</td><td><mark>效果图无奖励预览位</mark>(D5)。数据层有 <code>TierForRank(rank).ShowRewardPoolId</code> + 17 <code>RewardView</code> 归一可显,效果图未画 → 本轮不强加,留后续屏(阻塞于奖励图标美术,同遗留 #20)。</td></tr>
-    <tr><td><b>多榜页签</b></td><td class="no">默认单榜(可选接)</td><td><mark>效果图只显一个榜、无页签</mark>(D1)。默认展示 <code>RankId=1</code> 单榜;数据层 <code>RankDef.Group</code> + <code>RankConfigMgr.All()</code> 支持多榜分组,若产品要 → 加页签按组切换选中 <code>RankId</code>(留接线点,本轮按效果图单榜)。</td></tr>
-    <tr><td><b>红点</b></td><td class="no">不做(本屏内)</td><td>数据层 <code>HasClaimable</code> 供主菜单 / HUD 入口 icon 红点(D6)。本屏是被打开的窗,红点显示在入口侧(后续轮接入口 icon 时用);本屏内不重复显。</td></tr>
-    <tr><td><b>结算触发</b></td><td class="no">默认不触发(可选)</td><td>数据层 <code>CheckAndSettle(now)</code> 是纯方法,触发交调用方(登录 / tick,设计 22 O9)。本屏 <code>OnRefresh</code> 可选调一次(开窗时补结算),也可不调(交后续登录流程)。默认<b>不在本屏起结算</b>(避免开窗副作用),D4。</td></tr>
-  </tbody></table>
+| 功能位 | 本轮处置 | 接什么 / 留什么 |
+|---|---|---|
+| <b>榜单列表渲染</b> | 实做(数据贯通) | <code>OnRefresh</code> 读 <code>Svc.GetBoard(RankId).Entries</code> → 逐行渲染名次 / 名 / 分。<b>核心验收项</b>(W3/V2)。行底 / 徽章 / 头像占位(<a href="#28-rank-window-art::placeholder">§3.2</a>),名次 / 名 / 分真实。 |
+| <b>我的名次条</b> | 实做(数据贯通) | 读 <code>board.Self</code>/<code>SelfRank</code>/<code>SelfScore</code>;未入榜(<code>SelfRank==0</code>)显「未上榜」+ 当前最佳分。<b>核心验收项</b>(W3)。 |
+| <b>名次徽章(金银铜)</b> | 名次实做<br><span class="pill-no">徽章图占位</span> | 名次数字 = 真实 <code>RankEntry.Rank</code>;徽章外观无切图 → 前 3 名占位金 / 银 / 铜色圆 + 字符,4 名起浅色圆 + 数字(<a href="#28-rank-window-art::placeholder">§3.2</a>)。 |
+| <b>头像</b> | 摆位实做<br><span class="pill-no">真图占位</span> | 头像 Sprite 无美术(同设计 25)→ 占位纯色块(<code>IsSelf</code> / 名取稳定色)。TODO 接真实头像资源。 |
+| <b>关闭 X</b> + <b>遮罩(点任意处)</b> | 实做 | <code>CloseUI&lt;RankWindow&gt;()</code>。遮罩 <code>m_btn_Mask</code> 在节点树最底,面板内容盖其上,点面板不穿透(同设计 25)。 |
+| <b>底部「再来一次」按钮</b> | 实做 | 语义见 D3。默认 = 关窗(回上一界面);若要「再开一局」dev 接 <code>ShowUIAsync&lt;GameWindow&gt;</code>。 |
+| <b>点赞按钮</b> | 占位 / 省略(可选接) | <mark>效果图无该钮</mark>(D2)。默认不加;留 <code>ClaimPraise</code> 接线点(<a href="#28-rank-window-art::praise">§6.1</a>)。若产品要 → 加 <code>m_btn_Praise</code> 接数据层,奖进邮箱。 |
+| <b>奖励预览</b> | 不做(本屏) | <mark>效果图无奖励预览位</mark>(D5)。数据层有 <code>TierForRank(rank).ShowRewardPoolId</code> + 17 <code>RewardView</code> 归一可显,效果图未画 → 本轮不强加,留后续屏(阻塞于奖励图标美术,同遗留 #20)。 |
+| <b>多榜页签</b> | 默认单榜(可选接) | <mark>效果图只显一个榜、无页签</mark>(D1)。默认展示 <code>RankId=1</code> 单榜;数据层 <code>RankDef.Group</code> + <code>RankConfigMgr.All()</code> 支持多榜分组,若产品要 → 加页签按组切换选中 <code>RankId</code>(留接线点,本轮按效果图单榜)。 |
+| <b>红点</b> | 不做(本屏内) | 数据层 <code>HasClaimable</code> 供主菜单 / HUD 入口 icon 红点(D6)。本屏是被打开的窗,红点显示在入口侧(后续轮接入口 icon 时用);本屏内不重复显。 |
+| <b>结算触发</b> | 默认不触发(可选) | 数据层 <code>CheckAndSettle(now)</code> 是纯方法,触发交调用方(登录 / tick,设计 22 O9)。本屏 <code>OnRefresh</code> 可选调一次(开窗时补结算),也可不调(交后续登录流程)。默认<b>不在本屏起结算</b>(避免开窗副作用),D4。 |
 
 <h2 id="entry">八、打开入口 + 关闭</h2>
 

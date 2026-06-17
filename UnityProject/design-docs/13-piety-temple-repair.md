@@ -217,13 +217,14 @@ glyph + 纯色,零美术,与现有 demo 一致(复用 `UGuiFactory` / `BurstText
 
 - <b>顶部主线信息行:</b><span class="coin">虔诚币 ✦ ×N</span>(金色)+ **守护者 Lv.L** + **经验条 cur/next**(本级进度,`Exp - 累计门槛(L)` / `ExpToNext(L)`)+ 已解锁章节「第 N 章」。
 - <b>12 厅列表(纵向滚动或 3×4 网格):</b>每厅一张卡,显示厅名 + 造价 ✦N + 状态徽标,**三态**各异:
-      <table class="tight">
-        <tbody><tr><th>态</th><th>判据</th><th>表现</th><th>修复按钮</th></tr>
-        <tr><td><b>已修</b></td><td><code>TempleRepaired\[i\]</code></td><td>卡片高亮(绿/金)+「✓ 已修复」+ 装饰 glyph(◈/♕ 等纯字符)</td><td>隐藏 / 显示「已修复」</td></tr>
-        <tr><td><b>可修</b></td><td><code>i==NextRepairIndex</code> 且 <code>Piety>=Cost</code></td><td>卡片正常 + 造价金色</td><td>「修复」可点(绿底)</td></tr>
-        <tr><td><b>币不足</b></td><td><code>i==NextRepairIndex</code> 且 <code>Piety&lt;Cost</code></td><td>造价标红/暗 +「还差 (Cost-Piety)」</td><td>「修复」<b>置灰</b>(<code>interactable=false</code>,同悔棋/开盒按钮写法)</td></tr>
-        <tr><td><b>未解锁</b></td><td><code>i>NextRepairIndex</code></td><td>卡片暗淡 + 🔒/「需先修前序大厅」</td><td>隐藏 / 置灰</td></tr>
-      </tbody></table>
+
+| 态 | 判据 | 表现 | 修复按钮 |
+|---|---|---|---|
+| <b>已修</b> | <code>TempleRepaired\[i\]</code> | 卡片高亮(绿/金)+「✓ 已修复」+ 装饰 glyph(◈/♕ 等纯字符) | 隐藏 / 显示「已修复」 |
+| <b>可修</b> | <code>i==NextRepairIndex</code> 且 <code>Piety>=Cost</code> | 卡片正常 + 造价金色 | 「修复」可点(绿底) |
+| <b>币不足</b> | <code>i==NextRepairIndex</code> 且 <code>Piety&lt;Cost</code> | 造价标红/暗 +「还差 (Cost-Piety)」 | 「修复」<b>置灰</b>(<code>interactable=false</code>,同悔棋/开盒按钮写法) |
+| <b>未解锁</b> | <code>i>NextRepairIndex</code> | 卡片暗淡 + 🔒/「需先修前序大厅」 | 隐藏 / 置灰 |
+
 - <b>修复反馈:</b>点「修复」→ `RepairTemple` → 用 `BurstText.Spawn` 弹「修复愚者大厅！+经验 500 +体力 30」;若跨级升级再弹「守护者 Lv↑ 解锁第 N 章」。然后刷新顶部信息行 + 该厅卡片态(+ 后一厅从「未解锁」转「可修/币不足」)。
 
 > [!NOTE]
