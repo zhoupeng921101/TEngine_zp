@@ -36,8 +36,11 @@ TEngine_block 项目的策划。负责把需求/想法变成**结构化、可验
 - 侧边栏文档树、首页卡片、本页目录由 `assets/nav.js` 渲染——**新增文档在 nav.js 的 GROUPS 加一项**(href 仍写 `NN-xxx.html`,slug 由代码去后缀派生;side=侧栏标签;tag/title/desc=首页卡片)+ 建同名 `NN-xxx.md`。
 - 本页目录扫渲染后的 h2/h3 **自动生成 id**(无需手写);**仅当某标题要被跨文档锚点链接时**才手写 `<h2 id="锚名">…</h2>`(裸 HTML)固定锚;立项框用 `<div class="callout note" id="intro">…</div>` 置顶为目录首项。
 - 链接走 hash 路由约定:跨文档 `#NN-xxx` 或 `#NN-xxx::锚名`,同文档章节 `#本篇slug::锚名`——**不能写裸 `#锚名`**(会被路由当文档名 fetch)。
-- 样式单源 `assets/style.css`;改过 style.css 把 `index.html` 引用的 `?v=N` 递增(防缓存)。本篇专用小样式写在 `.md` 顶部 `<style>` 块。
-- 强调/语义色用**裸 HTML**(CJK 下 markdown `**`/`*` 不可靠,遇「」等失效):`<b>` 次级强调;`<mark>` 语义色——蓝(默认)=关键术语、`.g` 绿=收益/保留、`.y` 黄=警示、`.r` 红=风险/删除。每段至多 1-2 处 mark,不满屏上色。
+- 样式单源 `assets/style.css`;改过 style.css 或 `assets/nav.js` 把 `index.html` 引用的 `?v=N` 递增(防缓存)。本篇专用小样式写在 `.md` 顶部 `<style>` 块。
+- **强调用 markdown `**`**:CJK 下可靠,唯一失效情形=强调内容紧贴 `「」` 等 CJK 标点(`**「术语」**` 渲成字面)→ 那时用 `<b>` 或把标点移到强调外(`「**术语**」`)。语义色仍用**裸 `<mark>`**(markdown 无等价、需 class):蓝(默认)=关键术语、`.g` 绿=收益/保留、`.y` 黄=警示、`.r` 红=风险/删除。每段至多 1-2 处 mark,不满屏上色。
+- **callout 用 GFM 提示块**:简单 prose callout(标题 + 段落)写 `> [!NOTE]` / `> [!WARNING]` / `> [!TIP]`(nav.js 渲染钩子 → `callout note/warn/good`)。含**表格/列表/嵌套块/`id` 锚**的复杂 callout(如立项框 §上「`id="intro"`」)blockquote 装不下,仍用 `<div class="callout 类型">…</div>`。
+- **表格**:简单独立表用 **markdown 表**(`| 列 | 列 |` + `|---|---|`);含 **colspan/rowspan**、或在 `<div>`/callout 容器内的表,markdown 表达不了,用 `<table>` 裸 HTML。
+- **GFM 块要空行**:markdown 表与 `> [!…]` 提示块**前后各留一空行**,否则被当前段续行、漏成字面(`| ... |` / `> [!NOTE]` 显原文)。
 
 ## 文档表现(图示化)
 - 按内容形态选表现:有多步流程/状态流转/多元素关系时用图(时序图,结构图,关系图,表格);线性论述用段落。一句话能讲清的不配图
