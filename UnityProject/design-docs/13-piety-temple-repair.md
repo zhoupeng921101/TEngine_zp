@@ -32,7 +32,7 @@
 > | **影响范围** | `MergeOrderState` 加 4 类字段(虔诚币 / 经验 / 守护者等级 / 12 厅修复位)并随 灵力·盲盒 同体例入快照;`Deliver` + `DeliverSpecial` 加虔诚币发放;新增数据层配置 `TempleConfig`(12 厅造价 + 等级曲线);新增神庙修复方法;新增神庙面板窗口 + `MainMenuWindow` / `MergeOrderWindow` 入口。**旧路径(Classic / 不交付订单 / 不开神庙面板时)零行为变化。** |
 > | **关键约束(继承现状)** | `MergeOrderState` 的元层进度(虔诚币 / 神庙修复 / 经验·守护者等级)经**跨会话磁盘存档**(设计 [14](#14-save-system))落盘,退出重进保留;局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)不进盘,每局 `ResetForMergeOrder` 重建。本篇的「长期主线」是真正**跨会话尺度**的。 |
 
-<h2 id="what">一、改什么与为什么</h2>
+## 一、改什么与为什么 {#what}
 
 当前 merge-order 切片的成长目标只有「完成 5 单通关」(短)与「女神好评条 N/10」(中)。GDD 给整个游戏定的**长期**主线是「攒虔诚币 → 修 12 神庙 → 升守护者等级 → 解锁剧情」,这是一条**跨越多个订单周期**的目标。现状缺这一层:订单交付完只回体力、加分,玩家没有一个「越打越接近的远期里程碑」。本篇补的就是这条长期反馈链。
 
@@ -46,11 +46,11 @@
 | 4 | 经验:获取 = 修复神庙;作用 = 提升**神庙守护者等级** | `Exp` 累积 → `GuardianLevel` 按曲线算([§3.4](#13-piety-temple-repair::level-curve)) | <span class="pill-new">新增</span> |
 | 5 | 升级奖励:解锁新剧情章节、体力、金币、高级图案包 | 升级发体力 + **剧情章节解锁标记**(`UnlockedChapter` 计数);金币/图案包不做(无金币货币,见红框) | <span class="pill-new">新增(部分收敛)</span> |
 
-<b>不做(本设计明确排除,后续轮次):</b>钻石硬货币、灵力 重构为 100 上限神谕槽、剧情章节/NPC 剧情订单的**剧情内容**(只做解锁标记,不做剧情 UI)、装饰摆件的**实际美术**(只做 bool 标记)、金币货币与高级图案包、\~9 套活动。
+**不做(本设计明确排除,后续轮次):**钻石硬货币、灵力 重构为 100 上限神谕槽、剧情章节/NPC 剧情订单的**剧情内容**(只做解锁标记,不做剧情 UI)、装饰摆件的**实际美术**(只做 bool 标记)、金币货币与高级图案包、\~9 套活动。
 
-<h2 id="model">二、系统模型</h2>
+## 二、系统模型 {#model}
 
-<h3 id="three-layer">2.1 三层主线链路</h3>
+### 2.1 三层主线链路 {#three-layer}
 
 三个新系统串成一条单向链:订单是唯一虔诚币来源,神庙是唯一虔诚币出口,经验是修复的副产,等级是经验的派生。结构图:
 
@@ -73,7 +73,7 @@ flowchart TD
 
 时间尺度:本链的虔诚币 / 神庙 / 经验·等级进度为**跨会话尺度**,经 [14 · 跨会话磁盘存档](#14-save-system::what)落盘,退出重进保留。
 
-<h3 id="vs-soul">2.2 虔诚币 与 灵力 的分工(为什么不复用 Soul)</h3>
+### 2.2 虔诚币 与 灵力 的分工(为什么不复用 Soul) {#vs-soul}
 
 新增第二货币而非复用 灵力,是因为两者的**时间尺度与出口**不同,合并会互相污染:
 
@@ -86,18 +86,20 @@ flowchart TD
 
 把神庙造价压到 灵力 上,会让「随时兑体力的高频小钱」与「攒着修庙的远期目标」抢同一个钱包,玩家要么不敢兑体力(怕拖慢修庙)、要么修庙遥遥无期。两个货币各管一段,出口互斥,长期目标才立得住。本篇**完全不改 灵力 的任何字段、公式、奖励路径**。
 
-<h2 id="numbers">三、数值正文</h2>
+## 三、数值正文 {#numbers}
 
 全部硬编码进配置(虔诚币产出旋钮进 `MergeOrderConfig` 续用现有风格;神庙/等级表新建静态类 `TempleConfig`,仿 `MergeOrderConfig` / `ChestSystem`,不接 Luban)。下文给公式 + 默认常量 + 旋钮命名 + 边界逐档代入。
 
-<h3 id="piety-reward">3.1 虔诚币产出(订单奖励)</h3>
+### 3.1 虔诚币产出(订单奖励) {#piety-reward}
 
 虔诚币是「完成订单的主要奖励」,按**订单难度**发放——难单给得多,与现有 `Order.Difficulty`(已实现:`Count × 2^(Level-1)`,= 折算 Lv1 元素数)挂钩,自然形成「越难的单越值钱」。
 
-<pre class="code">// 普通订单(MergeOrderState.Deliver 内,现有发奖之后追加):
+```text
+// 普通订单(MergeOrderState.Deliver 内,现有发奖之后追加):
 Piety += o.Difficulty * PietyPerDifficulty;        // 默认 PietyPerDifficulty = 30
 // 特殊订单(DeliverSpecial 内,现有发奖之后追加):
-Piety += o.Difficulty * PietyPerDifficulty * SpecialPietyMult;  // 默认 SpecialPietyMult = 2</pre>
+Piety += o.Difficulty * PietyPerDifficulty * SpecialPietyMult;  // 默认 SpecialPietyMult = 2
+```
 
 **逐档代入**(默认 `PietyPerDifficulty=30`,`SpecialPietyMult=2`):
 
@@ -108,18 +110,20 @@ Piety += o.Difficulty * PietyPerDifficulty * SpecialPietyMult;  // 默认 Specia
 | Lv3 ×1 | 4 | 120 | 240 |
 | Lv3 ×2 | 8 | 240 | 480 |
 
-节奏标定:现行循环订单池(`OrderPool`,8 张)一轮总 Difficulty = 1+2+4+1+8+1+2+4 = 23,即一轮约产 `23×30=690` 虔诚币。第一座神庙造价 500(GDD 例「愚者大厅 500」),约**完成 6–7 单**可修第一厅——比 demo 通关线(5 单)稍长,让「修第一厅」成为通关后仍想继续的钩子。<b>旋钮:</b>`PietyPerDifficulty` 调全局虔诚币慷慨度;`SpecialPietyMult` 调特殊订单溢价。
+节奏标定:现行循环订单池(`OrderPool`,8 张)一轮总 Difficulty = 1+2+4+1+8+1+2+4 = 23,即一轮约产 `23×30=690` 虔诚币。第一座神庙造价 500(GDD 例「愚者大厅 500」),约**完成 6–7 单**可修第一厅——比 demo 通关线(5 单)稍长,让「修第一厅」成为通关后仍想继续的钩子。**旋钮:**`PietyPerDifficulty` 调全局虔诚币慷慨度;`SpecialPietyMult` 调特殊订单溢价。
 
 > [!NOTE]
-> <b>边界:</b>虔诚币只增不减地累积(<code>AddPiety</code> 仅接受正数,负数/0 不增,与现有 <code>AddSoul</code> 同写法)。仅在 <code>RepairTemple</code> 处扣减。无硬上限(攒多少都行,跨会话累积)。交付是已提交动作——发放随交付一起固化,不被悔棋倒回(<code>Deliver</code>/<code>DeliverSpecial</code> 末尾本就有 <code>_undoStack.Clear()</code>,与现有 体力/分数 奖励同步固化)。
+> **边界:**虔诚币只增不减地累积(`AddPiety` 仅接受正数,负数/0 不增,与现有 `AddSoul` 同写法)。仅在 `RepairTemple` 处扣减。无硬上限(攒多少都行,跨会话累积)。交付是已提交动作——发放随交付一起固化,不被悔棋倒回(`Deliver`/`DeliverSpecial` 末尾本就有 `_undoStack.Clear()`,与现有 体力/分数 奖励同步固化)。
 
-<h3 id="temple-cost">3.2 12 神庙造价与解锁顺序</h3>
+### 3.2 12 神庙造价与解锁顺序 {#temple-cost}
 
-GDD 写 12 座大厅、例「愚者大厅 500」。本篇按<b>大阿尔卡那(Major Arcana)</b>前 12 张命名(主题贴合「塔罗」),造价沿一条**线性递增**曲线,顺序解锁(必须修完第 i 厅才能修第 i+1 厅):
+GDD 写 12 座大厅、例「愚者大厅 500」。本篇按**大阿尔卡那(Major Arcana)**前 12 张命名(主题贴合「塔罗」),造价沿一条**线性递增**曲线,顺序解锁(必须修完第 i 厅才能修第 i+1 厅):
 
-<pre class="code">// TempleConfig:第 i 座(0-indexed)造价
+```text
+// TempleConfig:第 i 座(0-indexed)造价
 Cost(i) = TempleBaseCost + i * TempleCostStep;     // 默认 BaseCost=500, Step=250
-// 顺序解锁:第 i 厅「可修」 ⟺ 前 i 厅全部已修(NextRepairIndex == i)</pre>
+// 顺序解锁:第 i 厅「可修」 ⟺ 前 i 厅全部已修(NextRepairIndex == i)
+```
 
 | 序 | 大厅名 | 造价 | 累计 |
 | --- | --- | --- | --- |
@@ -136,12 +140,12 @@ Cost(i) = TempleBaseCost + i * TempleCostStep;     // 默认 BaseCost=500, Step=
 | 10 | 命运之轮大厅(Wheel of Fortune) | 3,000 | 19,250 |
 | 11 | 正义大厅(Justice) | 3,250 | 22,500 |
 
-数据驱动:`TempleConfig.Halls` 是手编数组 `(name, cost)`,改名/改价/增删厅只动这一处。造价以公式默认值生成,但**数组逐项写死**(允许将来对个别厅手工调价,不被公式绑死)——这是 `OrderPool` 同款「公式定基调、数组可手调」风格。<b>旋钮:</b>`TempleBaseCost` / `TempleCostStep` 调整体造价坡度。
+数据驱动:`TempleConfig.Halls` 是手编数组 `(name, cost)`,改名/改价/增删厅只动这一处。造价以公式默认值生成,但**数组逐项写死**(允许将来对个别厅手工调价,不被公式绑死)——这是 `OrderPool` 同款「公式定基调、数组可手调」风格。**旋钮:**`TempleBaseCost` / `TempleCostStep` 调整体造价坡度。
 
 > [!NOTE]
-> <b>修复判定(<code>RepairTemple(index)</code>):</b>三条前置全满足才可修——①<code>index == NextRepairIndex</code>(顺序,不可跳修);②该厅未修;③<code>Piety &gt;= Cost(index)</code>(币足)。任一不满足返回 false、状态不变。成功 → <code>Piety -= Cost</code>、标记该厅已修、<code>NextRepairIndex++</code>、发奖(<a href="#13-piety-temple-repair::temple-reward">§3.3</a>)。<b>全 12 厅修完后 <code>NextRepairIndex == 12</code>,主线完成</b>(可作长期通关标记,<code>IsTempleAllRepaired</code>)。
+> **修复判定(`RepairTemple(index)`):**三条前置全满足才可修——①`index == NextRepairIndex`(顺序,不可跳修);②该厅未修;③`Piety >= Cost(index)`(币足)。任一不满足返回 false、状态不变。成功 → `Piety -= Cost`、标记该厅已修、`NextRepairIndex++`、发奖(<a href="#13-piety-temple-repair::temple-reward">§3.3</a>)。**全 12 厅修完后 `NextRepairIndex == 12`,主线完成**(可作长期通关标记,`IsTempleAllRepaired`)。
 
-<h3 id="temple-reward">3.3 修复发奖(经验 / 体力 / 装饰)</h3>
+### 3.3 修复发奖(经验 / 体力 / 装饰) {#temple-reward}
 
 GDD:「修复建筑后,获得大量经验值、体力、以及装饰性摆件。」三项落法:
 
@@ -151,18 +155,20 @@ GDD:「修复建筑后,获得大量经验值、体力、以及装饰性摆件。
 | **体力** | `RefundEnergy(TempleRepairEnergy)`(默认 30 = 回满软上限) | 现状 `MergeOrderState.RefundEnergy` | 受 `EnergyCap` 约束,不溢出(与消除返还同规则) |
 | **装饰摆件** | 标记该厅 `HasDecoration[i]=true`(本设计只 bool 标记,无美术) | `TempleHallState.HasDecoration`(随修复位入快照) | 修复成功即置 true;美术表现后续轮次 |
 
-经验取「= 造价」而非固定值的理由:GDD 写「大量经验值」且后期厅造价越来越高,经验跟造价走能让「修高价厅」同时是「跳等级」的大事件,后期升级感不疲软。<b>旋钮:</b>若要解耦,可引入 `ExpPerCost` 系数(默认 1.0);本设计默认 1:1,留旋钮备调([§七 O2](#13-piety-temple-repair::open))。`TempleRepairEnergy` 调修复回血量。
+经验取「= 造价」而非固定值的理由:GDD 写「大量经验值」且后期厅造价越来越高,经验跟造价走能让「修高价厅」同时是「跳等级」的大事件,后期升级感不疲软。**旋钮:**若要解耦,可引入 `ExpPerCost` 系数(默认 1.0);本设计默认 1:1,留旋钮备调([§七 O2](#13-piety-temple-repair::open))。`TempleRepairEnergy` 调修复回血量。
 
-<h3 id="level-curve">3.4 经验 → 守护者等级曲线</h3>
+### 3.4 经验 → 守护者等级曲线 {#level-curve}
 
 守护者等级**从经验派生**(不单独存等级值,等级 = 经验的纯函数,避免两份状态漂移)。升一级所需经验**线性递增**:
 
-<pre class="code">// 从第 L 级升到第 L+1 级所需经验(L 从 1 起):
+```text
+// 从第 L 级升到第 L+1 级所需经验(L 从 1 起):
 ExpToNext(L) = LevelExpBase + (L - 1) * LevelExpStep;   // 默认 Base=500, Step=300
 // 守护者等级 = 累积经验能买到的最高等级(从 1 起):
 GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
-  while (totalExp &gt;= need) { totalExp -= need; level++; need = ExpToNext(level); }
-  return level;</pre>
+  while (totalExp >= need) { totalExp -= need; level++; need = ExpToNext(level); }
+  return level;
+```
 
 | 等级 | 本级所需 | 累计经验门槛 |
 | --- | --- | --- |
@@ -173,12 +179,12 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
 | 5 → 6 | 1,700 | 5,500 |
 | 6 → 7 | 2,000 | 7,500 |
 
-坡度标定:修完前 12 厅累计产经验 = 神庙累计造价 22,500(§3.2 末行)。代入上表,22,500 经验约到**守护者 11 级**(累计门槛:Lv11 约 22,000)。即「修完全部神庙」≈「升到 11 级」,两条长期目标节奏对齐、互相牵引。<b>旋钮:</b>`LevelExpBase` / `LevelExpStep` 调升级坡度;调大更慢、调小更快。
+坡度标定:修完前 12 厅累计产经验 = 神庙累计造价 22,500(§3.2 末行)。代入上表,22,500 经验约到**守护者 11 级**(累计门槛:Lv11 约 22,000)。即「修完全部神庙」≈「升到 11 级」,两条长期目标节奏对齐、互相牵引。**旋钮:**`LevelExpBase` / `LevelExpStep` 调升级坡度;调大更慢、调小更快。
 
 > [!NOTE]
-> <b>边界(逐档已核对):</b>① <code>totalExp=0</code> → 等级 1(开局)。② 恰好达门槛(如 totalExp=500)→ 升到 2 级(用 <code>&gt;=</code>)。③ 一次修复经验巨大可**跨多级**(while 循环连扣,逐级判定),升级回调按「跨了几级」逐级触发解锁。④ 经验只增不减,等级只升不降。
+> **边界(逐档已核对):**① `totalExp=0` → 等级 1(开局)。② 恰好达门槛(如 totalExp=500)→ 升到 2 级(用 `>=`)。③ 一次修复经验巨大可**跨多级**(while 循环连扣,逐级判定),升级回调按「跨了几级」逐级触发解锁。④ 经验只增不减,等级只升不降。
 
-<h3 id="levelup">3.5 升级解锁与边界</h3>
+### 3.5 升级解锁与边界 {#levelup}
 
 升级(`GuardianLevel` 增加)触发解锁。GDD 列「剧情章节 / 体力 / 金币 / 高级图案包」,本设计按红框收敛:
 
@@ -189,9 +195,9 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
 | 金币 | **不做** | 工程无金币货币(见红框);引入是独立大改 |
 | 高级图案包 | **不做** | 图案包属变现向内容,去变现红线;且无打包系统 |
 
-<b>跨级处理:</b>一次修复若使等级从 L 跨到 L+k,则 `UnlockedChapter += k`、发 k 次升级体力(或一次性 `k×LevelUpEnergy`,受软上限;本设计取一次性累加更省调用)。<b>实装范围:</b>本设计至少做到「经验累积 + 等级计算 + 升级判定 + 解锁章节计数 + 升级回血」就位且被测覆盖。剧情章节的实际内容(对话/CG/剧情订单)不做。
+**跨级处理:**一次修复若使等级从 L 跨到 L+k,则 `UnlockedChapter += k`、发 k 次升级体力(或一次性 `k×LevelUpEnergy`,受软上限;本设计取一次性累加更省调用)。**实装范围:**本设计至少做到「经验累积 + 等级计算 + 升级判定 + 解锁章节计数 + 升级回血」就位且被测覆盖。剧情章节的实际内容(对话/CG/剧情订单)不做。
 
-<h2 id="hook">四、挂接点 / dev 改动清单</h2>
+## 四、挂接点 / dev 改动清单 {#hook}
 
 符号名均经 grep 核实于当前工程。dev 照此定位,不需重新摸索结构。**所有改动加法式叠加,不改现有方法的既有行为**(只在现有发奖之后追加新发放)。
 
@@ -202,7 +208,7 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
 | 3 | `MergeOrderState.cs` · 新方法 | `void AddPiety(int)`(正数才加,仿 `AddSoul`);`bool CanRepairTemple(int index)`(§3.2 三前置);`bool RepairTemple(int index, out TempleRepairResult result)`(扣币 + 标记 + 发奖 + 跨级升级判定,返回奖励详情供 UI);辅助 `bool IsTempleAllRepaired => NextRepairIndex >= TempleConfig.HallCount;`。升级体力/章节解锁在 `RepairTemple` 内 while 跨级时施加(参 §3.4 边界③)。 |
 | 4 | `MergeOrderState.cs` · `Deliver(int slot)` | 现有发奖(`Energy += OrderRewardEnergy` / `TotalScore += ...`)**之后**追加 `AddPiety(o.Difficulty * TempleConfig.PietyPerDifficulty)`。位置在 `_undoStack.Clear()` 之前(随交付固化)。 |
 | 5 | `MergeOrderState.cs` · `DeliverSpecial()` | 同上,追加 `AddPiety(o.Difficulty * PietyPerDifficulty * SpecialPietyMult)`。在现有盲盒附赠(`AddBlindBox`)同段、`OnDelivered()`/`_undoStack.Clear()` 之前。 |
-| 6 | `MergeOrderState.cs` · `Snapshot.Capture` / `Restore` | 加 `_piety` / `_exp` / `_unlockedChapter` / `_nextRepairIndex` / `_templeRepaired[]` / `_templeDecorated[]`,Capture 深拷贝存(数组用 `.Clone()`)、Restore 复原。**必须**——否则悔棋后主线状态错乱(与 `_soul`/`_blindBoxCount` 同体例)。<b>注:</b>但「修复神庙」是窗口在**非落子时机**的独立动作,不在落子快照范围内——修复成功后应同步 `_undoStack.Clear()`(修复是已提交的经济动作,悔棋不应倒回已修的厅/已扣的币),与交付清栈同理。 |
+| 6 | `MergeOrderState.cs` · `Snapshot.Capture` / `Restore` | 加 `_piety` / `_exp` / `_unlockedChapter` / `_nextRepairIndex` / `_templeRepaired[]` / `_templeDecorated[]`,Capture 深拷贝存(数组用 `.Clone()`)、Restore 复原。**必须**——否则悔棋后主线状态错乱(与 `_soul`/`_blindBoxCount` 同体例)。**注:**但「修复神庙」是窗口在**非落子时机**的独立动作,不在落子快照范围内——修复成功后应同步 `_undoStack.Clear()`(修复是已提交的经济动作,悔棋不应倒回已修的厅/已扣的币),与交付清栈同理。 |
 | 7 | `UI/BlockBlastUI/TempleWindow.cs` <span class="pill-new">新建</span> | 神庙面板窗口(§五):`[Window(UILayer.UI, location:"TempleWindow", fullScreen:true)]`,glyph/纯色,列 12 厅三态 + 修复按钮 + 顶部虔诚币/经验/等级显示。读 `BlockGameState.Instance.MergeState`(与 `MergeOrderWindow` 同源)。 |
 | 8 | `UI/BlockBlastUI/MergeOrderWindow.cs` | 顶部信息行加虔诚币计数显示(`RefreshPiety`);加「神庙」按钮打开 `TempleWindow`(不关本窗,叠层;或关本窗——dev 按现有 UI 栈惯例择一,建议叠层返回不丢局)。交付后调 `RefreshPiety`(虔诚币变了)。 |
 | 9 | `UI/BlockBlastUI/MainMenuWindow.cs` | (可选)主菜单加「神庙」入口直达 `TempleWindow`。优先级低于 MergeOrderWindow 内入口;dev 时间紧可只接 MergeOrderWindow 内入口([§七 O4](#13-piety-temple-repair::open))。 |
@@ -210,26 +216,26 @@ GuardianLevel(totalExp):  level=1; need=ExpToNext(1);
 
 持久化口径(两条独立轨):**跨会话尺度**的元层进度(虔诚币 / 经验 / 守护者等级派生 / 神庙修复位)经设计 [14](#14-save-system) 的磁盘存档落盘,退出重进保留;**单局内**的悔棋回滚走 `MergeOrderState.Snapshot`(改动清单 #6),与 `_soul`/`_blindBoxCount` 同体例。两轨字段虽重叠,但时机/介质/生命周期不同,互不调用。
 
-<h2 id="ui">五、UI 方案(神庙面板)</h2>
+## 五、UI 方案(神庙面板) {#ui}
 
 glyph + 纯色,零美术,与现有 demo 一致(复用 `UGuiFactory` / `BurstText`)。神庙面板(`TempleWindow`)布局:
 
-- <b>顶部主线信息行:</b><span class="coin">虔诚币 ✦ ×N</span>(金色)+ **守护者 Lv.L** + **经验条 cur/next**(本级进度,`Exp - 累计门槛(L)` / `ExpToNext(L)`)+ 已解锁章节「第 N 章」。
-- <b>12 厅列表(纵向滚动或 3×4 网格):</b>每厅一张卡,显示厅名 + 造价 ✦N + 状态徽标,**三态**各异:
+- **顶部主线信息行:**<span class="coin">虔诚币 ✦ ×N</span>(金色)+ **守护者 Lv.L** + **经验条 cur/next**(本级进度,`Exp - 累计门槛(L)` / `ExpToNext(L)`)+ 已解锁章节「第 N 章」。
+- **12 厅列表(纵向滚动或 3×4 网格):**每厅一张卡,显示厅名 + 造价 ✦N + 状态徽标,**三态**各异:
 
 | 态 | 判据 | 表现 | 修复按钮 |
 |---|---|---|---|
-| <b>已修</b> | <code>TempleRepaired\[i\]</code> | 卡片高亮(绿/金)+「✓ 已修复」+ 装饰 glyph(◈/♕ 等纯字符) | 隐藏 / 显示「已修复」 |
-| <b>可修</b> | <code>i==NextRepairIndex</code> 且 <code>Piety>=Cost</code> | 卡片正常 + 造价金色 | 「修复」可点(绿底) |
-| <b>币不足</b> | <code>i==NextRepairIndex</code> 且 <code>Piety&lt;Cost</code> | 造价标红/暗 +「还差 (Cost-Piety)」 | 「修复」<b>置灰</b>(<code>interactable=false</code>,同悔棋/开盒按钮写法) |
-| <b>未解锁</b> | <code>i>NextRepairIndex</code> | 卡片暗淡 + 🔒/「需先修前序大厅」 | 隐藏 / 置灰 |
+| **已修** | `TempleRepaired\[i\]` | 卡片高亮(绿/金)+「✓ 已修复」+ 装饰 glyph(◈/♕ 等纯字符) | 隐藏 / 显示「已修复」 |
+| **可修** | `i==NextRepairIndex` 且 `Piety>=Cost` | 卡片正常 + 造价金色 | 「修复」可点(绿底) |
+| **币不足** | `i==NextRepairIndex` 且 `Piety<Cost` | 造价标红/暗 +「还差 (Cost-Piety)」 | 「修复」**置灰**(`interactable=false`,同悔棋/开盒按钮写法) |
+| **未解锁** | `i>NextRepairIndex` | 卡片暗淡 + 🔒/「需先修前序大厅」 | 隐藏 / 置灰 |
 
-- <b>修复反馈:</b>点「修复」→ `RepairTemple` → 用 `BurstText.Spawn` 弹「修复愚者大厅！+经验 500 +体力 30」;若跨级升级再弹「守护者 Lv↑ 解锁第 N 章」。然后刷新顶部信息行 + 该厅卡片态(+ 后一厅从「未解锁」转「可修/币不足」)。
+- **修复反馈:**点「修复」→ `RepairTemple` → 用 `BurstText.Spawn` 弹「修复愚者大厅！+经验 500 +体力 30」;若跨级升级再弹「守护者 Lv↑ 解锁第 N 章」。然后刷新顶部信息行 + 该厅卡片态(+ 后一厅从「未解锁」转「可修/币不足」)。
 
 > [!NOTE]
-> <b>入口与刷新:</b>从 <code>MergeOrderWindow</code> 顶部「神庙」按钮打开(叠层,不丢当前局);或主菜单入口(§七 O4)。打开即按当前 <code>MergeState</code> 渲染。修复后刷新调本窗自有的 <code>RefreshTempleList()</code> + <code>RefreshHeader()</code>;返回 <code>MergeOrderWindow</code> 时该窗 <code>RefreshPiety</code> 自然反映扣减(虔诚币是同一 <code>MergeState</code> 引用)。表现用内联弹字而非全屏弹窗——与现有连消/开盒反馈同一套语言。
+> **入口与刷新:**从 `MergeOrderWindow` 顶部「神庙」按钮打开(叠层,不丢当前局);或主菜单入口(§七 O4)。打开即按当前 `MergeState` 渲染。修复后刷新调本窗自有的 `RefreshTempleList()` + `RefreshHeader()`;返回 `MergeOrderWindow` 时该窗 `RefreshPiety` 自然反映扣减(虔诚币是同一 `MergeState` 引用)。表现用内联弹字而非全屏弹窗——与现有连消/开盒反馈同一套语言。
 
-<h2 id="accept">六、验收点(test 可逐条核对)</h2>
+## 六、验收点(test 可逐条核对) {#accept}
 
 每条对应一个或一组单测;test 子会话编译 + 跑 EditMode(`BlockBlast.Tests`),全绿且**现有基线 149 例不回归**。本系统无随机,验收主要构造确定性状态后断言。
 
@@ -245,22 +251,22 @@ glyph + 纯色,零美术,与现有 demo 一致(复用 `UGuiFactory` / `BurstText
 | T8 | 修复触发升级(含跨级) | 构造 `Exp` 接近门槛 → 一次修复使 `GuardianLevel` 增 ≥1;经验巨大时一次跨多级,`UnlockedChapter` 增「跨的级数」、升级体力按跨级累加(受软上限)。 |
 | T9 | 全厅修完标记 | 依次修完 12 厅 → `NextRepairIndex==12`、`IsTempleAllRepaired==true`;此后任何 `RepairTemple` 返回 false。 |
 | T10 | 虔诚币累积 + 只增 | `AddPiety` 负数/0 不增;多次交付累加正确;无上限(大值不截断)。 |
-| T11 | 悔棋快照回滚主线字段 | 记 `Piety`/`Exp`/`NextRepairIndex`/修复位 → `CaptureSnapshot` → 落子交付使虔诚币变 → `Undo` → 全部回滚到落子前(与现有 Soul/盲盒快照测试同构)。<b>另:</b>修复动作清空悔棋栈,修复后 `Undo` 不倒回已修厅(§四 #6)。 |
+| T11 | 悔棋快照回滚主线字段 | 记 `Piety`/`Exp`/`NextRepairIndex`/修复位 → `CaptureSnapshot` → 落子交付使虔诚币变 → `Undo` → 全部回滚到落子前(与现有 Soul/盲盒快照测试同构)。**另:**修复动作清空悔棋栈,修复后 `Undo` 不倒回已修厅(§四 #6)。 |
 | T12 | 旧路径零回归 | 现有基线 149 例全绿;不调任何虔诚币/神庙方法时,`Deliver`/`DeliverSpecial` 的现有断言(体力/分数/盲盒)与基线一致;Classic 模式零影响。 |
 
-<h2 id="open">七、待拍板清单(交 boss / 用户)</h2>
+## 七、待拍板清单(交 boss / 用户) {#open}
 
 以下为范围/取向开关,集中列出。其余数值我已按 §三默认拍板,dev 直接用。
 
 | # | 待决项 | 我的默认取向(若无异议即按此) |
 | --- | --- | --- |
-| O1 | <b>升级奖励是否补金币/图案包。</b>GDD 列了,工程无金币货币、图案包属变现向。 | 本设计**不做**(只体力 + 章节解锁标记)。金币需先引入货币系统(独立大改);图案包触去变现红线。 |
-| O2 | <b>修复经验是否解耦造价(引入 <code>ExpPerCost</code> 系数)。</b> | 本设计经验 = 造价 1:1(简单且后期升级感强)。留旋钮默认 1.0,要调再说。 |
-| O3 | <b>MergeOrderState 元层进度的跨会话磁盘持久化。</b> | 已由设计 [14](#14-save-system) 落地:虔诚币 / 经验·守护者等级 / 神庙修复位等元层进度随 灵力·盲盒 同体例进 `MergeMetaSave` 磁盘存档,退出重进保留;局内瞬态仍每局重建。「长期主线」即真正跨会话尺度。 |
-| O4 | <b>神庙面板入口放哪。</b> | 主入口在 `MergeOrderWindow` 顶部「神庙」按钮(叠层,不丢局);主菜单入口为可选加分项,dev 时间紧可省。 |
-| O5 | <b>厅名是否用大阿尔卡那命名。</b> | 用(贴「塔罗」主题,GDD 例「愚者大厅」即大阿尔卡那第 0 张)。改名只动 `TempleConfig.Halls` 一处。 |
+| O1 | **升级奖励是否补金币/图案包。**GDD 列了,工程无金币货币、图案包属变现向。 | 本设计**不做**(只体力 + 章节解锁标记)。金币需先引入货币系统(独立大改);图案包触去变现红线。 |
+| O2 | **修复经验是否解耦造价(引入 `ExpPerCost` 系数)。** | 本设计经验 = 造价 1:1(简单且后期升级感强)。留旋钮默认 1.0,要调再说。 |
+| O3 | **MergeOrderState 元层进度的跨会话磁盘持久化。** | 已由设计 [14](#14-save-system) 落地:虔诚币 / 经验·守护者等级 / 神庙修复位等元层进度随 灵力·盲盒 同体例进 `MergeMetaSave` 磁盘存档,退出重进保留;局内瞬态仍每局重建。「长期主线」即真正跨会话尺度。 |
+| O4 | **神庙面板入口放哪。** | 主入口在 `MergeOrderWindow` 顶部「神庙」按钮(叠层,不丢局);主菜单入口为可选加分项,dev 时间紧可省。 |
+| O5 | **厅名是否用大阿尔卡那命名。** | 用(贴「塔罗」主题,GDD 例「愚者大厅」即大阿尔卡那第 0 张)。改名只动 `TempleConfig.Halls` 一处。 |
 
-<h2 id="risk">八、风险表</h2>
+## 八、风险表 {#risk}
 
 | 风险 | 后果 | 应对 |
 | --- | --- | --- |

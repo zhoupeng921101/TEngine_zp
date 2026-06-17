@@ -279,8 +279,9 @@
     ids.forEach(function (id) { const el = document.getElementById(id); if (el) tocObserver.observe(el); });
   }
 
-  // marked 扩展:GFM 提示块 `> [!NOTE]/[!WARNING]/[!TIP]` → callout div(marked 不原生支持)
-  // 向后兼容:正文里现存的裸 <div class="callout"> 不经此,marked 原样透传,继续按 CSS 渲染
+  // marked 扩展:① GFM 提示块 `> [!NOTE]/[!WARNING]/[!TIP]` → callout div(marked 不原生支持)
+  //            ② 标题尾随 `{#id}` → 显式 h2/h3 id(承重锚点:跨文档 #slug::id 链接 + 本页目录)
+  // 向后兼容:裸 <div class="callout"> 原样透传按 CSS 渲染;无 {#id} 的标题仍走 buildToc 的 slugify 兜底
   function setupMarkedAlerts() {
     if (!window.marked || !marked.use) return;
     const map = { NOTE: 'note', WARNING: 'warn', WARN: 'warn', CAUTION: 'warn', TIP: 'good', GOOD: 'good', IMPORTANT: 'note' };
@@ -293,6 +294,14 @@
           const cls = map[m[1].toUpperCase()] || 'note';
           const body = inner.replace(/^\s*<p>\[!\w+\][ \t]*(<br\s*\/?>)?\s*/i, '<p>').replace(/<p>\s*<\/p>/g, '');
           return '<div class="callout ' + cls + '">' + body + '</div>\n';
+        },
+        heading(token) {
+          let text = this.parser.parseInline(token.tokens);
+          const depth = token.depth;
+          const m = text.match(/\s*\{#([\w-]+)\}\s*$/);
+          let id = '';
+          if (m) { id = m[1]; text = text.slice(0, m.index); }
+          return '<h' + depth + (id ? ' id="' + id + '"' : '') + '>' + text + '</h' + depth + '>\n';
         }
       }
     });

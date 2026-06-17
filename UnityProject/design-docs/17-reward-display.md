@@ -39,9 +39,9 @@
 > | **影响范围** | 新增 POCO `RewardView`(展示归一结构)+ 静态 helper `RewardDisplay`(各源 → RewardView 转换 + 6 档品质色 + 数量文本 + 图标 / 名称解析)+ 列表项 Widget 骨架 `RewardItemWidget`(UI 接法示范,本设计不挂 prefab)。**既有 `GrantPayload` / `ChestReward` / `NumericConfigMgr` / `ItemConfigMgr` / `MergeElementVisual` 读写零改动;旧路径零行为变化。**无新增 Luban 表 / 枚举(复用既有)。 |
 > | **关键约束(继承现状)** | 归一 / 格式化 / 品质色为纯逻辑,可在纯 C# 单测直接调(不依赖 YooAsset / Unity 运行时);涉及货币 / 道具元数据查询的路径经既有 `NumericConfigMgr.InitForTest` / `ItemConfigMgr.InitForTest` 注入(绕 ConfigSystem)。`RewardView` 是不含 Unity 类型(`Color` 除外,`UnityEngine.Color` 是值类型可在 EditMode 单测构造)的 POCO。 |
 
-<h2 id="what">一、做什么与为什么</h2>
+## 一、做什么与为什么 {#what}
 
-现状:游戏里「发奖」这件事已经齐全——道具系统能产出 `GrantPayload`、盲盒能产出 `ChestReward`、数值系统能加各种货币。但<b>「把一份奖励显示给玩家看」这件事散在各处、各写一套</b>:开箱窗口要自己把 `ChestReward.Kind` 翻成「灵力 / 体力 / 图案」文案、自己挑图标、自己定颜色;将来礼包开启窗口、订单交付结算面板又要把 `GrantPayload` 翻一遍、各挑各的图标和颜色。同一个「灵力 +200」在开箱里和在订单结算里可能长得不一样,且每加一个新发奖入口就得重写一份显示逻辑。
+现状:游戏里「发奖」这件事已经齐全——道具系统能产出 `GrantPayload`、盲盒能产出 `ChestReward`、数值系统能加各种货币。但**「把一份奖励显示给玩家看」这件事散在各处、各写一套**:开箱窗口要自己把 `ChestReward.Kind` 翻成「灵力 / 体力 / 图案」文案、自己挑图标、自己定颜色;将来礼包开启窗口、订单交付结算面板又要把 `GrantPayload` 翻一遍、各挑各的图标和颜色。同一个「灵力 +200」在开箱里和在订单结算里可能长得不一样,且每加一个新发奖入口就得重写一份显示逻辑。
 
 本系统补的正是这一层**展示归一**:不管奖励从哪来(道具 / 盲盒 / 裸货币),先归一成一个统一的 `RewardView`(图标资源名 + 名称文本 id + 数量显示文本 + 品质色 + 类型角标),任何 UI 拿到 `RewardView` 用同一套渲染。三件事:
 
@@ -52,11 +52,11 @@
 | 3 | 统一品质色 + 数量文本 + 图标名 | 6 档权威品质色 `QualityColor(q)`([§3.3](#17-reward-display::quality))+ 数量文本 `CountText(n)`(复用 `NumericFormat`,[§3.4](#17-reward-display::count))+ 图标 / 名称解析([§3.5](#17-reward-display::icon)) | <span class="pill-new">新增 helper</span> |
 | 4 | 列表项渲染示范 | Widget 骨架 `RewardItemWidget.SetData(RewardView)`(UI 接法示范,**本设计不挂 prefab、不投放**,[§3.6](#17-reward-display::widget)) | <span class="pill-stub">骨架·不投放</span> |
 
-<b>不做(本设计明确排除):</b><span class="pill-no">价格 / 充值显示</span>(去变现);<span class="pill-no">真实 Sprite 加载</span>(无美术,只产出图标资源名,真实 `SetSprite` 交调用方接 UI 时做,[§七 O1](#17-reward-display::open));<span class="pill-no">奖励弹窗 / 三选一面板 / 结算面板等具体 UI 投放</span>(本设计交付纯逻辑 helper + Widget 骨架,具体窗口投放是独立后续,[§七 O2](#17-reward-display::open));<span class="pill-no">名称文本表查询(多语言)</span>(文本表本设计未接,`RewardView` 给名称文本 id,真实查表 / 显示交后续,与 `NumericDisplay` 现状一致,[§七 O4](#17-reward-display::open));<span class="pill-no">奖励获取动画 / 飞图标 / 数字滚动等表现</span>(表现层独立,[§七 O5](#17-reward-display::open));<span class="pill-no">改既有产出 / 发奖逻辑</span>(本层只读不写)。
+**不做(本设计明确排除):**<span class="pill-no">价格 / 充值显示</span>(去变现);<span class="pill-no">真实 Sprite 加载</span>(无美术,只产出图标资源名,真实 `SetSprite` 交调用方接 UI 时做,[§七 O1](#17-reward-display::open));<span class="pill-no">奖励弹窗 / 三选一面板 / 结算面板等具体 UI 投放</span>(本设计交付纯逻辑 helper + Widget 骨架,具体窗口投放是独立后续,[§七 O2](#17-reward-display::open));<span class="pill-no">名称文本表查询(多语言)</span>(文本表本设计未接,`RewardView` 给名称文本 id,真实查表 / 显示交后续,与 `NumericDisplay` 现状一致,[§七 O4](#17-reward-display::open));<span class="pill-no">奖励获取动画 / 飞图标 / 数字滚动等表现</span>(表现层独立,[§七 O5](#17-reward-display::open));<span class="pill-no">改既有产出 / 发奖逻辑</span>(本层只读不写)。
 
-<h2 id="model">二、系统模型</h2>
+## 二、系统模型 {#model}
 
-<h3 id="sources">2.1 三种奖励源的现状形态</h3>
+### 2.1 三种奖励源的现状形态 {#sources}
 
 本层归一的输入是工程里已实装的三种产出结构。先把它们的真实形态钉清(字段名经 grep 实装文件核实),归一转换才能精确:
 
@@ -67,9 +67,9 @@
 | [数值系统](#15-numeric-system) | num\_id + 数量(裸值) | num\_id / amount | 直接查 `NumericConfigMgr.Get(num_id)` 拿 Icon/Name/Quality |
 
 > [!NOTE]
-> <b>Soul(灵力)的 num_id 映射:</b><code>ChestRewardKind.Soul</code> 是灵力,数值系统现有约定常量是 <code>Exp=1 / Piety=2 / Diamond=3 / Energy=4</code>(<code>NumericConfigMgr</code>),**没有「灵力 / Soul」这一项**。核实:盲盒的 Soul 在既有发奖里落到哪个货币字段——经 grep,<code>ChestSystem</code> 只产出 <code>ChestReward</code>,真实发放由窗口对接 <code>MergeOrderState</code>(<code>ChestSystem.cs</code> 类注释)。<mark>灵力↔num_id 的映射现状未在 num 表登记</mark>。本层处理:<code>ChestRewardKind</code> → 展示元数据走一张**本层内的小映射表**(§3.2,Soul→图标名/名称 id/品质,不强依赖 num 表),而非假设一个不存在的 num_id。这张表是展示层私有约定,列入 <a href="#17-reward-display::open">§七 O6</a> 供 boss 确认是否补进 num 表统一。
+> **Soul(灵力)的 num_id 映射:**`ChestRewardKind.Soul` 是灵力,数值系统现有约定常量是 `Exp=1 / Piety=2 / Diamond=3 / Energy=4`(`NumericConfigMgr`),**没有「灵力 / Soul」这一项**。核实:盲盒的 Soul 在既有发奖里落到哪个货币字段——经 grep,`ChestSystem` 只产出 `ChestReward`,真实发放由窗口对接 `MergeOrderState`(`ChestSystem.cs` 类注释)。<mark>灵力↔num_id 的映射现状未在 num 表登记</mark>。本层处理:`ChestRewardKind` → 展示元数据走一张**本层内的小映射表**(§3.2,Soul→图标名/名称 id/品质,不强依赖 num 表),而非假设一个不存在的 num_id。这张表是展示层私有约定,列入 <a href="#17-reward-display::open">§七 O6</a> 供 boss 确认是否补进 num 表统一。
 
-<h3 id="layers">2.2 归一层 + 显示层结构</h3>
+### 2.2 归一层 + 显示层结构 {#layers}
 
 系统两层:**归一层**(各源 → `RewardView`,纯逻辑)+ **显示层**(`RewardView` → UI,本设计只到 Widget 骨架)。归一层吃既有产出结构 + 既有元数据注册表,产出与 Unity UI 无关的 `RewardView`(故可纯单测);显示层把 `RewardView` 喂给 Widget。结构图:
 
@@ -97,15 +97,16 @@ flowchart TD
     view --> disp
 ```
 
-<b>为什么这样切:</b>把「奖励长什么样」从「奖励是什么」里抽出来,各发奖入口不再各写一份显示逻辑——加新发奖通道时只要能转成 `RewardView` 就能复用同一套渲染。归一层<mark>只读既有产出结构和元数据注册表、产出不含 Unity UI 类型的 POCO</mark>(`RewardView` 里唯一的 Unity 类型是 `Color` 值类型,可在 EditMode 单测构造),所以转换 + 格式化 + 品质色全部可纯单测——这是「展示归一可被逐条核对」验收点的地基。显示层只是把 `RewardView` 的字段贴到 UI 控件上,无业务逻辑,故本设计给骨架不投放也不影响逻辑验收。
+**为什么这样切:**把「奖励长什么样」从「奖励是什么」里抽出来,各发奖入口不再各写一份显示逻辑——加新发奖通道时只要能转成 `RewardView` 就能复用同一套渲染。归一层<mark>只读既有产出结构和元数据注册表、产出不含 Unity UI 类型的 POCO</mark>(`RewardView` 里唯一的 Unity 类型是 `Color` 值类型,可在 EditMode 单测构造),所以转换 + 格式化 + 品质色全部可纯单测——这是「展示归一可被逐条核对」验收点的地基。显示层只是把 `RewardView` 的字段贴到 UI 控件上,无业务逻辑,故本设计给骨架不投放也不影响逻辑验收。
 
-<h2 id="numbers">三、设计正文</h2>
+## 三、设计正文 {#numbers}
 
-<h3 id="view">3.1 RewardView 归一结构</h3>
+### 3.1 RewardView 归一结构 {#view}
 
 `RewardView` 是展示用的归一结构,字段只为「渲染一项奖励」服务。**不含产出语义**(不知道这奖励落哪个系统——那是产出层的事),只含「显示成什么样」。
 
-<pre class="code">// 归一展示结构（POCO，唯一 Unity 类型是 Color 值类型，可 EditMode 单测构造）
+```text
+// 归一展示结构（POCO，唯一 Unity 类型是 Color 值类型，可 EditMode 单测构造）
 public readonly struct RewardView {
     public readonly string IconName;     // 图标资源名（真实 Sprite 加载交调用方，暂只给名）
     public readonly int    NameTextId;   // 名称多语言文本 id（文本表暂未接，给 id，O4）
@@ -124,15 +125,17 @@ public enum RewardBadge {
     Material,  // 材料 / 功能材料
     Gift,      // 礼包（自选 / 随机）
     Function,  // 功能性（悔棋次数 / 祈愿次数等无图标实物的）
-}</pre>
+}
+```
 
-<b>字段取舍理由:</b>(1) `IconName` 是字符串而非 Sprite——归一层不碰 YooAsset(纯单测要求),真实加载用既有 `Image.SetSprite(name)`(内置缓存池,见 ui-patterns)由调用方做;(2) `NameTextId` 是文本 id 而非字面串——多语言文本表本设计未接,与既有 `NumericDisplay` 现状一致(它也只到文本 id);(3) `CountText` 已格式化好(如 "x200")——避免每个 UI 各拼一次「x + 数量」;(4) `RawAmount` 保留原始值——给少数需要自定义格式 / 排序的 UI 兜底;(5) `Badge` 与产出枚举解耦——归一时把 5 种 GrantKind / 5 种 ChestRewardKind 收成 6 种展示角标,UI 只认 `RewardBadge` 不认产出枚举。
+**字段取舍理由:**(1) `IconName` 是字符串而非 Sprite——归一层不碰 YooAsset(纯单测要求),真实加载用既有 `Image.SetSprite(name)`(内置缓存池,见 ui-patterns)由调用方做;(2) `NameTextId` 是文本 id 而非字面串——多语言文本表本设计未接,与既有 `NumericDisplay` 现状一致(它也只到文本 id);(3) `CountText` 已格式化好(如 "x200")——避免每个 UI 各拼一次「x + 数量」;(4) `RawAmount` 保留原始值——给少数需要自定义格式 / 排序的 UI 兜底;(5) `Badge` 与产出枚举解耦——归一时把 5 种 GrantKind / 5 种 ChestRewardKind 收成 6 种展示角标,UI 只认 `RewardBadge` 不认产出枚举。
 
-<h3 id="convert">3.2 各源 → RewardView 转换</h3>
+### 3.2 各源 → RewardView 转换 {#convert}
 
 `RewardDisplay` 提供从每种源到 `RewardView` 的转换。核心三个对接既有产出结构,另两个对接裸输入:
 
-<pre class="code">public static class RewardDisplay {
+```text
+public static class RewardDisplay {
     // ① 道具系统产出 → 展示
     public static RewardView From(GrantPayload p) {
         switch (p.Kind) {
@@ -169,7 +172,7 @@ public enum RewardBadge {
         string icon = d != null ? d.Icon : null;
         int    name = d != null ? d.Name : 0;
         int    qual = d != null ? d.Quality : 1;
-        var badge = (d != null &amp;&amp; (d.Type == 5 || d.Type == 6)) ? RewardBadge.Gift : RewardBadge.Material;
+        var badge = (d != null && (d.Type == 5 || d.Type == 6)) ? RewardBadge.Gift : RewardBadge.Material;
         return new RewardView(icon, name, CountText(count), QualityColor(qual), badge, count);
     }
     // ⑤ 图案 + 等级 + 数量 → 展示（查 MergeElementVisual；图案品质映射等级）
@@ -179,9 +182,10 @@ public enum RewardBadge {
         return new RewardView(icon, 0, PatternCountText(level, count),
                               QualityColor(PatternQuality(level)), RewardBadge.Pattern, count);
     }
-}</pre>
+}
+```
 
-<b>转换边界逐档:</b>
+**转换边界逐档:**
 
 | 输入 | 行为 | 理由 |
 | --- | --- | --- |
@@ -193,9 +197,9 @@ public enum RewardBadge {
 | Gift\*(礼包) | Badge=Gift,图标名礼包占位,CountText 按 Times(开 N 次) | 礼包本身是一个待开的盒,展示为「礼包 ×Times」 |
 
 > [!NOTE]
-> <b>盲盒 Pattern 的默认图案:</b><code>ChestReward.Pattern</code> 只带 <code>PatternLevel</code>(1–3)**不带具体图案种类**(盲盒奖池设计只到「给个 LvN 图案」,见 <code>ChestSystem.cs</code> 奖池 <code>new ChestReward(ChestRewardKind.Pattern, 1, 3)</code>)。归一时若无具体图案,展示用一个**代表性图案**(默认 Diamond ◆)+ 等级文案;若调用方已知具体图案,改用 <code>FromPattern(具体图案, level, count)</code> 直接转。这条列入 <a href="#17-reward-display::open">§七 O7</a>(是否给盲盒 Pattern 补具体图案种类)。
+> **盲盒 Pattern 的默认图案:**`ChestReward.Pattern` 只带 `PatternLevel`(1–3)**不带具体图案种类**(盲盒奖池设计只到「给个 LvN 图案」,见 `ChestSystem.cs` 奖池 `new ChestReward(ChestRewardKind.Pattern, 1, 3)`)。归一时若无具体图案,展示用一个**代表性图案**(默认 Diamond ◆)+ 等级文案;若调用方已知具体图案,改用 `FromPattern(具体图案, level, count)` 直接转。这条列入 <a href="#17-reward-display::open">§七 O7</a>(是否给盲盒 Pattern 补具体图案种类)。
 
-<h3 id="quality">3.3 6 档品质色(单一事实源)</h3>
+### 3.3 6 档品质色(单一事实源) {#quality}
 
 本层定一份**权威的 6 档品质色**,与[道具系统 `EItemQuality`](#16-item-system)(1 普通白 / 2 高级绿 / 3 精英蓝 / 4 史诗紫 / 5 传说橙 / 6 神话红)一一对应。色值取自文档调色板,确保设计稿与运行期一致:
 
@@ -209,7 +213,8 @@ public enum RewardBadge {
 | 6 | 神话 | <span class="sw" style="background:#ff7a8a"></span>红 | (1.0, 0.48, 0.54) | MYTH |
 | 其它 / 越界 | — | <span class="sw" style="background:#d8d8d8"></span>白(退化) | (0.85, 0.85, 0.85) | — |
 
-<pre class="code">public static Color QualityColor(int quality) {
+```text
+public static Color QualityColor(int quality) {
     switch (quality) {
         case 2: return new Color(0.36f, 0.84f, 0.63f); // 绿
         case 3: return new Color(0.42f, 0.55f, 1.00f); // 蓝
@@ -218,27 +223,30 @@ public enum RewardBadge {
         case 6: return new Color(1.00f, 0.48f, 0.54f); // 红
         default: return new Color(0.85f, 0.85f, 0.85f); // 白(1) / 越界
     }
-}</pre>
+}
+```
 
 > [!WARNING]
-> <b>与既有 4 档 <code>NumericDisplay.QualityColor</code> 的关系:</b>既有 helper(<a href="#15-numeric-system">设计 15</a> 实装)是 4 档,色序<mark>白(1)/蓝(2)/紫(3)/红(4)</mark>——与本层 6 档(白/绿/蓝/紫/橙/红)在 2/3/4 档**色值不同**(它的 2=蓝,本层 2=绿)。本层是品质色的**新单一事实源**,凡走 <code>RewardView</code> 的展示一律用本层 6 档。既有 <code>NumericDisplay.QualityColor</code> **本设计不删不改**(它还被 <code>NumericDisplay.FormatWith</code> 自用,且未确认是否有 UI 直接引用),但<mark>不再扩展、不被本层调用</mark>;将来收编 <code>NumericDisplay</code> 到本层(让数值显示也走 RewardView)是独立正名任务(<a href="#17-reward-display::open">§七 O3</a>)。<b>本设计交付里两份品质色并存,本层 6 档是权威,旧 4 档冻结待收编。</b>
+> **与既有 4 档 `NumericDisplay.QualityColor` 的关系:**既有 helper(<a href="#15-numeric-system">设计 15</a> 实装)是 4 档,色序<mark>白(1)/蓝(2)/紫(3)/红(4)</mark>——与本层 6 档(白/绿/蓝/紫/橙/红)在 2/3/4 档**色值不同**(它的 2=蓝,本层 2=绿)。本层是品质色的**新单一事实源**,凡走 `RewardView` 的展示一律用本层 6 档。既有 `NumericDisplay.QualityColor` **本设计不删不改**(它还被 `NumericDisplay.FormatWith` 自用,且未确认是否有 UI 直接引用),但<mark>不再扩展、不被本层调用</mark>;将来收编 `NumericDisplay` 到本层(让数值显示也走 RewardView)是独立正名任务(<a href="#17-reward-display::open">§七 O3</a>)。**本设计交付里两份品质色并存,本层 6 档是权威,旧 4 档冻结待收编。**
 
-<b>图案品质映射(<code>PatternQuality(level)</code>):</b>图案无独立品质字段,按等级映射展示品质——Lv1→3(精英蓝)/ Lv2→4(史诗紫)/ Lv3→5(传说橙),越高越亮。这是展示约定,可调,列 [§七 O7](#17-reward-display::open)。
+**图案品质映射(`PatternQuality(level)`):**图案无独立品质字段,按等级映射展示品质——Lv1→3(精英蓝)/ Lv2→4(史诗紫)/ Lv3→5(传说橙),越高越亮。这是展示约定,可调,列 [§七 O7](#17-reward-display::open)。
 
-<h3 id="count">3.4 数量文本格式化</h3>
+### 3.4 数量文本格式化 {#count}
 
 数量文本复用[已实装的 `NumericFormat.Abbreviate`](#15-numeric-system)(0–999 原值 / K / M 缩写,截断保 999999→"999.9K"),前面加 "x" 前缀。不重写一份格式化逻辑(避免两处漂移):
 
-<pre class="code">public static string CountText(long amount) {
-    // 1 个不显数量（如单件材料）；&gt;1 显 "x{缩写}"
-    if (amount &lt;= 1) return amount == 1 ? "" : "x" + amount;  // 0 显 "x0"，1 显空（单件不带 x1）
+```text
+public static string CountText(long amount) {
+    // 1 个不显数量（如单件材料）；>1 显 "x{缩写}"
+    if (amount <= 1) return amount == 1 ? "" : "x" + amount;  // 0 显 "x0"，1 显空（单件不带 x1）
     return "x" + NumericFormat.Abbreviate(amount);
 }
 // 图案数量文本：带等级（"Lv2 x3"）
 public static string PatternCountText(int level, long count) {
-    string lv = level &gt;= 1 ? "Lv" + level + " " : "";
-    return count &gt; 1 ? lv + "x" + NumericFormat.Abbreviate(count) : lv.TrimEnd();
-}</pre>
+    string lv = level >= 1 ? "Lv" + level + " " : "";
+    return count > 1 ? lv + "x" + NumericFormat.Abbreviate(count) : lv.TrimEnd();
+}
+```
 
 | 输入 | CountText 输出 | 说明 |
 | --- | --- | --- |
@@ -249,9 +257,9 @@ public static string PatternCountText(int level, long count) {
 | PatternCountText(2, 3) | "Lv2 x3" | 图案带等级 |
 | PatternCountText(1, 1) | "Lv1" | 单个图案只显等级 |
 
-<b>"x1 是否显示" 旋钮:</b>默认单件不带 "x1"(界面更干净)。若某些 UI 要恒显数量,加一个 `CountText(amount, bool alwaysShow)` 重载即可,本设计默认单件不显,列 [§七 O8](#17-reward-display::open)。
+**"x1 是否显示" 旋钮:**默认单件不带 "x1"(界面更干净)。若某些 UI 要恒显数量,加一个 `CountText(amount, bool alwaysShow)` 重载即可,本设计默认单件不显,列 [§七 O8](#17-reward-display::open)。
 
-<h3 id="icon">3.5 图标 / 名称解析</h3>
+### 3.5 图标 / 名称解析 {#icon}
 
 图标资源名与名称文本 id 从既有元数据注册表取,本层不持有美术资源映射:
 
@@ -265,21 +273,22 @@ public static string PatternCountText(int level, long count) {
 
 真实 Sprite 加载用既有 `Image.SetSprite(iconName)`(ui-patterns:内置缓存池,无需手动释放)——由调用方在接 UI 时调,本层只到名字。无美术时 `SetSprite` 会落空(图标缺失),不影响文字 / 数量 / 颜色显示。
 
-<h3 id="widget">3.6 列表项 Widget(UI 接法,本设计 stub)</h3>
+### 3.6 列表项 Widget(UI 接法,本设计 stub) {#widget}
 
 给一份列表项 Widget 骨架作 UI 接法**示范**,<mark>本设计不挂 prefab、不投放到任何窗口</mark>(无美术 + UI 投放是独立后续,[§七 O2](#17-reward-display::open))。它展示「拿到 `RewardView` 怎么贴到控件」,供后续接 UI 时照搬。仿 ui-patterns 的 UIWidget 模板:
 
-<pre class="code">// 列表项 Widget 骨架（UI 接法示范，暂不挂 prefab、不投放）
+```text
+// 列表项 Widget 骨架（UI 接法示范，暂不挂 prefab、不投放）
 public class RewardItemWidget : UIWidget {
     private Image _imgIcon;
     private Image _imgQualityFrame;
     private Text  _textName;   // 显示 NameTextId 查表后的名（文本表未接，暂可临时显 id）
     private Text  _textCount;
     protected override void ScriptGenerator() {
-        _imgIcon         = FindChildComponent&lt;Image&gt;("m_img_Icon");
-        _imgQualityFrame = FindChildComponent&lt;Image&gt;("m_img_QualityFrame");
-        _textName        = FindChildComponent&lt;Text&gt;("m_text_Name");
-        _textCount       = FindChildComponent&lt;Text&gt;("m_text_Count");
+        _imgIcon         = FindChildComponent<Image>("m_img_Icon");
+        _imgQualityFrame = FindChildComponent<Image>("m_img_QualityFrame");
+        _textName        = FindChildComponent<Text>("m_text_Name");
+        _textCount       = FindChildComponent<Text>("m_text_Count");
     }
     public void SetData(RewardView v) {
         if (!string.IsNullOrEmpty(v.IconName)) _imgIcon.SetSprite(v.IconName); // 内置缓存池
@@ -287,11 +296,12 @@ public class RewardItemWidget : UIWidget {
         _textName.text  = v.NameTextId.ToString();  // 文本表接入前临时显 id（O4）
         _textCount.text = v.CountText;
     }
-}</pre>
+}
+```
 
 列表渲染用既有 `AdjustIconNum<RewardItemWidget>`(ui-patterns:列表数量管理)。这部分代码本设计**可写可不写**——若 dev 写了,因无 prefab 它不会被实例化,只作编译通过的接法示范;验收**不要求**它跑起来([§六 Z 类](#17-reward-display::accept)),只要求归一层纯逻辑全绿。是否本设计就写骨架列 [§七 O2](#17-reward-display::open)。
 
-<h2 id="flow">四、归一 + 渲染时序</h2>
+## 四、归一 + 渲染时序 {#flow}
 
 以「开箱三选一,把一张 `ChestReward` 显示成一项卡」为例,展示从产出结构到渲染的调用链。参与方:开箱窗口(调用方)→ `RewardDisplay` → 既有元数据注册表 → `RewardItemWidget`。
 
@@ -314,9 +324,9 @@ sequenceDiagram
 
 关键点:`RewardDisplay` 全程<mark>只读既有注册表、产出 RewardView</mark>,不碰 YooAsset / Unity 运行时(查注册表经 `Get`,单测用 `InitForTest` 注入);真实 Sprite 加载发生在 `RewardItemWidget.SetData` 内(经既有 `SetSprite`),那一步需 Unity 运行时——但本设计 Widget 不投放,验收只到「`From(...)` 返回的 `RewardView` 字段对不对」。这条边界让归一层可纯单测,渲染层留给接 UI 时验。
 
-<h2 id="hook">五、挂接点 / dev 改动清单</h2>
+## 五、挂接点 / dev 改动清单 {#hook}
 
-符号名经 grep 核实(标注✓)。<b>纯新增,既有结构 / 方法只读不改。</b>
+符号名经 grep 核实(标注✓)。**纯新增,既有结构 / 方法只读不改。**
 
 | # | 动作 | 落点(文件 / 符号) |
 | --- | --- | --- |
@@ -326,9 +336,9 @@ sequenceDiagram
 | C4 | 列表项 Widget 骨架 | (可选,O2)新建 `RewardItemWidget : UIWidget`,`ScriptGenerator` + `SetData(RewardView)`。仿 ui-patterns UIWidget 模板;**不挂 prefab、不投放**,编译通过即可。`Image.SetSprite` ✓(框架内置) |
 | T1 | 单测 | 新建 `RewardDisplayTests.cs`(仿 `NumericSystemTests.cs` ✓ 位置 `Assets/Editor/Tests/BlockBlast/`):转换(V 类)+ 品质色(Q 类)+ 数量文本(N 类)+ 边界降级(B 类)。涉及注册表查询用 `NumericConfigMgr.InitForTest` ✓ / `ItemConfigMgr.InitForTest` ✓ 注入 |
 
-<b>不碰的文件(零回归保证):</b>`ItemGrant.cs` / `GrantPayload`、`ChestSystem.cs` / `ChestReward`、`NumericConfigMgr.cs` / `NumericEntry`、`ItemConfigMgr.cs` / `ItemDef`、`MergeElementVisual.cs`、`NumericDisplay.cs`(旧 4 档品质色不删不改,§3.3)——全部**只读不写**。现有 EditMode 全量应零回归(本系统不改任何既有代码路径)。
+**不碰的文件(零回归保证):**`ItemGrant.cs` / `GrantPayload`、`ChestSystem.cs` / `ChestReward`、`NumericConfigMgr.cs` / `NumericEntry`、`ItemConfigMgr.cs` / `ItemDef`、`MergeElementVisual.cs`、`NumericDisplay.cs`(旧 4 档品质色不删不改,§3.3)——全部**只读不写**。现有 EditMode 全量应零回归(本系统不改任何既有代码路径)。
 
-<h2 id="accept">六、验收点</h2>
+## 六、验收点 {#accept}
 
 每条可被 test 逐条核对。全部为纯逻辑:转换 / 格式化 / 品质色直接调,涉及注册表查询用 `InitForTest` 注入(绕 ConfigSystem)。**无配置表 .bytes 依赖、无 YooAsset、无 Unity 运行时**(故无 BLOCKED 风险——下方 Z3 说明)。
 
@@ -354,9 +364,9 @@ sequenceDiagram
 | Z2 | 既有 EditMode 零回归 | EditMode 全量跑,既有用例全绿,新增项另计 |
 | Z3 | 无 BLOCKED 路径 | 本系统不依赖 Luban 导表 / .bytes(只读运行期注册表,单测走 InitForTest);故 Luban 工具链不可达**不影响本系统验收**(与 16 不同,本系统无 C 类配置直读测试) |
 
-<b>BLOCKED 条件:</b>本系统纯逻辑,理论无 BLOCKED。唯一可能:unityMCP 桥不可达致 EditMode 无法跑(no\_session)→ test 判 **BLOCKED** 不判 FAIL,交接区写清卡点(见 unity-check 条)。可备选 batchmode 跑 EditMode(boss memory 第 11 条)。
+**BLOCKED 条件:**本系统纯逻辑,理论无 BLOCKED。唯一可能:unityMCP 桥不可达致 EditMode 无法跑(no\_session)→ test 判 **BLOCKED** 不判 FAIL,交接区写清卡点(见 unity-check 条)。可备选 batchmode 跑 EditMode(boss memory 第 11 条)。
 
-<h2 id="open">七、待拍板清单</h2>
+## 七、待拍板清单 {#open}
 
 有安全默认的已在 decisions 自行拍板(归一结构字段 / 6 档品质色 / 复用 NumericFormat / Soul 走私有映射等);此处集中列**范围开关**交 boss / 用户裁决——均不阻塞本设计交付,默认按「本设计不做 / 按下方默认」推进。
 
@@ -371,7 +381,7 @@ sequenceDiagram
 | O7 | 盲盒 Pattern 是否补具体图案种类 + 图案品质映射调整 | 盲盒 Pattern 无具体图案 → 展示用代表图案(Diamond)+ 等级;图案品质按等级 Lv1→3/Lv2→4/Lv3→5 | 若盲盒奖池补具体图案种类,From(ChestReward) Pattern 传真实图案;品质映射档位可调 |
 | O8 | 单件是否显 "x1" | 不显(界面更干净);amount=1 → CountText 空 | 加 `CountText(amount, alwaysShow)` 重载,某些 UI 恒显数量 |
 
-<h2 id="risk">八、风险表</h2>
+## 八、风险表 {#risk}
 
 | 风险 | 等级 | 应对 |
 | --- | --- | --- |

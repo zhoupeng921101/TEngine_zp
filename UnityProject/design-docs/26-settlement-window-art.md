@@ -14,7 +14,7 @@
 
 # 结算窗美术换皮 · 表现层
 
-塔罗 UI 换皮自治线**第三屏**:把效果图 `游戏结束.png` / `恭喜通关.png` 换皮成两个<mark>已在运行</mark>的 code-built 结算窗 —— `GameOverWindow`(游戏结束)与 `MergeOrderWinWindow`(恭喜通关)。<mark>本次换皮 = 纯 UI 补完(视觉换皮)</mark>:这两个窗的结算逻辑、`UserData` 取参、重开 / 回主菜单回调全部**保留不动**,只把 `UGuiFactory` 的纯色 Image / 文本换成贴 `Sheet_settings` 木板 + 按钮子图。基础设施**全部复用**[设计 23](#23-settings-window-art) 的 `Image.SetSubSprite(精灵表, 子图名)` 取图链路。<b>不重新发明任何基础设施、不动任何结算逻辑。</b>
+塔罗 UI 换皮自治线**第三屏**:把效果图 `游戏结束.png` / `恭喜通关.png` 换皮成两个<mark>已在运行</mark>的 code-built 结算窗 —— `GameOverWindow`(游戏结束)与 `MergeOrderWinWindow`(恭喜通关)。<mark>本次换皮 = 纯 UI 补完(视觉换皮)</mark>:这两个窗的结算逻辑、`UserData` 取参、重开 / 回主菜单回调全部**保留不动**,只把 `UGuiFactory` 的纯色 Image / 文本换成贴 `Sheet_settings` 木板 + 按钮子图。基础设施**全部复用**[设计 23](#23-settings-window-art) 的 `Image.SetSubSprite(精灵表, 子图名)` 取图链路。**不重新发明任何基础设施、不动任何结算逻辑。**
 
 > [!WARNING]
 > **读前必看 · 五条边界（本次换皮与前两屏的关键差异：这两个窗在跑，零回归是硬约束）**
@@ -36,7 +36,7 @@
 > | **影响范围** | **新增资源**:**无**(复用 `Sheet_settings`,已导入并被收集器收录)。 **新增代码**:**无新文件**(不建 prefab、不建新窗口类)。 **改既有（最小，仅视觉）**:`GameOverWindow.cs` · `MergeOrderWinWindow.cs` 的 `OnCreate` 视觉部分(把 `CreateImage` 纯色卡片 / 遮罩 / 按钮底 改为贴 `Sheet_settings` 子图;标题文本 / 分数文本沿用或微调字号色)。 **不改**:两窗的 `UserData` 解析、结算逻辑、按钮回调目标;三处 `ShowUIAsync` 调用点;`UGuiFactory` / `BlockLayout`;`BlockGameState` / `MergeOrderState` 数据层;`GameContext`;Classic / Merge 玩法窗。 |
 > | **关键约束（零回归是硬验收）** | 这两个窗**正在被玩法路径调用**。换皮后:① 编译 0 error + 现有 EditMode 全绿;② 三条触发路径(Classic 结束 / 订单结束 / 通关)弹窗正常、传参不丢、重试 / 下一关 / 返回正确跳转 —— 任一回归即不通过。视觉对位 / 真机点击须 Play / 人眼手验([§九](#26-settlement-window-art::accept)两档拆开)。 |
 
-<h2 id="what">一、做什么与为什么</h2>
+## 一、做什么与为什么 {#what}
 
 现状:这两个结算窗<mark>已实装且在跑</mark> —— Classic 玩死会弹 `GameOverWindow`(SCORE / BEST / NEW BEST 纯色卡片),合成订单 DEMO 通关弹 `MergeOrderWinWindow`(「通关！」+ 结算行纯色卡片)。它们功能完整,缺的只是**美术**:全是 `UGuiFactory` 的纯色方块 + 内置字体,与塔罗木质风格([设计 23 设置窗](#23-settings-window-art) / [设计 25 个人信息窗](#25-player-info-window-art))不一致。
 
@@ -48,11 +48,11 @@
 | 2 | `MergeOrderWinWindow` 换皮(对位 恭喜通关.png) | 同上,标题改「恭喜通关」风格,结算行 / 按钮换皮([§六](#26-settlement-window-art::win)) | <span class="pill-cur">改既有视觉</span> |
 | 3 | 效果图装饰元素的处置(星 / 心 / 草 / 太阳格) | 无数据源 / 无切图 → 装饰占位 或 省略,不捏造统计字段([§4.3](#26-settlement-window-art::decor),决策 D1) | <span class="pill-no">装饰占位</span> |
 
-<b>不做（本次换皮明确排除）:</b><span class="pill-no">改结算逻辑</span>(分数 / 新纪录判定 / 结算行不动);<span class="pill-no">改触发 / 传参 / 重开路径</span>(三处调用点不动,回调目标窗不动);<span class="pill-no">新建 prefab / 新窗口类</span>(路 A 不重构);<span class="pill-no">为对位效果图加星 / 心 / 草 / 太阳统计字段</span>(无数据源,装饰占位);<span class="pill-no">复活 / 看广告续命 / 内购</span>(去变现);<span class="pill-no">导入新切图 / 新图集</span>(复用 Sheet\_settings)。
+**不做（本次换皮明确排除）:**<span class="pill-no">改结算逻辑</span>(分数 / 新纪录判定 / 结算行不动);<span class="pill-no">改触发 / 传参 / 重开路径</span>(三处调用点不动,回调目标窗不动);<span class="pill-no">新建 prefab / 新窗口类</span>(路 A 不重构);<span class="pill-no">为对位效果图加星 / 心 / 草 / 太阳统计字段</span>(无数据源,装饰占位);<span class="pill-no">复活 / 看广告续命 / 内购</span>(去变现);<span class="pill-no">导入新切图 / 新图集</span>(复用 Sheet\_settings)。
 
-<h2 id="effigy">二、效果图拆解（对位基准）</h2>
+## 二、效果图拆解（对位基准） {#effigy}
 
-<h3 id="effigy-over">2.1 游戏结束.png</h3>
+### 2.1 游戏结束.png {#effigy-over}
 
 1080×1920 竖屏。盖在玩法 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木质大面板。自上而下:
 
@@ -68,9 +68,9 @@
 > [!NOTE]
 > **注意：效果图无右上角 X 关闭按钮**
 >
-> 与设置窗 / 个人信息窗不同,结算窗<mark>没有 X 关闭、也没有「点遮罩关闭」</mark> —— 玩家必须从「重试 / 返回」二选一离开(结算是强制选择,不能随手关掉回到死局)。既有窗口本就**无遮罩点击关窗、无 X**(读 <code>GameOverWindow.cs</code> 确认),换皮<mark>保持这一交互</mark>:遮罩 <code>Mask</code> 是纯 Image(不挂 Button),不加 X。
+> 与设置窗 / 个人信息窗不同,结算窗<mark>没有 X 关闭、也没有「点遮罩关闭」</mark> —— 玩家必须从「重试 / 返回」二选一离开(结算是强制选择,不能随手关掉回到死局)。既有窗口本就**无遮罩点击关窗、无 X**(读 `GameOverWindow.cs` 确认),换皮<mark>保持这一交互</mark>:遮罩 `Mask` 是纯 Image(不挂 Button),不加 X。
 
-<h3 id="effigy-win">2.2 恭喜通关.png</h3>
+### 2.2 恭喜通关.png {#effigy-win}
 
 1080×1920 竖屏,与「游戏结束」同骨架,多一行奖励格:
 
@@ -85,20 +85,21 @@
 | ⑦ 返回按钮 | 木色长条「返回」 | `button` + 文本「返回」 | ✓ `BtnMenu`(回调不动) |
 
 > [!NOTE]
-> <b>「下一关」按钮的文案 vs 回调语义（不改回调）</b>
+> **「下一关」按钮的文案 vs 回调语义（不改回调）**
 >
-> 效果图按钮写「下一关」,但既有 <code>BtnAgain</code> 回调是 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code>(<mark>重新进入合成订单 DEMO，重入即 ResetForMergeOrder</mark>,即「再来一局」)。合成订单 DEMO **无关卡序列概念**,「下一关」= 重新开一局。本次换皮<mark>只换文案显示、不改回调目标</mark>:文案取「再玩一局」/「下一关」(<a href="#26-settlement-window-art::open">§十一 B3</a> 待 boss 定文案,默认沿用「再来一局」语义安全),回调仍 <code>ShowUIAsync&lt;MergeOrderWindow&gt;</code> 不动。把按钮文案改成「下一关」却让它重开同一局,是**语义误导** —— 故默认偏向保「再来一局」文案,文案最终由 boss 拍。
+> 效果图按钮写「下一关」,但既有 `BtnAgain` 回调是 `ShowUIAsync<MergeOrderWindow>`(<mark>重新进入合成订单 DEMO，重入即 ResetForMergeOrder</mark>,即「再来一局」)。合成订单 DEMO **无关卡序列概念**,「下一关」= 重新开一局。本次换皮<mark>只换文案显示、不改回调目标</mark>:文案取「再玩一局」/「下一关」(<a href="#26-settlement-window-art::open">§十一 B3</a> 待 boss 定文案,默认沿用「再来一局」语义安全),回调仍 `ShowUIAsync<MergeOrderWindow>` 不动。把按钮文案改成「下一关」却让它重开同一局,是**语义误导** —— 故默认偏向保「再来一局」文案,文案最终由 boss 拍。
 
-<h2 id="way">三、reskin 方式：路 A（轻量换皮）选定</h2>
+## 三、reskin 方式：路 A（轻量换皮）选定 {#way}
 
 | 路 | 做法 | 利 | 弊 | 取舍 |
 | --- | --- | --- | --- | --- |
-| <b>A. 轻量换皮（选定）</b> | 保留两窗 code-built 结构 + 结算逻辑,把 `UGuiFactory.CreateImage` 的纯色卡片 / 遮罩 / 按钮底 改为贴 `Sheet_settings` 子图(对返回的 `Image` / `out bgImage` 调 `.SetSubSprite`),文本字号 / 色微调 | <mark>改动最小、风险最低</mark>;不动结算逻辑 / 传参 / 回调;无新 prefab / 新类;零回归面最小 | 仍是 750 设计坐标系(非 prefab 锚点),与设置窗 prefab 范式不统一(但本次换皮不追求统一,追求零回归) | 取此 |
+| **A. 轻量换皮（选定）** | 保留两窗 code-built 结构 + 结算逻辑,把 `UGuiFactory.CreateImage` 的纯色卡片 / 遮罩 / 按钮底 改为贴 `Sheet_settings` 子图(对返回的 `Image` / `out bgImage` 调 `.SetSubSprite`),文本字号 / 色微调 | <mark>改动最小、风险最低</mark>;不动结算逻辑 / 传参 / 回调;无新 prefab / 新类;零回归面最小 | 仍是 750 设计坐标系(非 prefab 锚点),与设置窗 prefab 范式不统一(但本次换皮不追求统一,追求零回归) | 取此 |
 | B. prefab 重构 | 改成 prefab + `FindChildComponent` 绑定(对齐设置窗范式) | 范式统一 | <mark>要重写两个在跑窗口</mark>:重建节点树 + 重接结算逻辑 + 重接三处调用 + 重接回调 —— 回归面大、收益低,与「纯 UI 补完」相悖 | 不取 |
 
 **取路 A** 的关键依据:`UGuiFactory.CreateImage` 返回 `Image` 引用、`CreateButton` 经 `out Image bgImage` 给出按钮底图引用 —— 两者都能<mark>直接链 <code>.SetSubSprite("Sheet\_settings", 子图名)</code></mark> 换皮,无需重建节点。窗口的结算计算 / `UserData` 解析 / 按钮 `onClick` 回调**一行不改**,只换视觉表现。这正是简报「低风险优先」与「逻辑保留不动」的最直接落法。
 
-<pre class="code">// 路 A 换皮示意（GameOverWindow.OnCreate，逻辑部分不动，只改视觉构建）
+```text
+// 路 A 换皮示意（GameOverWindow.OnCreate，逻辑部分不动，只改视觉构建）
 private const string Atlas = "Sheet_settings";
 // 既有：纯色卡片 → 改为贴木板子图
 var card = UGuiFactory.CreateImage(content, "Card", cx, cardCy, 560, 600, Color.white);
@@ -107,23 +108,24 @@ card.SetSubSprite(Atlas, "box1");        // 白底 + 贴图 = 木板原色（不
 var btn = UGuiFactory.CreateButton(content, "BtnAgain", cx, cardCy + 230, 370, 90,
     "重试", 38, Color.white, Color.white, out var btnBg, out _);
 btnBg.SetSubSprite(Atlas, "button");
-btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回归）
-    GameModule.UI.CloseUI&lt;GameOverWindow&gt;();
-    GameModule.UI.ShowUIAsync&lt;GameWindow&gt;();
-});</pre>
+btn.onClick.AddListener(() => {           // ← 回调一字不改（零回归）
+    GameModule.UI.CloseUI<GameOverWindow>();
+    GameModule.UI.ShowUIAsync<GameWindow>();
+});
+```
 
 > [!NOTE]
-> <b>贴子图后底色用白（让木纹原色透出）</b>
+> **贴子图后底色用白（让木纹原色透出）**
 >
-> 既有 <code>CreateImage</code> 给的是纯色(如 <code>0x222244</code> 深蓝)。<mark>换皮后该色须改 <code>Color.white</code></mark>(或保留 alpha 的白),否则木纹子图会被深色 <code>Image.color</code> 染暗。同理按钮 <code>bgColor</code> 改白。文本节点(标题 / 分数 / 按钮 label)的色按效果图调(标题深棕 <code>#b86a45</code> 系 / 分数白或深色),字体仍用 <code>UGuiFactory</code> 内置字体(本次换皮不引美术字体)。
+> 既有 `CreateImage` 给的是纯色(如 `0x222244` 深蓝)。<mark>换皮后该色须改 <code>Color.white</code></mark>(或保留 alpha 的白),否则木纹子图会被深色 `Image.color` 染暗。同理按钮 `bgColor` 改白。文本节点(标题 / 分数 / 按钮 label)的色按效果图调(标题深棕 `#b86a45` 系 / 分数白或深色),字体仍用 `UGuiFactory` 内置字体(本次换皮不引美术字体)。
 
-<h2 id="atlas">四、美术资产接入（复用 Sheet_settings，无新资源）</h2>
+## 四、美术资产接入（复用 Sheet_settings，无新资源） {#atlas}
 
-<h3 id="atlas-reuse">4.1 复用设置窗精灵表</h3>
+### 4.1 复用设置窗精灵表 {#atlas-reuse}
 
 本次换皮<mark>不导入任何新切图、不建新图集、不动打表工具</mark>。`Sheet_settings.png`(单张 Multiple 精灵表,22 命名子精灵)已被设置窗导入、收集器收录、运行期 `SetSubSprite` 寻址打通([设计 23 §三](#23-settings-window-art::atlas)实测)。两窗的木板 / 按钮底直接复用其子图。`location="Sheet_settings"`,子图名 = 切图文件名(不含扩展名)。
 
-<h3 id="atlas-map">4.2 子图映射（dev 读图核实）</h3>
+### 4.2 子图映射（dev 读图核实） {#atlas-map}
 
 下表是<mark>按设置窗 / 个人信息窗已用子图推断</mark>的最省方案。dev 落地时对照 `游戏结束.png` / `恭喜通关.png` 与各子图缩略图,从 5 种木板(`base_plate`/`base_plate2`/`base_plate3`/`box1`/`box2`)选最贴的,把最终映射写进窗口脚本注释。
 
@@ -134,28 +136,28 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 | 按钮底(`BtnAgain` / `BtnMenu`) | `button` | 长条按钮底;设置窗长条同用。黄色「重试 / 下一关」与木色「返回」同一张 `button`,色差经文本 / 暂以同图(切图若分黄 / 木两态则分用,无则同图) |
 | 奖励格框(通关窗 ②) | `box2` 缩小 / 省略 | 装饰占位([§4.3](#26-settlement-window-art::decor)) |
 
-<h3 id="decor">4.3 效果图装饰元素的处置（星 / 心 / 草 / 太阳格 → 装饰占位，决策 D1）</h3>
+### 4.3 效果图装饰元素的处置（星 / 心 / 草 / 太阳格 → 装饰占位，决策 D1） {#decor}
 
 效果图的「三图标行(星 / 心 / 草各 60)」与「奖励格行(2 太阳)」是本次换皮最需要拿捏的取舍:它们既<mark>无对应切图</mark>(Sheet\_settings 无星 / 心 / 草 / 太阳),又<mark>无数据层来源</mark>(`BlockGameState` 经 grep 只有 `Score` / `HighScore` / `Combo`,无这些统计)。三个处置:
 
 | 方案 | 做法 | 代价 | 本次换皮取舍 |
 | --- | --- | --- | --- |
-| <b>A. 装饰占位（默认）</b> | 三图标 / 太阳格作纯装饰:用通用子图(或纯色块)摆出位置对位效果图,数字位接已得的 `finalScore`(或固定占位),<mark>不绑统计、不入逻辑</mark>;太阳格摆框占位 | 零数据层 / 零逻辑改动,可逆,对位效果图骨架 | 取此 |
+| **A. 装饰占位（默认）** | 三图标 / 太阳格作纯装饰:用通用子图(或纯色块)摆出位置对位效果图,数字位接已得的 `finalScore`(或固定占位),<mark>不绑统计、不入逻辑</mark>;太阳格摆框占位 | 零数据层 / 零逻辑改动,可逆,对位效果图骨架 | 取此 |
 | B. 整组省略 | 不摆三图标 / 太阳格,只保「标题 + 分数文本 + 按钮」核心(更接近既有窗口) | 更省、零回归;但与效果图骨架差距大 | 备选(切图 / 美术补不上时退此) |
 | C. 真做统计 | 给结算加星 / 心 / 草 / 太阳的统计字段 + 数据源 | <mark>动结算逻辑 + 数据层 + 三处调用传参</mark> —— 超出「纯 UI 补完」,且无 spec 定义这些统计是什么 | 不取 |
 
-<b>取 A（装饰占位，决策 D1，安全默认）</b>。理由:① 本次换皮是「纯 UI 补完(视觉换皮)」,加统计会动结算逻辑 + 传参,溢出范围、且违「零回归」;② 这些图标语义无 spec 定义(星 / 心 / 草到底统计什么?太阳是什么奖励?未知)—— 擅自赋义是替产品定需求;③ 占位可逆 —— 日后产品定义了这些统计,在数据层加字段 + 接数字位即可,装饰节点已摆好。<mark>这三图标 / 太阳格代表什么、是否要真做统计,列待裁决交 boss / 产品</mark>([§十一 D1](#26-settlement-window-art::open)),本次换皮按装饰占位推进不阻塞。**dev 落地时 A 与 B 二选一以视觉效果为准**(占位图勉强 / 不如不摆则退 B),不阻塞验收。
+**取 A（装饰占位，决策 D1，安全默认）**。理由:① 本次换皮是「纯 UI 补完(视觉换皮)」,加统计会动结算逻辑 + 传参,溢出范围、且违「零回归」;② 这些图标语义无 spec 定义(星 / 心 / 草到底统计什么?太阳是什么奖励?未知)—— 擅自赋义是替产品定需求;③ 占位可逆 —— 日后产品定义了这些统计,在数据层加字段 + 接数字位即可,装饰节点已摆好。<mark>这三图标 / 太阳格代表什么、是否要真做统计,列待裁决交 boss / 产品</mark>([§十一 D1](#26-settlement-window-art::open)),本次换皮按装饰占位推进不阻塞。**dev 落地时 A 与 B 二选一以视觉效果为准**(占位图勉强 / 不如不摆则退 B),不阻塞验收。
 
-<h3 id="digits">4.4 分数数字：默认沿用 Text，digits 位图为可选增强</h3>
+### 4.4 分数数字：默认沿用 Text，digits 位图为可选增强 {#digits}
 
 简报提到位图数字图集 `digits_white` / `digits_yellow` 可拼分数。但勘察发现:这两个目录是<mark>散 PNG，未打成精灵表</mark>(无 `Sheet_digits*`)。而 `SetSubSprite` 的前提是「单张 Multiple 精灵表」(SpriteAtlas v2 不暴露子精灵,设计 23 §3.3 实测)。故:
 
-- <b>默认（安全）</b>:分数 / 数字沿用既有 `UGuiFactory.CreateText`(内置字体,零依赖、已在跑)。换皮只改字号 / 色对位效果图,不引位图数字。
-- <b>可选增强（B2）</b>:若要位图数字,须先把 `digits_white/` / `digits_yellow/` 用[设计 24 打表工具](#24-ui-atlas-packer)打成 `Sheet_digits_white` / `Sheet_digits_yellow` Multiple 精灵表(子图名 = `digits_white_0`…),再逐位 `SetSubSprite` 拼。<mark>这是额外打表工作量,非本次换皮必需</mark>,列待拍板([§十一 B2](#26-settlement-window-art::open))。
+- **默认（安全）**:分数 / 数字沿用既有 `UGuiFactory.CreateText`(内置字体,零依赖、已在跑)。换皮只改字号 / 色对位效果图,不引位图数字。
+- **可选增强（B2）**:若要位图数字,须先把 `digits_white/` / `digits_yellow/` 用[设计 24 打表工具](#24-ui-atlas-packer)打成 `Sheet_digits_white` / `Sheet_digits_yellow` Multiple 精灵表(子图名 = `digits_white_0`…),再逐位 `SetSubSprite` 拼。<mark>这是额外打表工作量,非本次换皮必需</mark>,列待拍板([§十一 B2](#26-settlement-window-art::open))。
 
 **取默认 Text**(B2 决策,安全默认):分数文本视觉够用、零额外打表,先把换皮主体落地;位图数字作后续美术增强。
 
-<h2 id="over">五、GameOverWindow 换皮（对位 游戏结束.png）</h2>
+## 五、GameOverWindow 换皮（对位 游戏结束.png） {#over}
 
 逐节点对照既有 `GameOverWindow.OnCreate`(72 行)给「保留 / 换皮 / 新增装饰 / 删」标注。<mark>逻辑行(读 UserData / 算 finalScore / 接 onClick)一律保留不动</mark>,只动视觉构建行。
 
@@ -172,11 +174,11 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 | `BtnMenu`(Back to Menu) | 换皮 / 改文案 | 底贴 `button`(或保透明,效果图「返回」是实心长条 → 贴 button);label 改「返回」;<mark>onClick 回调不改</mark>(`ShowUIAsync<MainMenuWindow>`) |
 
 > [!WARNING]
-> <b>零回归红线（GameOverWindow 被两条路径复用）</b>
+> **零回归红线（GameOverWindow 被两条路径复用）**
 >
-> <code>GameOverWindow</code> 被 <mark>Classic(传 <code>previousHigh</code>)与 订单结束(传 <code>0</code>)</mark>两条路径调用。换皮<b>必须保留 <code>UserData is int p ? p : 0</code> 的解析</b> —— 订单结束传 <code>0</code> 时 <code>previousHigh=0</code>,<code>isNewBest = finalScore&gt;0 &amp;&amp; finalScore&gt;0</code> 仍成立。<mark>不得改 finalScore / high / isNewBest 的计算</mark>,否则两条路径的「新纪录」表现都会回归。验收 <a href="#26-settlement-window-art::regress">R1 / R2</a> 专核两条路径。
+> `GameOverWindow` 被 <mark>Classic(传 <code>previousHigh</code>)与 订单结束(传 <code>0</code>)</mark>两条路径调用。换皮**必须保留 `UserData is int p ? p : 0` 的解析** —— 订单结束传 `0` 时 `previousHigh=0`,`isNewBest = finalScore>0 && finalScore>0` 仍成立。<mark>不得改 finalScore / high / isNewBest 的计算</mark>,否则两条路径的「新纪录」表现都会回归。验收 <a href="#26-settlement-window-art::regress">R1 / R2</a> 专核两条路径。
 
-<h2 id="win">六、MergeOrderWinWindow 换皮（对位 恭喜通关.png）</h2>
+## 六、MergeOrderWinWindow 换皮（对位 恭喜通关.png） {#win}
 
 同 §五口径。既有 `MergeOrderWinWindow.OnCreate`(61 行):遮罩 + 卡片 + "通关！" + <mark>逐行结算文本列表</mark>(`UserData as List<string>`,2 行:完成订单数 / 累计得分)+ 再来一局 + 返回主菜单。
 
@@ -191,7 +193,7 @@ btn.onClick.AddListener(() =&gt; {           // ← 回调一字不改（零回�
 | `BtnAgain`(再来一局) | 换皮 / 文案待定 | 底贴 `button` + 白底;label 默认「再来一局」(效果图「下一关」语义误导,§2.2 注,文案待 boss [B3](#26-settlement-window-art::open));<mark>onClick 回调不改</mark>(`ShowUIAsync<MergeOrderWindow>`) |
 | `BtnMenu`(返回主菜单) | 换皮 / 改文案 | 底贴 `button`;label 改「返回」;<mark>onClick 回调不改</mark>(`ShowUIAsync<MainMenuWindow>`) |
 
-<h2 id="flow">七、结算窗触发与回调（本次换皮全部保留，零回归参照）</h2>
+## 七、结算窗触发与回调（本次换皮全部保留，零回归参照） {#flow}
 
 下图标出三条触发路径与回调跳转 —— <mark>本次换皮不改这张图的任何一条线</mark>,仅给两个结算窗节点换贴图。给 dev / test 作零回归核对基准。
 
@@ -217,11 +219,11 @@ flowchart LR
     WIN -.->|返回| Menu
 ```
 
-<h2 id="accept">八、验收点</h2>
+## 八、验收点 {#accept}
 
-拆两档:<b>逻辑回归可单测 / 编译(EditMode,test 直接跑)</b>与 <b>视觉对位 / 真机点击(需 Play / 人眼)</b>。<mark>零回归是本次换皮硬验收</mark>(两窗在跑)。
+拆两档:**逻辑回归可单测 / 编译(EditMode,test 直接跑)**与 **视觉对位 / 真机点击(需 Play / 人眼)**。<mark>零回归是本次换皮硬验收</mark>(两窗在跑)。
 
-<h3 id="regress">8.1 逻辑回归 / 编译（EditMode，硬验收）</h3>
+### 8.1 逻辑回归 / 编译（EditMode，硬验收） {#regress}
 
 | 组 | # | 验收点（完成定义） |
 | --- | --- | --- |
@@ -235,9 +237,9 @@ flowchart LR
 > [!WARNING]
 > **R 组怎么 test：以静态核对 + 编译为主**
 >
-> 两窗的结算计算依赖 <code>BlockGameState.Instance</code> 运行期单例 + <code>UIWindow</code> 生命周期,EditMode 反射驱动 <code>OnCreate</code> 成本高。<mark>R 组主验收 = 编译 0 error(换皮未破坏类型 / 调用)+ test 逐条静态核对</mark>:① 两窗 <code>UserData</code> 解析行未改;② 结算计算行未改;③ 三处调用点传参未改;④ 三个按钮回调目标未改。这是「视觉换皮不碰逻辑」的可核对证据。R1–R4 是硬验收 —— 任一处逻辑被改即不通过(换皮越界)。
+> 两窗的结算计算依赖 `BlockGameState.Instance` 运行期单例 + `UIWindow` 生命周期,EditMode 反射驱动 `OnCreate` 成本高。<mark>R 组主验收 = 编译 0 error(换皮未破坏类型 / 调用)+ test 逐条静态核对</mark>:① 两窗 `UserData` 解析行未改;② 结算计算行未改;③ 三处调用点传参未改;④ 三个按钮回调目标未改。这是「视觉换皮不碰逻辑」的可核对证据。R1–R4 是硬验收 —— 任一处逻辑被改即不通过(换皮越界)。
 
-<h3 id="accept-play">8.2 视觉对位 / 真机（需 Play / 人眼，手验遗留）</h3>
+### 8.2 视觉对位 / 真机（需 Play / 人眼，手验遗留） {#accept-play}
 
 | # | 验收点 | 能否 MCP 截图 |
 | --- | --- | --- |
@@ -248,7 +250,7 @@ flowchart LR
 | V5 | **按钮真机点击跳转正确**:重试→重开玩法;返回→主菜单;再来一局→重开订单;通关返回→主菜单 | 点击须真机 / 手验(MCP 不模拟点击) |
 | V6 | 装饰占位(三图标 / 太阳格)不报错、不挡按钮、不穿帮(占位图勉强则按 §4.3 退 B 省略) | 可截图核版面 |
 
-<h2 id="hook">九、dev 改动清单</h2>
+## 九、dev 改动清单 {#hook}
 
 符号名经 grep / 读图核实(真实存在标「✓」)。<mark>本次换皮无新文件、无新资源</mark>,只改两个在跑窗口的视觉构建。
 
@@ -261,7 +263,7 @@ flowchart LR
 | — | ✓ `UGuiFactory` / `BlockLayout` / `BlockGameState` / `MergeOrderState` / `GameContext` | **不改** | 沿用工厂 / 坐标系;不动数据层 / 上下文;不为对位加统计字段 |
 | — | ✓ `Sheet_settings.png` + 收集器 | **不改** | 复用设置窗已导入 / 已收录的精灵表,无新资源 |
 
-<h2 id="open">十、待拍板清单（范围开关，交 boss / 用户）</h2>
+## 十、待拍板清单（范围开关，交 boss / 用户） {#open}
 
 自治模式。有安全默认的按默认推进(记 decisions 供 boss 关单复核);<mark>无安全默认 / 抵触 spec / 不可逆</mark>的才入 blockers。下表均有安全默认 → **不入 blockers**。
 
@@ -269,16 +271,16 @@ flowchart LR
 | --- | --- | --- | --- |
 | **D1** | 效果图三图标(星 / 心 / 草)+ 太阳奖励格:无数据源 / 无切图,怎么处置 | **装饰占位**([§4.3](#26-settlement-window-art::decor) 方案 A)—— 摆位对位骨架、不绑统计、不动逻辑;占位图勉强则退方案 B 省略 | 若产品定义了星 / 心 / 草 / 太阳各代表什么统计 + 提供数据源 → 后续轮真做(方案 C)。<mark>这些图标语义无 spec 定义,提请 boss / 产品复核</mark> |
 | B2 | 分数是否用位图数字 digits | **沿用 Text**([§4.4](#26-settlement-window-art::digits))—— digits 未打表,Text 零依赖够用 | 要位图数字则先用设计 24 工具把 digits\_white/yellow 打成 Sheet,额外工作量,后续增强 |
-| B3 | 通关窗 BtnAgain 文案:「再来一局」vs「下一关」 | <b>「再来一局」</b>(回调是重开同一局,「下一关」语义误导,§2.2 注);<mark>回调目标不改</mark> | boss 若要对位效果图文字「下一关」可改文案(仅显示文字,回调仍 `MergeOrderWindow`) |
+| B3 | 通关窗 BtnAgain 文案:「再来一局」vs「下一关」 | **「再来一局」**(回调是重开同一局,「下一关」语义误导,§2.2 注);<mark>回调目标不改</mark> | boss 若要对位效果图文字「下一关」可改文案(仅显示文字,回调仍 `MergeOrderWindow`) |
 | B4 | 木板子图选哪张(box1 / base\_plate / …) | dev 读图选最贴效果图者([§4.2](#26-settlement-window-art::atlas-map) 推断 box1 / box2 / button) | 视觉为准,dev 落地核实 |
-| B5 | 「重试 / 下一关」黄条 vs「返回」木条是否用不同子图 | <b>同一张 <code>button</code></b>(切图无黄 / 木分态)+ 文本区分 | 切图若有黄 / 木两态按钮则分用;无则同图(默认) |
+| B5 | 「重试 / 下一关」黄条 vs「返回」木条是否用不同子图 | **同一张 `button`**(切图无黄 / 木分态)+ 文本区分 | 切图若有黄 / 木两态按钮则分用;无则同图(默认) |
 
 > [!NOTE]
 > **自治分流说明**
 >
-> D1–B5 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(装饰图标语义)是最值得 boss 关单复核的一项 —— 安全默认是装饰占位,真做与否需产品定义这些统计含义,但<mark>本次换皮不因它停机</mark>(占位即可交付完整换皮)。<b>本次换皮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。</b>
+> D1–B5 均有安全默认、可逆、不抵触 spec / GDD 主线(去变现 · 离线还原方向)→ 按 plan 红线**取默认推进、记 decisions、不入 blockers**(不停机)。其中 **D1**(装饰图标语义)是最值得 boss 关单复核的一项 —— 安全默认是装饰占位,真做与否需产品定义这些统计含义,但<mark>本次换皮不因它停机</mark>(占位即可交付完整换皮)。**本次换皮无「无安全默认 / 抵触 GDD / 不可逆」的方向问题 → blockers 为空。**
 
-<h2 id="risk">十一、风险表</h2>
+## 十一、风险表 {#risk}
 
 | 风险 | 应对 |
 | --- | --- |

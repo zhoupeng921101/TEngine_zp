@@ -31,9 +31,9 @@
 > | **影响范围** | 新增数据层模块 1 个(盲盒奖池)+ `MergeOrderState` 加 1 个持有计数字段并入快照 + `ClearSettlement` 加 1 个解锁钩子 + `DeliverSpecial` 加附赠 + `MergeOrderWindow` 加计数显示与开盒窗。**旧路径(Classic / 无盲盒触发时)零行为变化。** |
 > | **关键约束(继承现状)** | **自动配对合成**使每个非封顶等级库存恒 ≤1(满 2 即升级)。盲盒产 Lv1/Lv2 图案进收集区会触发级联合并,这是预期行为而非缺陷;但意味着盲盒「产 1 个 Lv1」可能瞬间合成升级——产物价值要按级联后的实际收益评估。详见 [§3.3](#12-tarot-blind-box::grant)。 |
 
-<h2 id="what">一、改什么与为什么</h2>
+## 一、改什么与为什么 {#what}
 
-当前 merge-order 切片的中时间跨度目标只有「完成 N 单通关」与「女神好评条 N/10」。GDD 给盲盒定的定位是<b>「惊喜感,玩家的中时间跨度消除目标」</b>——即一个攒着开、开出随机惊喜的蓄水池,填补「连消/全消打得好 → 攒到一个看得见的奖励」这条反馈链。现状的连消/全消只即时发图案(设计 11 §5.2/§5.4),缺一个「跨多手攒、自选时机开」的延迟满足层。盲盒补的就是这一层。
+当前 merge-order 切片的中时间跨度目标只有「完成 N 单通关」与「女神好评条 N/10」。GDD 给盲盒定的定位是**「惊喜感,玩家的中时间跨度消除目标」**——即一个攒着开、开出随机惊喜的蓄水池,填补「连消/全消打得好 → 攒到一个看得见的奖励」这条反馈链。现状的连消/全消只即时发图案(设计 11 §5.2/§5.4),缺一个「跨多手攒、自选时机开」的延迟满足层。盲盒补的就是这一层。
 
 本篇相对现状的三处新增,逐条对应 GDD:
 
@@ -44,11 +44,11 @@
 | 3 | 获取:订单奖励(特殊订单) | `DeliverSpecial` 交付时附赠盲盒 | <span class="pill-cur">现状有特殊轨</span> + <span class="pill-new">附赠</span> |
 | 4 | 内容:随机 Lv1–Lv4 图案 / 体力 / 订单所需高阶物 | 奖池产 <span class="lv">Lv1</span>–<span class="lv">Lv3</span> 图案 / 体力 / **当前订单缺口的高阶图案**(收敛 Lv4 见上方红框) | <span class="pill-new">新增奖池</span> |
 
-<b>不做(本设计明确排除,后续轮次):</b>命运之轮活动包装、付费购买入口、集卡碎片、占卜屋/扭蛋、神谕降临双倍。本篇只做「持有 + 三渠道获取 + 即时开盒」的最小自洽系统。
+**不做(本设计明确排除,后续轮次):**命运之轮活动包装、付费购买入口、集卡碎片、占卜屋/扭蛋、神谕降临双倍。本篇只做「持有 + 三渠道获取 + 即时开盒」的最小自洽系统。
 
-<h2 id="model">二、系统模型</h2>
+## 二、系统模型 {#model}
 
-<h3 id="hold">2.1 持有式道具(非倒计时)</h3>
+### 2.1 持有式道具(非倒计时) {#hold}
 
 盲盒与**宝箱**(`ChestSystem`,设计 11 §九)是**两套不同的获取节奏**,刻意不合并:
 
@@ -57,7 +57,7 @@
 
 选持有计数模型而非复用宝箱占槽的理由:GDD 把盲盒定义为「中时间跨度目标」且「在消除过程中通过高挑战去开启」,语义是**攒够了就能开、想开就开**,与倒计时的「被动等待」相反。复用宝箱的倒计时会改变它的玩法语义。两套并存、各管一种节奏。
 
-<h3 id="vs-chest">2.2 与宝箱的分工(为什么不复用 ChestSystem 的占槽)</h3>
+### 2.2 与宝箱的分工(为什么不复用 ChestSystem 的占槽) {#vs-chest}
 
 ```mermaid
 flowchart TD
@@ -74,11 +74,11 @@ flowchart TD
 
 两者共用上游的消除结算引擎,下游分两套互不干扰。盲盒的产物落点(图案/体力)复用 `MergeOrderState.AddDirect` / `RefundEnergy`,与宝箱发奖同源,改产物只改奖池一处。
 
-<h2 id="numbers">三、数值正文</h2>
+## 三、数值正文 {#numbers}
 
 全部硬编码进新模块 `TarotBlindBoxConfig`(静态类,仿 `MergeOrderConfig` / `ChestSystem` 风格,不接 Luban)。下文给公式 + 默认常量 + 旋钮命名 + 边界逐档代入。
 
-<h3 id="pool">3.1 奖池与掉率</h3>
+### 3.1 奖池与掉率 {#pool}
 
 开一个盲盒掷出**恰好 1 项**奖励(不是三选一——盲盒是「开即得」的惊喜,不是宝箱的「选其一」)。奖项分四类,按权重抽样:
 
@@ -90,26 +90,28 @@ flowchart TD
 | `PatternHigh` | <span class="lv">Lv3</span> 图案 ×1(=封顶高阶物) | 10 | 10% | 稀有大奖,GDD「高阶物品」 |
 | `NeededHigh` | **当前订单缺口的最高等级图案 ×1**(无缺口时降级为 `PatternHigh`) | 8 | 8% | GDD「直接产出订单所需高阶物品」,针对性最强 |
 
-权重总和 100,占比即权重(便于读)。<b>旋钮:</b> `BoxRewardWeights` 数组——调大某项权重即提高该项出率;调 `BoxEnergyGain` 改体力档。
+权重总和 100,占比即权重(便于读)。**旋钮:** `BoxRewardWeights` 数组——调大某项权重即提高该项出率;调 `BoxEnergyGain` 改体力档。
 
 权重设计意图:图案类(Low/Mid/High/NeededHigh)合计 80%,体力 20%。高阶物(Lv3 + NeededHigh)合计 18%,做到「常开常有小惊喜,偶尔大奖」。NeededHigh 是「针对性高阶物」,占比刻意低于通用 Lv3,避免盲盒变成订单缺口的稳定补给(那会架空合成玩法)。
 
-<h3 id="roll">3.2 开盒算法(含保底)</h3>
+### 3.2 开盒算法(含保底) {#roll}
 
 用 `RandomSource`(数据层确定性随机,可单测,与 `ChestSystem.RollRewards` 同源)做加权抽样:
 
-<pre class="code">// TarotBlindBoxConfig.RollReward(): 加权抽样掷 1 项
+```text
+// TarotBlindBoxConfig.RollReward(): 加权抽样掷 1 项
 int total = Σ BoxRewardWeights;            // = 100
 int r = RandomSource.Range(0, total);      // [0, total)
 累加权重,r 落入哪个区间即抽中该 RewardKind;
-返回 BlindBoxReward{ Kind, 产物等级/数量 }。</pre>
+返回 BlindBoxReward{ Kind, 产物等级/数量 }。
+```
 
 **保底**(双重):
 
-- <b>下限保底:</b>任意一次开盒必产**有效奖励**(权重表无 0 价值项,最低也是 1 个 Lv1 图案或体力)。不存在「开了个空」。
-- <b>NeededHigh 降级保底:</b>抽中 `NeededHigh` 但当前无订单缺口(`NeededTypes()` 空 / 所有订单已可交付)→ 自动降级为通用 `PatternHigh`(Lv3),不浪费这次大奖。
+- **下限保底:**任意一次开盒必产**有效奖励**(权重表无 0 价值项,最低也是 1 个 Lv1 图案或体力)。不存在「开了个空」。
+- **NeededHigh 降级保底:**抽中 `NeededHigh` 但当前无订单缺口(`NeededTypes()` 空 / 所有订单已可交付)→ 自动降级为通用 `PatternHigh`(Lv3),不浪费这次大奖。
 
-<h3 id="grant">3.3 产物落点与边界</h3>
+### 3.3 产物落点与边界 {#grant}
 
 | 奖项 | 落点方法(现状符号) | 类型选择 | 边界处理 |
 | --- | --- | --- | --- |
@@ -118,11 +120,11 @@ int r = RandomSource.Range(0, total);      // [0, total)
 | 体力 | `MergeOrderState.RefundEnergy(BoxEnergyGain)` | — | 受体力软上限 `EnergyCap` 约束,不溢出(与消除返还同规则) |
 
 > [!NOTE]
-> <b>为什么图案用 <code>AddDirect</code> 而非进待选区:</b>盲盒产的是「图案/收集物」,语义上属合成区(收集区)资源,直接进 <code>Inventory</code> 供合成/交付,与多消里程碑直发、全清奖、宝箱图案奖完全同源(都走 AddDirect)。不进待选区(待选区是「带元素的待落方块」,是另一条注入路径,设计 10 的 PendingElements 队列)。这条边界让盲盒产物与现有图案经济无缝合流。
+> **为什么图案用 `AddDirect` 而非进待选区:**盲盒产的是「图案/收集物」,语义上属合成区(收集区)资源,直接进 `Inventory` 供合成/交付,与多消里程碑直发、全清奖、宝箱图案奖完全同源(都走 AddDirect)。不进待选区(待选区是「带元素的待落方块」,是另一条注入路径,设计 10 的 PendingElements 队列)。这条边界让盲盒产物与现有图案经济无缝合流。
 
-<b>开盒前置:</b> `BlindBoxCount > 0` 才可开;开盒后 `BlindBoxCount -= 1`。计数无硬上限(GDD 未限,持有式攒多少都行);若需防溢出可设软上限旋钮 `BoxHoldCap`(默认很大,如 99,达上限后获取不再增——见 §七待拍板)。
+**开盒前置:** `BlindBoxCount > 0` 才可开;开盒后 `BlindBoxCount -= 1`。计数无硬上限(GDD 未限,持有式攒多少都行);若需防溢出可设软上限旋钮 `BoxHoldCap`(默认很大,如 99,达上限后获取不再增——见 §七待拍板)。
 
-<h3 id="unlock">3.4 连消/全消解锁阈值</h3>
+### 3.4 连消/全消解锁阈值 {#unlock}
 
 挂 `ClearSettlement.Settle` 结算流水线(单一信息源,所有落子后结算都经此)。在现有「连消链推进 / 全清武装位」逻辑之后追加盲盒解锁判定,**产出到 SettlementResult 供窗口表现,计数副作用在 Settle 内施加**(与全清奖、女神推进同体例):
 
@@ -140,9 +142,9 @@ int r = RandomSource.Range(0, total);      // [0, total)
 | 全程无连消(每手孤立消除) | 每手都是 2,然后链断回 1 | 不发(没达到阈值 4) |
 
 > [!NOTE]
-> <b>ComboChain 的现状语义核对(已 grep 核实):</b> <code>ClearSettlement.Settle</code> 中有消除时 <code>m.ComboChain += 1</code>,无消除时归 1。开局 <code>Reset()</code> 置 1。倍率表 <code>ComboMultPermille</code> 用 5 档封顶 ×2.0,但 <code>ComboChain</code> 字段本身不封顶(<code>ComboMultPermilleFor</code> 内部 clamp 索引)。因此「<code>ComboChain == 4</code>」判定是稳的:第 4 连消那一手恰好 ComboChain 从 3 自增到 4。<b>旋钮:</b> <code>BoxComboThreshold</code>,调小更易出、调大更难。
+> **ComboChain 的现状语义核对(已 grep 核实):** `ClearSettlement.Settle` 中有消除时 `m.ComboChain += 1`,无消除时归 1。开局 `Reset()` 置 1。倍率表 `ComboMultPermille` 用 5 档封顶 ×2.0,但 `ComboChain` 字段本身不封顶(`ComboMultPermilleFor` 内部 clamp 索引)。因此「`ComboChain == 4`」判定是稳的:第 4 连消那一手恰好 ComboChain 从 3 自增到 4。**旋钮:** `BoxComboThreshold`,调小更易出、调大更难。
 
-<h3 id="special">3.5 特殊订单附赠</h3>
+### 3.5 特殊订单附赠 {#special}
 
 GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.DeliverSpecial()`:特殊订单交付成功时附赠盲盒。
 
@@ -152,12 +154,12 @@ GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.D
 | 剧情(Story) | `BoxPerStory`(默认 2,主线奖励更重) | 各 Kind 独立常量,可分别调 |
 | 黄金时段(GoldenHour) | `BoxPerGolden`(默认 1) | 各 Kind 独立常量,可分别调 |
 
-<b>实现位置抉择:</b> `DeliverSpecial` 内按 `SpecialTrack.Occupied.Kind` 查表 `BlindBoxCount += 表[kind]`。注意 `DeliverSpecial` 末尾有 `_undoStack.Clear()`(交付是已提交动作,悔棋不倒回)——附赠的盲盒计数随交付一起固化,不被悔棋倒回,符合「已交付」语义。
+**实现位置抉择:** `DeliverSpecial` 内按 `SpecialTrack.Occupied.Kind` 查表 `BlindBoxCount += 表[kind]`。注意 `DeliverSpecial` 末尾有 `_undoStack.Clear()`(交付是已提交动作,悔棋不倒回)——附赠的盲盒计数随交付一起固化,不被悔棋倒回,符合「已交付」语义。
 
 > [!NOTE]
-> <b>现状边界(已核实):</b> <code>SpecialOrderTrack</code> 与 <code>DeliverSpecial</code> 已在数据层建成且有单测,但**尚未接入任何 UI 窗口**(<code>SpecialTrack.Request</code> 目前只在测试里被调用)。本篇的特殊订单附赠钩子是**数据层逻辑**,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="#11-core-loop-completion::concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,**不在本设计范围**。本设计只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
+> **现状边界(已核实):** `SpecialOrderTrack` 与 `DeliverSpecial` 已在数据层建成且有单测,但**尚未接入任何 UI 窗口**(`SpecialTrack.Request` 目前只在测试里被调用)。本篇的特殊订单附赠钩子是**数据层逻辑**,可单测、可落地;但「特殊订单在窗口里怎么投放/交付」是 <a href="#11-core-loop-completion::concurrency">11·§三(订单并发模型)</a> 的独立未接 UI 项,**不在本设计范围**。本设计只保证「一旦 DeliverSpecial 被调用,盲盒按表附赠」这条逻辑正确且被测覆盖。
 
-<h2 id="hook">四、挂接点 / dev 改动清单</h2>
+## 四、挂接点 / dev 改动清单 {#hook}
 
 符号名均经 grep 核实于当前工程。dev 照此定位,不需要重新摸索结构。
 
@@ -173,19 +175,19 @@ GDD「紧急/特殊订单奖励含神秘塔罗盲盒」。挂 `MergeOrderState.D
 
 注:`MergeOrderState` 整体目前**不做磁盘持久化**——只有 `BlockGameState.Save/Load` 持久化棋盘+待选块+分数,MergeOrderState 每局 `ResetForMergeOrder` 重建。盲盒计数跟随此现状:进悔棋快照(单局内回滚正确),不单独建磁盘序列化层。任务简报的「纳入持久化」在现状下等价于「纳入快照」——若要 MergeOrderState 全量跨会话存盘,那是独立的大改(全字段序列化),不在本设计、见 §七待拍板。
 
-<h2 id="ui">五、UI 方案</h2>
+## 五、UI 方案 {#ui}
 
 glyph + 纯色,零美术,接现有 `MergeOrderWindow`。两块:
 
-- <b>盲盒计数 + 开盒按钮(常驻顶部信息行):</b>在体力条/完成单数那一行旁加一个「🔮 ×N」计数 + 「开盒」按钮。`BlindBoxCount==0` 时按钮置灰(同悔棋按钮的置灰写法 `interactable = can`)。glyph 用 🔮 或 ◈,色用紫/金。
-- <b>开盒结果(内联结果条):</b>点开盒 → 调 `OpenBlindBox` → 用 `BurstText.Spawn`(现状已有,全清/多消弹字同款)在棋盘上方弹一条「开出:◆ Lv3 ×1」之类,带 glyph + 色。不做独立全屏弹窗——盲盒是高频轻动作,内联弹字够且不打断节奏。获得盲盒时(连消/全清/交付)同样弹一条「+1 🔮」。
+- **盲盒计数 + 开盒按钮(常驻顶部信息行):**在体力条/完成单数那一行旁加一个「🔮 ×N」计数 + 「开盒」按钮。`BlindBoxCount==0` 时按钮置灰(同悔棋按钮的置灰写法 `interactable = can`)。glyph 用 🔮 或 ◈,色用紫/金。
+- **开盒结果(内联结果条):**点开盒 → 调 `OpenBlindBox` → 用 `BurstText.Spawn`(现状已有,全清/多消弹字同款)在棋盘上方弹一条「开出:◆ Lv3 ×1」之类,带 glyph + 色。不做独立全屏弹窗——盲盒是高频轻动作,内联弹字够且不打断节奏。获得盲盒时(连消/全清/交付)同样弹一条「+1 🔮」。
 
 开盒结果展示用内联弹字而非模态窗口的理由:盲盒开得频繁,模态窗口每次都要点关闭会拖慢节奏;内联弹字与现有连消/多消反馈同一套表现语言,一致且零额外 prefab。若后续要做「开盒动画/仪式感」,那是表现层增强,本设计不做(见 §七)。
 
 > [!NOTE]
-> <b>刷新调用:</b>开盒/获得后须调现有 <code>RefreshSynthesis()</code>(图案进了合成区)+ <code>RefreshEnergy()</code>(可能加了体力)+ 新增 <code>RefreshBlindBox()</code>(计数与按钮态)。与现有 <code>OnDeliverClicked</code> 末尾的批量刷新同体例。
+> **刷新调用:**开盒/获得后须调现有 `RefreshSynthesis()`(图案进了合成区)+ `RefreshEnergy()`(可能加了体力)+ 新增 `RefreshBlindBox()`(计数与按钮态)。与现有 `OnDeliverClicked` 末尾的批量刷新同体例。
 
-<h2 id="accept">六、验收点(test 可逐条核对)</h2>
+## 六、验收点(test 可逐条核对) {#accept}
 
 每条对应一个或一组单测;test 子会话编译 + 跑 EditMode(`BlockBlast.Tests`),全绿且 core-loop 基线 129 例不回归。
 
@@ -202,18 +204,18 @@ glyph + 纯色,零美术,接现有 `MergeOrderWindow`。两块:
 | A9 | 悔棋快照回滚计数 | 记 `BlindBoxCount`=c → `CaptureSnapshot` → 落子触发全清使计数变 c+1 → `Undo` → 计数回 c。(与现有 Soul/Goddess 快照测试同构) |
 | A10 | 旧路径零回归 | core-loop 基线 129 例全绿;无盲盒触发(无全清/未达连消阈值/不交付特殊单)时,所有现有结算结果与基线一致。 |
 
-<h2 id="open">七、待拍板清单(交 boss / 用户)</h2>
+## 七、待拍板清单(交 boss / 用户) {#open}
 
 以下为范围/取向开关,集中列出。其余数值我已按 §三默认拍板,dev 直接用。
 
 | # | 待决项 | 我的默认取向(若无异议即按此) |
 | --- | --- | --- |
-| O1 | <b>盲盒产物是否含 Lv4。</b>GDD 写 Lv1–Lv4,工程封顶 Lv3 且设计 11 已收敛 5→3 级。 | 收敛到 Lv1–Lv3(本篇方案)。若 boss 要支持 Lv4,须先抬高 `MaxLevel` 并重审整个合成链(超本设计范围)。 |
-| O2 | <b>持有计数是否设软上限 <code>BoxHoldCap</code>。</b> | 本设计不设硬上限(GDD 未限,持有式);留旋钮默认 99 备用。 |
-| O3 | <b>MergeOrderState 是否做全量跨会话磁盘持久化。</b>现状只快照、不存盘。 | 本设计不做——跟随现状只入快照。全量存盘是独立大改,单列任务。 |
-| O4 | <b>开盒表现是否要独立仪式感动画/弹窗。</b> | 本设计内联弹字(轻、不打断)。仪式感动画属表现增强,后续轮次。 |
+| O1 | **盲盒产物是否含 Lv4。**GDD 写 Lv1–Lv4,工程封顶 Lv3 且设计 11 已收敛 5→3 级。 | 收敛到 Lv1–Lv3(本篇方案)。若 boss 要支持 Lv4,须先抬高 `MaxLevel` 并重审整个合成链(超本设计范围)。 |
+| O2 | **持有计数是否设软上限 `BoxHoldCap`。** | 本设计不设硬上限(GDD 未限,持有式);留旋钮默认 99 备用。 |
+| O3 | **MergeOrderState 是否做全量跨会话磁盘持久化。**现状只快照、不存盘。 | 本设计不做——跟随现状只入快照。全量存盘是独立大改,单列任务。 |
+| O4 | **开盒表现是否要独立仪式感动画/弹窗。** | 本设计内联弹字(轻、不打断)。仪式感动画属表现增强,后续轮次。 |
 
-<h2 id="risk">八、风险表</h2>
+## 八、风险表 {#risk}
 
 | 风险 | 后果 | 应对 |
 | --- | --- | --- |

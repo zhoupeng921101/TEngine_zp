@@ -13,13 +13,14 @@
 工程视角 · 看清离线还原版动态难度系统的 C# 代码是怎么分层、数据怎么流、热点在哪。数值与体感设计请看姊妹篇《[动态难度拆解](#02-dynamic-difficulty)》，本篇只讲**代码实现**。
 
 > [!NOTE]
-> <b>一句话定位：</b>这套代码的核心不是「游戏逻辑」，而是一台**发牌操控机**——根据你的分数和一个隐藏「难度账户」<mark><code>dynamicWeight</code></mark>，在 8×8 位棋盘上做**蒙特卡洛搜索**，实时决定下一组方块是帮你消除（放水）还是逼你走投无路（做局）。整个模块<mark class="g">完全 headless</mark>：除 <code>JsonUtility</code> 存档外不碰任何 Unity 运行时，可在 EditMode 直接单测。
+> **一句话定位：**这套代码的核心不是「游戏逻辑」，而是一台**发牌操控机**——根据你的分数和一个隐藏「难度账户」<mark><code>dynamicWeight</code></mark>，在 8×8 位棋盘上做**蒙特卡洛搜索**，实时决定下一组方块是帮你消除（放水）还是逼你走投无路（做局）。整个模块<mark class="g">完全 headless</mark>：除 `JsonUtility` 存档外不碰任何 Unity 运行时，可在 EditMode 直接单测。
 
-<h2 id="layers">一、分层结构</h2>
+## 一、分层结构 {#layers}
 
 目录路径：`Assets/GameScripts/HotFix/GameLogic/Module/BlockBlast/`。命名空间 `GameLogic.BlockBlast.*`，独立 asmdef，对接 TEngine 热更。先看文件落位：
 
-<pre class="tree">BlockBlast/
+```text
+BlockBlast/
 ├── Core/                     纯棋盘数学（无随机、无难度，可单测）
 │   ├── BinaryBoard.cs            8×8 位掩码棋盘：放置 / 消除 / GameOver 判定
 │   ├── BlockShape(Map).cs        39 个白名单形状（位掩码定义）+ 难块子池
@@ -38,7 +39,8 @@
 ├── RandomSource.cs           可注入随机源（测试可固定种子）
 ├── Persistence.cs            可注入存档后端（解耦 PlayerPrefs）
 ├── SimpleSingleton.cs        轻量单例基类
-└── Tests/                    EditMode 单元测试</pre>
+└── Tests/                    EditMode 单元测试
+```
 
 按职责归层后，整个模块是一座<mark>依赖方向单向向下</mark>的四层塔，随机与存档作为可注入基础设施贯穿各层：
 
@@ -74,7 +76,7 @@ flowchart TD
 > [!TIP]
 > 分层很干净：**Core 不知道难度存在，Algorithms 不知道调度存在，调度器只编排不实现棋盘操作**。依赖方向单向向下，所以每层都能独立替换与测试。
 
-<h2 id="modules">二、模块职责一览</h2>
+## 二、模块职责一览 {#modules}
 
 | 文件 | 角色 | 职责 |
 | --- | --- | --- |
@@ -87,7 +89,7 @@ flowchart TD
 | `GameConfigBB / WeightConfigEntry` | 配置 | 调权因子、采样次数、tier 表行结构。当前静态默认，预留接 Luban。 |
 | `RandomSource / Persistence` | 基础设施 | 随机与存档抽象成可注入接口 —— 这是「可单测」的关键。 |
 
-<h2 id="flow">三、核心数据流</h2>
+## 三、核心数据流 {#flow}
 
 玩家落子后若手牌用空，`RefillPieces` 触发整条调度链。下图是一次补牌的完整数据流：`OfferTrio` 先走短路链（命中即返回），没命中才进入正式调度，向下穿过算法层与评分器，最终落到位掩码棋盘上做位运算。
 
@@ -117,9 +119,9 @@ sequenceDiagram
     D-->>G: trio 上手牌(PendingPiece ×3)
 ```
 
-<h2 id="pillars">四、三大支柱拆解</h2>
+## 四、三大支柱拆解 {#pillars}
 
-<h3 id="p-board">支柱 1 · BinaryBoard —— 位掩码棋盘</h3>
+### 支柱 1 · BinaryBoard —— 位掩码棋盘 {#p-board}
 
 每行用一个 int 的低 8 位表示，bit `(7 - col)` = 1 表示占用。整套棋盘操作都是<mark>位运算</mark>，极快：
 
@@ -129,9 +131,9 @@ sequenceDiagram
 - **GameOver 判定** `CheckPutAllBlocks`：DFS 试所有摆放顺序，存在一种能全放下即未死。
 
 > [!NOTE]
-> 所有「占用 / 空」都跟颜色无关。<b>颜色只活在 <code>BlockGameState.SaveArr</code> 这层带色 2D 数组里</b>，算法层完全不关心颜色——又一处干净的关注点分离。
+> 所有「占用 / 空」都跟颜色无关。**颜色只活在 `BlockGameState.SaveArr` 这层带色 2D 数组里**，算法层完全不关心颜色——又一处干净的关注点分离。
 
-<h3 id="p-eval">支柱 2 · BoardEvaluator —— 把「难度」变成可计算的数</h3>
+### 支柱 2 · BoardEvaluator —— 把「难度」变成可计算的数 {#p-eval}
 
 这是整套难度引擎的发动机。关键洞察：<mark>一组牌的「解的数量」就是它的难度量化指标</mark>。
 
@@ -140,7 +142,7 @@ sequenceDiagram
 - `Simulate`：模拟一条摆放序列并结算消除格数（与游戏内规则一致，避免行列交叉点重复计数）。
 - `Entropy`：相邻格状态不同的边数 —— Add3「熵增」算法用它把盘面搞碎。
 
-<h3 id="p-diff">支柱 3 · DynamicWeightDiff —— 两级加权随机调度</h3>
+### 支柱 3 · DynamicWeightDiff —— 两级加权随机调度 {#p-diff}
 
 大脑的决策分两级，外加一条平滑反馈回路：
 
@@ -149,9 +151,9 @@ sequenceDiagram
 3. **反馈调权**（`AddWeight`）：发完牌按算法查 `FactorList` 拿增量累加回 `dynamicWeight`。**同向连续**用较小的 `Consecutive`、**换向**用较大的 `Basic` —— 防难度突变。
 
 > [!NOTE]
-> 代码里 <code>AddWeight</code> 有一段考古级注释：原版 TS 用 ±9999 sentinel 做 clamp，因 sentinel 比配置值还宽 → clamp 实际**失效**。还原版「修复」为按配置真实边界收敛。<mark class="g">这类与原版差异的标注贯穿全模块，是这套代码最值钱的部分之一。</mark>
+> 代码里 `AddWeight` 有一段考古级注释：原版 TS 用 ±9999 sentinel 做 clamp，因 sentinel 比配置值还宽 → clamp 实际**失效**。还原版「修复」为按配置真实边界收敛。<mark class="g">这类与原版差异的标注贯穿全模块，是这套代码最值钱的部分之一。</mark>
 
-<h2 id="priority">五、调度决策优先级（代码视角）</h2>
+## 五、调度决策优先级（代码视角） {#priority}
 
 `OfferTrio` 是分层的「短路链」，从上往下命中即返回。每层对应一个明确的设计意图：
 
@@ -166,7 +168,7 @@ sequenceDiagram
 
 覆盖层用**策略模式 + 注册表**（`IOfferOverride` 按 `TriggerTiming` 分桶、按 `Priority` 排序）。新增一条特殊规则只要实现接口并注册，不动调度主干 —— <mark class="g">对扩展开放</mark>。
 
-<h2 id="review">六、工程亮点 &amp; 关注点</h2>
+## 六、工程亮点 &amp; 关注点 {#review}
 
 > [!TIP]
 > **亮点：**

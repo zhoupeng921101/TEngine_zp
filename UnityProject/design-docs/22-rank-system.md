@@ -37,11 +37,11 @@
 > | **影响范围** | **新增配置表**:`rank.xlsx`(排行榜主表,一行一个名次档) → Luban `GameConfig.Rank` + `TbRank`([§3.1](#22-rank-system::config)); **新增 POCO + 桥接**:`RankDef` + `RankRewardTier` + `RankConfigMgr`(含 `InitForTest`,归 `GameLogic.Config`,[§3.2](#22-rank-system::poco)); **新增排名模型**:`RankEntry`(榜上一名:玩家 textId / 分数 / 名次 / 是否本人) + `RankBoard`(一个榜的快照) + `SettleResult`([§二](#22-rank-system::model) / [§3.3](#22-rank-system::query) / [§3.5](#22-rank-system::settle)); **新增排名服务**:`RankService`(查榜 / 排序并列 / 结算编排 / 每日 + 点赞领取 / 红点)+ `RankText`(textId 占位,[§3.3](#22-rank-system::query)–[§3.7](#22-rank-system::reddot)); **新增持久化层**:`RankProgressSave`(`[Serializable]` DTO:本机各榜最佳成绩 + 上次结算时间 + 已结算标记 + 每日/点赞当天领取标记)+ `RankPersistence`(键 `Rank.Progress`,包既有 `Persistence.Provider`,[§3.8](#22-rank-system::persist)); **新增排名数据源接缝**:`IRankSource` + `LocalRankSource`(本地榜,可跑可测)+ `RemoteRankSource`(stub,[§3.6](#22-rank-system::source)); **调用既有**:`IMailService.Send`(发结算邮件,设计 21,只调用不改);奖励库 id 复用 16;持久化复用既有 Provider。**框架代码不动**。**UI 零改动**。**既有玩法逻辑零行为变化**。 |
 > | **关键约束(继承现状)** | POCO / 模型 / 服务 / 持久化 / 接缝为纯逻辑,可在纯 C# 单测直接 `new` / 注入(不依赖 YooAsset / Unity 运行时 / 网络);配置经 `RankConfigMgr.InitForTest` 注入(绕 ConfigSystem);持久化往返经 `InMemoryPersistenceProvider` 注入断言(不碰真实 PlayerPrefs);**时钟注入 `NowProvider` + 开服日期注入**(结算时机判定可单测);**结算发奖经注入的 `IMailService`**(测试注 fake/真 `MailboxService` 断言「发了哪封带哪个奖励库的邮件」,不碰真实网络);排名数据源经注入 `IRankSource`(默认 `LocalRankSource`)。现有 EditMode 测试零回归;邮件系统 21 零改动。 |
 
-<h2 id="what">一、做什么与为什么</h2>
+## 一、做什么与为什么 {#what}
 
 现状:游戏**没有排行榜**。spec(`1007排行榜底层.xlsx`)的设计目的是「进度显示 / 全服排名 / 攀比 / 名次奖励」,设计思路是「<mark>统一用一个表格控制所有排行榜</mark>」——即一张配置表,每一行声明一个榜(或一个榜的一个名次奖励档),字段涵盖榜 id / 名称 / 分组 / 玩法类型 / 入榜要求 / 名次区间 / 奖励 / 每日奖励 / 点赞奖励 / 结算时机 / 结算邮件 / 入榜上限 / 展示上限。本设计建一套**排名数据逻辑层**:查榜(取前 N、查自己)→ 排序并列 → 到点结算 → 按名次档查奖励 → 发结算邮件,并把「排名数据源」「结算发奖」两道接缝划清。
 
-因为本作离线、无服务器,「全服真实排名」拿不到。本设计的关键判断:<b>把「排名从哪来」抽象成 <code>IRankSource</code> 接缝</b>,离线用 `LocalRankSource`——玩家自己打出的成绩进本机记录,配置里放一组「陪榜成绩」(NPC/基准分)垫底,本地按分数排序产出一份名次榜。玩家能看到自己排第几、能在结算时按名次拿奖。这既兑现了 spec 的「进度显示 / 攀比 / 名次奖励」(对单机玩家成立:和基准分比、和自己历史最佳比),又把真实全服榜留成未来上后端时只换 `IRankSource` 实现的一道接缝。逐条对应 spec 字段与需求:
+因为本作离线、无服务器,「全服真实排名」拿不到。本设计的关键判断:**把「排名从哪来」抽象成 `IRankSource` 接缝**,离线用 `LocalRankSource`——玩家自己打出的成绩进本机记录,配置里放一组「陪榜成绩」(NPC/基准分)垫底,本地按分数排序产出一份名次榜。玩家能看到自己排第几、能在结算时按名次拿奖。这既兑现了 spec 的「进度显示 / 攀比 / 名次奖励」(对单机玩家成立:和基准分比、和自己历史最佳比),又把真实全服榜留成未来上后端时只换 `IRankSource` 实现的一道接缝。逐条对应 spec 字段与需求:
 
 | # | spec 字段 / 需求 | 本篇落法 | 现状/新增 |
 | --- | --- | --- | --- |
@@ -61,9 +61,9 @@
 | 14 | 功能开启:玩家 1 级即开 | 无等级门控逻辑(始终可用);1 级开仅 UI 入口可见性,表现层处理 | <span class="pill-cur">无门控</span> |
 | 15 | 排行榜界面 / 名次列表 / 点赞按钮 / 头像 / icon | 表现层,需美术,**延后**(同 15–21 节奏,[§七 O8](#22-rank-system::open)) | <span class="pill-no">UI 延后</span> |
 
-<b>不做(本设计明确排除):</b><span class="pill-no">真实全服排名 / 服务器拉榜</span>(无网络模块,O1);<span class="pill-no">真实他人玩家数据</span>(离线无,陪榜由配置生成,O2);<span class="pill-no">所有 UI 窗口</span>(界面 / 列表 / 点赞按钮 / 头像 — 需美术,O8);<span class="pill-no">多语言名称 / 文案真实查表</span>(textId 占位,同 num/item/reward/mail 现状,O6);<span class="pill-no">道具 / 跑马灯</span>(spec 明写无,O7);<span class="pill-no">充值榜 / 付费冲榜 / 买名次</span>(去变现方向,不做)。
+**不做(本设计明确排除):**<span class="pill-no">真实全服排名 / 服务器拉榜</span>(无网络模块,O1);<span class="pill-no">真实他人玩家数据</span>(离线无,陪榜由配置生成,O2);<span class="pill-no">所有 UI 窗口</span>(界面 / 列表 / 点赞按钮 / 头像 — 需美术,O8);<span class="pill-no">多语言名称 / 文案真实查表</span>(textId 占位,同 num/item/reward/mail 现状,O6);<span class="pill-no">道具 / 跑马灯</span>(spec 明写无,O7);<span class="pill-no">充值榜 / 付费冲榜 / 买名次</span>(去变现方向,不做)。
 
-<h2 id="model">二、数据模型与分层</h2>
+## 二、数据模型与分层 {#model}
 
 排行榜底层分三层,职责清晰互不越界:**配置层**(榜定义 + 奖励档,只读)、**数据源层**(榜上有谁、各多少分 — 接缝,离线本地 / 远程 stub)、**服务层**(查榜 / 排序并列 / 结算编排 / 领取 / 红点 — 纯逻辑)。结算时服务层向**邮件系统 21** 借 `IMailService.Send` 发奖。结构图:
 
@@ -91,11 +91,11 @@ flowchart TD
     svc -->|结算发奖| mail
 ```
 
-<b>「一表控所有榜」的行模型(spec 设计思路)</b>:配置表一行 = 一个榜的<mark>一个名次奖励档</mark>。同 `Id` 的多行属同一个榜(共享 Name/group/method/condition/结算时机/mail/上限),各行的 `rank_min/rank_max/reward` 不同(第 1 名一档、2–10 名一档、11–100 名一档…)。桥接时按 `Id` 聚合成 `RankDef`(榜级字段取首行)+ `List<RankRewardTier>`(各名次档,[§3.2](#22-rank-system::poco)),同 16 道具礼包子项 / 20 兑换码奖励子表的「主+子聚合」做法。
+**「一表控所有榜」的行模型(spec 设计思路)**:配置表一行 = 一个榜的<mark>一个名次奖励档</mark>。同 `Id` 的多行属同一个榜(共享 Name/group/method/condition/结算时机/mail/上限),各行的 `rank_min/rank_max/reward` 不同(第 1 名一档、2–10 名一档、11–100 名一档…)。桥接时按 `Id` 聚合成 `RankDef`(榜级字段取首行)+ `List<RankRewardTier>`(各名次档,[§3.2](#22-rank-system::poco)),同 16 道具礼包子项 / 20 兑换码奖励子表的「主+子聚合」做法。
 
-<h2 id="numbers">三、设计正文</h2>
+## 三、设计正文 {#numbers}
 
-<h3 id="config">3.1 排行榜配置表 rank(Luban)</h3>
+### 3.1 排行榜配置表 rank(Luban) {#config}
 
 源 xlsx 在仓库根 `Configs/GameConfig/Datas/rank.xlsx`(与 `UnityProject` 同级,同 num/item/redeem/mail 表)。schema 写数据 xlsx 表头四行(`##var` / `##type` / `##group` / `##`);planner 备注类字段设 `group=e` 不导出运行期。字段直取 spec 的 `排行榜迭代1.0` sheet 表头(O18–O33):
 
@@ -119,15 +119,16 @@ flowchart TD
 | rank\_count\_max | int | c,s | spec `rank_count_max`「入榜上限:计算前多少玩家」(参与排名/结算名额)。同 id 各行取首行 |
 | show\_count\_max | int | c,s | spec `show_count_max`「展示上限:展示多少玩家」(`List` 返回条数)。同 id 各行取首行 |
 
-<b>demo 行(本设计录入,供验收锚定)</b>:建一个榜 `id=1`「周榜」三档:① row\_id=1, id=1, name=占位, group=1, method=1, condition=100, min=1, max=1, reward=1002(第 1 名), show\_reward=1002, praise=1003, daily=1004, valid\_type=3, valid\_val=1(周一结算), mail=1, count\_max=100, show\_max=50;② row\_id=2, id=1,…(榜级字段同上), min=2, max=10, reward=1005;③ row\_id=3, id=1, min=11, max=100, reward=1006。再建一个 `id=2`「无结算总榜」一档(valid\_type=0)。<mark>奖励库 id 1002–1006 须道具系统 16 有对应礼包池才能领出实物;邮件模板 1 须邮件系统 21 表里存在</mark>;否则结算仍发邮件、邮件领取产出空(不抛,见 [§3.5](#22-rank-system::settle) / 21 §3.4.3 边界)。
+**demo 行(本设计录入,供验收锚定)**:建一个榜 `id=1`「周榜」三档:① row\_id=1, id=1, name=占位, group=1, method=1, condition=100, min=1, max=1, reward=1002(第 1 名), show\_reward=1002, praise=1003, daily=1004, valid\_type=3, valid\_val=1(周一结算), mail=1, count\_max=100, show\_max=50;② row\_id=2, id=1,…(榜级字段同上), min=2, max=10, reward=1005;③ row\_id=3, id=1, min=11, max=100, reward=1006。再建一个 `id=2`「无结算总榜」一档(valid\_type=0)。<mark>奖励库 id 1002–1006 须道具系统 16 有对应礼包池才能领出实物;邮件模板 1 须邮件系统 21 表里存在</mark>;否则结算仍发邮件、邮件领取产出空(不抛,见 [§3.5](#22-rank-system::settle) / 21 §3.4.3 边界)。
 
-<h3 id="poco">3.2 运行期 POCO + 桥接(RankDef / RankRewardTier / RankConfigMgr)</h3>
+### 3.2 运行期 POCO + 桥接(RankDef / RankRewardTier / RankConfigMgr) {#poco}
 
 仿 `MailConfigMgr`/`ItemConfigMgr`:Luban 行桥接成 POCO,业务侧只认 POCO;运行期 `EnsureLoaded` 走 `ConfigSystem`,EditMode 经 `InitForTest` 注入绕 YooAsset。<mark>按 <code>id</code> 聚合</mark>:同 id 多行 → 一个 `RankDef`(榜级字段取首行)+ 各行 `RankRewardTier`(名次档,按 rank\_min 升序)。配置桥接 `RankConfigMgr` 归 `GameLogic.Config`(与 `MailConfigMgr` 并列);模型 / 服务归新建 `GameLogic.Rank`(同 `GameLogic.Mail` 体例)。
 
-<pre class="code">namespace GameLogic.Rank  // 新建命名空间，通用系统，与 BlockBlast 玩法解耦
+```text
+namespace GameLogic.Rank  // 新建命名空间，通用系统，与 BlockBlast 玩法解耦
 {
-    /// &lt;summary&gt;结算时机类型（spec valid_type）。&lt;/summary&gt;
+    /// <summary>结算时机类型（spec valid_type）。</summary>
     public enum RankValidType
     {
         Always    = 0,  // 无结算，持续开启
@@ -135,7 +136,7 @@ flowchart TD
         FixedTime = 2,  // 指定时间结算（valid_val = Unix 秒 / Ticks）
         Weekly    = 3,  // 周循环，星期 X 结算（valid_val = 1..7）
     }
-    /// &lt;summary&gt;一个名次奖励档（spec 一行）。&lt;/summary&gt;
+    /// <summary>一个名次奖励档（spec 一行）。</summary>
     public sealed class RankRewardTier
     {
         public int RankMin;            // 名次区间下界（含）
@@ -144,7 +145,7 @@ flowchart TD
         public int ShowRewardPoolId;   // UI 预览库 id；0 = 同 RewardPoolId
         public int DailyRewardPoolId;  // 本档每日奖励库 id；0 = 无每日奖
     }
-    /// &lt;summary&gt;一个榜的定义（同 id 多行聚合）。&lt;/summary&gt;
+    /// <summary>一个榜的定义（同 id 多行聚合）。</summary>
     public sealed class RankDef
     {
         public int  Id;                // 榜唯一 id
@@ -158,13 +159,13 @@ flowchart TD
         public int  MailDefId;         // 结算邮件模板 id（设计 21）
         public int  CountMax;          // 入榜上限（参与排名名额）
         public int  ShowMax;           // 展示上限（List 条数）
-        public System.Collections.Generic.List&lt;RankRewardTier&gt; Tiers; // 名次档（按 RankMin 升序）
-        /// &lt;summary&gt;按名次查中奖档；无匹配返 null（名次未落入任何区间 → 无奖）。&lt;/summary&gt;
+        public System.Collections.Generic.List<RankRewardTier> Tiers; // 名次档（按 RankMin 升序）
+        /// <summary>按名次查中奖档；无匹配返 null（名次未落入任何区间 → 无奖）。</summary>
         public RankRewardTier TierForRank(int rank)
         {
             if (Tiers == null) return null;
-            for (int i = 0; i &lt; Tiers.Count; i++)
-                if (rank &gt;= Tiers[i].RankMin &amp;&amp; rank &lt;= Tiers[i].RankMax) return Tiers[i];
+            for (int i = 0; i < Tiers.Count; i++)
+                if (rank >= Tiers[i].RankMin && rank <= Tiers[i].RankMax) return Tiers[i];
             return null;
         }
     }
@@ -173,29 +174,31 @@ namespace GameLogic.Config
 {
     public static class RankConfigMgr
     {
-        private static System.Collections.Generic.Dictionary&lt;int, RankDef&gt; _ranks;
+        private static System.Collections.Generic.Dictionary<int, RankDef> _ranks;
         public static void EnsureLoaded() { /* 走 ConfigSystem.Instance.Tables.TbRank，按 id 聚合多行 → RankDef + Tiers */ }
-        /// &lt;summary&gt;按榜 id 查；查不到返 null（不抛）。&lt;/summary&gt;
+        /// <summary>按榜 id 查；查不到返 null（不抛）。</summary>
         public static RankDef GetRank(int id) { EnsureLoaded(); return _ranks.TryGetValue(id, out var d) ? d : null; }
-        /// &lt;summary&gt;全部榜（供 UI 列分页 / 登录时遍历检查结算）。&lt;/summary&gt;
-        public static System.Collections.Generic.IReadOnlyCollection&lt;RankDef&gt; All() { EnsureLoaded(); return _ranks.Values; }
-        public static void InitForTest(System.Collections.Generic.IEnumerable&lt;RankDef&gt; ranks) { /* 灌字典 */ }
+        /// <summary>全部榜（供 UI 列分页 / 登录时遍历检查结算）。</summary>
+        public static System.Collections.Generic.IReadOnlyCollection<RankDef> All() { EnsureLoaded(); return _ranks.Values; }
+        public static void InitForTest(System.Collections.Generic.IEnumerable<RankDef> ranks) { /* 灌字典 */ }
         public static void ResetForTest() { _ranks = null; }
     }
-}</pre>
+}
+```
 
 > [!NOTE]
-> <b>聚合口径:榜级字段冲突怎么办?</b>
+> **聚合口径:榜级字段冲突怎么办?**
 >
-> 同 <code>id</code> 各行的榜级字段(name/group/method/condition/praise/valid_*/mail/count_max/show_max)**应填一致**;桥接<mark>取该 id 首行的值</mark>(按 row_id 升序后第一行),后续行只取 <code>rank_min/rank_max/reward/show_reward/reward_daily</code> 三个名次档字段。这与 16 礼包子项 / 20 兑换码奖励子表的「主行定主属性、子行定明细」同源。配置规范:同榜各行榜级字段务必一致(planner 约定),桥接不做冲突告警(本设计),后续可加 Luban 校验器。
+> 同 `id` 各行的榜级字段(name/group/method/condition/praise/valid_*/mail/count_max/show_max)**应填一致**;桥接<mark>取该 id 首行的值</mark>(按 row_id 升序后第一行),后续行只取 `rank_min/rank_max/reward/show_reward/reward_daily` 三个名次档字段。这与 16 礼包子项 / 20 兑换码奖励子表的「主行定主属性、子行定明细」同源。配置规范:同榜各行榜级字段务必一致(planner 约定),桥接不做冲突告警(本设计),后续可加 Luban 校验器。
 
-<h3 id="query">3.3 榜单查询 + 排序并列(RankService 第一部分)</h3>
+### 3.3 榜单查询 + 排序并列(RankService 第一部分) {#query}
 
 服务持有注入(配置 / 数据源 / 时钟 / 持久化 / 邮件服务)。查榜走数据源接缝取「榜上有谁多少分」,本地排序产出名次。
 
-<pre class="code">namespace GameLogic.Rank
+```text
+namespace GameLogic.Rank
 {
-    /// &lt;summary&gt;榜上一名（数据源产出 + 服务排名后填名次）。&lt;/summary&gt;
+    /// <summary>榜上一名（数据源产出 + 服务排名后填名次）。</summary>
     public sealed class RankEntry
     {
         public int  PlayerNameTextId; // 玩家展示名 textId（陪榜 = 配置占位名；本人 = PlayerInfo 名占位）
@@ -204,14 +207,14 @@ namespace GameLogic.Config
         public bool IsSelf;           // 是否本机玩家
         public int  Rank;             // 名次（服务排序后回填，1 起）
     }
-    /// &lt;summary&gt;一个榜的查询快照。&lt;/summary&gt;
+    /// <summary>一个榜的查询快照。</summary>
     public sealed class RankBoard
     {
         public int Id;
-        public System.Collections.Generic.List&lt;RankEntry&gt; Entries; // 已排序、已截展示上限
+        public System.Collections.Generic.List<RankEntry> Entries; // 已排序、已截展示上限
         public RankEntry Self;       // 本机玩家在榜的条目（未入榜则 null）
         public int SelfRank;         // 本人名次（未入榜 = 0）
-        public long SelfScore;       // 本人成绩（未入榜 = 当前最佳，可能 &lt; condition）
+        public long SelfScore;       // 本人成绩（未入榜 = 当前最佳，可能 < condition）
     }
     public sealed class RankService
     {
@@ -219,20 +222,21 @@ namespace GameLogic.Config
         private readonly IRankSource _source;        // 数据源接缝（默认 LocalRankSource）
         private readonly IRankPersistence _persist;  // 元层进度落盘
         private readonly GameLogic.Mail.IMailService _mail; // 结算发奖（设计 21）
-        public System.Func&lt;System.DateTime&gt; NowProvider = () =&gt; System.DateTime.Now; // 时钟（注入）
+        public System.Func<System.DateTime> NowProvider = () => System.DateTime.Now; // 时钟（注入）
         public System.DateTime OpenDate;             // 开服日期（注入；OpenDays 结算用）
         public RankService(IRankSource source, IRankPersistence persist,
                            GameLogic.Mail.IMailService mail, IRankConfigSource cfg = null) { /* … */ }
-        /// &lt;summary&gt;查一个榜：取数据源原始记录 → 过滤入榜要求 → 排序回填名次 → 截展示上限 → 标本人。&lt;/summary&gt;
+        /// <summary>查一个榜：取数据源原始记录 → 过滤入榜要求 → 排序回填名次 → 截展示上限 → 标本人。</summary>
         public RankBoard GetBoard(int rankId) { /* §3.3.2 排序 */ }
-        /// &lt;summary&gt;查本人名次（轻量，不返全榜）。未入榜返 SelfRank=0。&lt;/summary&gt;
+        /// <summary>查本人名次（轻量，不返全榜）。未入榜返 SelfRank=0。</summary>
         public (int rank, long score) GetMyRank(int rankId) { /* … */ }
-        /// &lt;summary&gt;提交本机一次成绩（取较大者更新最佳，落盘）。供玩法结束时调。&lt;/summary&gt;
+        /// <summary>提交本机一次成绩（取较大者更新最佳，落盘）。供玩法结束时调。</summary>
         public void SubmitScore(int rankId, long score) { /* 更新本机最佳 + AchievedTicks + Save */ }
     }
-}</pre>
+}
+```
 
-<h4 id="sort">3.3.2 排序与并列规则(spec 未明写,设计补全)</h4>
+#### 3.3.2 排序与并列规则(spec 未明写,设计补全) {#sort}
 
 spec 没写排序细节,本设计明确两条规则(均为安全默认,见 [§七 O4](#22-rank-system::open)):
 
@@ -246,18 +250,19 @@ spec 没写排序细节,本设计明确两条规则(均为安全默认,见 [§�
 
 **名次回填**:排序后从 1 起顺序编号(<mark>同分也各占一个名次位</mark>,即「密集名次 vs 标准名次」取**标准名次**:1,2,2,4 还是 1,2,3,4?本设计取 <mark>1,2,3,4 顺序名次</mark> — 每条记录占一个唯一名次,简单可测,见 O4)。本人 `IsSelf` 由数据源标记(本机成绩那条)。
 
-<h3 id="reward">3.4 奖励内容(复用 16 礼包库 id) + 每日 / 点赞领取</h3>
+### 3.4 奖励内容(复用 16 礼包库 id) + 每日 / 点赞领取 {#reward}
 
 排行榜表 `reward`/`reward_daily`/`reward_praise` 三列都是<mark>奖励随机库 id</mark>(道具系统 16 `gift_random` index),与邮件 reward\_id / 兑换码同源。排名层**只持有 id**,不展开:结算奖经邮件下发(领取时展开),每日 / 点赞奖按 O5 默认**也经邮件下发**(统一走 21,不另造直发落点)。
 
-<h4 id="daily">3.4.2 每日奖励 + 点赞(跨天重置,经邮件发)</h4>
+#### 3.4.2 每日奖励 + 点赞(跨天重置,经邮件发) {#daily}
 
 spec:`reward_daily`「当前名次每日奖励」、`reward_praise`「每天点赞奖励」。两者都是<mark>每天一次</mark>,跨天重置(同 14 save-system 每日字段口径:存「上次领取日期」,与注入 today 比)。
 
-<pre class="code">public sealed partial class RankService
+```text
+public sealed partial class RankService
 {
-    /// &lt;summary&gt;领今日每日奖（按本人当前名次档的 DailyRewardPoolId）。
-    /// 当天已领 → AlreadyClaimedToday；本人无名次 / 无每日奖 → NoReward。成功经邮件发奖。&lt;/summary&gt;
+    /// <summary>领今日每日奖（按本人当前名次档的 DailyRewardPoolId）。
+    /// 当天已领 → AlreadyClaimedToday；本人无名次 / 无每日奖 → NoReward。成功经邮件发奖。</summary>
     public RankClaimResult ClaimDaily(int rankId)
     {
         var today = NowProvider().Date;
@@ -271,30 +276,33 @@ spec:`reward_daily`「当前名次每日奖励」、`reward_praise`「每天点�
         MarkDailyClaimed(rankId, today); _persist.Save(_progress);
         return Ok();
     }
-    /// &lt;summary&gt;领今日点赞奖（PraiseRewardPoolId）。==0 无点赞按钮 → NoReward。每天一次。&lt;/summary&gt;
+    /// <summary>领今日点赞奖（PraiseRewardPoolId）。==0 无点赞按钮 → NoReward。每天一次。</summary>
     public RankClaimResult ClaimPraise(int rankId) { /* 同上，用 PraiseRewardPoolId + praise 当天标记 */ }
-}</pre>
+}
+```
 
-<b>每日奖按「当前名次档」</b>:玩家名次落在哪档(`TierForRank`),就发该档 `DailyRewardPoolId`;未入榜 → 无每日奖。点赞奖是榜级(`PraiseRewardPoolId`),不分档。两者都经 `SendRewardMail` 组草稿调 21 `Send` 发邮件(玩家去邮箱领),不在排名层直发(O5)。
+**每日奖按「当前名次档」**:玩家名次落在哪档(`TierForRank`),就发该档 `DailyRewardPoolId`;未入榜 → 无每日奖。点赞奖是榜级(`PraiseRewardPoolId`),不分档。两者都经 `SendRewardMail` 组草稿调 21 `Send` 发邮件(玩家去邮箱领),不在排名层直发(O5)。
 
-<h3 id="settle">3.5 结算编排(到点 → 算名次 → 发结算邮件)</h3>
+### 3.5 结算编排(到点 → 算名次 → 发结算邮件) {#settle}
 
 结算是排行榜的核心动作:到结算时机时,算出本机玩家名次,查名次档奖励,组结算邮件经 21 发奖,记已结算防重复。<mark>本设计提供纯方法,不起后台定时器</mark>;调用方(登录检查 / 主循环)按需调 `CheckAndSettle(now)`。
 
-<h4 id="due">3.5.1 结算时机判定(valid_type 四档逐档代入)</h4>
+#### 3.5.1 结算时机判定(valid_type 四档逐档代入) {#due}
 
-<pre class="code">/// &lt;summary&gt;给定 now / 开服日期 / 上次结算时间，判该榜是否到结算点（且本周期未结过）。&lt;/summary&gt;
+```text
+/// <summary>给定 now / 开服日期 / 上次结算时间，判该榜是否到结算点（且本周期未结过）。</summary>
 public bool IsSettleDue(RankDef def, System.DateTime now, System.DateTime openDate, System.DateTime? lastSettle)
 {
     switch (def.ValidType)
     {
         case RankValidType.Always:    return false;                       // 无结算，持续开启，永不结算
-        case RankValidType.OpenDays:  return now &gt;= openDate.AddDays(def.ValidVal) &amp;&amp; lastSettle == null; // 开服第 X 天后，一次性
-        case RankValidType.FixedTime: { var t = FromValidVal(def.ValidVal); return now &gt;= t &amp;&amp; lastSettle == null; } // 指定时间，一次性
+        case RankValidType.OpenDays:  return now >= openDate.AddDays(def.ValidVal) && lastSettle == null; // 开服第 X 天后，一次性
+        case RankValidType.FixedTime: { var t = FromValidVal(def.ValidVal); return now >= t && lastSettle == null; } // 指定时间，一次性
         case RankValidType.Weekly:    return IsWeeklyDue(now, def.ValidVal, lastSettle); // 周循环，每周一次
         default: return false;
     }
-}</pre>
+}
+```
 
 | valid\_type | valid\_val 含义 | 到点判据 | 结算频率 | 代入示例(now / open / last) |
 | --- | --- | --- | --- | --- |
@@ -305,20 +313,21 @@ public bool IsSettleDue(RankDef def, System.DateTime now, System.DateTime openDa
 
 **周循环判据细节**:`IsWeeklyDue` = 算出 now 所在自然周的「星期 X 结算时刻」`thisWeekSettle`;若 `now ≥ thisWeekSettle` 且(`lastSettle == null` 或 `lastSettle < thisWeekSettle`)→ due。结算后写 `lastSettle = now`,使本周不再重复结、下周到点再结。时刻精度本设计到「天」(spec valid\_val 只给星期 X,小时统一,见 O4);要精确到小时另开增量。
 
-<h4 id="orchestrate">3.5.2 结算编排 CheckAndSettle</h4>
+#### 3.5.2 结算编排 CheckAndSettle {#orchestrate}
 
-<pre class="code">/// &lt;summary&gt;检查所有榜，对到点且未结的榜结算：算本机名次 → 查档奖 → 组结算邮件 → 经 21 发 → 记已结算。
-/// 返回本次结算了哪些榜（供 UI 提示）。纯方法，调用方按需调（登录 / tick）。&lt;/summary&gt;
-public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System.DateTime now)
+```text
+/// <summary>检查所有榜，对到点且未结的榜结算：算本机名次 → 查档奖 → 组结算邮件 → 经 21 发 → 记已结算。
+/// 返回本次结算了哪些榜（供 UI 提示）。纯方法，调用方按需调（登录 / tick）。</summary>
+public System.Collections.Generic.List<SettleResult> CheckAndSettle(System.DateTime now)
 {
-    var results = new System.Collections.Generic.List&lt;SettleResult&gt;();
+    var results = new System.Collections.Generic.List<SettleResult>();
     foreach (var def in _cfg.All())
     {
         var last = GetLastSettle(def.Id);
         if (!IsSettleDue(def, now, OpenDate, last)) continue;
         var (myRank, myScore) = GetMyRank(def.Id);          // 本机名次（基于 §3.3 排序）
-        var tier = myRank &gt; 0 ? def.TierForRank(myRank) : null;
-        if (tier != null &amp;&amp; tier.RewardPoolId != 0 &amp;&amp; def.MailDefId != 0)
+        var tier = myRank > 0 ? def.TierForRank(myRank) : null;
+        if (tier != null && tier.RewardPoolId != 0 && def.MailDefId != 0)
         {
             var draft = GameLogic.Mail.MailDraft.FromTemplate(def.MailDefId, RankText.SettleSender)
                         ?? new GameLogic.Mail.MailDraft { SenderTextId = RankText.SettleSender, TitleTextId = RankText.SettleTitle };
@@ -328,57 +337,61 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
         SetLastSettle(def.Id, now);                          // 记已结算（防重复结）
         results.Add(new SettleResult(def.Id, myRank, myScore, tier?.RewardPoolId ?? 0));
     }
-    if (results.Count &gt; 0) _persist.Save(_progress);
+    if (results.Count > 0) _persist.Save(_progress);
     return results;
-}</pre>
+}
+```
 
 **关键边界**:① 玩家未入榜(myRank==0)或名次未落任何档(tier==null)或该档无奖(RewardPoolId==0)→ <mark>不发邮件,仅记已结算</mark>(本周期已处理,下次不重复算);② 邮件模板 id==0 → 不发(配置无结算邮件);③ `FromTemplate` 返 null(模板表无此 id)→ 兜底用占位草稿(发件人 / 标题占位 textId),仍挂奖励发出,不漏奖;④ 同周期重复调 `CheckAndSettle` → `IsSettleDue` 因 last 已写而返 false,<mark>不重复发奖</mark>(幂等防刷)。
 
-<h3 id="source">3.6 排名数据源接缝 IRankSource(本地可测 / 远程 stub)</h3>
+### 3.6 排名数据源接缝 IRankSource(本地可测 / 远程 stub) {#source}
 
 这是标题「服务器接缝」的实义。spec 的「全服排名」本应由服务器汇总下发,本工程无网络模块。抽象成 `IRankSource`:给一个榜 id,返回「榜上有哪些参赛记录」(原始未排序),由服务层排序。两个实现:
 
-<pre class="code">namespace GameLogic.Rank
+```text
+namespace GameLogic.Rank
 {
-    /// &lt;summary&gt;排名数据源接缝：给榜 id，返回参赛原始记录（含本机自己 + 陪榜）。服务层负责排序 / 名次。&lt;/summary&gt;
+    /// <summary>排名数据源接缝：给榜 id，返回参赛原始记录（含本机自己 + 陪榜）。服务层负责排序 / 名次。</summary>
     public interface IRankSource
     {
-        /// &lt;summary&gt;取该榜的参赛记录（未排序）。含本机一条（IsSelf=true）+ 若干陪榜。&lt;/summary&gt;
-        System.Collections.Generic.IReadOnlyList&lt;RankEntry&gt; Fetch(int rankId);
+        /// <summary>取该榜的参赛记录（未排序）。含本机一条（IsSelf=true）+ 若干陪榜。</summary>
+        System.Collections.Generic.IReadOnlyList<RankEntry> Fetch(int rankId);
     }
-    /// &lt;summary&gt;离线本地源（可跑可测）：本机最佳成绩（来自持久化 / 注入）+ 配置陪榜成绩 → 一组参赛记录。
-    /// 「陪榜」= 配置 / 注入的基准成绩（NPC 名 + 分数 textId 占位），使单机也有一份可排序的榜。&lt;/summary&gt;
+    /// <summary>离线本地源（可跑可测）：本机最佳成绩（来自持久化 / 注入）+ 配置陪榜成绩 → 一组参赛记录。
+    /// 「陪榜」= 配置 / 注入的基准成绩（NPC 名 + 分数 textId 占位），使单机也有一份可排序的榜。</summary>
     public sealed class LocalRankSource : IRankSource
     {
-        private readonly System.Func&lt;int, (long score, long ticks, int nameTextId)&gt; _selfProvider; // 本机成绩
-        private readonly System.Func&lt;int, System.Collections.Generic.IReadOnlyList&lt;RankEntry&gt;&gt; _filler; // 陪榜
-        public System.Collections.Generic.IReadOnlyList&lt;RankEntry&gt; Fetch(int rankId)
+        private readonly System.Func<int, (long score, long ticks, int nameTextId)> _selfProvider; // 本机成绩
+        private readonly System.Func<int, System.Collections.Generic.IReadOnlyList<RankEntry>> _filler; // 陪榜
+        public System.Collections.Generic.IReadOnlyList<RankEntry> Fetch(int rankId)
         {
-            var list = new System.Collections.Generic.List&lt;RankEntry&gt;();
+            var list = new System.Collections.Generic.List<RankEntry>();
             var self = _selfProvider(rankId);
             list.Add(new RankEntry { IsSelf = true, Score = self.score, AchievedTicks = self.ticks, PlayerNameTextId = self.nameTextId });
             list.AddRange(_filler(rankId)); // 陪榜（配置基准分；离线无真人）
             return list;
         }
     }
-    /// &lt;summary&gt;远程 stub：无服务器，返空、不连网。
-    /// TODO: 未来上后端时实现一次（HTTP 拉全服榜 → 转 RankEntry），RankService 与排序层零改动。&lt;/summary&gt;
+    /// <summary>远程 stub：无服务器，返空、不连网。
+    /// TODO: 未来上后端时实现一次（HTTP 拉全服榜 → 转 RankEntry），RankService 与排序层零改动。</summary>
     public sealed class RemoteRankSource : IRankSource
     {
-        public System.Collections.Generic.IReadOnlyList&lt;RankEntry&gt; Fetch(int rankId)
-            =&gt; System.Array.Empty&lt;RankEntry&gt;(); // 不抛、不连网
+        public System.Collections.Generic.IReadOnlyList<RankEntry> Fetch(int rankId)
+            => System.Array.Empty<RankEntry>(); // 不抛、不连网
     }
-}</pre>
+}
+```
 
-<b>为什么离线游戏还要这道接缝?</b> 把「排名从哪来」一次划清:离线注 `LocalRankSource`(本机 + 陪榜,玩家有得玩、有名次、能结算);未来上后端只换 `RemoteRankSource` 实现(拉全服真实榜),<mark><code>RankService</code> 的查榜 / 排序 / 结算 / 领取逻辑零改动</mark>。陪榜成绩本设计由**配置 / 注入**提供(基准分,NPC 名占位 textId);不引入随机生成 NPC(那是表现层 / 运营内容,O2)。这与去变现方向不冲突——榜只比成绩,不卖名次。
+**为什么离线游戏还要这道接缝?** 把「排名从哪来」一次划清:离线注 `LocalRankSource`(本机 + 陪榜,玩家有得玩、有名次、能结算);未来上后端只换 `RemoteRankSource` 实现(拉全服真实榜),<mark><code>RankService</code> 的查榜 / 排序 / 结算 / 领取逻辑零改动</mark>。陪榜成绩本设计由**配置 / 注入**提供(基准分,NPC 名占位 textId);不引入随机生成 NPC(那是表现层 / 运营内容,O2)。这与去变现方向不冲突——榜只比成绩,不卖名次。
 
-<h3 id="reddot">3.7 红点 getter(可领每日 / 点赞 / 有未领结算邮件)</h3>
+### 3.7 红点 getter(可领每日 / 点赞 / 有未领结算邮件) {#reddot}
 
 排行榜 icon 红点 = 有可领的每日奖 OR 可领的点赞奖 OR 有未结算到点的榜。结算奖发进邮箱后由**邮件红点**(21 `HasUnreadOrUnclaimed`)负责,排行榜红点只管<mark>「榜内可领项」</mark>,避免与邮件红点重复亮。本设计只给状态 getter,UI 投放延后。
 
-<pre class="code">public sealed partial class RankService
+```text
+public sealed partial class RankService
 {
-    /// &lt;summary&gt;排行榜 icon 红点：任一榜「今日每日奖可领」或「今日点赞可领」或「到点未结算」即亮。&lt;/summary&gt;
+    /// <summary>排行榜 icon 红点：任一榜「今日每日奖可领」或「今日点赞可领」或「到点未结算」即亮。</summary>
     public bool HasClaimable
     {
         get
@@ -388,23 +401,25 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
             {
                 if (IsSettleDue(def, now, OpenDate, GetLastSettle(def.Id))) return true;       // 到点未结
                 var (rank, _) = GetMyRank(def.Id);
-                if (rank &gt; 0)
+                if (rank > 0)
                 {
                     var tier = def.TierForRank(rank);
-                    if (tier != null &amp;&amp; tier.DailyRewardPoolId != 0 &amp;&amp; !AlreadyClaimedDailyToday(def.Id, today)) return true;
+                    if (tier != null && tier.DailyRewardPoolId != 0 && !AlreadyClaimedDailyToday(def.Id, today)) return true;
                 }
-                if (def.PraiseRewardPoolId != 0 &amp;&amp; !AlreadyClaimedPraiseToday(def.Id, today)) return true;
+                if (def.PraiseRewardPoolId != 0 && !AlreadyClaimedPraiseToday(def.Id, today)) return true;
             }
             return false;
         }
     }
-}</pre>
+}
+```
 
-<h3 id="persist">3.8 持久化层(RankProgressSave / RankPersistence)</h3>
+### 3.8 持久化层(RankProgressSave / RankPersistence) {#persist}
 
 需要跨会话留存的只有**本机元层进度**:各榜本机最佳成绩 + 达到时间、上次结算时间、已结算周期标记、每日 / 点赞当天领取日期。<mark>全服他人成绩不进盘</mark>(离线没有;陪榜由配置生成,每次现取)。仿 `MailPersistence`(设计 21):`[Serializable]` DTO + `JsonUtility` + version + 反序列化保底。序列化层纯逻辑同步可单测,不碰真实磁盘。
 
-<pre class="code">namespace GameLogic.Rank
+```text
+namespace GameLogic.Rank
 {
     [System.Serializable]
     public sealed class RankBoardProgress  // 一个榜的本机元层进度
@@ -420,14 +435,14 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
     public sealed class RankProgressSave
     {
         public int version = 1;
-        public System.Collections.Generic.List&lt;RankBoardProgress&gt; boards = new();
+        public System.Collections.Generic.List<RankBoardProgress> boards = new();
     }
     public interface IRankPersistence
     {
         RankProgressSave Load();        // 无键 / 脏数据 → 合法空（不抛）
         void Save(RankProgressSave save);
     }
-    /// &lt;summary&gt;生产：经既有 Persistence.Provider（键 Rank.Progress），JsonUtility，脏数据保底。&lt;/summary&gt;
+    /// <summary>生产：经既有 Persistence.Provider（键 Rank.Progress），JsonUtility，脏数据保底。</summary>
     public sealed class RankPersistence : IRankPersistence
     {
         public const string Key = "Rank.Progress";
@@ -435,15 +450,17 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
            Save: new RankProgressSave{boards=…} → ToJson → Provider.Set */
     }
     public sealed class InMemoryRankPersistence : IRankPersistence { /* 内存往返，不污染 PlayerPrefs */ }
-}</pre>
+}
+```
 
 **保底 + 跨天重置**(同 14/21 口径):`Load` 对无键 / 空串 / 非法 JSON 统一返合法空 `RankProgressSave`(`try/catch` 包 `FromJson`);每日 / 点赞领取用「<mark>存上次领取日期、与注入 today 比</mark>」判跨天(`dailyClaimDateBin != today.Date.Ticks` → 可领);`version` 预留迁移(本设计恒 1)。本地单机文件可被篡改,反序列化对任意输入不抛、对负分 / 越界字段产出合法默认(成绩夹 ≥0)。
 
-<h3 id="text">3.9 结果文案 textId(占位)</h3>
+### 3.9 结果文案 textId(占位) {#text}
 
 领取 / 结算结果对应提示文案 textId(占位常量,真实多语言查表延后,同 num/item/reward/settings/redeem/mail 现状)。榜名称 / 玩家名 / 结算邮件标题也是 textId 占位。
 
-<pre class="code">namespace GameLogic.Rank
+```text
+namespace GameLogic.Rank
 {
     public enum RankClaimStatus { Success, NotRanked, NoReward, AlreadyClaimedToday }
     public readonly struct RankClaimResult { public readonly RankClaimStatus Status; public readonly int TextId; /* … */ }
@@ -457,11 +474,12 @@ public System.Collections.Generic.List&lt;SettleResult&gt; CheckAndSettle(System
         public const int SettleTitle         = 110806; // 结算邮件标题（模板缺省兜底）
         public const int DailyMailTitle      = 110807; // 每日奖邮件标题
         public const int PraiseMailTitle     = 110808; // 点赞奖邮件标题
-        public static int TextIdFor(RankClaimStatus s) =&gt; /* switch */ 0;
+        public static int TextIdFor(RankClaimStatus s) => /* switch */ 0;
     }
-}</pre>
+}
+```
 
-<h2 id="flow">四、结算一个榜的时序</h2>
+## 四、结算一个榜的时序 {#flow}
 
 结算是五方参与的核心流(调用方 / 服务 / 配置 / 数据源 / 邮件系统 21)。查榜与结算两条流,用时序图归纳:
 
@@ -489,13 +507,13 @@ sequenceDiagram
     Note over U,M: 幂等:同周期重复调 → IsSettleDue 因 last 已写返 false,不重复发奖<br/>未入榜 / 无档奖 → 不发邮件仅记已结。实线=调用、虚线=返回/读
 ```
 
-<h2 id="hook">五、挂接点 / dev 改动清单</h2>
+## 五、挂接点 / dev 改动清单 {#hook}
 
 符号名经 grep 核实(真实存在的标注「✓ 已核实」,新建的标注「新建」)。本设计全部落 `GameScripts/HotFix/GameLogic`(热更区),新建独立命名空间 `GameLogic.Rank`(排行榜是通用系统,与 BlockBlast 玩法解耦);配置桥接放 `GameLogic.Config`(同 `MailConfigMgr`)。
 
 | # | 文件 / 符号 | 动作 | 说明 |
 | --- | --- | --- | --- |
-| 1 | `Configs/GameConfig/Datas/rank.xlsx`(排行榜主表)· Luban schema 注册 `__tables__` | 新建配置 | 一行一个名次档([§3.1](#22-rank-system::config));导表生成 `GameConfig.Rank` + `TbRank`。demo:id=1 三档 + id=2 一档。导表工具链不可达时 test 列 BLOCKED 不判 FAIL;<b>导表须带 <code>DOTNET\_ROLL\_FORWARD=Major</code></b>(本机无 .NET 7 runtime,见 boss 遗留 #18) |
+| 1 | `Configs/GameConfig/Datas/rank.xlsx`(排行榜主表)· Luban schema 注册 `__tables__` | 新建配置 | 一行一个名次档([§3.1](#22-rank-system::config));导表生成 `GameConfig.Rank` + `TbRank`。demo:id=1 三档 + id=2 一档。导表工具链不可达时 test 列 BLOCKED 不判 FAIL;**导表须带 `DOTNET\_ROLL\_FORWARD=Major`**(本机无 .NET 7 runtime,见 boss 遗留 #18) |
 | 2 | `GameLogic/Module/Rank/RankDef.cs` · `RankDef` / `RankRewardTier` / `RankValidType` POCO | 新建 | 运行期 POCO,隔离 Luban 生成类型;`TierForRank` 按名次查档([§3.2](#22-rank-system::poco)) |
 | 3 | `GameLogic/Config/RankConfigMgr.cs` · `RankConfigMgr` | 新建 | 桥接 + `EnsureLoaded`(走 `ConfigSystem.Instance.Tables`,<mark>按 id 聚合多行</mark>,✓ 范本 `MailConfigMgr`)+ `GetRank` / `All` + `InitForTest`/`ResetForTest`([§3.2](#22-rank-system::poco)) |
 | 4 | `GameLogic/Module/Rank/RankModel.cs` · `RankEntry` / `RankBoard` / `SettleResult` / `RankClaimStatus` / `RankClaimResult` / `RankText` | 新建 | 查询快照 + 结算结果 + 领取结果 + 文案占位([§3.3](#22-rank-system::query) / [§3.5](#22-rank-system::settle) / [§3.9](#22-rank-system::text)) |
@@ -508,14 +526,14 @@ sequenceDiagram
 > [!NOTE]
 > **命名空间归属**
 >
-> 排行榜是<mark>通用系统</mark>(非 BlockBlast 玩法专属),模型 / 服务 / 接缝命名空间用 <code>GameLogic.Rank</code>(同 21 <code>GameLogic.Mail</code> / 20 <code>GameLogic.Redeem</code> 做法);配置桥接 <code>RankConfigMgr</code> 归 <code>GameLogic.Config</code>(与既有 <code>MailConfigMgr</code> 并列)。物理目录 <code>GameScripts/HotFix/GameLogic/Module/Rank/</code>。发奖入口 <code>IMailService</code> 仍在 <code>GameLogic.Mail</code>(复用,不搬)。
+> 排行榜是<mark>通用系统</mark>(非 BlockBlast 玩法专属),模型 / 服务 / 接缝命名空间用 `GameLogic.Rank`(同 21 `GameLogic.Mail` / 20 `GameLogic.Redeem` 做法);配置桥接 `RankConfigMgr` 归 `GameLogic.Config`(与既有 `MailConfigMgr` 并列)。物理目录 `GameScripts/HotFix/GameLogic/Module/Rank/`。发奖入口 `IMailService` 仍在 `GameLogic.Mail`(复用,不搬)。
 
 > [!WARNING]
 > **dev 须按 numeric/item/redeem/mail 先例处理配置验收**
 >
-> 运行期 <code>ConfigSystem.Instance.Tables</code> 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「<code>AssetDatabase.LoadAssetAtPath&lt;TextAsset&gt;(.../rank.bytes)</code> → <code>new TbRank(ByteBuf)</code>」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 <code>WeightCfgLubanTests</code> / <code>MailSystemTests</code> 的 Luban 直读条);纯逻辑(桥接聚合 / 排序 / 结算时机 / 结算编排 / 领取 / 红点 / 持久化)经 <code>InitForTest</code> + <code>InMemoryRankPersistence</code> + 注入 <code>NowProvider</code> + 注入 <code>IMailService</code> + 注入 <code>IRankSource</code> 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。
+> 运行期 `ConfigSystem.Instance.Tables` 走 YooAsset + ModuleSystem,<mark>纯 C# / EditMode 跑不通</mark>。配置验收点锚在「`AssetDatabase.LoadAssetAtPath<TextAsset>(.../rank.bytes)` → `new TbRank(ByteBuf)`」直读二进制的 EditMode 测试(绕 YooAsset,✓ 范本 `WeightCfgLubanTests` / `MailSystemTests` 的 Luban 直读条);纯逻辑(桥接聚合 / 排序 / 结算时机 / 结算编排 / 领取 / 红点 / 持久化)经 `InitForTest` + `InMemoryRankPersistence` + 注入 `NowProvider` + 注入 `IMailService` + 注入 `IRankSource` 单测。导表工具链若不可达,Luban 直读那条列 <span class="no">BLOCKED</span> 不判 FAIL,纯逻辑条仍须全绿。
 
-<h2 id="accept">六、验收点</h2>
+## 六、验收点 {#accept}
 
 纯逻辑全 EditMode 可测(POCO + 注入隔离 + 注入时钟 + 注入邮件服务 + 注入数据源);Luban 直读条按工具链可达性(不可达列 BLOCKED)。dev 落地后须 test 逐条核对。验收锚在**配置聚合 + 查榜 + 排序并列 + 入榜/上限 + 我的名次 + 结算时机四档 + 结算发邮件 + 幂等 + 每日/点赞跨天 + 红点 + 持久化往返 + 接缝**;真实全服排名 / UI 视觉不在本设计(无后端 / 需美术)。
 
@@ -547,11 +565,11 @@ sequenceDiagram
 | 回归 / 编译 R | R2 | Code Review 5 红线:异步优先 / 模块访问 GameModule / 资源释放 / 热更边界 / 事件解耦(本层无资源加载、无事件;重点核「无真实网络 / HTTP 调用」「PlayerPrefs/JsonUtility 非阻塞不触同步 IO」「结算发奖复用 21 `IMailService` 不另造发奖、不碰 MergeOrderState」「持久化复用既有 Provider 不另造存储栈」「邮件系统 21 零改动」) |
 
 > [!WARNING]
-> <b>不在本设计验收(boss 授权遗留)</b>
+> **不在本设计验收(boss 授权遗留)**
 >
 > 真实全服排名(无网络模块)、真实他人玩家数据(离线无,陪榜配置生成)、排行榜界面 + 名次列表 + 我的名次条 + 点赞按钮 + 奖励预览 + 头像框 UI 视觉、排行榜 icon 红点显示、主界面入口接线、结算的自动触发时机(登录检查 / 后台 tick 由表现层 / 流程层接) → <mark>表现层延后轮 + 远程实现未来轮</mark>。依赖美术(UI)与后端(服务器),数据层不返工。
 
-<h2 id="open">七、待拍板清单</h2>
+## 七、待拍板清单 {#open}
 
 以下为范围开关,boss 自治授权下**均取安全默认推进**(已在 boss 预先拍板内),列此备查;要改另开增量轮。
 
@@ -565,9 +583,9 @@ sequenceDiagram
 | O6 | 名称 / 玩家名 / 文案多语言 | textId 占位常量(同 num/item/reward/settings/redeem/mail) | 多语言文本表建成后查表替换 |
 | O7 | 道具 / 跑马灯需求 | **不做**(spec 明写「道具:无」「跑马灯:无」) | spec 未要求,不投机做 |
 | O8 | 排行榜界面 / 列表 / 点赞按钮 / 头像 / icon UI | **延后**(需美术,留服务 + 红点 getter) | 有美术 + 窗口流程时建窗口,接 17 `RewardView` 展示奖励预览,主界面入口接红点 getter,Play 手验 |
-| O9 | 结算自动触发时机 | 本设计<b>纯方法 <code>CheckAndSettle(now)</code></b>,不起后台定时器;调用方(登录检查 / 主循环)按需调 | 表现层 / 流程层接入时,在登录流程 + 定时 tick 调 `CheckAndSettle`;本地无服务器推送,被动检查够用 |
+| O9 | 结算自动触发时机 | 本设计**纯方法 `CheckAndSettle(now)`**,不起后台定时器;调用方(登录检查 / 主循环)按需调 | 表现层 / 流程层接入时,在登录流程 + 定时 tick 调 `CheckAndSettle`;本地无服务器推送,被动检查够用 |
 
-<h2 id="risk">八、风险表</h2>
+## 八、风险表 {#risk}
 
 | 风险 | 应对 |
 | --- | --- |

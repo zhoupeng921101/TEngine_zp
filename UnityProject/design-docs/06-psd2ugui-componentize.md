@@ -9,7 +9,7 @@
 > - **导入产物 = 扁平脚手架:**无组件标注的层,导入器本就输出 `Image` / `Text` / 空容器(位置·切图准确)。本工具给这些节点**一键挂上对应组件**,控件自动补 `Image` 作 targetGraphic。
 > - **薄工具:**只挂组件、不猜角色、不自动连引用——`spriteState` / fill·handle / content 等**在 Inspector 里直接连**。不走重导合并(**Unity 为唯一真相**),组件化一次性完成。
 
-<h2 id="principles">一、设计原则</h2>
+## 一、设计原则 {#principles}
 
 | 原则 | 含义 |
 | --- | --- |
@@ -19,9 +19,9 @@
 | **不破坏** | 只加组件,走 `Undo`,可整体撤销。 |
 | **透明** | 控制台打印给谁挂了什么、targetGraphic 连了哪个。 |
 
-<h2 id="palette">二、调色板组件</h2>
+## 二、调色板组件 {#palette}
 
-每个组件就是一颗按钮,点一下挂到选中节点。<b>控件类自动补 <code>Image</code> 作 targetGraphic</b>。
+每个组件就是一颗按钮,点一下挂到选中节点。**控件类自动补 `Image` 作 targetGraphic**。
 
 | 分组 | 组件 |
 | --- | --- |
@@ -31,7 +31,7 @@
 
 TabGroup(项目自定义 CustomTab)后续补一颗按钮即可,同样是「挂组件 + Inspector 连」。
 
-<h2 id="model">三、工作模型:挂组件 + Inspector 连引用</h2>
+## 三、工作模型:挂组件 + Inspector 连引用 {#model}
 
 放弃了「缩略图角色指派 / 自动连 spriteState / 删状态节点 / 几何推断」那一整套——<mark class="y">美术命名不可靠</mark>、自动猜角色脆且收益有限。改为**极简流**,全链路如下:
 
@@ -53,31 +53,31 @@ flowchart LR
 3. 在 **Inspector** 里连具体引用(spriteState、fill/handle、content…)
 
 > [!NOTE]
-> <b>为什么不自动连:</b>角色识别要么靠命名(不可靠),要么靠缩略图手点(每控件多步)。直接在 Inspector 连这些引用,是程序<mark class="g">最熟、最快、最可控</mark>的路径——工具只省「挂组件 + 补 targetGraphic」这点重复劳动即可。
+> **为什么不自动连:**角色识别要么靠命名(不可靠),要么靠缩略图手点(每控件多步)。直接在 Inspector 连这些引用,是程序<mark class="g">最熟、最快、最可控</mark>的路径——工具只省「挂组件 + 补 targetGraphic」这点重复劳动即可。
 
-<h2 id="rules">四、挂载规则</h2>
+## 四、挂载规则 {#rules}
 
 | 类别 | 挂载行为 |
 | --- | --- |
 | **控件**(Button/Toggle/Slider/Scrollbar/InputField,均 `Selectable`) | 节点若没有任何 `Graphic` → 先补一个 `Image`;再挂控件;`targetGraphic` 为空则自动指向该 Graphic。 |
 | **布局 / 滚动 / 图形** | 直接挂;节点已有同类型则跳过(幂等)。 |
-| <b>重命名(所有类别)</b> | 挂组件时按所选组件给节点加 **生成器命名前缀** 并<b>去掉 <code>@\*</code> 标签</b>,使节点能被项目 UI 脚本生成器绑定。 |
+| **重命名(所有类别)** | 挂组件时按所选组件给节点加 **生成器命名前缀** 并**去掉 `@\*` 标签**,使节点能被项目 UI 脚本生成器绑定。 |
 
-<h3 id="rules-naming">命名规则(已实现,对齐项目生成器)</h3>
+### 命名规则(已实现,对齐项目生成器) {#rules-naming}
 
-前缀<b>实时读自 <code>ScriptGeneratorSetting</code></b>(UI 代码生成器的 `uiElementRegex` = <mark>单一来源</mark>):Button→`m_btn`、Image→`m_img`、Text→`m_text`、ScrollRect→`m_scroll`、Toggle→`m_toggle`、Slider→`m_slider`、Grid→`m_grid` 等。
+前缀**实时读自 `ScriptGeneratorSetting`**(UI 代码生成器的 `uiElementRegex` = <mark>单一来源</mark>):Button→`m_btn`、Image→`m_img`、Text→`m_text`、ScrollRect→`m_scroll`、Toggle→`m_toggle`、Slider→`m_slider`、Grid→`m_grid` 等。
 
-挂组件时 = <b>前缀 + "\_" + 基名</b>,去 `@*` + 替换旧前缀(取**最长**匹配,`m_scrollBar` 不会被 `m_scroll` 误吞;剥离后残留分隔下划线也清掉,不会出双下划线)。例:`buy@PNG` + Button → `m_btn_buy`;`m_btn_buy` + Image → `m_img_buy`。
+挂组件时 = **前缀 + "\_" + 基名**,去 `@*` + 替换旧前缀(取**最长**匹配,`m_scrollBar` 不会被 `m_scroll` 误吞;剥离后残留分隔下划线也清掉,不会出双下划线)。例:`buy@PNG` + Button → `m_btn_buy`;`m_btn_buy` + Image → `m_img_buy`。
 
 生成器 `ScriptGenerator.cs` 用 `name.StartsWith(uiElementRegex)` 绑定 → <mark class="g">节点名直接可用</mark>。不在规则里的组件(RectMask2D/LayoutElement/ContentSizeFitter)不改名。
 
-<h3 id="rules-translate">中文基名 → 英文(MyMemory,免 key + 缓存)</h3>
+### 中文基名 → 英文(MyMemory,免 key + 缓存) {#rules-translate}
 
 基名含中文时,先查本地术语表缓存 `TranslationCache.json`;缺失则调 **MyMemory**(免 key/免费)翻译并写回缓存;失败/离线保留中文。窗口有开关可关。例:`购买@PNG` + Button → `m_btn_Buy`(缓存命中后即时)。
 
 <mark class="y">翻译质量不完美</mark>(如 设置→SettingsIni、BUY 大写),缓存是**可手编 JSON**,改一次永久生效。
 
-<h2 id="inspector">五、挂完在 Inspector 连什么(速查)</h2>
+## 五、挂完在 Inspector 连什么(速查) {#inspector}
 
 | 组件 | Inspector 里要连 / 调 |
 | --- | --- |
@@ -88,7 +88,7 @@ flowchart LR
 | Grid | `cellSize` / spacing / 约束行列 |
 | InputField | `textComponent` / placeholder |
 
-<h2 id="ux">六、调用方式 / UX(仅窗口)</h2>
+## 六、调用方式 / UX(仅窗口) {#ux}
 
 入口 = 停靠式 `EditorWindow「PSD2UGUI 组件化」`(菜单 <mark><code>QuickTool / PSD2UGUI 组件化</code></mark>)。
 

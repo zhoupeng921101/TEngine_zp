@@ -13,7 +13,7 @@
 
 # 个人信息窗美术换皮 · 表现层
 
-塔罗 UI 换皮自治线**第二个屏**:把效果图 `个人信息.png` 换皮成可运行的 `PlayerInfoWindow`。目的:兑现[设计 18 玩家信息系统](#18-player-info)遗留的表现层(boss 遗留 #22)。<mark>本次换皮 = 纯 UI 补完</mark>——数据逻辑层([设计 18](#18-player-info))已交付并经 30 例 EditMode 单测,本屏只**调用**它 + 接线,不重写数据层。基础设施**全部复用**[设计 23 设置窗](#23-settings-window-art)已确立的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。<b>不重新发明任何基础设施。</b>
+塔罗 UI 换皮自治线**第二个屏**:把效果图 `个人信息.png` 换皮成可运行的 `PlayerInfoWindow`。目的:兑现[设计 18 玩家信息系统](#18-player-info)遗留的表现层(boss 遗留 #22)。<mark>本次换皮 = 纯 UI 补完</mark>——数据逻辑层([设计 18](#18-player-info))已交付并经 30 例 EditMode 单测,本屏只**调用**它 + 接线,不重写数据层。基础设施**全部复用**[设计 23 设置窗](#23-settings-window-art)已确立的范式:`[Window(Top, false)]` 弹窗 + 半透明遮罩 + `GameContext` 持有数据服务 + `FindChildComponent` 绑定 + `m_` 前缀 + `Image.SetSubSprite(精灵表, 子图名)` 取图 + `OnRefresh` 读数据刷态。**不重新发明任何基础设施。**
 
 > [!WARNING]
 > **读前必看 · 五条边界(界定范围,防把「换皮一个窗」扩成重写)**
@@ -35,7 +35,7 @@
 > | **影响范围** | **新增资源**:`PlayerInfoWindow.prefab`(`AssetRaw/UI/Prefabs/`);**无新切图**(复用 `Sheet_settings`)。 **新增代码(热更区)**:`PlayerInfoWindow.cs`(窗口脚本,落 `GameScripts/HotFix/GameLogic/UI/`,同 `SettingsWindow.cs`)。 **改既有(最小)**:`GameContext.cs` 加一个 `Player` 成员 + `OnInit` 里 Load([§五](#25-player-info-window-art::holder));`MainMenuWindow.cs` 兑现 TODO 钩子接入口按钮(一处约 5 行,同 `BtnSettings` 做法)。 **不改**:`GameLogic.BlockBlast.Player` 各类逻辑、`AvatarConfigMgr`、`SettingsService`、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测、`MergeMetaSave` 任一字段(生日不入盘,[§5.3](#25-player-info-window-art::birthday))。 |
 > | **关键约束(继承设计 23)** | 窗口逻辑可被反射 / 直调驱动单测(EditMode 编译 + `GameContext` 往返 + 改名贯通),但**真实视觉对位 / 指针点击 / 输入法改名**须 Play 模式人眼 + 手验。验收按「逻辑可单测(EditMode)」与「需 Play / 人眼」两档拆开([§九](#25-player-info-window-art::accept))。 |
 
-<h2 id="what">一、做什么与为什么</h2>
+## 一、做什么与为什么 {#what}
 
 现状:[设计 18](#18-player-info) 的玩家信息**数据层已交付但无任何窗口能触达**——玩家无处看自己的名字 / 头像、无处改名。[设计 23](#23-settings-window-art) 已把「切图 → 精灵表 → prefab → `SetSubSprite` → 热更」整条换皮链路打通并固化成模板,并建好 `GameContext` 运行期上下文。本次换皮是<mark>模板的第二次应用</mark>:照搬设置窗的全套范式,把个人信息窗补出来,顺带把 `GameContext` 从「只持有 Settings」扩成「也持有 Player」(兑现设计 23 §五「player-info / item / mail / rank 后续逐个挂入」的预告)。
 
@@ -49,45 +49,47 @@
 | 4 | 改名贯通数据层 | 编辑名字 → `PlayerRenameService.TryRename` → `RenameResult` 分支提示([§七](#25-player-info-window-art::dispatch)) | <span class="pill-cur">接线</span> |
 | 5 | 打开入口 + 关闭 | 主菜单 `MainMenuWindow` 兑现 TODO 钩子加入口 → `ShowUIAsync`;X / 遮罩 / 确定 → `CloseUI`([§八](#25-player-info-window-art::entry)) | <span class="pill-new">新接线</span> |
 
-<b>不做(本次换皮明确排除):</b><span class="pill-no">改数据层逻辑</span>(只调用);<span class="pill-no">生日入存档</span>(数据层无字段,UI 占位,[§5.3](#25-player-info-window-art::birthday));<span class="pill-no">头像三态解锁网格页签</span>(效果图只显当前头像,完整网格属设计 18 后续屏,本次换皮占位/后续,[§七](#25-player-info-window-art::dispatch));<span class="pill-no">等级经验槽</span>(效果图无该位,数据层有 `Level` 可显但效果图未画,本次换皮不强加);<span class="pill-no">新切图 / 新图集 / 打表</span>(复用 `Sheet_settings`,无新切图目录则不动打表工具)。
+**不做(本次换皮明确排除):**<span class="pill-no">改数据层逻辑</span>(只调用);<span class="pill-no">生日入存档</span>(数据层无字段,UI 占位,[§5.3](#25-player-info-window-art::birthday));<span class="pill-no">头像三态解锁网格页签</span>(效果图只显当前头像,完整网格属设计 18 后续屏,本次换皮占位/后续,[§七](#25-player-info-window-art::dispatch));<span class="pill-no">等级经验槽</span>(效果图无该位,数据层有 `Level` 可显但效果图未画,本次换皮不强加);<span class="pill-no">新切图 / 新图集 / 打表</span>(复用 `Sheet_settings`,无新切图目录则不动打表工具)。
 
-<h2 id="effigy">二、效果图拆解(对位基准)</h2>
+## 二、效果图拆解(对位基准) {#effigy}
 
 美术基准 `个人信息.png`(1080×1920 竖屏,扁平 PNG)。盖在游戏 HUD 上的**模态弹窗**:半透明深色遮罩 + 居中木牌面板。自上而下:
 
-| 区块 | 效果图内容 | 取图(<code>Sheet_settings</code> 子图 / 占位) | 节点类型 | 处置 |
+| 区块 | 效果图内容 | 取图(`Sheet_settings` 子图 / 占位) | 节点类型 | 处置 |
 |---|---|---|---|---|
-| ① 遮罩 | 盖住整屏的半透明深色背景(透出底层 HUD) | 无(纯色 <code>Image</code>,alpha≈0.6) | <code>Button</code>(点击关窗) | 实做 |
-| ② 标题木牌 | 顶部木牌「个人信息」 | <code>box2</code>(木牌底,设置窗上面板同用)+ 文本节点「个人信息」 | <code>Image</code> + <code>Text</code> | 实做 |
-| ③ 关闭按钮 | 右上角圆形 × 按钮 | <code>icon_x</code>(圆 + X 一体图,设置窗同用) | <code>Button</code> | 实做 |
-| ④ 主面板底板 | 居中大木板 | <code>box1</code> 或 <code>box2</code>(木板底,设置窗面板同用) | <code>Image</code> | 实做 |
-| ⑤ 头像 | 圆形头像 + 圆形描边框,右下角编辑铅笔 | 头像本体:当前佩戴头像 Sprite(<mark>无美术,占位纯色圆 / 通用图</mark>);圆框 + 铅笔:<mark>Sheet_settings 无圆头像框 / 铅笔图 → 占位</mark>(<a href="#25-player-info-window-art::placeholder">§3.2</a>) | <code>Image</code> + <code>Button</code>(铅笔=编辑头像) | 显当前头像实做<br><span class="pill-no">框/铅笔图占位</span> |
-| ⑥ 玩家名 | 居中「玩家123」+ 右侧编辑铅笔 | 名字:文本节点(读 <code>PlayerInfo.Name</code>);铅笔:占位 | <code>Text</code> + <code>InputField</code>(改名)+ <code>Button</code>(铅笔) | 实做改名 |
-| ⑦ 生日 + 3 下拉 | 「🎂 生日」标题 + 一行 3 个下拉框(各显「3 ▾」) | 下拉底:<code>button</code>(条底,设置窗同用);下拉箭头:<mark>占位</mark>;标题:文本节点 | <code>Text</code> + <code>Dropdown</code>×3(或 <code>Image</code>+<code>Text</code> 占位) | 占位(数据层无生日,<a href="#25-player-info-window-art::birthday">§5.3</a>) |
-| ⑧ 确定按钮 | 底部黄色「确定」长条 | <code>button</code>(长条底,设置窗同用)+ 文本「确定」 | <code>Button</code> | 实做(保存并关) |
-| ⑨ 关闭提示 | 面板下方小字「点击任意位置置关闭」 | 无(文本节点) | <code>Text</code> | 实做(纯文本) |
+| ① 遮罩 | 盖住整屏的半透明深色背景(透出底层 HUD) | 无(纯色 `Image`,alpha≈0.6) | `Button`(点击关窗) | 实做 |
+| ② 标题木牌 | 顶部木牌「个人信息」 | `box2`(木牌底,设置窗上面板同用)+ 文本节点「个人信息」 | `Image` + `Text` | 实做 |
+| ③ 关闭按钮 | 右上角圆形 × 按钮 | `icon_x`(圆 + X 一体图,设置窗同用) | `Button` | 实做 |
+| ④ 主面板底板 | 居中大木板 | `box1` 或 `box2`(木板底,设置窗面板同用) | `Image` | 实做 |
+| ⑤ 头像 | 圆形头像 + 圆形描边框,右下角编辑铅笔 | 头像本体:当前佩戴头像 Sprite(<mark>无美术,占位纯色圆 / 通用图</mark>);圆框 + 铅笔:<mark>Sheet_settings 无圆头像框 / 铅笔图 → 占位</mark>(<a href="#25-player-info-window-art::placeholder">§3.2</a>) | `Image` + `Button`(铅笔=编辑头像) | 显当前头像实做<br><span class="pill-no">框/铅笔图占位</span> |
+| ⑥ 玩家名 | 居中「玩家123」+ 右侧编辑铅笔 | 名字:文本节点(读 `PlayerInfo.Name`);铅笔:占位 | `Text` + `InputField`(改名)+ `Button`(铅笔) | 实做改名 |
+| ⑦ 生日 + 3 下拉 | 「🎂 生日」标题 + 一行 3 个下拉框(各显「3 ▾」) | 下拉底:`button`(条底,设置窗同用);下拉箭头:<mark>占位</mark>;标题:文本节点 | `Text` + `Dropdown`×3(或 `Image`+`Text` 占位) | 占位(数据层无生日,<a href="#25-player-info-window-art::birthday">§5.3</a>) |
+| ⑧ 确定按钮 | 底部黄色「确定」长条 | `button`(长条底,设置窗同用)+ 文本「确定」 | `Button` | 实做(保存并关) |
+| ⑨ 关闭提示 | 面板下方小字「点击任意位置置关闭」 | 无(文本节点) | `Text` | 实做(纯文本) |
 
 > [!NOTE]
 > **取图须 dev 读图二次核实**
 >
-> 上表「取哪张子图」是<mark>按设置窗已用子图推断</mark>的最省方案。dev 落地时对照 <code>个人信息.png</code> 与 <code>Sheet_settings</code> 各子图缩略图核实哪张木板 / 框最贴效果图(<code>box1</code>/<code>box2</code>/<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code> 五种木板任选最贴的),把最终「子图名 → 节点」映射写进窗口脚本注释。**子图名集合 = 设置窗那 22 张切图文件名**(<code>base_plate</code>/<code>base_plate2</code>/<code>base_plate3</code>/<code>box1</code>/<code>box2</code>/<code>button</code>/<code>icon_x</code>/<code>x</code>/<code>chat</code>/<code>clear</code>/<code>exit</code>/<code>facebook</code>/<code>game</code>/<code>help</code>/<code>instagram</code>/<code>language</code>/<code>Player_music</code>/<code>printer</code>/<code>setting</code>/<code>twitter</code>/<code>Volume_up</code>/<code>youtube</code>),<mark>这些就是本屏可用的全部图</mark>——圆头像框 / 铅笔 / 下拉箭头都不在其中,故占位(<a href="#25-player-info-window-art::placeholder">§3.2</a>)。
+> 上表「取哪张子图」是<mark>按设置窗已用子图推断</mark>的最省方案。dev 落地时对照 `个人信息.png` 与 `Sheet_settings` 各子图缩略图核实哪张木板 / 框最贴效果图(`box1`/`box2`/`base_plate`/`base_plate2`/`base_plate3` 五种木板任选最贴的),把最终「子图名 → 节点」映射写进窗口脚本注释。**子图名集合 = 设置窗那 22 张切图文件名**(`base_plate`/`base_plate2`/`base_plate3`/`box1`/`box2`/`button`/`icon_x`/`x`/`chat`/`clear`/`exit`/`facebook`/`game`/`help`/`instagram`/`language`/`Player_music`/`printer`/`setting`/`twitter`/`Volume_up`/`youtube`),<mark>这些就是本屏可用的全部图</mark>——圆头像框 / 铅笔 / 下拉箭头都不在其中,故占位(<a href="#25-player-info-window-art::placeholder">§3.2</a>)。
 
-<h2 id="atlas">三、美术资产接入(复用 Sheet_settings,无新切图)</h2>
+## 三、美术资产接入(复用 Sheet_settings,无新切图) {#atlas}
 
-<h3 id="atlas-reuse">3.1 复用设置窗精灵表</h3>
+### 3.1 复用设置窗精灵表 {#atlas-reuse}
 
 本屏<mark>不导入任何新切图、不建新图集、不动打表工具</mark>。设置窗已把 `Sheet_settings.png`(单张 Multiple 模式精灵表,含 22 个命名子精灵)导入并被收集器收录、运行期可经 `SetSubSprite` 寻址([设计 23 §三](#23-settings-window-art::atlas)实测打通)。本屏的所有木板 / 框 / 长条 / 关闭按钮直接复用其子图:
 
-<pre class="code">private const string Atlas = "Sheet_settings";   // 复用设置窗精灵表 location（设计 23 §三）
+```text
+private const string Atlas = "Sheet_settings";   // 复用设置窗精灵表 location（设计 23 §三）
 // OnCreate 一次性贴静态图（SetSubSprite 内置引用计数 + SubSpriteReference 自动释放，无需手动 Unload）
 _imgPanelBg.SetSubSprite(Atlas, "box1");     // 主面板底板
 _imgClose.SetSubSprite(Atlas, "icon_x");     // 关闭圆按钮
 _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
-// …各节点贴，子图名以 §二 dev 读图核实后的映射为准</pre>
+// …各节点贴，子图名以 §二 dev 读图核实后的映射为准
+```
 
 **不写法**(同设计 23):<span class="no">不</span>用 `LoadAssetAsync<Sprite>`(违 `resource-api` 红线);<span class="no">不</span>用 `AddressByFileName` 平铺单图。静态图在 `OnCreate` 贴一次,会运行期变的只有头像 / 玩家名,由 `OnRefresh` 刷([§六](#25-player-info-window-art::window))。
 
-<h3 id="placeholder">3.2 三处缺图的占位策略</h3>
+### 3.2 三处缺图的占位策略 {#placeholder}
 
 效果图有三类图 `Sheet_settings` 没有,本次换皮占位 + 留 TODO,不阻塞验收(同设计 23 占位口径——占位不等于无反馈 / 不等于摆不出节点):
 
@@ -95,14 +97,14 @@ _imgConfirmBg.SetSubSprite(Atlas, "button"); // 确定长条底
 | --- | --- | --- |
 | **圆形头像 + 描边框** | 头像本体:`Image` 节点贴当前头像(<mark>头像 Sprite 也无美术</mark>,设计 18 O2)→ 退一层占位:纯色圆 `Image`(`color` 由 `CurrentAvatarId` 取一个稳定色)或显一张通用图(如 `setting` 子图临时代替)。圆框:用一张半透明描边色块 / 设置窗 `box*` 缩成圆角代替,或省略(留节点占位)。 | 待美术补「圆头像框」切图 + 各头像 Sprite,接 `AvatarConfigMgr.GetAvatar(id).Image` 资源名加载 |
 | **编辑铅笔 icon**(头像 / 名字各一) | 用现成图标代替(如 `setting` 齿轮 / `language` 等近形子图),或纯文本「✎」/「编辑」按钮。<mark>关键是按钮可点、点了能触发编辑</mark>,图标外观次要。 | 待美术补「编辑铅笔」切图,替子图即生效 |
-| <b>下拉箭头「▾」</b> | 用文本字符「▾」/「∨」直接当箭头(`Text` 节点),或省略(下拉框本就占位)。 | 待美术补「下拉箭头」切图(生日整体占位,优先级最低) |
+| **下拉箭头「▾」** | 用文本字符「▾」/「∨」直接当箭头(`Text` 节点),或省略(下拉框本就占位)。 | 待美术补「下拉箭头」切图(生日整体占位,优先级最低) |
 
 > [!NOTE]
-> <b>占位的统一原则(同设计 23)</b>
+> **占位的统一原则(同设计 23)**
 >
 > 占位 = **节点摆齐 + 可交互 + 留清晰 TODO**,不是「不摆」。头像 / 铅笔 / 下拉箭头视觉是占位,但<mark>头像节点要显出当前头像区分度、铅笔按钮要可点触发编辑、生日下拉要摆出 3 个框对位</mark>——美术切图到位后替子图 / 替 Sprite 即生效,节点结构与脚本逻辑不返工。
 
-<h2 id="tree">四、prefab 节点树(对位 个人信息.png + m_ 前缀命名)</h2>
+## 四、prefab 节点树(对位 个人信息.png + m_ 前缀命名) {#tree}
 
 根节点照设置窗 prefab 范式:根挂 `RectTransform`(stretch 0,0→1,1)+ `Canvas` + `GraphicRaycaster`。坐标系 = 1080×1920 参考分辨率,直接用真实锚点。`m_` 前缀决定 `FindChildComponent` 绑定类型(前缀表见 tengine-dev `naming-rules`)。下方坐标为对位描述,精确像素 dev 摆图时对着 `个人信息.png` 微调。
 
@@ -134,24 +136,25 @@ PlayerInfoWindow                       (根: RectTransform 全屏 stretch + Canv
 > [!NOTE]
 > **静态节点 vs 动态节点**
 >
-> 本窗**几乎全静态**(prefab 直接摆好,无列表 / 无运行期增删),适合照搬设置窗范式。运行期会变的只有:**头像**(<code>m_img_Avatar</code>,<code>OnRefresh</code> 读 <code>CurrentAvatarId</code> 刷)与**玩家名**(<code>m_text_Name</code>,改名后刷)。改名输入框 <code>m_input_Name</code> 默认隐藏(<code>SetActive(false)</code>),点编辑铅笔切到改名态显出(<a href="#25-player-info-window-art::dispatch">§七</a>)。<mark>不涉及头像三态网格</mark>(那是设计 18 完整界面的元素,效果图本屏未画,本次换皮不建,<a href="#25-player-info-window-art::dispatch">§七</a>)。
+> 本窗**几乎全静态**(prefab 直接摆好,无列表 / 无运行期增删),适合照搬设置窗范式。运行期会变的只有:**头像**(`m_img_Avatar`,`OnRefresh` 读 `CurrentAvatarId` 刷)与**玩家名**(`m_text_Name`,改名后刷)。改名输入框 `m_input_Name` 默认隐藏(`SetActive(false)`),点编辑铅笔切到改名态显出(<a href="#25-player-info-window-art::dispatch">§七</a>)。<mark>不涉及头像三态网格</mark>(那是设计 18 完整界面的元素,效果图本屏未画,本次换皮不建,<a href="#25-player-info-window-art::dispatch">§七</a>)。
 
 > [!NOTE]
-> <b>改名交互:就地输入框 vs 独立改名弹窗?</b>
+> **改名交互:就地输入框 vs 独立改名弹窗?**
 >
-> 效果图只见「玩家名 + 铅笔」,未画独立改名窗。两种实现:<b>(默认推荐)就地输入框</b>——<code>m_text_Name</code>(只读显示)+ <code>m_input_Name</code>(<code>InputField</code>,默认隐藏)叠在同位,点铅笔时 <code>Name</code> 隐藏 / <code>Input</code> 显出并聚焦,确认(回车 / 点确定)调 <code>TryRename</code>,成功后切回只读。<b>(备选)</b>独立 <code>RenameWindow</code> 弹窗——但效果图无该窗、且会多一个 prefab,本次换皮不引入。取就地输入框为默认,验收等价(都贯通 <code>TryRename</code> + <code>RenameResult</code> 分支,<a href="#25-player-info-window-art::accept">§九 W3</a>)。
+> 效果图只见「玩家名 + 铅笔」,未画独立改名窗。两种实现:**(默认推荐)就地输入框**——`m_text_Name`(只读显示)+ `m_input_Name`(`InputField`,默认隐藏)叠在同位,点铅笔时 `Name` 隐藏 / `Input` 显出并聚焦,确认(回车 / 点确定)调 `TryRename`,成功后切回只读。**(备选)**独立 `RenameWindow` 弹窗——但效果图无该窗、且会多一个 prefab,本次换皮不引入。取就地输入框为默认,验收等价(都贯通 `TryRename` + `RenameResult` 分支,<a href="#25-player-info-window-art::accept">§九 W3</a>)。
 
-<h2 id="holder">五、GameContext 扩持有 PlayerInfo(延续统一上下文)</h2>
+## 五、GameContext 扩持有 PlayerInfo(延续统一上下文) {#holder}
 
-<h3 id="holder-why">5.1 为什么纳入 GameContext</h3>
+### 5.1 为什么纳入 GameContext {#holder-why}
 
 [设计 23 §五](#23-settings-window-art::holder)已确立:`GameContext` 是「数据层已建、需运行期持有者」的无主系统的统一归宿,并明示「本次换皮先只持有 `SettingsService`;player-info / item / mail / rank 后续逐个挂入」。<mark>本次换皮兑现 player-info 那一项</mark>——把 `PlayerInfo` 的运行期持有 + 一次加载收进 `GameContext`,而非给 `PlayerInfo` 另套一个单例(避开设计 23 §5.2 方案 A 的「N 个系统 N 套样板」)。窗口只 `GameContext.Instance.Player` 取,与设置窗 `GameContext.Instance.Settings` 同源。
 
-<h3 id="holder-load">5.2 加载来源:并入既有 MergeMetaSave</h3>
+### 5.2 加载来源:并入既有 MergeMetaSave {#holder-load}
 
 玩家信息持久化<mark>不另造存储栈</mark>:[设计 18 §3.8](#18-player-info::persist)已把玩家字段平铺进既有 `MergeMetaSave` DTO,经 `MergeMetaPersistence.Load` 落盘 / 读取,`PlayerInfo.ExportToMeta(dto)` / `ImportFromMeta(dto, rng, …)` 是纯方法在 DTO 与模型间转换。`GameContext.OnInit` 里的加载分两路(dev 落地时按工程现状二选一,见下 callout):
 
-<pre class="code">// GameContext.cs（增量：加 Player 成员 + OnInit 里 Load）
+```text
+// GameContext.cs（增量：加 Player 成员 + OnInit 里 Load）
 public PlayerInfo Player { get; private set; }   // 新增成员（设计 18 数据层模型）
 protected override void OnInit()
 {
@@ -163,38 +166,40 @@ protected override void OnInit()
     var dto = LoadMergeMetaDto();                 // 取既有存档 DTO（路 A/B 见下）
     Player = (dto != null)
         ? PlayerInfo.ImportFromMeta(dto, rng,     // 有档：从 DTO 重建（逐字段保底夹值，设计 18 §3.8）
-              avatarValid: id =&gt; GameLogic.Config.AvatarConfigMgr.GetAvatar(id) != null)
+              avatarValid: id => GameLogic.Config.AvatarConfigMgr.GetAvatar(id) != null)
         : PlayerInfo.CreateDefault(rng);          // 无档：新建（新 id + 系统名 + 默认头像框）
-}</pre>
+}
+```
 
 > [!WARNING]
 > **待 dev 核实(B1):玩家信息从哪取存档 DTO + 何时落盘**
 >
-> <code>MergeMetaPersistence.Load</code> 是异步外壳(<a href="#14-save-system">设计 14</a>:序列化层同步 + 磁盘 IO 异步 UniTask)。<code>GameContext.OnInit</code>(<code>SimpleSingleton</code> 同步)里直接同步取 DTO 可能与异步加载时序不一致。dev 落地时按工程现状定 **取档时机**(二选一):<b>(路 A)</b><code>GameContext</code> 不在 <code>OnInit</code> 同步加载玩家档,而由 <code>GameApp.StartGameLogic()</code> 在 <code>MergeMetaPersistence</code> 加载完成后(同设置窗 AudioSink 接线那段附近)调一个 <code>GameContext.Instance.InitPlayerFromMeta(dto, rng)</code>(仿既有 <code>InitSettingsWithStore</code> 注入入口);<b>(路 B)</b>若工程已有同步可达的「当前 <code>MergeMetaSave</code> 实例 / 当前 <code>PlayerInfo</code>」(如 <code>BlockGameState</code> 或 <code>MergeOrderState</code> 已在内存持有),直接引用、不重复读盘。<mark>两路对本窗验收等价</mark>(窗口都拿到一个持久的 <code>PlayerInfo</code>);取哪路 dev 按 <code>MergeMetaPersistence</code> / <code>MergeOrderState</code> 的真实加载时序定,并把**改名后落盘**接到同一存档路径(改名改了 <code>PlayerInfo.Name</code>/<code>RenameCount</code>,须 <code>ExportToMeta</code> + 存档,否则重启丢失,<a href="#25-player-info-window-art::dispatch">§七 W3</a>)。这是本次换皮唯一需 dev 对齐工程加载时序的环节,非方向问题(决策 D1 已定「纳入 GameContext」,只是接线落点 dev 定)。
+> `MergeMetaPersistence.Load` 是异步外壳(<a href="#14-save-system">设计 14</a>:序列化层同步 + 磁盘 IO 异步 UniTask)。`GameContext.OnInit`(`SimpleSingleton` 同步)里直接同步取 DTO 可能与异步加载时序不一致。dev 落地时按工程现状定 **取档时机**(二选一):**(路 A)**`GameContext` 不在 `OnInit` 同步加载玩家档,而由 `GameApp.StartGameLogic()` 在 `MergeMetaPersistence` 加载完成后(同设置窗 AudioSink 接线那段附近)调一个 `GameContext.Instance.InitPlayerFromMeta(dto, rng)`(仿既有 `InitSettingsWithStore` 注入入口);**(路 B)**若工程已有同步可达的「当前 `MergeMetaSave` 实例 / 当前 `PlayerInfo`」(如 `BlockGameState` 或 `MergeOrderState` 已在内存持有),直接引用、不重复读盘。<mark>两路对本窗验收等价</mark>(窗口都拿到一个持久的 `PlayerInfo`);取哪路 dev 按 `MergeMetaPersistence` / `MergeOrderState` 的真实加载时序定,并把**改名后落盘**接到同一存档路径(改名改了 `PlayerInfo.Name`/`RenameCount`,须 `ExportToMeta` + 存档,否则重启丢失,<a href="#25-player-info-window-art::dispatch">§七 W3</a>)。这是本次换皮唯一需 dev 对齐工程加载时序的环节,非方向问题(决策 D1 已定「纳入 GameContext」,只是接线落点 dev 定)。
 
-<h3 id="birthday">5.3 生日:数据层无字段 → UI 占位(决策 D2)</h3>
+### 5.3 生日:数据层无字段 → UI 占位(决策 D2) {#birthday}
 
 效果图有「生日 + 3 下拉框」,但[设计 18](#18-player-info) 数据层<mark>完全无生日概念</mark>——`PlayerInfo` 8 个字段无一与生日相关,spec(`1001玩家信息系统.xlsx`)也未列生日。处置二选一:
 
 | 方案 | 做法 | 代价 | 本次换皮取舍 |
 | --- | --- | --- | --- |
-| <b>UI 占位(默认)</b> | 摆 3 个下拉框对位效果图,<mark>不绑数据、不入存档</mark>,值固定显「3」(同效果图),点击 → Log / Toast「生日待接数据层」+ TODO | 零数据层改动,可逆,与 spec 无抵触 | 取此 |
+| **UI 占位(默认)** | 摆 3 个下拉框对位效果图,<mark>不绑数据、不入存档</mark>,值固定显「3」(同效果图),点击 → Log / Toast「生日待接数据层」+ TODO | 零数据层改动,可逆,与 spec 无抵触 | 取此 |
 | 加生日字段进盘 | 给 `PlayerInfo` 加 birthYear/Month/Day 字段 + `MergeMetaSave` 加 3 字段 + `ExportToMeta`/`ImportFromMeta` 加拷贝 + 保底夹值 + 单测 | <mark>改动数据层 + 持久化 DTO + 保底逻辑 + 数据层单测</mark>——超出「纯 UI 补完」范围,且 spec 未要求 | 不取(本次换皮) |
 
 **取 UI 占位**(决策 D2,安全默认)。理由:① 本次换皮任务是「纯 UI 补完」,加生日字段会动数据层 + 持久化 + 保底,溢出范围;② spec 未要求生日,擅自入盘是替产品定需求;③ 占位可逆——日后若产品要真生日,在数据层加字段是局部增量(同设计 18 加字段做法),UI 节点已摆好、替占位为绑定即可,不返工。<mark>生日是否要真做、是否入存档,列待裁决交 boss / 产品</mark>([§十一 D2](#25-player-info-window-art::open)),本次换皮按占位推进不阻塞。
 
-<h2 id="window">六、窗口脚本设计(PlayerInfoWindow)</h2>
+## 六、窗口脚本设计(PlayerInfoWindow) {#window}
 
 继承 `UIWindow` + `[Window]`,弹窗参数同设置窗:层级 `Top`、`fullScreen:false`。生命周期分工:`ScriptGenerator` 绑节点 + 接钮 → `OnCreate` 贴静态图 → `OnRefresh` 每次开窗刷头像 + 名。命名空间 `GameLogic.UI`(同 `SettingsWindow`)。
 
-<pre class="code">using UnityEngine;
+```text
+using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
 using GameLogic.BlockBlast.Player;
 namespace GameLogic.UI
 {
-    /// &lt;summary&gt;个人信息窗(美术换皮，设计 25)。模态弹窗：头像 + 玩家名(可改名) + 生日(占位) + 确定。
-    /// 数据走 GameContext.Instance.Player(设计 18 数据层)，切图复用 Sheet_settings 精灵表(设计 23)。&lt;/summary&gt;
+    /// <summary>个人信息窗(美术换皮，设计 25)。模态弹窗：头像 + 玩家名(可改名) + 生日(占位) + 确定。
+    /// 数据走 GameContext.Instance.Player(设计 18 数据层)，切图复用 Sheet_settings 精灵表(设计 23)。</summary>
     [Window(UILayer.Top, location: "PlayerInfoWindow", fullScreen: false)]
     public sealed class PlayerInfoWindow : UIWindow
     {
@@ -204,20 +209,20 @@ namespace GameLogic.UI
         private InputField _inputName;
         private Image  _imgAvatar, _imgAvatarFrame, _imgPanelBg, _imgTitleBg, _imgClose, _imgConfirmBg;
         // 生日 3 下拉占位（Dropdown 或 Image+Text，§5.3）
-        private PlayerInfo P =&gt; GameContext.Instance.Player;
+        private PlayerInfo P => GameContext.Instance.Player;
         protected override void ScriptGenerator()
         {
-            _btnMask       = FindChildComponent&lt;Button&gt;("m_btn_Mask");
-            _btnClose      = FindChildComponent&lt;Button&gt;("Root/m_btn_Close");
-            _btnConfirm    = FindChildComponent&lt;Button&gt;("Root/m_btn_Confirm");
-            _btnEditAvatar = FindChildComponent&lt;Button&gt;("Root/AvatarBlock/m_btn_EditAvatar");
-            _btnEditName   = FindChildComponent&lt;Button&gt;("Root/NameBlock/m_btn_EditName");
-            _textName      = FindChildComponent&lt;Text&gt;("Root/NameBlock/m_text_Name");
-            _inputName     = FindChildComponent&lt;InputField&gt;("Root/NameBlock/m_input_Name");
-            _imgAvatar     = FindChildComponent&lt;Image&gt;("Root/AvatarBlock/m_img_Avatar");
-            _imgPanelBg    = FindChildComponent&lt;Image&gt;("Root/m_img_PanelBg");
-            _imgClose      = FindChildComponent&lt;Image&gt;("Root/m_btn_Close");
-            _imgConfirmBg  = FindChildComponent&lt;Image&gt;("Root/m_btn_Confirm");
+            _btnMask       = FindChildComponent<Button>("m_btn_Mask");
+            _btnClose      = FindChildComponent<Button>("Root/m_btn_Close");
+            _btnConfirm    = FindChildComponent<Button>("Root/m_btn_Confirm");
+            _btnEditAvatar = FindChildComponent<Button>("Root/AvatarBlock/m_btn_EditAvatar");
+            _btnEditName   = FindChildComponent<Button>("Root/NameBlock/m_btn_EditName");
+            _textName      = FindChildComponent<Text>("Root/NameBlock/m_text_Name");
+            _inputName     = FindChildComponent<InputField>("Root/NameBlock/m_input_Name");
+            _imgAvatar     = FindChildComponent<Image>("Root/AvatarBlock/m_img_Avatar");
+            _imgPanelBg    = FindChildComponent<Image>("Root/m_img_PanelBg");
+            _imgClose      = FindChildComponent<Image>("Root/m_btn_Close");
+            _imgConfirmBg  = FindChildComponent<Image>("Root/m_btn_Confirm");
             // …其余按 §四 路径绑定
             // 接钮（onClick；监听随 GameObject 销毁自动清，无需手动 Remove——同设计 23）
             _btnMask.onClick.AddListener(OnConfirmAndClose);   // 遮罩 = 点任意处关闭（效果图「点击任意位置关闭」）
@@ -243,7 +248,7 @@ namespace GameLogic.UI
             if (_textName != null) _textName.text = P.Name;
             RefreshAvatar();
         }
-        /// &lt;summary&gt;刷头像（占位：无头像 Sprite → 按 CurrentAvatarId 取稳定占位色，§3.2）。&lt;/summary&gt;
+        /// <summary>刷头像（占位：无头像 Sprite → 按 CurrentAvatarId 取稳定占位色，§3.2）。</summary>
         private void RefreshAvatar()
         {
             // TODO(设计 25 §3.2): 接 AvatarConfigMgr.GetAvatar(P.CurrentAvatarId).Image 加载真实头像 Sprite。
@@ -263,8 +268,8 @@ namespace GameLogic.UI
             // 屏蔽字词表可注入空表（去变现/不阻塞，设计 18 O6）；扣钻接缝默认 no-op→true（设计 18 O8）。
             var result = PlayerRenameService.TryRename(
                 P, newName,
-                wordList: System.Array.Empty&lt;string&gt;(),
-                trySpendDiamond: cost =&gt; true);   // TODO(设计 25 §七): 钻石实装后接真实扣减
+                wordList: System.Array.Empty<string>(),
+                trySpendDiamond: cost => true);   // TODO(设计 25 §七): 钻石实装后接真实扣减
             if (result.Success)
             {
                 if (_textName != null) _textName.text = P.Name;
@@ -281,31 +286,32 @@ namespace GameLogic.UI
         {
             string msg = reason switch
             {
-                RenameReject.Empty            =&gt; "名字不能为空",
-                RenameReject.TooLong          =&gt; "名字过长（上限 16）",
-                RenameReject.Profanity        =&gt; "名字含敏感词",
-                RenameReject.NotEnoughDiamond =&gt; "钻石不足",
-                _                             =&gt; "改名失败",
+                RenameReject.Empty            => "名字不能为空",
+                RenameReject.TooLong          => "名字过长（上限 16）",
+                RenameReject.Profanity        => "名字含敏感词",
+                RenameReject.NotEnoughDiamond => "钻石不足",
+                _                             => "改名失败",
             };
             ShowPlaceholder(msg);
         }
         private void OnEditAvatar()
-            =&gt; ShowPlaceholder("头像选择网格待建（设计 18 三态网格属后续屏 §七）");
-        /// &lt;summary&gt;确定 / 关闭：保存玩家信息并关窗（效果图「确定」「点击任意位置关闭」同此）。&lt;/summary&gt;
+            => ShowPlaceholder("头像选择网格待建（设计 18 三态网格属后续屏 §七）");
+        /// <summary>确定 / 关闭：保存玩家信息并关窗（效果图「确定」「点击任意位置关闭」同此）。</summary>
         private void OnConfirmAndClose()
         {
             SavePlayerMeta();
-            GameModule.UI.CloseUI&lt;PlayerInfoWindow&gt;();
+            GameModule.UI.CloseUI<PlayerInfoWindow>();
         }
-        /// &lt;summary&gt;玩家信息落盘（§5.2 B1：ExportToMeta + 接既有 MergeMetaPersistence 存档路径）。&lt;/summary&gt;
+        /// <summary>玩家信息落盘（§5.2 B1：ExportToMeta + 接既有 MergeMetaPersistence 存档路径）。</summary>
         private void SavePlayerMeta()
         {
             // TODO(设计 25 §5.2 B1): P.ExportToMeta(dto) + 调既有 MergeMetaPersistence.SaveAsync(dto)。
         }
-        /// &lt;summary&gt;占位统一反馈（同设计 23：工程暂无 Toast → 临时 Log.Info；待建后替换）。&lt;/summary&gt;
-        private void ShowPlaceholder(string msg) =&gt; Log.Info($"[个人信息窗] {msg}");
+        /// <summary>占位统一反馈（同设计 23：工程暂无 Toast → 临时 Log.Info；待建后替换）。</summary>
+        private void ShowPlaceholder(string msg) => Log.Info($"[个人信息窗] {msg}");
     }
-}</pre>
+}
+```
 
 > [!WARNING]
 > **dev 注意(与设计 23 一致的两处工程实际)**
@@ -314,24 +320,24 @@ namespace GameLogic.UI
 > - 占位反馈 `ShowPlaceholder` 临时走 `Log.Info`(工程暂无 Toast / 飘字,同设计 23);改名拒绝提示亦同——待 Toast 系统建后替换为真实弹字。**占位不等于死按钮**:点了要有 Log / 提示。
 > - `InputField` vs `TMP_InputField`:dev 按工程既有 UI 用的输入框类型选(grep 现有 prefab / 框架默认),`FindChildComponent<T>` 的 T 与 prefab 节点组件类型须一致。
 
-<h2 id="dispatch">七、各控件处置分流表</h2>
+## 七、各控件处置分流表 {#dispatch}
 
 按「实做 / 占位 / 不做(本屏)」三档。占位项不阻塞验收——只要点击不报错、留清晰接线点即可。
 
 | 功能位 | 本次换皮处置 | 接什么 / 留什么 |
 |---|---|---|
-| <b>玩家名显示</b>(<code>m_text_Name</code>) | 实做 | <code>OnRefresh</code> 读 <code>GameContext.Instance.Player.Name</code> → 文本。<b>核心验收项</b>(W2)。 |
-| <b>改名</b>(铅笔 → <code>m_input_Name</code>) | 实做(贯通数据层) | 点铅笔进改名态 → 输入 → <code>PlayerRenameService.TryRename(P, newName, 空词表, cost=&gt;true)</code> → <code>RenameResult</code>:成功刷名 + 落盘;失败按 <code>Reason</code> 分支提示(空 / 超长 / 屏蔽字 / 钻石不足)。<b>核心验收项</b>(W3)。屏蔽字词表本次换皮注空表(去变现 / 不阻塞,设计 18 O6);扣钻 <code>trySpendDiamond</code> 默认 <code>true</code>(去变现,设计 18 O8)。 |
-| <b>头像显示</b>(<code>m_img_Avatar</code>) | 实做(显当前)<br><span class="pill-no">真图占位</span> | <code>OnRefresh</code> 读 <code>CurrentAvatarId</code>。<mark>头像 Sprite 无美术</mark>(设计 18 O2)→ 占位纯色圆 / 通用图,留 TODO 接 <code>AvatarConfigMgr.GetAvatar(id).Image</code>。 |
-| <b>编辑头像</b>(<code>m_btn_EditAvatar</code> 铅笔) | 占位 | 头像三态选择网格是设计 18 完整界面元素,<mark>效果图本屏未画</mark>(本屏只显当前头像)。点击 → Toast「头像选择待建」+ TODO。完整网格(<code>AvatarUnlockService.StateOf</code> + 换装 <code>TryEquip</code>)属设计 18 后续屏 / 后续轮(<a href="#25-player-info-window-art::open">§十一 D3</a>)。 |
-| <b>生日 + 3 下拉</b>(<code>BirthdayBlock</code>) | 占位(整块) | 数据层无生日字段(<a href="#25-player-info-window-art::birthday">§5.3</a> D2)。摆 3 个下拉框对位,值固定「3」,不绑数据 / 不入盘。点击 → Toast「生日待接数据层」+ TODO。是否真做交 boss / 产品。 |
-| <b>确定</b>(<code>m_btn_Confirm</code>) | 实做 | 保存玩家信息(<code>ExportToMeta</code> + 落既有存档,<a href="#25-player-info-window-art::holder">§5.2 B1</a>)+ <code>CloseUI</code>。本次换皮玩家信息的运行期改动主要是改名(已在改名时落盘),确定再保险存一次 + 关。 |
-| <b>关闭 X</b> + <b>遮罩(点任意处)</b> | 实做 | 同确定:保存 + <code>CloseUI&lt;PlayerInfoWindow&gt;()</code>。效果图「点击任意位置置关闭」= 遮罩 <code>m_btn_Mask</code> 点击关窗(遮罩须在节点树最底,面板内容盖其上,点面板不穿透)。 |
-| <b>关闭提示文本</b>(<code>m_text_CloseHint</code>) | 实做 | 纯文本「点击任意位置置关闭」,无逻辑。 |
-| <b>等级 / 经验槽</b> | 不做(本屏) | <mark>效果图本屏无等级 / 经验槽位</mark>。数据层有 <code>PlayerInfo.Level</code> / <code>PlayerLevelConfig</code> 可显,但效果图未画 → 本次换皮不强加(设计 18 完整界面有此位,属后续屏)。 |
-| <b>id 复制</b> | 不做(本屏) | 效果图本屏无 id 显示 / 复制位。数据层有 <code>ClipboardUtil.Copy</code> + <code>PlayerInfo.Id</code>,设计 18 完整界面有此位,属后续屏。 |
+| **玩家名显示**(`m_text_Name`) | 实做 | `OnRefresh` 读 `GameContext.Instance.Player.Name` → 文本。**核心验收项**(W2)。 |
+| **改名**(铅笔 → `m_input_Name`) | 实做(贯通数据层) | 点铅笔进改名态 → 输入 → `PlayerRenameService.TryRename(P, newName, 空词表, cost=>true)` → `RenameResult`:成功刷名 + 落盘;失败按 `Reason` 分支提示(空 / 超长 / 屏蔽字 / 钻石不足)。**核心验收项**(W3)。屏蔽字词表本次换皮注空表(去变现 / 不阻塞,设计 18 O6);扣钻 `trySpendDiamond` 默认 `true`(去变现,设计 18 O8)。 |
+| **头像显示**(`m_img_Avatar`) | 实做(显当前)<br><span class="pill-no">真图占位</span> | `OnRefresh` 读 `CurrentAvatarId`。<mark>头像 Sprite 无美术</mark>(设计 18 O2)→ 占位纯色圆 / 通用图,留 TODO 接 `AvatarConfigMgr.GetAvatar(id).Image`。 |
+| **编辑头像**(`m_btn_EditAvatar` 铅笔) | 占位 | 头像三态选择网格是设计 18 完整界面元素,<mark>效果图本屏未画</mark>(本屏只显当前头像)。点击 → Toast「头像选择待建」+ TODO。完整网格(`AvatarUnlockService.StateOf` + 换装 `TryEquip`)属设计 18 后续屏 / 后续轮(<a href="#25-player-info-window-art::open">§十一 D3</a>)。 |
+| **生日 + 3 下拉**(`BirthdayBlock`) | 占位(整块) | 数据层无生日字段(<a href="#25-player-info-window-art::birthday">§5.3</a> D2)。摆 3 个下拉框对位,值固定「3」,不绑数据 / 不入盘。点击 → Toast「生日待接数据层」+ TODO。是否真做交 boss / 产品。 |
+| **确定**(`m_btn_Confirm`) | 实做 | 保存玩家信息(`ExportToMeta` + 落既有存档,<a href="#25-player-info-window-art::holder">§5.2 B1</a>)+ `CloseUI`。本次换皮玩家信息的运行期改动主要是改名(已在改名时落盘),确定再保险存一次 + 关。 |
+| **关闭 X** + **遮罩(点任意处)** | 实做 | 同确定:保存 + `CloseUI<PlayerInfoWindow>()`。效果图「点击任意位置置关闭」= 遮罩 `m_btn_Mask` 点击关窗(遮罩须在节点树最底,面板内容盖其上,点面板不穿透)。 |
+| **关闭提示文本**(`m_text_CloseHint`) | 实做 | 纯文本「点击任意位置置关闭」,无逻辑。 |
+| **等级 / 经验槽** | 不做(本屏) | <mark>效果图本屏无等级 / 经验槽位</mark>。数据层有 `PlayerInfo.Level` / `PlayerLevelConfig` 可显,但效果图未画 → 本次换皮不强加(设计 18 完整界面有此位,属后续屏)。 |
+| **id 复制** | 不做(本屏) | 效果图本屏无 id 显示 / 复制位。数据层有 `ClipboardUtil.Copy` + `PlayerInfo.Id`,设计 18 完整界面有此位,属后续屏。 |
 
-<h2 id="entry">八、打开入口 + 关闭</h2>
+## 八、打开入口 + 关闭 {#entry}
 
 | 动作 | 触发 | 实现 |
 | --- | --- | --- |
@@ -341,15 +347,15 @@ namespace GameLogic.UI
 | 关闭(点任意处) | `m_btn_Mask` 全屏遮罩 | 同上(效果图「点击任意位置置关闭」)。<mark>遮罩 Button 须在节点树最底,面板内容盖其上</mark>,点面板不穿透关窗。 |
 
 > [!NOTE]
-> <b>入口落主菜单(同设计 23)</b>
+> **入口落主菜单(同设计 23)**
 >
-> 入口与设置窗一致先落主菜单 <code>MainMenuWindow</code>(改动面最小,加一个按钮),打通「能开 → 能改名 → 能关」闭环;玩法内 HUD 顶栏的玩家信息入口(效果图顶栏左上头像)涉及 HUD 容器,留后续轮次。验收只要求**能从某个入口打开**(<a href="#25-player-info-window-art::accept">§九 V1</a>)。
+> 入口与设置窗一致先落主菜单 `MainMenuWindow`(改动面最小,加一个按钮),打通「能开 → 能改名 → 能关」闭环;玩法内 HUD 顶栏的玩家信息入口(效果图顶栏左上头像)涉及 HUD 容器,留后续轮次。验收只要求**能从某个入口打开**(<a href="#25-player-info-window-art::accept">§九 V1</a>)。
 
-<h2 id="accept">九、验收标准</h2>
+## 九、验收标准 {#accept}
 
 拆两档:**H/W 组 = 逻辑可 EditMode 单测**(编译 + `GameContext` 往返 + 改名贯通,不依赖 Play / 真实视觉);**V 组 = 需 Play / 人眼**(对位 + 指针 + 开关闭)。占位项验收 = 「点击不报错 + 有 Log / 提示 + 节点摆齐」,不要求真功能。
 
-<h3 id="accept-hw">9.1 H/W 组 — EditMode 可单测(test 直调断言)</h3>
+### 9.1 H/W 组 — EditMode 可单测(test 直调断言) {#accept-hw}
 
 | # | 验收点 | 怎么核 |
 | --- | --- | --- |
@@ -360,7 +366,7 @@ namespace GameLogic.UI
 | W4 | 窗口绑定路径对齐 prefab | `ScriptGenerator` 里每个 `FindChildComponent<T>(path)` 的 path 与 §四节点树逐一对齐(dev 自查 + test code review 核);Play 模式打开窗口无「FindChild 返回 null」报错(并入 V 组实测)。 |
 | W5 | 占位项不崩 | 编辑头像 / 生日下拉 / 各占位点击 → 走 `ShowPlaceholder`(`Log.Info`),不抛异常、不空引用。EditMode 可调对应方法断言不抛。 |
 
-<h3 id="accept-v">9.2 V 组 — 需 Play / 人眼(MCP 截图 + 手验)</h3>
+### 9.2 V 组 — 需 Play / 人眼(MCP 截图 + 手验) {#accept-v}
 
 | # | 验收点 | 怎么核 |
 | --- | --- | --- |
@@ -376,7 +382,7 @@ namespace GameLogic.UI
 >
 > (1) unityMCP 桥不可达致 EditMode / Play 跑不起 → V 组判 BLOCKED 不判 FAIL(可备选 batchmode 跑 EditMode);(2) 头像 Sprite / 圆框 / 铅笔 / 下拉箭头切图缺失 = **预期占位**,不判 FAIL(本就占位,见 <a href="#25-player-info-window-art::placeholder">§3.2</a>)。
 
-<h2 id="open">十、待拍板清单(范围开关,交 boss / 产品)</h2>
+## 十、待拍板清单(范围开关,交 boss / 产品) {#open}
 
 均有安全默认、本次换皮按默认推进、不阻塞;列出供 boss / 产品复核,要改另开增量。
 
@@ -389,7 +395,7 @@ namespace GameLogic.UI
 | D5 | 改名交互形态 | 就地输入框(`m_text_Name`/`m_input_Name` 同位切换) | 独立 `RenameWindow` 弹窗(效果图无该窗,本次换皮不引入) |
 | D6 | 入口落点 | 主菜单 `MainMenuWindow`(同设计 23,兑现既有 TODO 钩子) | 玩法内 HUD 顶栏左上头像入口(涉及 HUD 容器,后续轮) |
 
-<h2 id="risk">十一、风险表</h2>
+## 十一、风险表 {#risk}
 
 | 风险 | 应对 |
 | --- | --- |

@@ -11,7 +11,7 @@
 
 # 跨会话磁盘存档
 
-把 `MergeOrderState` 的**元层进度**(虔诚币 / 神庙修复 / 经验·守护者等级 / 灵力 / 盲盒计数 / 女神 / 订单完成数 / 今日祈愿)从**单局尺度**升为**跨会话尺度**:启动加载、有意义元变更后保存,退出重进不再清零。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)/[13](#13-piety-temple-repair)),复用工程既有 `Persistence.Provider` 持久化接缝,<b>不动悔棋快照(局内 undo)</b>。
+把 `MergeOrderState` 的**元层进度**(虔诚币 / 神庙修复 / 经验·守护者等级 / 灵力 / 盲盒计数 / 女神 / 订单完成数 / 今日祈愿)从**单局尺度**升为**跨会话尺度**:启动加载、有意义元变更后保存,退出重进不再清零。**加法式**接入已落地 merge-order 切片([09](#09-merge-order-energy)/[10](#10-score-element-rm-collect)/[11](#11-core-loop-completion)/[12](#12-tarot-blind-box)/[13](#13-piety-temple-repair)),复用工程既有 `Persistence.Provider` 持久化接缝,**不动悔棋快照(局内 undo)**。
 
 > [!WARNING]
 > **读前必看 · 与工程现状的关系(单一事实源 = 代码)**
@@ -34,7 +34,7 @@
 > | **影响范围** | 新增 `MergeMetaSave`(`[Serializable]` 存档数据传输对象,含 version 字段) + `MergeMetaPersistence`(序列化 / 落盘 / 读盘 / 跨天重置 / 版本迁移,纯逻辑可单测);`MergeOrderState` 加 `ExportMeta()` / `ImportMeta()` 两个纯方法 + 元变更后调 `RequestSave()`;`ResetForMergeOrder` 改为「加载存档 → 覆盖元层」而非全清元层;`MergeOrderWindow` 在 `OnDestroy` / 元动作后触发保存,app 暂停/退出兜底落盘。**旧路径(Classic / 不开 merge-order 时)零行为变化。** |
 > | **关键约束(继承现状)** | 序列化层不依赖真实磁盘(单测往返到 string / InMemory Provider);悔棋快照机制原样保留;`MergeOrderState` 仍是纯逻辑类(磁盘 IO 不进 `MergeOrderState`,由窗口侧/持久化类承接异步)。 |
 
-<h2 id="what">一、改什么与为什么</h2>
+## 一、改什么与为什么 {#what}
 
 现状:`MergeOrderState` **整体不做磁盘持久化**,只入悔棋快照(单局内回滚)。每次进入 merge-order 模式,`ResetForMergeOrder` 都 `new MergeOrderState()` 并 `Reset()`,把所有元字段清零。结果是被 GDD 定位为**长期主线**的虔诚币 / 神庙修复进度,以及灵力 / 经验 / 守护者等级 / 盲盒计数 / 女神好感,全是**单局尺度**——玩家退出重进,一切归零。这与「攒虔诚币 → 修 12 神庙 → 升等级 → 解锁剧情」这条跨越多个订单周期的长期反馈链直接矛盾(设计 13 §七 O3 已记此为待办)。
 
@@ -48,11 +48,11 @@
 | 4 | 每日字段(今日祈愿)跨天重置 | 存上次重置日期;加载跨天则 `WishUsedToday=0`([§3.6](#14-save-system::daily)) | <span class="pill-new">新增</span> |
 | 5 | 与悔棋快照分层,两者不冲突 | 磁盘存档独立轨,不进 `Snapshot`;悔棋机制原样不动([§2.2](#14-save-system::snapshot-vs-disk)) | <span class="pill-cur">现状保留</span> |
 
-<b>不做(本设计明确排除):</b><span class="pill-no">云存档 / 账号绑定</span>(本地单机文件);xlsx 那 10 个系统(本设计后接);<span class="pill-no">局内棋盘断点续玩</span>(除非低成本顺带,默认不做,见 [§七 O1](#14-save-system::open));多存档槽 / 玩家手动存读档(本设计单槽自动存档)。
+**不做(本设计明确排除):**<span class="pill-no">云存档 / 账号绑定</span>(本地单机文件);xlsx 那 10 个系统(本设计后接);<span class="pill-no">局内棋盘断点续玩</span>(除非低成本顺带,默认不做,见 [§七 O1](#14-save-system::open));多存档槽 / 玩家手动存读档(本设计单槽自动存档)。
 
-<h2 id="model">二、系统模型</h2>
+## 二、系统模型 {#model}
 
-<h3 id="layers">2.1 三层分层(序列化 / 存储 / 时机)</h3>
+### 2.1 三层分层(序列化 / 存储 / 时机) {#layers}
 
 存档系统拆三层,各层职责单一、各自可测。下游依赖上游:序列化层产/吃字符串(纯逻辑),存储层把字符串落盘/读盘(异步 IO),时机层决定何时触发。结构图:
 
@@ -76,9 +76,9 @@ flowchart TD
     serial -->|string| store
 ```
 
-<b>为什么这样切:</b>把「对象↔字符串」与「字符串↔磁盘」拆成两层,是为了让<mark>序列化逻辑可单测而不依赖真实文件</mark>——这正是工程现有 `Persistence.Provider` 接缝的设计意图(生产 PlayerPrefs / 测试 InMemory)。序列化层只做纯转换,断言全在 string / DTO 上;磁盘 IO 的异步与失败兜底封在存储层,单测用 InMemory Provider 绕过。
+**为什么这样切:**把「对象↔字符串」与「字符串↔磁盘」拆成两层,是为了让<mark>序列化逻辑可单测而不依赖真实文件</mark>——这正是工程现有 `Persistence.Provider` 接缝的设计意图(生产 PlayerPrefs / 测试 InMemory)。序列化层只做纯转换,断言全在 string / DTO 上;磁盘 IO 的异步与失败兜底封在存储层,单测用 InMemory Provider 绕过。
 
-<h3 id="snapshot-vs-disk">2.2 磁盘存档 与 悔棋快照 的分工</h3>
+### 2.2 磁盘存档 与 悔棋快照 的分工 {#snapshot-vs-disk}
 
 两者字段有重叠(Piety / Soul / Exp 等都在两边出现),但语义、时机、生命周期全不同,是**两条独立轨**。对照:
 
@@ -91,9 +91,9 @@ flowchart TD
 | 生命周期 | 交付 / 修复清栈;`ExitMergeOrder` 丢弃 | 持久,跨会话存活直到玩家清档 |
 | 耦合 | **互不调用**:`Snapshot.Capture/Restore` 不读写磁盘;磁盘存档不进 `_undoStack`。悔棋只回滚局内瞬态(棋盘/库存),而元层进度的局内变化(如本局交付攒的虔诚币)随快照回滚——这是局内一致性,与磁盘存档「跨会话保留交付后已固化的进度」不矛盾:磁盘存的是**交付后**的已提交值(交付即清栈,不可悔),回滚只发生在交付之间。 |  |
 
-<h2 id="numbers">三、设计正文</h2>
+## 三、设计正文 {#numbers}
 
-<h3 id="boundary">3.1 持久化边界(哪些字段进盘)</h3>
+### 3.1 持久化边界(哪些字段进盘) {#boundary}
 
 判据:**元层进度(跨局累积、长期语义)进盘;局内瞬态(每局重开)不进盘**。逐字段裁定(字段名经 grep `MergeOrderState.cs` 核实):
 
@@ -121,18 +121,19 @@ flowchart TD
 | `ComboChain` / `AllClearArmed` | — | 连消链 / 全清武装位 | 否(局内) |
 | `SpecialTrack` | obj | 特殊订单轨(0/1 槽 + 等待队列) | 否(局内) |
 
-<b>边界裁定的两处需注意(列入待拍板 §七):</b>
+**边界裁定的两处需注意(列入待拍板 §七):**
 
-- <b>O2 — <code>TotalScore</code>:</b>注释写「本局累计交付得分(用于通关/结算摘要)」,偏局内。但作为「跨会话累计总分 / 成就」也成立。默认<mark>进盘当累计总分</mark>(加法式、无害);若 dev 发现窗口把它当本局分用且与显示冲突,可降级为不进盘——不影响其余字段。
-- <b>O3 — <code>Energy</code>(体力):</b>默认<mark>不进盘</mark>,每局 `ResetForMergeOrder` 回 `EnergyStart=20`。体力是局内资源(落子扣 / 消除返 / 祈愿兑),跨会话保留它会让「关掉游戏养体力」成为漏洞,也与「每局重开」的现状一致。如将来要体力跨会话(配离线恢复),属独立设计,不在本设计。
+- **O2 — `TotalScore`:**注释写「本局累计交付得分(用于通关/结算摘要)」,偏局内。但作为「跨会话累计总分 / 成就」也成立。默认<mark>进盘当累计总分</mark>(加法式、无害);若 dev 发现窗口把它当本局分用且与显示冲突,可降级为不进盘——不影响其余字段。
+- **O3 — `Energy`(体力):**默认<mark>不进盘</mark>,每局 `ResetForMergeOrder` 回 `EnergyStart=20`。体力是局内资源(落子扣 / 消除返 / 祈愿兑),跨会话保留它会让「关掉游戏养体力」成为漏洞,也与「每局重开」的现状一致。如将来要体力跨会话(配离线恢复),属独立设计,不在本设计。
 
-<h3 id="format">3.2 序列化格式 + 沙盒路径</h3>
+### 3.2 序列化格式 + 沙盒路径 {#format}
 
-<b>格式:JSON(<code>UnityEngine.JsonUtility</code>)。</b>理由——工程现有两处存档(`BlockGameState` / `DynamicWeightDiff`)都用 `JsonUtility.ToJson/FromJson` + `[Serializable]` 扁平 DTO,沿用同口径<mark>零学习成本、可人工查档调试、缺字段天然给类型默认值</mark>(利于 §3.5 迁移)。不选二进制:存档体量极小(十几个 int + 两个 bool\[12\]),二进制省的空间无意义,反而牺牲可读性与缺字段容错。
+**格式:JSON(`UnityEngine.JsonUtility`)。**理由——工程现有两处存档(`BlockGameState` / `DynamicWeightDiff`)都用 `JsonUtility.ToJson/FromJson` + `[Serializable]` 扁平 DTO,沿用同口径<mark>零学习成本、可人工查档调试、缺字段天然给类型默认值</mark>(利于 §3.5 迁移)。不选二进制:存档体量极小(十几个 int + 两个 bool\[12\]),二进制省的空间无意义,反而牺牲可读性与缺字段容错。
 
-<b>DTO 形态(<code>MergeMetaSave</code>,扁平、JsonUtility 友好):</b>bool\[\] 直接可序列化;Dictionary 不进盘故无需拍平。
+**DTO 形态(`MergeMetaSave`,扁平、JsonUtility 友好):**bool\[\] 直接可序列化;Dictionary 不进盘故无需拍平。
 
-<pre class="code">[Serializable]
+```text
+[Serializable]
 public sealed class MergeMetaSave
 {
     public int version;          // 存档结构版本，当前 = MergeMetaPersistence.CurrentVersion
@@ -150,9 +151,10 @@ public sealed class MergeMetaSave
     public int totalScore;          // O2：默认进盘当累计总分
     public int wishUsedToday;
     public string lastWishResetDate; // 上次祈愿重置日期 yyyy-MM-dd（§3.6）
-}</pre>
+}
+```
 
-<b>存储介质 / 路径(分生产与测试):</b>
+**存储介质 / 路径(分生产与测试):**
 
 | 环境 | 介质 | 说明 |
 | --- | --- | --- |
@@ -161,25 +163,25 @@ public sealed class MergeMetaSave
 | 生产(降级备选) | `PlayerPrefsProvider` | 若沙盒文件 API 接入成本高,可先沿用现有 `Persistence.Provider`(PlayerPrefs,与 BlockGameState 同款)兜底,键 `block_blast_merge_meta_v1`。PlayerPrefs 非阻塞 IO,不触红线;路径升级为独立轮次,见 [§七 O4](#14-save-system::open) |
 
 > [!NOTE]
-> <b>键 / 文件名带版本后缀 <code>_v1</code>:</b>与现有 <code>block_blast_save_v1</code> / <code>block_blast_dynamic_v1</code> 同款。后缀是「存储位置版本」(改它 = 旧档作废、全新位置),与 DTO 内 <code>version</code> 字段(同位置内的结构演进,走 §3.5 迁移)<mark>是两个层级</mark>:小改字段升 <code>version</code> 迁移,破坏性大改才换 <code>_v2</code> 文件名。
+> **键 / 文件名带版本后缀 `_v1`:**与现有 `block_blast_save_v1` / `block_blast_dynamic_v1` 同款。后缀是「存储位置版本」(改它 = 旧档作废、全新位置),与 DTO 内 `version` 字段(同位置内的结构演进,走 §3.5 迁移)<mark>是两个层级</mark>:小改字段升 `version` 迁移,破坏性大改才换 `_v2` 文件名。
 
-<h3 id="async">3.3 异步 IO 与同步序列化的分界</h3>
+### 3.3 异步 IO 与同步序列化的分界 {#async}
 
 CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / 资源 IO。本篇据此分界:
 
-- <b>同步(纯逻辑,不碰磁盘):</b>`MergeOrderState.ExportMeta()` → DTO、`ImportMeta(DTO)` ← 覆盖字段、`MergeMetaPersistence.Serialize(DTO)` → string、`Deserialize(string)` → DTO、版本迁移、跨天判定。这些是内存内对象转换,<mark>单测直接同步断言,无需 async</mark>。
-- <b>异步(UniTask,落盘/读盘外壳):</b>`SaveAsync()` / `LoadAsync()` 包住「序列化 + 写文件」「读文件 + 反序列化」。写文件用 UniTask 异步文件 API(或把同步 PlayerPrefs 调用包进 `UniTask.RunOnThreadPool` / 直接 PlayerPrefs 非阻塞);读同理。失败(IO 异常 / 文件不存在 / 解析失败)吞掉并返回「无存档」走缺省,仿现有 `BlockGameState.Load` 的 try-catch 兜底。
+- **同步(纯逻辑,不碰磁盘):**`MergeOrderState.ExportMeta()` → DTO、`ImportMeta(DTO)` ← 覆盖字段、`MergeMetaPersistence.Serialize(DTO)` → string、`Deserialize(string)` → DTO、版本迁移、跨天判定。这些是内存内对象转换,<mark>单测直接同步断言,无需 async</mark>。
+- **异步(UniTask,落盘/读盘外壳):**`SaveAsync()` / `LoadAsync()` 包住「序列化 + 写文件」「读文件 + 反序列化」。写文件用 UniTask 异步文件 API(或把同步 PlayerPrefs 调用包进 `UniTask.RunOnThreadPool` / 直接 PlayerPrefs 非阻塞);读同理。失败(IO 异常 / 文件不存在 / 解析失败)吞掉并返回「无存档」走缺省,仿现有 `BlockGameState.Load` 的 try-catch 兜底。
 
 > [!WARNING]
-> <b>测试与磁盘解耦(硬约束):</b>单测<mark>只测同步序列化层 + InMemory Provider 往返</mark>,不测真实文件 IO(EditMode 不应碰沙盒文件,且 UniTask 异步在 EditMode 测试中麻烦)。验收锚点(§六)全部落在 <code>ExportMeta</code>/<code>ImportMeta</code>/<code>Serialize</code>/<code>Deserialize</code>/迁移/跨天这些**同步纯方法**上。异步落盘外壳由 dev 在工程内编译通过即可,不强求单测覆盖(异步文件 IO 的正确性靠 PlayMode / 人工冒烟,非本设计 EditMode 验收范围)。
+> **测试与磁盘解耦(硬约束):**单测<mark>只测同步序列化层 + InMemory Provider 往返</mark>,不测真实文件 IO(EditMode 不应碰沙盒文件,且 UniTask 异步在 EditMode 测试中麻烦)。验收锚点(§六)全部落在 `ExportMeta`/`ImportMeta`/`Serialize`/`Deserialize`/迁移/跨天这些**同步纯方法**上。异步落盘外壳由 dev 在工程内编译通过即可,不强求单测覆盖(异步文件 IO 的正确性靠 PlayMode / 人工冒烟,非本设计 EditMode 验收范围)。
 
-<b>MergeOrderState 仍是纯逻辑类:</b>`ExportMeta`/`ImportMeta` 是纯方法(无 IO、无 UniTask);异步 IO 留在 `MergeMetaPersistence`(存储层)与窗口侧。`MergeOrderState` 不 `using` UniTask,保持可在纯 C# 单测里直接 new 出来跑(继承现状)。
+**MergeOrderState 仍是纯逻辑类:**`ExportMeta`/`ImportMeta` 是纯方法(无 IO、无 UniTask);异步 IO 留在 `MergeMetaPersistence`(存储层)与窗口侧。`MergeOrderState` 不 `using` UniTask,保持可在纯 C# 单测里直接 new 出来跑(继承现状)。
 
-<h3 id="timing">3.4 存 / 读时机策略</h3>
+### 3.4 存 / 读时机策略 {#timing}
 
-<b>读(加载)——启动 / 进入模式时一次:</b>把元层加载织进 `ResetForMergeOrder`(或其调用方 `MergeOrderWindow.OnCreate`)。流程:`new MergeOrderState()` → `Reset()`(初始化局内瞬态 + 元层归零)→ <mark><code>LoadAsync()</code> 读到存档则 <code>ImportMeta()</code> 覆盖元字段</mark>(无存档 / 加载失败 → 保持 Reset 的缺省,等价首次游玩)。注意:`Reset()` 必须先跑(建好局内瞬态),再用存档覆盖元层——两者字段不重叠(§3.1),覆盖只动元字段。
+**读(加载)——启动 / 进入模式时一次:**把元层加载织进 `ResetForMergeOrder`(或其调用方 `MergeOrderWindow.OnCreate`)。流程:`new MergeOrderState()` → `Reset()`(初始化局内瞬态 + 元层归零)→ <mark><code>LoadAsync()</code> 读到存档则 <code>ImportMeta()</code> 覆盖元字段</mark>(无存档 / 加载失败 → 保持 Reset 的缺省,等价首次游玩)。注意:`Reset()` 必须先跑(建好局内瞬态),再用存档覆盖元层——两者字段不重叠(§3.1),覆盖只动元字段。
 
-<b>写(保存)——标脏 + 节流,避免过频写盘:</b>
+**写(保存)——标脏 + 节流,避免过频写盘:**
 
 | 触发 | 动作 | 说明 |
 | --- | --- | --- |
@@ -187,11 +189,11 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 | 合并落盘 | 脏位为真时落盘一次 | 窗口在合适节点(动作处理结束 / 下一帧 / 定时)检查脏位,真则 `SaveAsync()` 落盘并清脏。节流策略 dev 可选最简「每次元动作结束即异步落盘」(动作频率低,够用),复杂去抖列 O5。 |
 | 退出 / 暂停 / 销毁(兜底) | 脏则强制落盘 | `MergeOrderWindow.OnDestroy` / `ExitMergeOrder` 前、`OnApplicationPause(true)` / `OnApplicationQuit` 时,脏位为真强制 `SaveAsync()`(或同步兜底落盘,退出场景下可接受短暂阻塞,仿 `PlayerPrefs.Save`)。<mark>保证「玩家随手退出」不丢最后一次元变更。</mark> |
 
-<b>为什么标脏而非即时写:</b>元动作(交付/修复/开盒/祈愿)频率本就低(非每帧),但一次落子可能连带多次元变更(如交付触发升级 + 章节解锁)。标脏让「一串连带变更」合并成一次落盘,既避免过频写盘,又保证退出前必落。
+**为什么标脏而非即时写:**元动作(交付/修复/开盒/祈愿)频率本就低(非每帧),但一次落子可能连带多次元变更(如交付触发升级 + 章节解锁)。标脏让「一串连带变更」合并成一次落盘,既避免过频写盘,又保证退出前必落。
 
-<h3 id="version">3.5 版本号 + 缺字段迁移</h3>
+### 3.5 版本号 + 缺字段迁移 {#version}
 
-<b>当前版本:</b>`MergeMetaPersistence.CurrentVersion = 1`。DTO 的 `version` 字段随档落盘。加载时按 `version` 决策:
+**当前版本:**`MergeMetaPersistence.CurrentVersion = 1`。DTO 的 `version` 字段随档落盘。加载时按 `version` 决策:
 
 | 读到的 version | 处置 |
 | --- | --- |
@@ -200,7 +202,7 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 | > CurrentVersion(未来档,降级运行) | 无法理解的新字段:保守<mark>重置为缺省(等价首次游玩)</mark>,不冒险用错位数据破坏存档。属极少见(玩家装回旧包),可接受丢档。 |
 | 解析失败 / 字段全 0 的非法档 | 当无存档,走 Reset 缺省 |
 
-<b>缺字段缺省规约(<code>ImportMeta</code> 内逐字段保底,即使 version 匹配也跑):</b>
+**缺字段缺省规约(`ImportMeta` 内逐字段保底,即使 version 匹配也跑):**
 
 | 字段 | 缺省 / 保底 |
 | --- | --- |
@@ -209,18 +211,18 @@ CLAUDE.md 红线「禁同步加载/IO」针对的是阻塞主线程的磁盘 / �
 | `nextRepairIndex` 越界 | 夹到 `[0, HallCount]` |
 | 其余 int 字段 | 0 即合法缺省,直接用(JsonUtility 已给 0) |
 
-<b>为什么 import 内也逐字段保底:</b>哪怕 version 相等,存档文件仍可能被外部篡改 / 截断(单机本地文件)。逐字段保底使 `ImportMeta` 对任意输入都产出<mark>合法的 MergeOrderState 不变量</mark>(等级≥1、神庙数组长 12、索引不越界),不把脏数据带进玩法逻辑。
+**为什么 import 内也逐字段保底:**哪怕 version 相等,存档文件仍可能被外部篡改 / 截断(单机本地文件)。逐字段保底使 `ImportMeta` 对任意输入都产出<mark>合法的 MergeOrderState 不变量</mark>(等级≥1、神庙数组长 12、索引不越界),不把脏数据带进玩法逻辑。
 
-<h3 id="daily">3.6 每日字段跨天重置</h3>
+### 3.6 每日字段跨天重置 {#daily}
 
 `WishUsedToday` 语义是「**今日**已用祈愿次数」(上限 `WishPerDayLimit=3`)。跨会话存它必须配「上次重置日期」,否则昨天用满 3 次的玩家今天进来还是 0 可用。
 
-- <b>存:</b>DTO 带 `lastWishResetDate`(字符串 `yyyy-MM-dd`,本地日期)。每次落盘写入当前 `WishUsedToday` 与上次重置日期。
-- <b>读(<code>ImportMeta</code> 内判定):</b>取当前本地日期 `today`。若 `lastWishResetDate != today` → <mark><code>WishUsedToday = 0</code></mark> 并把重置日期更新为 `today`;否则沿用存档的 `WishUsedToday`。
-- <b>边界:</b>存档无日期字段(旧档 / 篡改)→ 视作「需重置」,`WishUsedToday=0` + 日期设为 today(宽松:宁可多给玩家一次每日额度,不卡死)。
-- <b>日期源:</b>用本地日期(`DateTime.Now.Date` / `ToString("yyyy-MM-dd")`)。单测须能注入「当前日期」以测跨天(否则依赖真实时钟不可测)——给 `ImportMeta` / 跨天判定函数传入 `today` 参数,生产传 `DateTime.Now`,测试传构造日期。<mark>不做防作弊改表(本地单机、去变现,改系统时间无收益对象)。</mark>
+- **存:**DTO 带 `lastWishResetDate`(字符串 `yyyy-MM-dd`,本地日期)。每次落盘写入当前 `WishUsedToday` 与上次重置日期。
+- **读(`ImportMeta` 内判定):**取当前本地日期 `today`。若 `lastWishResetDate != today` → <mark><code>WishUsedToday = 0</code></mark> 并把重置日期更新为 `today`;否则沿用存档的 `WishUsedToday`。
+- **边界:**存档无日期字段(旧档 / 篡改)→ 视作「需重置」,`WishUsedToday=0` + 日期设为 today(宽松:宁可多给玩家一次每日额度,不卡死)。
+- **日期源:**用本地日期(`DateTime.Now.Date` / `ToString("yyyy-MM-dd")`)。单测须能注入「当前日期」以测跨天(否则依赖真实时钟不可测)——给 `ImportMeta` / 跨天判定函数传入 `today` 参数,生产传 `DateTime.Now`,测试传构造日期。<mark>不做防作弊改表(本地单机、去变现,改系统时间无收益对象)。</mark>
 
-<h2 id="flow">四、存读时序</h2>
+## 四、存读时序 {#flow}
 
 一次完整的「进入模式 → 元变更 → 退出」的存读时序(参与方:窗口 / MergeOrderState / 持久化层 / 磁盘):
 
@@ -248,7 +250,7 @@ sequenceDiagram
     P->>D: 落盘,保证不丢末次元变更
 ```
 
-<h2 id="hook">五、挂接点 / dev 改动清单</h2>
+## 五、挂接点 / dev 改动清单 {#hook}
 
 符号名经 grep `Module/BlockBlast/` 与 `UI/BlockBlastUI/` 核实。新增为主,改动旧文件仅 `ResetForMergeOrder` 一处织入加载。
 
@@ -263,7 +265,7 @@ sequenceDiagram
 | 7 | `Persistence.cs` / 沙盒路径接入 | 若选沙盒文件方案:dev 用 `unity_reflect` 核实 TEngine/YooAsset 沙盒根目录 API(O4),实现异步文件读写;若降级 PlayerPrefs 方案则复用现有 Provider,无需改 Persistence.cs | <span class="pill-cur">改/复用</span> |
 | 8 | `Editor/Tests/BlockBlast/MergeMetaSaveTests.cs`(新) | 单测:序列化往返、加载缺省、版本兼容(缺字段补缺 / 旧版迁移 / 未来版重置)、跨天重置、保底夹值、旧路径零回归。SetUp 注入 InMemory Provider 仿 `TempleRepairTests` | <span class="pill-new">新增</span> |
 
-<h2 id="accept">六、验收点</h2>
+## 六、验收点 {#accept}
 
 逐条 test 可核对(全部锚在**同步纯方法** + InMemory Provider,不依赖真实磁盘 / 不依赖 UniTask 运行)。dev 带 unityMCP 自行编译 + 跑 EditMode;MCP 不可达则 test 判 BLOCKED 不判 FAIL。
 
@@ -284,7 +286,7 @@ sequenceDiagram
 | A13 | MergeOrderState 仍纯逻辑 | `MergeOrderState` 不 `using` UniTask / 不含磁盘 IO 调用(`ExportMeta`/`ImportMeta` 可在纯 C# 单测里同步调用) |
 | A14 | 工程编译通过 | 含异步 `SaveAsync`/`LoadAsync` 外壳在内,GameLogic 程序集编译无错(异步外壳正确性靠编译 + 人工冒烟,非 EditMode 断言) |
 
-<h2 id="open">七、待拍板清单</h2>
+## 七、待拍板清单 {#open}
 
 有安全默认的已自主拍板(填 decisions),此处只列**需 boss/用户裁决或交 dev 实现选型**的方向性开关:
 
@@ -296,7 +298,7 @@ sequenceDiagram
 | O4 | 生产存储介质:沙盒 JSON 文件 vs PlayerPrefs? | **建议沙盒文件**(任务点名 YooAsset 沙盒路径 + 异步)。**降级备选 PlayerPrefs**(与现有 BlockGameState 同款,接入零成本,非阻塞不触红线)。dev 用 `unity_reflect` 核实沙盒 API 后定;两方案验收点(§六)不变(都经 Provider/序列化层) | 实现选型(dev 定) |
 | O5 | 落盘节流:每次元动作即落盘 vs 帧末去抖合并? | **默认每次元动作结束即异步落盘**(元动作频率低,够用)。复杂去抖(标脏 + 下一帧/定时合并)dev 可选,不强求 | 实现选型(dev 定) |
 
-<h2 id="risk">八、风险表</h2>
+## 八、风险表 {#risk}
 
 | 风险 | 影响 | 应对 |
 | --- | --- | --- |
