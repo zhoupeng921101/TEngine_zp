@@ -67,7 +67,7 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 
 **端(target):client / server**——同一套 plan→dev→test 闭环按目标端选执行角色对,boss 据任务改客户端还是服务端来定:
 - **client(默认)**:plan→[ui→]**pipeline-dev→pipeline-test**,在 UnityProject 客户端仓库实现,工具链 Unity MCP。
-- **server**:plan→**pipeline-server-dev→pipeline-server-test**(无 ui 环节),工作根 = Fantasy 仓库(`D:\work\TEngine_block\Fantasy\`)、工具链 dotnet、知识库 fantasy-net(详见两卡)。plan 两端共用(设计 code-blind、与端无关)。打回只在 server-dev↔server-test 间循环。
+- **server**:plan→**pipeline-server-dev→pipeline-server-test-codex**(无 ui 环节),工作根 = Fantasy 仓库(`D:\work\TEngine_block\Fantasy\`)、工具链 dotnet、知识库 fantasy-net。**server-test 由 Codex 执行**(独立模型查 dev 的活、降相关性盲点):spawn 薄启动器 `pipeline-server-test-codex`,它跑 Codex 做四类验证、回三态裁决(PASS/FAIL/BLOCKED 契约不变);Codex 的验证方法论是读 `pipeline-server-test` 卡执行。plan 两端共用(设计 code-blind、与端无关)。打回只在 server-dev↔server-test 间循环。
 - **state 文件按 target 替换**:本文下文(恢复协议 / 打回循环 / 关单事务)凡引 `state/dev.md`、`state/test.md` 处,server 单子按 target 对应 `state/server-dev.md`、`state/server-test.md`(plan / ui 交接区两端共用,不变)。
 - **全栈特性(两端都有工作)**:不开并行双 track,走协议优先的顺序编排——详见下文「全栈特性编排(client + server)」。
 
@@ -124,6 +124,7 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 
 3. **挑下一个推荐增量**:据 backlog 目标范围与已关单增量,挑推进目标的下一个(boss 给范围,不逐轮问;新批次/新领域的第一个增量也算「下一个」)
 4. 用 Workflow 工具启动 `pipeline-auto`(name 调用,args 含 task/baton/baseline)执行该增量闭环
+   > **用 name 调用直接传 `args`,不复制 `pipeline-auto.js` + 顶部内联 `args`**:复制会在 `.claude/workflows/` 留下 canonical 的整份副本(随 pipeline-auto.js 演进而漂移、污染规则栈目录)。长任务串直接作 `args.task` 传入即可(`Workflow({name:'pipeline-auto', args:{task, target, baton, baseline}})`)。
 5. 收到 PASS → 走「关单事务」→ **链式 checkpoint commit**:把该增量提交为一个本地 commit(message = 增量名 + 决策摘要),给按增量粒度的回退点 + 让决策日志对齐到具体 commit。**跨仓库**:checkpoint 提交到该增量改动所在的仓库——client 增量 → UnityProject;server 增量 → Fantasy 仓库(`git -C "D:\work\TEngine_block\Fantasy"`);协议增量横跨两仓 → 两仓各自 commit、放弃跨仓原子性,`state/boss.md` 决策日志按仓库分别记 commit 指针。启动自动基线同理:不干净的工作树按本增量目标端在对应仓库各自提基线
 6. 回步骤 3 续接;**终止判定**(命中即停,跳到汇总呈报):
    - backlog 目标达成(无推进目标的推荐增量)

@@ -214,3 +214,33 @@ memory/server-dev.md、server-test.md 头准入:本地直读核过(gitignore、�
 - **候选 1 = 改非 plan 触发(保留预检)**:`pipeline-auto.js` 删 `PLAN_SCHEMA.feasibilityCheck` 字段,可行性预检 stage 移出 `full` 块、改读 `args.feasibilityCheck`(boss 判高风险时传入,full / dev-test 均适用;test-only 已先返回);`SKILL.md`「可行性预检」节加自治旁注(workflow 经 `args.feasibilityCheck` 跑同款只读 stage、不可行 → `BLOCKED stage=feasibility`)。消第十七次起的 plan code-blind ↔ 脚本 doc/impl 漂移。`node` async 包裹语法过;grep 核 `plan.feasibilityCheck` 残留 0、PLAN_SCHEMA 无该字段。
 - **候选 2 = 加概括替换句**:`SKILL.md`「环节裁剪·端(target)」加一条——凡下文(恢复协议/打回循环/关单事务)引 `state/dev.md`、`state/test.md` 处,server 单子按 target 换 `state/server-dev.md`、`state/server-test.md`。一句覆盖全部硬编码处,不逐处改、不新增副本。
 - 改动者收尾自检过(conventions 隔离/无副本/无孤儿/语体);两候选闭。
+
+## 第十九次审计 @ 工作树(增量基线 = 第十八次落账 commit `e90a6dc2`,server-test 迁 Codex 执行未提交)
+
+触发:手动 `/audit`。git 重核:HEAD=`416ecc71`,第十八次工作 + 审计落账已随 `e90a6dc2`(「流水线接入服务端工作流 + 第十七/十八次审计落账」)提交。`e90a6dc2..HEAD` 两提交(`f962c6a5`/`416ecc71` 兑换码客户端段)经 `git diff --name-only -- CLAUDE.md .claude/{agents,skills,rules}` 核**未触规则栈**(纯客户端实现 + design-docs),排除。本增量 = 本会话未提交的「server-test 迁 Codex 执行」(混合架构:client test 经用户拍板**永久留 Claude+UnityMCP**、不迁)。
+
+**第十八次 carry-forward 两改写候选均已结案**(随 `e90a6dc2` 落地,本次 grep 复核):① feasibilityCheck 改 `args.feasibilityCheck` 触发(`PLAN_SCHEMA` 无该字段、stage 读 args),plan code-blind↔脚本 doc/impl 漂移消解;② SKILL「state 文件按 target 替换」概括句在位,server 单子 boss 引/归档不再错指 client state 文件。
+
+自基线以来规则栈实改(本会话):
+- **新增 `pipeline-server-test-codex.md`**(薄 Claude 启动器):不自验,组装提示词→调 `pipeline/codex/run-codex-verify.mjs`(yolo + `--ignore-rules` + 强制原生 UTF-8 读 + `--cd Fantasy`/`--add-dir UnityProject` + `--output-schema` 结构化)→ 取 Codex 三态裁决转交;方法论显式「读 `pipeline-server-test` 卡执行」、recipe「封装在执行器」,本卡不复述。
+- **`pipeline-server-test.md` 改**:编译类「有报错直接判 FAIL」细化为「代码编译错(CSxxxx)→FAIL / 构建环境错(CS2012 产物文件占用、还原失败、SDK 缺、磁盘权限)→BLOCKED」(本会话实测:`Fantasy.SourceGenerator.dll` 被占用致 CS2012,误判 FAIL 会空转打回 dev)。
+- **`pipeline/SKILL.md` L70**:server 流程 spawn 目标 `pipeline-server-test`→`pipeline-server-test-codex`,注明「由 Codex 执行、方法论读 `pipeline-server-test` 卡、PASS/FAIL/BLOCKED 契约不变」。
+- **`pipeline-auto.js` L112**(脚本、SKILL 实现,核引用一致):server 分支 `testAgentType`→`pipeline-server-test-codex`。
+- 非规则栈但同源:`pipeline/codex/{run-codex-verify.mjs,test-schema.json}`(执行器 + schema,pipeline/ 本地工作区、不注入)。
+
+查项结论(1-3 必查):
+- **重复**:无候选。启动器卡显式「方法论读 `pipeline-server-test` 卡」「recipe 封装在 `run-codex-verify.mjs`、本卡不复述」——四类验证内容单源在方法论卡、recipe 单源在执行器,启动器只留编排步,无逐字副本;SKILL L70 同引启动器 + 方法论卡、一致。启动器卡与他卡共享结构样板(我是谁/输入/红线/返回契约)系多 agent 提示词固有并列(同第十四~十八次并列副本模式)、非冗余。**观察(非候选)**:`pipeline-server-test.md` 现双用途——既是 Claude 可回退的 server-test 卡、又是 Codex 的方法论参考;本批最高耦合点,改其措辞须保持模型中立(勿写「我是 Claude」式绑定),否则 Codex 读到失真。
+- **死规则**:无候选。启动器条款触发于 server 单子(新基建、尚无实跑闭环实例,单窗口不判死;recipe/执行器已离线实跑验证过 `dotnet build Fantasy.sln` 往返 + 中文零乱码 + 结构化裁决)。编译类 BLOCKED-vs-FAIL 细化有具体触发实例(本会话实测 CS2012 文件锁)。carry-forward:plan「向上对体验」自检仍无项目内触发实例(第十三次起续监视)。
+- **矛盾**:无。① 启动器回三态裁决(verdict/statePath/reason/decisions),与 SKILL 打回循环(test FAIL→dev、BLOCKED→不打回不计轮)+ `pipeline-auto.js` 循环(round<3 / BLOCKED return / PASS break)契约一致,L70 显式「契约不变」;② SKILL 其余 server-test 提及(L106「跑四类+协议同步」/L138「dotnet build=编译验证」)系活动描述、agent 无关,不与 L70 改名冲突;③ 编译类 BLOCKED 细化与 BLOCKED 总定义(环境阻塞非代码缺陷)同向、收窄到具体构建环境错,无冲突。
+
+条件查项(4-7):
+- **#4 信道匹配**:核过。`pipeline-server-test-codex.md` 入 `.claude/agents/`(spawn 态注入、非每窗,正确);执行器/schema 入 `pipeline/codex/`(本地工作区、不注入,正确);无文件进出 `.claude/rules/` 递归注入路径。
+- **#5 净增趋势**:注入态 `.claude/rules/` 不变(仅 audit-log stub 基线指针更新)。新增启动器卡(spawn 态 ~50 行)+ SKILL(~+2)均不占每窗常驻,不升总量复查。
+- **#6 孤儿旁注**:无。`pipeline-server-test.md` 改的编译类行原无 `>` 旁注;卡内其余旁注(Cat2「不手改 .g.cs」、Cat4「以 fantasy-net 正本为准」)父规范在位、未触;SKILL L70 bullet 无 `>` 旁注。
+- **#7 条款可执行性**(agents 改动):过。`pipeline-server-test-codex.md` 判断条款(Codex 异常退出/缺 out→按 BLOCKED 返回不伪造 PASS;校验 state 报告确被本次写入)三要素齐(触发+动作+可核对产出物),程序步具体(组装→跑→取→清),无形容词冒充、无 taste 伪装;`pipeline-server-test.md` 编译类细化三要素齐(触发=分类错误、动作=判 FAIL/BLOCKED、可核对=CSxxxx vs CS2012/还原失败等具体型)。两卡均过标尺。**自审声明**:启动器卡 + SKILL/方法论改系审计者本人本会话所建,自评 clean,blast radius 中(新执行体进 server 流水线),留下次独立审计复核(同第十六/十八次自审式样)。
+
+**并发观察(延续 concurrent-pipeline-auto-resets-worktree)**:工作树现有非本会话的未跟踪件——`.claude/workflows/pipeline-auto-run.js`、`pipeline-auto-run-cleanup.js`(均 Workflow `meta` 脚本)、`.claude/agent-memory/pipeline-server-{dev,test}/`;来源未知(疑并发/他会话),不在本次 codex 迁移范围、未审,flag 下次审计或用户确认。本次 codex 迁移落账(本段)未提交,同前式样有被并发 git 清理风险,建议尽快提交。
+
+memory 头准入:本会话未新增 memory 头(启动器卡无 `memory` frontmatter);`.claude/agent-memory/pipeline-server-{dev,test}/` 系既有 server 卡 spawn 副产、非本次新规则,不入本审范围。
+
+删除候选:无。改写候选:无(两改动卡过查项 7;第十八次两 carry-forward 候选已结案)。下次增量以本次落账提交后 commit 为基线(并发未提交风险:若被 reset 须重核 HEAD)。

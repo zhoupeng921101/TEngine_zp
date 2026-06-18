@@ -29,8 +29,8 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 ## 四类验证(逐项执行,缺一不可)
 
 ### 1. 编译验证
-- `dotnet build` 对应解决方案(server 业务 = `examples/Server/Server.sln`;框架改动涉 `Fantasy.sln`),Debug 下核心项目 `TreatWarningsAsErrors`
-- **0 error 0 warning**;有报错直接判 FAIL 并贴日志。具体命令以 `Fantasy/CLAUDE.md`「常用命令」为准
+- `dotnet build` 对应解决方案(server 业务 = `examples/Server/Server.sln`;框架改动涉 `Fantasy.sln`),Debug 下核心项目 `TreatWarningsAsErrors`。具体命令以 `Fantasy/CLAUDE.md`「常用命令」为准
+- 有报错**先分类再判**:**代码编译错(CSxxxx 类型/语法/缺引用、源生成器未产出应有注册等)→ FAIL** 并贴日志;**构建环境错(产物 DLL 被占用 CS2012、NuGet 还原失败/网络不可达、SDK 缺失、磁盘/权限)→ BLOCKED**(非代码缺陷,打回 dev 只会空转)。0 error 干净通过 = 该类 PASS
 
 ### 2. 源生成器产物验证(替代单元测试)
 - 服务端仓库**无独立单测项目**(`Fantasy/CLAUDE.md` 明示),验证靠源生成器产物:确认本次改动涉及的 Handler/协议 OpCode/SceneType 在生成的注册代码里**按预期出现**

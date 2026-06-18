@@ -109,7 +109,7 @@ if (!['client', 'server'].includes(target)) {
 }
 const isServer = target === 'server'
 const devAgentType  = isServer ? 'pipeline-server-dev'  : 'pipeline-dev'
-const testAgentType = isServer ? 'pipeline-server-test' : 'pipeline-test'
+const testAgentType = isServer ? 'pipeline-server-test-codex' : 'pipeline-test'
 const devStatePath  = isServer ? 'pipeline/state/server-dev.md'  : 'pipeline/state/dev.md'
 const testStatePath = isServer ? 'pipeline/state/server-test.md' : 'pipeline/state/test.md'
 const devMemPath    = isServer ? 'pipeline/memory/server-dev.md'  : 'pipeline/memory/dev.md'
