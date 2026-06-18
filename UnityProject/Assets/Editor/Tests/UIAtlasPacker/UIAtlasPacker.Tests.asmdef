@@ -3,6 +3,7 @@
     "rootNamespace": "UIAtlasPackerTool.Tests",
     "references": [
         "UIAtlasPacker.Editor",
+        "Auto9Slicer.Editor",
         "Unity.2D.Sprite.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

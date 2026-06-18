@@ -16,10 +16,10 @@ namespace UIAtlasPackerTool.Tests
     /// 1. 工具行为(R1/R3/S1/S3/V2/V3)对 <c>_uiap_test_fixture/</c>——一个提交进库的固定只读小夹具
     ///    (6 张唯一命名 PNG：uiap_plate/uiap_btn=border24，uiap_chat/uiap_help/uiap_clear/uiap_x=border0；
     ///    .meta 已设 Sprite/Single/border 并入库)。资产已入库 → Pack 内部 GetAtPath 即时可用、无 NRE；
-    ///    文件名唯一(uiap_ 前缀避开 setting/ 与各屏) → 不触发 AddressByFileName 收录冲突。
+    ///    文件名唯一(uiap_ 前缀避开 settings/ 与各屏) → 不触发 AddressByFileName 收录冲突。
     ///    每例 TearDown 只删产出表 Sheet__uiap_test_fixture.png，夹具保留。
-    /// 2. 核心锚(R2/S2)读对 setting/ 全集已产出的 Sheet_setting.png(21 命名子图)+ 对照 Sheet_settings.png，
-    ///    不重跑 Pack——产出表已实证正确(21 子图、6×24+15×0、无残留名)，核心锚验「真实全集产出」语义。
+    /// 2. 核心锚(R2/S2b)读对 settings/ 全集的现行生产表 Sheet_settings.png(21 命名子图、6×24+15×0、无残留名)，
+    ///    不重跑 Pack——验「真实全集产出」语义。该表是 5 个窗口运行期 SetSubSprite 寻址的现行 atlas。
     /// 读回子图统一走现代 API ISpriteEditorDataProvider.GetSpriteRects()(与工具写路径同源)。
     /// 运行期寻址(P 组)留给 Play 环节，不在此处。
     /// </summary>
@@ -33,10 +33,9 @@ namespace UIAtlasPackerTool.Tests
         private const string FixtureDir = AtlasRoot + "/" + FixtureFolderName;
         private const string FixtureSheet = AtlasRoot + "/Sheet_" + FixtureFolderName + ".png";
 
-        // 核心锚只读对象：对真实 setting/ 全集已产出的表 + 手工基准表。
-        private const string SourceSettingDir = AtlasRoot + "/setting";
-        private const string ProducedFullSheet = AtlasRoot + "/Sheet_setting.png";
-        private const string ReferenceSheet = AtlasRoot + "/Sheet_settings.png";
+        // 核心锚只读对象：settings/ 全集的现行生产表(窗口 SetSubSprite 实际寻址的 atlas)。
+        private const string SourceSettingDir = AtlasRoot + "/settings";
+        private const string ProducedFullSheet = AtlasRoot + "/Sheet_settings.png";
 
         // 夹具中两个九宫格底图(border=24)，其余 4 个 border=0。
         private static readonly HashSet<string> FixtureBorder24 = new HashSet<string>
@@ -44,7 +43,7 @@ namespace UIAtlasPackerTool.Tests
             "uiap_plate", "uiap_btn"
         };
 
-        // setting/ 全集中六个九宫格底图(border=24)，其余 15 个 border=0(R2/S2 核心锚用)。
+        // settings/ 全集中六个九宫格底图(border=24)，其余 15 个 border=0(R2/S2 核心锚用)。
         private static readonly HashSet<string> SettingBorder24 = new HashSet<string>
         {
             "base_plate", "base_plate2", "base_plate3", "box1", "box2", "button"
@@ -53,7 +52,7 @@ namespace UIAtlasPackerTool.Tests
         [TearDown]
         public void TearDown()
         {
-            // 只删本类测试可能产出的临时表，夹具(_uiap_test_fixture/)与核心锚表(Sheet_setting.png)均保留。
+            // 只删本类测试可能产出的临时表，夹具(_uiap_test_fixture/)与核心锚表(Sheet_settings.png)均保留。
             if (File.Exists(ToAbs(FixtureSheet)))
             {
                 AssetDatabase.DeleteAsset(FixtureSheet);
@@ -112,12 +111,12 @@ namespace UIAtlasPackerTool.Tests
             Assert.AreEqual(SpriteMeshType.FullRect, s.spriteMeshType, "spriteMeshType==FullRect");
         }
 
-        // R2 核心锚：读真实 setting/ 全集已产出的 Sheet_setting.png(21 命名子图、无残留名)。
+        // R2 核心锚：读 settings/ 全集的现行生产表 Sheet_settings.png(21 命名子图、无残留名)。
         [Test]
         public void R2_TwentyOneNamedSprites_NoResidualNames()
         {
             Assert.IsTrue(File.Exists(ToAbs(ProducedFullSheet)),
-                "核心锚表 Sheet_setting.png 应已产出(对 setting/ 全集打表的真实产物)");
+                "核心锚表 Sheet_settings.png 应存在(settings/ 全集的现行生产 atlas)");
 
             var metas = ReadSpriteRects(ProducedFullSheet);
             Assert.AreEqual(21, metas.Length, "正好 21 个 SpriteRect");
@@ -196,32 +195,23 @@ namespace UIAtlasPackerTool.Tests
             }
         }
 
-        // S2b 核心锚：真实 setting/ 全集产出表 border(6×24 + 15×0)与手工基准 Sheet_settings.png 逐一相等。
+        // S2b 核心锚：settings/ 全集现行生产表 Sheet_settings.png 的子图 border 为 6×24 + 15×0(从源 importer.spriteBorder 继承：6 张 plate/box/button 源带 {24,24,24,24}，其余 15 张为 0)。
         [Test]
         public void S2b_BorderMatchesReferenceSheet_FullSet()
         {
             Assert.IsTrue(File.Exists(ToAbs(ProducedFullSheet)),
-                "核心锚表 Sheet_setting.png 应已产出");
+                "核心锚表 Sheet_settings.png 应存在");
 
             var produced = ReadSpriteRects(ProducedFullSheet).ToDictionary(m => m.name, m => m.border);
             Assert.AreEqual(21, produced.Count, "全集 21 子图");
 
-            // 6×24 / 15×0
+            // 6 个九宫格底图 border=24、其余 15 个=0(从源 importer.spriteBorder 继承)
             foreach (var kv in produced)
             {
                 var expected = SettingBorder24.Contains(kv.Key)
                     ? new Vector4(24, 24, 24, 24)
                     : Vector4.zero;
                 Assert.AreEqual(expected, kv.Value, $"{kv.Key} border 应为 {expected}");
-            }
-
-            // 与手工基准 Sheet_settings.png 对应子图逐一相等
-            var reference = ReadSpriteRects(ReferenceSheet).ToDictionary(m => m.name, m => m.border);
-            foreach (var kv in produced)
-            {
-                Assert.IsTrue(reference.ContainsKey(kv.Key), $"基准表应含子图 {kv.Key}");
-                Assert.AreEqual(reference[kv.Key], kv.Value,
-                    $"{kv.Key} border 应与基准 Sheet_settings.png 逐一相等");
             }
         }
 

@@ -1,11 +1,7 @@
 {
-    "name": "UIAtlasPacker.Editor",
-    "rootNamespace": "UIAtlasPackerTool",
-    "references": [
-        "YooAsset",
-        "Unity.2D.Sprite.Editor",
-        "Auto9Slicer.Editor"
-    ],
+    "name": "Auto9Slicer.Editor",
+    "rootNamespace": "Auto9Slicer",
+    "references": [],
     "includePlatforms": [
         "Editor"
     ],

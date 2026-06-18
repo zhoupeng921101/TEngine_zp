@@ -87,7 +87,7 @@ namespace UIAtlasPackerTool
         /// <summary>
         /// 对一个散切图目录打表。校验不过/已存在即中止并返回 Success=false、不产出任何文件。
         /// </summary>
-        /// <param name="folderPath">散切图目录的资源路径(如 Assets/AssetRaw/UIRaw/Atlas/setting)</param>
+        /// <param name="folderPath">散切图目录的资源路径(如 Assets/AssetRaw/UIRaw/Atlas/settings)</param>
         /// <param name="simulateBuild">成功后是否重建 YooAsset 模拟清单(EditMode 测试一般传 false)</param>
         public static PackResult Pack(string folderPath, bool simulateBuild = true)
         {
