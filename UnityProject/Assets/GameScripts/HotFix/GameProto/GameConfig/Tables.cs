@@ -160,48 +160,6 @@ public partial class Tables
         }
     }
     /// <summary>
-    /// 通用兑换码主表
-    /// </summary>
-    private redeem.TbRedeemCode m_TbRedeemCode;
-    public redeem.TbRedeemCode TbRedeemCode 
-    {
-        get
-        {
-            if (m_TbRedeemCode == null)
-            {
-                m_TbRedeemCode = new redeem.TbRedeemCode(defaultLoader("redeem_tbredeemcode"));
-                m_TbRedeemCode.ResolveRef(this);
-            }
-            return m_TbRedeemCode;
-        }
-        set
-        {
-            m_TbRedeemCode = value;
-            m_TbRedeemCode.ResolveRef(this);
-        }
-    }
-    /// <summary>
-    /// 兑换码奖励子表(按code聚合)
-    /// </summary>
-    private redeem.TbRedeemReward m_TbRedeemReward;
-    public redeem.TbRedeemReward TbRedeemReward 
-    {
-        get
-        {
-            if (m_TbRedeemReward == null)
-            {
-                m_TbRedeemReward = new redeem.TbRedeemReward(defaultLoader("redeem_tbredeemreward"));
-                m_TbRedeemReward.ResolveRef(this);
-            }
-            return m_TbRedeemReward;
-        }
-        set
-        {
-            m_TbRedeemReward = value;
-            m_TbRedeemReward.ResolveRef(this);
-        }
-    }
-    /// <summary>
     /// 通用邮件模板表
     /// </summary>
     private mail.TbMail m_TbMail;
