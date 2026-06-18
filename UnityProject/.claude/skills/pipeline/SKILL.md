@@ -48,6 +48,7 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 3. 回执不可行 → 带 dev 给的替代接法,据其根因回 plan 调设计(若设计层错)或直接并入 dev 简报(若仅实现接法),**不计 dev 打回轮次**(未进实现,不是返修)
 
 > 预检是 boss 对高风险任务的可选早检,不是每个 full 任务的固定步骤:多数任务 dev 自行读工程定位接缝即可。
+> 自治模式经 pipeline-auto workflow:boss 把存疑接缝经 `args.feasibilityCheck` 传入,workflow 在转 dev 前跑同款只读预检 stage(不可行 → `BLOCKED stage=feasibility`),触发由 boss 判定、不依赖 plan 产字段。
 
 ## 打回循环(确定性编号步骤;自治模式由 pipeline-auto workflow 执行同一逻辑)
 
@@ -64,13 +65,19 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 
 闭环默认全程 plan→[ui→]dev→test(ui 按裁剪规则可选);按任务性质裁剪参与环节。**验收/打回/关单语义不变**,打回只在参与环节内循环(test FAIL → dev,不会打回到未参与的 plan/ui)。ui 产出的 Prefab/素材返修走 ui→dev→test,不触发 plan 返修。
 
+**端(target):client / server**——同一套 plan→dev→test 闭环按目标端选执行角色对,boss 据任务改客户端还是服务端来定:
+- **client(默认)**:plan→[ui→]**pipeline-dev→pipeline-test**,在 UnityProject 客户端仓库实现,工具链 Unity MCP。
+- **server**:plan→**pipeline-server-dev→pipeline-server-test**(无 ui 环节),工作根 = Fantasy 仓库(`D:\work\TEngine_block\Fantasy\`)、工具链 dotnet、知识库 fantasy-net(详见两卡)。plan 两端共用(设计 code-blind、与端无关)。打回只在 server-dev↔server-test 间循环。
+- **state 文件按 target 替换**:本文下文(恢复协议 / 打回循环 / 关单事务)凡引 `state/dev.md`、`state/test.md` 处,server 单子按 target 对应 `state/server-dev.md`、`state/server-test.md`(plan / ui 交接区两端共用,不变)。
+- **全栈特性(两端都有工作)**:不开并行双 track,走协议优先的顺序编排——详见下文「全栈特性编排(client + server)」。
+
 **参与环节两个来源**:
 - 用户显式指定(`/pipeline <环节> <任务>`,优先):环节序列 = plan→ui→dev→test 的连续子序列,`/` 分隔(`dev-test`、`test`、`ui-dev-test`、`plan-ui-dev-test`)。boss 直接采用,跳过下表判断。
 - 未指定(`/pipeline <任务>`):boss 按下表任务性质判断。
 
 **是否含 test 决定验收强度**:含 test → test 做四类验证后关单(完整);不含 test(如 `plan`、`dev`)→ 只有 boss 产出验收(产出完整 + 交叉检自检),无代码正确性验证,据此关单。
 
-> 自治模式经 pipeline-auto workflow,baton = full / dev-test / test-only。test-only 仅作环境恢复后补运行验证的续接档(无 dev 在环、验出 FAIL 不返修直接返回),新鲜任务从 full 或 dev-test 起。要 plan-only / dev-only 这类其余单环节,走常规模式。
+> 自治模式经 pipeline-auto workflow,baton = full / dev-test / test-only,另收 **target=client/server** 选执行角色对(server → pipeline-server-dev/test)。test-only 仅作环境恢复后补运行验证的续接档(无 dev 在环、验出 FAIL 不返修直接返回),新鲜任务从 full 或 dev-test 起。要 plan-only / dev-only 这类其余单环节,走常规模式。
 
 | 任务性质 | 参与环节(baton) | dev 简报锚点 |
 |----------|------|--------------|
@@ -91,6 +98,17 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 - test 验证范围随参与环节:微调 = 指令点 + 受影响区域回归;优化 = 行为不变回归 + 优化目标达成证据
 - 环节判不准:常规模式问用户一句;自治模式选最保守(全环节)并记决策日志
 
+## 全栈特性编排(client + server)
+
+一个需求两端都有工作时,围绕**协议契约**排期——协议(proto 生成的消息代码)是两端唯一硬耦合,契约没锁定、没双端生成,client 无从消费。走串行·协议优先(不开并行双 track,那是未做的 C 形态):
+
+1. **plan 一次**:出一份覆盖两端的设计稿——前后端职责切分 + 行为级协议契约(code-blind),作两段共用的设计基线。
+2. **server 段先行**(target=server):server-dev 改 proto → 跑导出 → 把客户端生成物复制进 `UnityProject/Assets/Fantasy/Generate/NetworkProtocol/` → 实现 Handler/存储;server-test 跑四类 + 协议同步检查。server 代码落 Fantasy 仓库、协议生成物落 UnityProject → **该段两仓各自 commit**(见「环节裁剪」跨仓库条款)。
+3. **client 段随后**(target=client,baton=dev-test,baseline=同一设计稿):协议代码已就位,client dev 消费协议 + UI/逻辑(常是把既有「服务器接缝」从本地占位切到真实协议);client test 跑 Unity 四类。
+4. **关单**:两段各自关单(吻合自治「一增量一关单」),boss 在 `state/boss.md`「最近关单」把两段标为同一特性。
+
+> 顺序由协议依赖锁定:client 段消费 server 段产出的协议生成物,故 server 必先行。**不改协议的全栈**(两端复用现有消息,或各自独立无耦合)无此依赖,两段顺序随意、可当独立增量。
+
 ## 自治模式(`/pipeline-auto <任务>`)
 
 **自治模式 = 无人值守,自动续接到目标完成**:激活后人不在环,boss 自主决策推进、一个增量关单即挑下一个,直到目标达成 / 遇硬阻塞 / 达安全上限才停下汇总呈报。
@@ -106,7 +124,7 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 
 3. **挑下一个推荐增量**:据 backlog 目标范围与已关单增量,挑推进目标的下一个(boss 给范围,不逐轮问;新批次/新领域的第一个增量也算「下一个」)
 4. 用 Workflow 工具启动 `pipeline-auto`(name 调用,args 含 task/baton/baseline)执行该增量闭环
-5. 收到 PASS → 走「关单事务」→ **链式 checkpoint commit**:把该增量提交为一个本地 commit(message = 增量名 + 决策摘要),给按增量粒度的回退点 + 让决策日志对齐到具体 commit
+5. 收到 PASS → 走「关单事务」→ **链式 checkpoint commit**:把该增量提交为一个本地 commit(message = 增量名 + 决策摘要),给按增量粒度的回退点 + 让决策日志对齐到具体 commit。**跨仓库**:checkpoint 提交到该增量改动所在的仓库——client 增量 → UnityProject;server 增量 → Fantasy 仓库(`git -C "D:\work\TEngine_block\Fantasy"`);协议增量横跨两仓 → 两仓各自 commit、放弃跨仓原子性,`state/boss.md` 决策日志按仓库分别记 commit 指针。启动自动基线同理:不干净的工作树按本增量目标端在对应仓库各自提基线
 6. 回步骤 3 续接;**终止判定**(命中即停,跳到汇总呈报):
    - backlog 目标达成(无推进目标的推荐增量)
    - 遇 BLOCKED:剩余增量独立于它 → 继续做独立项;无独立项 → 停
@@ -117,7 +135,7 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 
 - **三段阶梯处置不确定**(各角色在环节内执行,见 agent 卡;boss 同此):①有明显安全默认(不抵触 spec/GDD 主线、可逆)→ 立即取默认,不为此调查;②无明显默认 → **先调查取证**(读码 / grep 现成链路 / 核对 GDD 原文与 design-docs)据证据拍板(**plan 角色例外:不读码,只核 GDD + design-docs**,见其卡);③仅「调查也定不了 且 不可逆 且 抵触 GDD 原文」三者同时成立 → 记 **BLOCKED**,跳过该点继续推进不依赖它的部分
 - **决策日志**(`state/boss.md`)每条记三元组:**选择 + 依据(证据/调查结论) + 可逆性标签**(可回退到 commit X / 不可逆)。自治越激进,这份日志越是用户复核无人值守产出的主要依据
-- 边界:不 push、不 build、不发布(开发流水线不含这些动作);本地 checkpoint commit 不在此列(与启动自动基线同源)
+- 边界:不 push、不 build、不发布(开发流水线不含这些动作);本地 checkpoint commit 不在此列(与启动自动基线同源)。server-test 的 `dotnet build` 是编译验证、非发布构建,属测试环节本职,不在此禁列
 - 常规模式下 BLOCKED 机制不启用——用户在场,分歧直接问
 
 ## 关单事务(state/test.md 总判定 PASS 后,按序一次跑完)

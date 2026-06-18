@@ -150,3 +150,67 @@ memory/ui.md 头准入:本地直读核过(脱离 git-diff 短路,第十四次起
 自审声明(交叉检最弱点):本会话查项 7 + pipeline/SKILL 指针系审计者本人所改、自评 clean,blast radius 低(条件查 + 引用指针),留下次独立审计复核。
 
 删除候选:无。改写候选:无(pipeline-ui.md 经查项 7 clean)。下次增量以本会话(第十六次落账 + 查项 7 接入 + UI 环节)提交后 commit 为基线。
+
+## 第十七次审计 @ 工作树(增量基线 = 第十六次落账 commit `d8618184`,「设计-代码解耦」并发提交 + pipeline-ui 素材流程修订)
+
+触发:手动 `/audit`。增量自第十六次落账 `d8618184`(标尺文档 + 查项 7 + 落账,核过内容无损)起。审 `d8618184..HEAD` 触及规则栈的提交 + 工作树未提交。
+
+**并发观察(框架级,供用户决策)**:本次审计期间工作树被并发会话改动——HEAD 自第十六次审计时的 `bb3034f8` 推到 `3f2494ce`(6 提交);第十六次本会话未提交工作已被并发提交为 `d8618184`;`pipeline-ui.md` 又被改、未提交。同记忆「concurrent-pipeline-auto-resets-worktree」**第二次命中**,这次命中的是审计流程本身:增量基线在两次审计间被并发推移,且本次落账(未提交)有被并发 git 清理冲掉的风险。根因 = 单一共享 git 工作树同时承载并发自治 git 操作 + 依赖稳定基线的审计。建议升级隔离(并发 pipeline-auto 走独立 git worktree/分支)或串行(pipeline-auto 活动时不跑 /audit)。非规则内容矛盾,不入删除候选,记观察。
+
+自基线以来规则栈实改(并发提交 `3f2494ce`「设计-代码解耦:plan 角色 code-blind」+ 未提交 pipeline-ui):
+- **conventions.md +1**:规则3 加「design-docs 专项·与代码解耦」子条款(设计稿不写代码符号/路径/file:line/接缝清单/dev 改动清单/引用代码的设计基线;例外=代码架构文档、UI 实现接线稿)。
+- **pipeline-plan.md 重写**:职责#5「不读工程代码、不 grep 符号」、输入「不读工程源码」、产出「行为级完成定义、不含代码定位」、章节骨架**删「接缝清单」**+「正文不写代码符号」、红线**删 feasibilityCheck**+加「设计稿正文不含代码」、返回契约**删⑤ feasibilityCheck**、整局走查「系统接缝」→「机制」。
+- **pipeline-dev.md +8**:输入 design-docs = code-free 设计意图 + 旁注「dev 自行读工程映射接缝、代码是 dev 单一事实源」;可行性预检模式触发由「plan feasibilityCheck」泛化为「boss 高风险/接法存疑任务」。
+- **pipeline/SKILL.md +13**:「可行性预检」节从「plan 上报 feasibilityCheck 时」重写为「boss 判高风险/接法存疑时」,删自治 stage 旁注。
+- **pipeline-ui.md(未提交)+14**:Step 4 素材流程 curl→PowerShell `Invoke-RestMethod`、Flux 默认 Schnell、加实测「已知限制」(RGB 无透明通道 / 长宽比不精确)+ 对策。
+
+查项结论(1-3 必查):
+- **重复**:无(候选)。解耦原则现于 conventions 规则3(源)+ plan 卡三处(职责#5/章节骨架/红线)+ dev 输入旁注 + SKILL 可行性预检节;系多 agent 并列副本模式(同第十四/十五次),四处同提交 `3f2494ce` 同步,plan 红线/dev 旁注均带「见 conventions」源指针。**观察(非候选)**:plan 红线「设计稿正文不含代码…」与 conventions 子条款近逐字重叠,是本轮最重副本、最大漂移点——后续改 conventions 须连带 plan 卡同步(§反向冲突)。
+- **矛盾**:解耦四文件内部自洽(SKILL 可行性预检节已正确改 boss 触发、删 plan.feasibilityCheck 依赖);conventions 解耦子条款的例外(UI 实现接线稿)正确豁免 pipeline-ui.md(含 `m_` 前缀/C# 路径 = UI 实现接线),不与 ui 卡冲突。**发现 1 处 doc/impl 漂移(改写候选)**:`3f2494ce` 删 plan feasibilityCheck + SKILL 自治 stage 旁注,但**未同步 `.claude/workflows/pipeline-auto.js`**——其 `PLAN_SCHEMA.feasibilityCheck`(行 36)+ feasibility stage(行 126-143,`if (plan.feasibilityCheck…)` → spawn dev 预检 → `BLOCKED stage=feasibility`)仍依赖 plan 产 feasibilityCheck。后果:① 经 plan 触发的 stage 路径已死(plan 卡不再产该字段);② schema 字段描述**反向要求 plan 产出代码接缝信息**,与 plan 新 code-blind 强制冲突(自治模式 plan agent 收冲突指令)。属 conventions 规则6「改一篇须同步他篇」在并发改动中漏执行,同第十三/十四次警惕的 doc/impl 漂移式样。(pipeline-auto.js 非规则栈散文范围,作 SKILL 实现一并核;此处 SKILL 旁注已删对它的引用,漂移落在 脚本↔plan 卡 之间。)
+- **死规则**:无(候选)。新条款均可触发(解耦于 plan 写文档时、dev 映射接缝于每 dev 任务、ui Step4 于素材生成)。移除项:plan feasibilityCheck 整体删——由此暴露上方 pipeline-auto.js 残留。carry-forward:plan「向上对体验」自检仍无项目内触发实例(第十三次起续监视)。
+
+条件查项(4-7):
+- **#4 信道匹配**:本增量无文件进出注入路径(改在已就位的 conventions/agents/skills;`d8618184` 把标尺文档落 references/ 已第十六次核过)。无变。
+- **#5 净增趋势**:注入态 `.claude/rules/` +1 行(conventions 解耦子条款,justified)+ audit-log stub。大改在 agents(spawn 态)/design-docs(非规则栈)。不升总量复查。
+- **#6 孤儿旁注**:无。plan 删接缝清单/feasibilityCheck 系自包含删除、无遗留孤儿;「范围开关塞 blockers」旁注父节(三段阶梯)在位;SKILL 可行性预检节旁注就地更新;conventions +1 为加法。**跨文件**:标尺文档 `agent-card-authoring.md` grep 确认无「接缝清单/feasibilityCheck/接缝」引用,其所引「设计稿章节骨架」「设计自检」节与「崩法/降层/三档」条款在 `3f2494ce` 重写后全部存活——解耦未孤儿化标尺文档。
+- **#7 条款可执行性**(agents 改动):过。plan 重写后判断条款(需求降层/崩法/范围三档/整局走查/向上对体验)三要素仍齐;解耦新增为具体禁止(不写代码符号/接缝)、非形容词;dev 预检模式 + 「自行映射接缝」旁注三要素齐;pipeline-ui Step4 程序性修订,降级判断条款三要素齐、已知限制为实测事实 + 具体对策、非形容词。三张改动卡均通过标尺。
+
+改写候选(报用户拍板,不静默改):pipeline-auto.js feasibilityCheck 残留(见查项3·矛盾)。选项:(a)删 `PLAN_SCHEMA.feasibilityCheck` 字段 + feasibility stage——自治模式失去早期可行性预检,需确认可接受;(b)保留 stage 但改触发(不读 plan.feasibilityCheck,改由 workflow/boss 级启发式或 args 触发,对齐 SKILL「boss 判高风险」的自治等价)。属「自治模式是否保留可行性预检及如何触发」的设计决策,留用户定;且 pipeline-auto.js 正被并发改动,定后由稳定态执行。
+
+删除候选:无。下次增量以本会话(第十七次落账)提交后 commit 为基线;因并发工作树漂移,若基线期间被 reset,下次须重新核 HEAD 定基线。
+
+## 第十八次审计 @ 工作树(增量基线 = 第十七次审过 commit `3f2494ce`,服务端流水线接入 + pipeline-ui 重写补审)
+
+触发:手动 `/audit`。第十七次落账(audit-log)仍未提交(工作树 `M`),叙述已在本活账本。git 重核 HEAD=`0b41dc3d`,增量自 `3f2494ce` 起,`3f2494ce..HEAD` 触及规则栈两笔:`6160a9e8`(pipeline-ui.md 重写 88 行——超出第十七次只见的 +14 Step4,本次补审)、本会话工作树(服务端流水线接入)。`0b41dc3d`(ui-atlas 工具 + design-docs)未触 `.claude/` 规则栈,排除。
+
+**并发延续**:第十七次落账 + 本次落账均未提交,且审计间已有 `6160a9e8`/`0b41dc3d` 落地——「concurrent-pipeline-auto-resets-worktree」式漂移再现(落账未提交有被并发 git 清理风险),建议尽快提交本审计落账。
+
+自基线以来规则栈实改:
+- **本会话(服务端流水线接入:B 形态 + 自治覆盖 + 全栈顺序编排)**:新增 `pipeline-server-dev.md`/`pipeline-server-test.md`(镜像 dev/test、工具链 dotnet、显式 Read fantasy-net 正本、协议跨仓库归属/检查项);`pipeline/SKILL.md` 加 target(client/server)选卡维度 + 跨仓库 checkpoint 提交 +「全栈特性编排」节(协议优先顺序增量)+「不 build」边界澄清(server-test dotnet build=编译验证非发布);`pipeline-auto.js` 加 target 维度(server 换角色对 + 切 state/memory 路径,baton/plan 语义不变);新增 `pipeline/memory/server-dev.md`/`server-test.md` 头;`pipeline/README.md` 角色枚举同步(漏 ui 一并补)。
+- **`6160a9e8`(pipeline-ui.md 重写)**:AI 生成降级为可选概念工具,生产对齐已验证精灵表范式(UIAtlasPacker/Sheet_<屏>/SetSubSprite),Replicate/Flux 移入附录「可选概念图·非生产依赖」。
+
+查项结论(1-3 必查):
+- **重复**:无候选。server 卡镜像 client 卡结构系多 agent 提示词固有并列(各 consumer 只见自身 system prompt),同第十四~十七次并列副本模式;server 卡红线/工作流均「显式 Read fantasy-net 正本、不复述」,非条文复制。全栈编排 SKILL 节 + target bullet 已收为指针、不重复跨仓库条款。**观察(非候选)**:协议同步职责分布 server-dev 卡(产)+ server-test 卡(检)+ SKILL 全栈节(排序)三处,系角色切分(同 plan 写崩法/test 越界 模式)、role-specific 非逐字,但为本批最高耦合点——改协议同步机制须三处同步。`6160a9e8` 单源 ui 卡。
+- **死规则**:无候选。server 卡条款触发于 server 任务(新基建,尚无实跑实例,单窗口不判死);target/全栈编排触发于 server/全栈任务。carry-forward:plan「向上对体验」自检仍无触发实例(第十三次起续监视)。
+- **矛盾**:**2 改写候选**(见下)。其余自洽:target 维度与环节裁剪/baton 正交;跨仓库 checkpoint 扩展既有 checkpoint 逻辑;「不 build」边界澄清消解 server-test dotnet build 与 boss 不 build 的表面冲突;server-test「四类」与 client「四类」各自独立、命名平行非冲突;`6160a9e8` 与 atlas 工具/ui-production-plan 记忆一致。
+
+**改写候选 1(carry-forward 第十七次,未解决,报用户)**:`pipeline-auto.js` feasibilityCheck 残留。本会话 target 重写**逐字保留** `PLAN_SCHEMA.feasibilityCheck` + feasibility stage,第十七次所标「plan code-blind ↔ schema 反向要 plan 产代码接缝」冲突依旧。新细节:stage 现 spawn `devAgentType`(server 单子=server-dev、会读码,feasibility 对 server 合理),但触发仍是 `plan.feasibilityCheck`(两端 plan 均 code-blind、不产该字段)→ 经 plan 触发路径仍死、schema 冲突仍在。选项同第十七次((a)删字段+stage / (b)改非 plan 触发),属自治设计决策,留用户定。
+
+**改写候选 2(本会话引入,报用户)**:`pipeline/SKILL.md` 加了 server target 维度 + server-dev/server-test state 文件,但 boss 的「恢复协议」(行18 `state/plan.md|ui.md|dev.md|test.md`)、「打回循环」(读 `state/test.md` 总判定 / 简报附 `state/test.md`+`state/dev.md`)、「关单事务」(行139/143 `state/test.md` PASS、行146 归档枚举)多处**硬编码 client state 文件名,未随 target 同步**。后果:regular-mode server 单子,boss 按字面会引/归档错文件(空的 test.md/dev.md 而非 server-test.md/server-dev.md)。属 conventions 规则6「改一处同步他篇」在本会话漏执行(同第十七次 feasibilityCheck 式样)。建议低改动面修法:在「环节裁剪·端(target)」加一句概括——「下文凡引 state/dev.md、state/test.md 处,server 单子按 target 替换为 state/server-dev.md、state/server-test.md」,不逐处改。(autonomous 模式 pipeline-auto.js 已正确参数化 state 路径,本候选只影响 regular-mode boss 手动编排。)
+
+条件查项(4-7):
+- **#4 信道匹配**:核过。server 卡入 `.claude/agents/`(spawn 态注入、非每窗,正确);无文件进出 `.claude/rules/` 递归注入路径。无错置。
+- **#5 净增趋势**:注入态 `.claude/rules/` 不变(仅 audit-log stub 基线指针更新,conventions 未触)。新增 server 卡(spawn 态,~120+~100 行)+ SKILL(~+25)+ pipeline-auto.js(~+15,脚本非注入)均不占每窗口常驻,不升总量复查。
+- **#6 孤儿旁注**:无。SKILL 全栈 bullet 改指针处无 `>` 旁注;新增「全栈特性编排」节 `>` 旁注父节在位;「不 build」为加法澄清;`6160a9e8` ui 卡重写保留「纯色占位不用 AI」「精灵表寻址」旁注、父规范(纯色占位/精灵表默认)在位。
+- **#7 条款可执行性**(agents 改动):过。server-dev/server-test 判断条款(协议变更归属、自检四项、designFlaw 取证、越界试探、协议同步检查项、BLOCKED 判据)三要素(触发+动作+可核对产出物)齐全,无形容词冒充、无 taste 伪装;`6160a9e8` ui 卡红线(切图缺失→纯色占位、MCP 断连→暂停产 Step1-2、命名前缀逐项自检、概念图不绑生产 sprite)三要素齐。三张改动卡均过标尺。**自审声明**:server 两卡系审计者本人本会话所建,自评 clean,blast radius 中(新执行体进流水线),留下次独立审计复核(同第十六次自审式样)。
+
+memory/server-dev.md、server-test.md 头准入:本地直读核过(gitignore、脱 git-diff)——标准准入式样(只记跨任务可复用且 agent 定义/fantasy-net/Fantasy CLAUDE/conventions 未覆盖),正文空,无死规则无孤儿。
+
+观察(minor,非候选):① server-dev 卡 build 命名 `examples/Server/Server.sln`(server 业务)但「具体命令以 Fantasy/CLAUDE.md 常用命令为准」,而 CLAUDE.md 常用命令只示 `dotnet build Fantasy.sln`(框架)+ Main run、未列 Server.sln build——轻微指针不全(非矛盾,卡已自区分 server 业务/框架),日后补 CLAUDE.md 或卡内明确即可。② SKILL 打回循环 BLOCKED 例子「Unity MCP/编辑器不可达等」client 味,server 环境阻塞(跑不动服/MongoDB)由「等」涵盖但不显式——若采纳候选 2 概括句可顺带提一句。
+
+删除候选:无。改写候选:2(均报用户拍板,不静默改)。下次增量以本次落账提交后 commit 为基线(并发未提交风险:若被 reset 须重核 HEAD)。
+
+**落账(同会话用户拍板后执行,主会话直接改)**:
+- **候选 1 = 改非 plan 触发(保留预检)**:`pipeline-auto.js` 删 `PLAN_SCHEMA.feasibilityCheck` 字段,可行性预检 stage 移出 `full` 块、改读 `args.feasibilityCheck`(boss 判高风险时传入,full / dev-test 均适用;test-only 已先返回);`SKILL.md`「可行性预检」节加自治旁注(workflow 经 `args.feasibilityCheck` 跑同款只读 stage、不可行 → `BLOCKED stage=feasibility`)。消第十七次起的 plan code-blind ↔ 脚本 doc/impl 漂移。`node` async 包裹语法过;grep 核 `plan.feasibilityCheck` 残留 0、PLAN_SCHEMA 无该字段。
+- **候选 2 = 加概括替换句**:`SKILL.md`「环节裁剪·端(target)」加一条——凡下文(恢复协议/打回循环/关单事务)引 `state/dev.md`、`state/test.md` 处,server 单子按 target 换 `state/server-dev.md`、`state/server-test.md`。一句覆盖全部硬编码处,不逐处改、不新增副本。
+- 改动者收尾自检过(conventions 隔离/无副本/无孤儿/语体);两候选闭。
