@@ -6,7 +6,7 @@ namespace GameLogic.Config
     /// <summary>
     /// 通用邮件底层配置管理器（设计 21 §3.2）。
     /// 桥接 Luban 生成的 <c>GameConfig.mail.TbMail / TbMailGlobal</c>（行类 <c>GameConfig.Mail / GameConfig.MailGlobal</c>）→ POCO
-    /// （<see cref="MailDef"/> / <see cref="MailGlobalConfig"/>），让业务侧不直接依赖 Luban 类型。仿 <see cref="ItemConfigMgr"/> / <see cref="RedeemConfigMgr"/>。
+    /// （<see cref="MailDef"/> / <see cref="MailGlobalConfig"/>），让业务侧不直接依赖 Luban 类型。仿 <see cref="ItemConfigMgr"/>。
     /// </summary>
     /// <remarks>
     /// 加法式：注册表只持有元数据，不读写 <c>MergeOrderState</c>。

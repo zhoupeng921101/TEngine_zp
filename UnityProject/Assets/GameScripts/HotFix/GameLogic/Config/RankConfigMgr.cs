@@ -6,7 +6,7 @@ namespace GameLogic.Config
     /// <summary>
     /// 排行榜底层配置管理器（设计 22 §3.2）。
     /// 桥接 Luban 生成的 <c>GameConfig.rank.TbRank</c>（行类 <c>GameConfig.Rank</c>）→ POCO（<see cref="RankDef"/> / <see cref="RankRewardTier"/>），
-    /// 让业务侧不直接依赖 Luban 类型。仿 <see cref="MailConfigMgr"/> / <see cref="ItemConfigMgr"/> / <see cref="RedeemConfigMgr"/>。
+    /// 让业务侧不直接依赖 Luban 类型。仿 <see cref="MailConfigMgr"/> / <see cref="ItemConfigMgr"/>。
     /// </summary>
     /// <remarks>
     /// 加法式：注册表只持有元数据，不读写 <c>MergeOrderState</c>。

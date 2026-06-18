@@ -5,6 +5,7 @@
         "GameLogic",
         "GameProto",
         "TEngine.Runtime",
+        "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

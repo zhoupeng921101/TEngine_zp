@@ -68,7 +68,7 @@ namespace GameLogic.Mail
 
     /// <summary>
     /// 测试持久化：内存直存直取，往返断言不污染真实 PlayerPrefs（设计 21 §3.5）。
-    /// 跨「实例」往返用同一 <see cref="InMemoryMailPersistence"/> 实例模拟（与 PersistenceRedeemStore 跨实例复用同 provider 同源）。
+    /// 跨「实例」往返用同一 <see cref="InMemoryMailPersistence"/> 实例模拟（仿持久化接缝测试存根，往返不碰真实 PlayerPrefs）。
     /// </summary>
     public sealed class InMemoryMailPersistence : IMailPersistence
     {

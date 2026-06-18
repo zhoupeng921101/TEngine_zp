@@ -1,8 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using UnityEditor;
-using UnityEngine;
+using Cysharp.Threading.Tasks;
 using GameLogic.Redeem;
 using GameLogic.Config;
 using GameLogic.BlockBlast;
@@ -11,18 +10,18 @@ using GameLogic.BlockBlast.Item;
 namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
-    /// 通用兑换码系统测试（设计 20 §六，23 条验收点）。
-    /// 纯逻辑全 EditMode 可测（POCO + 注入隔离）；Luban 直读条按工具链可达性。
-    /// 配置经 <see cref="RedeemConfigMgr.InitForTest"/> 注入、去重经 <see cref="InMemoryRedeemStore"/> /
-    /// <see cref="InMemoryPersistenceProvider"/>、发奖落点 state 可 null 走纯解析、道具经 <see cref="ItemConfigMgr.InitForTest"/>。
+    /// 兑换码客户端上后端测试(设计 30 §8.2,CV1-CV9 中可纯逻辑单测者)。
+    /// 权威全在服务端:客户端不持码表 / 不持本地去重,兑换成功与否完全取决于注入的桩裁决器回包(CV6)。
+    /// 桩裁决器实现 <see cref="IRedeemValidator"/>、按预设 <see cref="RedeemVerdict"/> 同步返回(UniTask 即时完成),
+    /// 驱动 <see cref="RedeemService.RedeemAsync"/> 验客户端六类结果码分发 + 仅成功发奖。
     /// </summary>
     [TestFixture]
     public class RedeemCodeSystemTests
     {
-        // 测试道具：用 InitForTest 注入，自控 UseNum=1 使产出 Amount == 奖励 num。
-        private const int ItemExp = 30001;    // use_effect=1 → Numeric, use_value=Exp(1)
-        private const int ItemEnergy = 30002; // use_effect=1 → Numeric, use_value=Energy(4)
-        private const int ItemPattern = 30004;// use_effect=2 → Pattern
+        // 测试道具:用 InitForTest 注入,自控 UseNum=1 使产出 Amount == 奖励 count。
+        private const int ItemExp = 30001;     // use_effect=1 → Numeric, use_value=Exp(1)
+        private const int ItemEnergy = 30002;  // use_effect=1 → Numeric, use_value=Energy(4)
+        private const int ItemPattern = 30004; // use_effect=2 → Pattern
 
         private static ItemDef NumericItem(int id, int numId)
             => new ItemDef { Id = id, Automatic = 1, UseEffect = 1, UseValue = numId, UseNum = 1, UseLevel = 0 };
@@ -40,256 +39,219 @@ namespace GameLogic.BlockBlast.Tests
             });
         }
 
-        private static RedeemCodeDef Code(string code, int once = 1, string expire = null, params (int id, int num)[] rewards)
-        {
-            var def = new RedeemCodeDef { Code = code, OncePerPlayer = once, ExpireTime = expire };
-            foreach (var (id, num) in rewards)
-                def.Rewards.Add(new RedeemReward { ItemId = id, Num = num });
-            return def;
-        }
-
         [SetUp]
-        public void SetUp()
-        {
-            RedeemConfigMgr.ResetForTest();
-            ItemConfigMgr.ResetForTest();
-        }
+        public void SetUp() => ItemConfigMgr.ResetForTest();
 
         [TearDown]
-        public void TearDown()
-        {
-            RedeemConfigMgr.ResetForTest();
-            ItemConfigMgr.ResetForTest();
-        }
+        public void TearDown() => ItemConfigMgr.ResetForTest();
 
-        // ── 配置 C ──────────────────────────────────────────────
+        /// <summary>同步驱动 UniTask&lt;T&gt;:桩裁决器只 await UniTask.CompletedTask,全程同步完成,即时取结果。</summary>
+        private static T RunSync<T>(UniTask<T> task) => task.GetAwaiter().GetResult();
 
-        [Test] // C1：InitForTest 灌入后 Get 返对应 def，奖励按 code 聚合（一码多奖）
-        public void C1_ConfigMgr_GetReturnsDef_RewardsAggregated()
+        /// <summary>
+        /// 桩裁决器:按预设 <see cref="RedeemVerdict"/> + 奖励列表同步回应,并记录被调用次数与最近一次提交的码字符串
+        /// (用于断言「空输入不发请求」「客户端原样提交、不自报账号」)。
+        /// </summary>
+        private sealed class StubValidator : IRedeemValidator
         {
-            RedeemConfigMgr.InitForTest(new[]
+            private readonly RedeemVerdict _verdict;
+            private readonly IReadOnlyList<RedeemRewardItem> _rewards;
+
+            public int CallCount { get; private set; }
+            public string LastCode { get; private set; }
+
+            public StubValidator(RedeemVerdict verdict, IReadOnlyList<RedeemRewardItem> rewards = null)
             {
-                Code("MULTI", rewards: new[] { (ItemExp, 100), (ItemEnergy, 5), (ItemPattern, 1) }),
-            });
-            var def = RedeemConfigMgr.Get("MULTI");
-            Assert.IsNotNull(def);
-            Assert.AreEqual(3, def.Rewards.Count);
-            Assert.AreEqual(ItemExp, def.Rewards[0].ItemId);
-            Assert.AreEqual(100, def.Rewards[0].Num);
-        }
+                _verdict = verdict;
+                _rewards = rewards ?? Array.Empty<RedeemRewardItem>();
+            }
 
-        [Test] // C2：key 用规整（大写）码；查不存在返 null（不抛）
-        public void C2_ConfigMgr_KeyNormalizedUpper_MissReturnsNull()
-        {
-            RedeemConfigMgr.InitForTest(new[] { Code("abc", rewards: new[] { (ItemExp, 1) }) });
-            // InitForTest 内部把 Code 规整成大写存
-            Assert.IsNotNull(RedeemConfigMgr.Get("ABC"));
-            Assert.IsNull(RedeemConfigMgr.Get("NOPE"));
-        }
-
-        [Test] // C3：Luban 直读 redeem_tbredeemcode.bytes 行数 > 0 且字段映射正确（工具链不可达列 BLOCKED）
-        public void C3_LubanDirectRead_RedeemCodeBytes_HasRows()
-        {
-            const string codePath = "Assets/AssetRaw/Configs/bytes/redeem_tbredeemcode.bytes";
-            const string rewardPath = "Assets/AssetRaw/Configs/bytes/redeem_tbredeemreward.bytes";
-            var taCode = AssetDatabase.LoadAssetAtPath<TextAsset>(codePath);
-            var taReward = AssetDatabase.LoadAssetAtPath<TextAsset>(rewardPath);
-            Assert.IsNotNull(taCode, $"找不到 {codePath}，请先运行 Luban 生成");
-            Assert.IsNotNull(taReward, $"找不到 {rewardPath}，请先运行 Luban 生成");
-
-            var tbCode = new GameConfig.redeem.TbRedeemCode(new Luban.ByteBuf(taCode.bytes));
-            var tbReward = new GameConfig.redeem.TbRedeemReward(new Luban.ByteBuf(taReward.bytes));
-            Assert.Greater(tbCode.DataList.Count, 0);
-            Assert.Greater(tbReward.DataList.Count, 0);
-
-            // 字段映射正确：WELCOME2026 码存在，once=1
-            var welcome = tbCode.DataList.Find(r => r.Code == "WELCOME2026");
-            Assert.IsNotNull(welcome, "redeemcode.bytes 缺 WELCOME2026 行");
-            Assert.AreEqual(1, welcome.OncePerPlayer);
-            // 奖励子表 MULTIGIFT 多奖项聚合
-            int multiCount = tbReward.DataList.FindAll(r => r.Code == "MULTIGIFT").Count;
-            Assert.AreEqual(3, multiCount, "MULTIGIFT 应有 3 个奖励项");
-        }
-
-        // ── 校验 V ──────────────────────────────────────────────
-
-        [Test] // V1：Local 命中 Valid+Def / 未命中 NotFound+null
-        public void V1_LocalValidator_HitValid_MissNotFound()
-        {
-            RedeemConfigMgr.InitForTest(new[] { Code("HIT", rewards: new[] { (ItemExp, 1) }) });
-            var validator = new LocalConfigRedeemValidator();
-
-            var hit = validator.Validate("HIT");
-            Assert.AreEqual(ValidationStatus.Valid, hit.Status);
-            Assert.IsNotNull(hit.Def);
-
-            var miss = validator.Validate("MISS");
-            Assert.AreEqual(ValidationStatus.NotFound, miss.Status);
-            Assert.IsNull(miss.Def);
-        }
-
-        [Test] // V2：Remote stub 返 SourceUnavailable 不抛
-        public void V2_RemoteValidator_ReturnsSourceUnavailable_NoThrow()
-        {
-            var validator = new RemoteRedeemValidator();
-            ValidationResult r = default;
-            Assert.DoesNotThrow(() => r = validator.Validate("ANYTHING"));
-            Assert.AreEqual(ValidationStatus.SourceUnavailable, r.Status);
-            Assert.IsNull(r.Def);
-        }
-
-        [Test] // V3：Service 注 Remote → 返 SourceUnavailable（换注入零改动服务层）
-        public void V3_Service_WithRemoteValidator_ReturnsSourceUnavailable()
-        {
-            SeedItems();
-            RedeemConfigMgr.InitForTest(new[] { Code("HIT", rewards: new[] { (ItemExp, 1) }) });
-            var service = new RedeemService(new RemoteRedeemValidator(), new InMemoryRedeemStore());
-            var outcome = service.Redeem("HIT", null, null);
-            Assert.AreEqual(RedeemResult.SourceUnavailable, outcome.Result);
-        }
-
-        // ── 去重 D ──────────────────────────────────────────────
-
-        [Test] // D1：InMemory 标记往返
-        public void D1_InMemoryStore_MarkRoundtrip()
-        {
-            var store = new InMemoryRedeemStore();
-            Assert.IsFalse(store.HasRedeemed("X"));
-            store.MarkRedeemed("X");
-            Assert.IsTrue(store.HasRedeemed("X"));
-            Assert.IsFalse(store.HasRedeemed("Y"));
-        }
-
-        [Test] // D2：Persistence 注 InMemoryProvider 跨实例往返保真 + 空串/无键 → 空集合不抛
-        public void D2_PersistenceStore_CrossInstanceRoundtrip_DefensiveDeserialize()
-        {
-            var provider = new InMemoryPersistenceProvider();
-            Persistence.Provider = provider;
-
-            var store1 = new PersistenceRedeemStore();
-            store1.MarkRedeemed("CODE1");
-            // 新实例复用同 provider（模拟重启）
-            var store2 = new PersistenceRedeemStore();
-            Assert.IsTrue(store2.HasRedeemed("CODE1"), "跨实例往返应保真");
-
-            // 空串 → 空集合不抛
-            provider.Set(PersistenceRedeemStore.Key, "");
-            var store3 = new PersistenceRedeemStore();
-            Assert.DoesNotThrow(() => store3.HasRedeemed("CODE1"));
-            Assert.IsFalse(store3.HasRedeemed("CODE1"));
-
-            // 无键 → 空集合不抛
-            provider.Remove(PersistenceRedeemStore.Key);
-            var store4 = new PersistenceRedeemStore();
-            Assert.DoesNotThrow(() => store4.HasRedeemed("CODE1"));
-            Assert.IsFalse(store4.HasRedeemed("CODE1"));
-        }
-
-        [Test] // D3：once=0 重复兑成功不进集合；once=1 第二次 AlreadyRedeemed
-        public void D3_OncePerPlayer_RepeatSemantics()
-        {
-            SeedItems();
-            RedeemConfigMgr.InitForTest(new[]
+            public async UniTask<ValidationResult> ValidateAsync(string code)
             {
-                Code("REPEAT", once: 0, rewards: new[] { (ItemExp, 1) }),
-                Code("ONCE", once: 1, rewards: new[] { (ItemExp, 1) }),
-            });
-            var store = new InMemoryRedeemStore();
-            var service = new RedeemService(new LocalConfigRedeemValidator(), store);
-
-            Assert.AreEqual(RedeemResult.Success, service.Redeem("REPEAT", null, null).Result);
-            Assert.AreEqual(RedeemResult.Success, service.Redeem("REPEAT", null, null).Result);
-            Assert.IsFalse(store.HasRedeemed("REPEAT"), "once=0 不进去重集合");
-
-            Assert.AreEqual(RedeemResult.Success, service.Redeem("ONCE", null, null).Result);
-            Assert.AreEqual(RedeemResult.AlreadyRedeemed, service.Redeem("ONCE", null, null).Result);
+                CallCount++;
+                LastCode = code;
+                await UniTask.CompletedTask;
+                return _verdict == RedeemVerdict.Success
+                    ? new ValidationResult(RedeemVerdict.Success, _rewards)
+                    : ValidationResult.Fail(_verdict);
+            }
         }
 
-        // ── 服务 S ──────────────────────────────────────────────
-
-        [Test] // S1：空 / 纯空白 → EmptyInput（最先短路，不查表）
-        public void S1_EmptyOrWhitespace_EmptyInput()
+        private static RedeemRewardItem[] Rewards(params (int id, int count)[] items)
         {
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore());
-            Assert.AreEqual(RedeemResult.EmptyInput, service.Redeem("", null, null).Result);
-            Assert.AreEqual(RedeemResult.EmptyInput, service.Redeem("   ", null, null).Result);
-            Assert.AreEqual(RedeemResult.EmptyInput, service.Redeem(null, null, null).Result);
+            var list = new RedeemRewardItem[items.Length];
+            for (int i = 0; i < items.Length; i++)
+                list[i] = new RedeemRewardItem(items[i].id, items[i].count);
+            return list;
         }
 
-        [Test] // S2：" abc " 经 Normalize → trim+大写 命中存为 ABC
-        public void S2_Normalize_TrimUpper_Hits()
+        // ── CV5:空输入客户端短路,不发请求 ─────────────────────────
+
+        [Test] // CV5:空 / 纯空白 / null → EmptyInput,且裁决器未被调用(不发请求)
+        public void CV5_EmptyOrWhitespace_ShortCircuit_NoRequest()
+        {
+            foreach (var raw in new[] { "", "   ", null })
+            {
+                var stub = new StubValidator(RedeemVerdict.Success, Rewards((ItemExp, 1)));
+                var service = new RedeemService(stub);
+                var outcome = RunSync(service.RedeemAsync(raw, null, null));
+                Assert.AreEqual(RedeemResult.EmptyInput, outcome.Result, $"输入[{raw ?? "null"}]应短路 EmptyInput");
+                Assert.AreEqual(0, stub.CallCount, "空输入不应发请求");
+                Assert.AreEqual(0, outcome.Granted.Count, "空输入不发奖");
+            }
+        }
+
+        // ── CV1:成功按服务端奖励列表本地发奖(复用 16 落点)─────────
+
+        [Test] // CV1:成功 + 货币奖励 → state 对应字段增加正确数量(复用 16 ItemGrant 落点)
+        public void CV1_Success_CurrencyReward_LandsOnState()
         {
             SeedItems();
-            RedeemConfigMgr.InitForTest(new[] { Code("ABC", rewards: new[] { (ItemExp, 1) }) });
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore());
-            Assert.AreEqual(RedeemResult.Success, service.Redeem("  abc  ", null, null).Result);
-            Assert.AreEqual("ABC", RedeemService.Normalize(" abc "));
-        }
-
-        [Test] // S3：有效码首次 Success+Granted 非空；once=1 再兑 AlreadyRedeemed 且不重复发奖
-        public void S3_FirstSuccess_SecondAlreadyRedeemed_NoDoubleGrant()
-        {
-            SeedItems();
-            RedeemConfigMgr.InitForTest(new[] { Code("GIFT", once: 1, rewards: new[] { (ItemExp, 100) }) });
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore());
+            var stub = new StubValidator(RedeemVerdict.Success, Rewards((ItemExp, 250)));
+            var service = new RedeemService(stub);
             var state = new MergeOrderState();
 
-            var first = service.Redeem("GIFT", state, null);
-            Assert.AreEqual(RedeemResult.Success, first.Result);
-            Assert.Greater(first.Granted.Count, 0);
-            int expAfterFirst = state.Exp;
-            Assert.AreEqual(100, expAfterFirst);
-
-            var second = service.Redeem("GIFT", state, null);
-            Assert.AreEqual(RedeemResult.AlreadyRedeemed, second.Result);
-            Assert.AreEqual(0, second.Granted.Count, "第二次不发奖");
-            Assert.AreEqual(expAfterFirst, state.Exp, "Exp 不应再增（无重复发奖）");
+            var outcome = RunSync(service.RedeemAsync("WELCOME2026", state, null));
+            Assert.AreEqual(RedeemResult.Success, outcome.Result);
+            Assert.AreEqual(250, state.Exp, "Exp 应 = 奖励 count(UseNum=1 × count=250)");
+            Assert.Greater(outcome.Granted.Count, 0, "Granted 含产出供 17 展示");
         }
 
-        [Test] // S4：过期码 → Expired；空 ExpireTime 不判过期
-        public void S4_Expired_VsNoExpire()
+        [Test] // CV1:一码多奖 → 多落点 + Granted 列表对应服务端奖励列表
+        public void CV1_Success_MultiReward_AllLand()
         {
             SeedItems();
-            RedeemConfigMgr.InitForTest(new[]
-            {
-                Code("OLD", expire: "2020-01-01", rewards: new[] { (ItemExp, 1) }),
-                Code("NOEXP", expire: "", rewards: new[] { (ItemExp, 1) }),
-            });
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore())
-            {
-                NowProvider = () => new DateTime(2026, 6, 14),
-            };
-            Assert.AreEqual(RedeemResult.Expired, service.Redeem("OLD", null, null).Result);
-            Assert.AreEqual(RedeemResult.Success, service.Redeem("NOEXP", null, null).Result);
+            var stub = new StubValidator(RedeemVerdict.Success,
+                Rewards((ItemExp, 10), (ItemEnergy, 5), (ItemPattern, 1)));
+            var service = new RedeemService(stub);
+            var state = new MergeOrderState();
+
+            var outcome = RunSync(service.RedeemAsync("MULTIGIFT", state, null));
+            Assert.AreEqual(RedeemResult.Success, outcome.Result);
+            Assert.AreEqual(3, outcome.Granted.Count, "三项 automatic=1 立即结算");
+            Assert.AreEqual(10, state.Exp);
+            Assert.AreEqual(5, state.Energy);
+            Assert.AreEqual(1, state.InventoryCount((MergeElement)100, 1));
         }
 
-        [Test] // S5：失败分支不发奖、不写去重集合；六类结果码 TextIdFor 返非 0 且互不相同
-        public void S5_FailBranches_NoGrant_NoDedupe_DistinctTextIds()
+        [Test] // CV1:state==null 仍 Success 且 Granted 含产出结构(纯解析路径,不抛)
+        public void CV1_Success_NullState_StillGrantsStructure()
         {
             SeedItems();
-            RedeemConfigMgr.InitForTest(new[]
+            var stub = new StubValidator(RedeemVerdict.Success, Rewards((ItemExp, 7)));
+            var service = new RedeemService(stub);
+
+            RedeemOutcome outcome = default;
+            Assert.DoesNotThrow(() => outcome = RunSync(service.RedeemAsync("EXP", null, null)));
+            Assert.AreEqual(RedeemResult.Success, outcome.Result);
+            Assert.AreEqual(1, outcome.Granted.Count);
+            Assert.AreEqual(GrantKind.Numeric, outcome.Granted[0].Kind);
+            Assert.AreEqual(7, outcome.Granted[0].Amount);
+        }
+
+        // ── CV2:四类失败不发奖,文案对应 ──────────────────────────
+
+        [Test] // CV2:已兑过 / 码无效 / 已过期 / 全局满 → 不发奖,结果码对应,且(即便给了奖励列表)不落地
+        public void CV2_FourFailures_NoGrant_CorrectResult()
+        {
+            SeedItems();
+            var map = new (RedeemVerdict v, RedeemResult r)[]
             {
-                Code("OLD", expire: "2020-01-01", rewards: new[] { (ItemExp, 1) }),
-            });
-            var store = new InMemoryRedeemStore();
-            var service = new RedeemService(new LocalConfigRedeemValidator(), store)
-            {
-                NowProvider = () => new DateTime(2026, 6, 14),
+                (RedeemVerdict.AlreadyRedeemed, RedeemResult.AlreadyRedeemed),
+                (RedeemVerdict.InvalidCode,     RedeemResult.InvalidCode),
+                (RedeemVerdict.Expired,         RedeemResult.Expired),
+                (RedeemVerdict.LimitReached,    RedeemResult.LimitReached),
             };
+            foreach (var (v, r) in map)
+            {
+                // 即便桩裁决器附带奖励(异常服务),失败分支也不读它、不发奖。
+                var stub = new StubValidator(v, Rewards((ItemExp, 999)));
+                var service = new RedeemService(stub);
+                var state = new MergeOrderState();
+                var outcome = RunSync(service.RedeemAsync("ANYCODE", state, null));
+                Assert.AreEqual(r, outcome.Result, $"{v} 应映射 {r}");
+                Assert.AreEqual(0, outcome.Granted.Count, $"{v} 不发奖");
+                Assert.AreEqual(0, state.Exp, $"{v} 不落地任何奖励");
+            }
+        }
 
-            // NotFound：不发奖、不写去重
-            var nf = service.Redeem("NOPE", new MergeOrderState(), null);
-            Assert.AreEqual(RedeemResult.NotFound, nf.Result);
-            Assert.AreEqual(0, nf.Granted.Count);
-            Assert.IsFalse(store.HasRedeemed("NOPE"));
+        // ── CV3:服务不可用不发奖、文案与码无效有别、码可重试 ───────
 
-            // Expired：不发奖、不写去重
-            var ex = service.Redeem("OLD", new MergeOrderState(), null);
-            Assert.AreEqual(RedeemResult.Expired, ex.Result);
-            Assert.AreEqual(0, ex.Granted.Count);
-            Assert.IsFalse(store.HasRedeemed("OLD"));
+        [Test] // CV3:ServiceUnavailable → 不发奖,文案与 InvalidCode 不同
+        public void CV3_ServiceUnavailable_NoGrant_TextDiffersFromInvalid()
+        {
+            SeedItems();
+            var stub = new StubValidator(RedeemVerdict.ServiceUnavailable);
+            var service = new RedeemService(stub);
+            var state = new MergeOrderState();
 
-            // 六类 textId 非 0 且互不相同
+            var outcome = RunSync(service.RedeemAsync("CODE", state, null));
+            Assert.AreEqual(RedeemResult.ServiceUnavailable, outcome.Result);
+            Assert.AreEqual(0, outcome.Granted.Count);
+            Assert.AreEqual(0, state.Exp);
+            Assert.AreNotEqual(
+                RedeemText.TextIdFor(RedeemResult.ServiceUnavailable),
+                RedeemText.TextIdFor(RedeemResult.InvalidCode),
+                "服务不可用与码无效文案须有别(误判会让玩家以为好码失效)");
+        }
+
+        // ── CV4 / CV6:无离线兜底,远程裁决器断服只降级、绝不本地放行 ──
+
+        [Test] // CV4:RemoteRedeemValidator 在无会话(断服)时返 ServiceUnavailable,绝不返 Success
+        public void CV4_RemoteValidator_NoSession_ServiceUnavailable_NeverLocalSuccess()
+        {
+            // 测试环境未连接 Fantasy 会话(Session==null):远程裁决器须降级,不本地放行。
+            var validator = new RemoteRedeemValidator();
+            ValidationResult result = default;
+            Assert.DoesNotThrow(() => result = RunSync(validator.ValidateAsync("ANYCODE")));
+            Assert.AreEqual(RedeemVerdict.ServiceUnavailable, result.Verdict,
+                "断服只降级,不本地裁定成功(权威已上移服务端)");
+            Assert.AreEqual(0, result.Rewards.Count);
+        }
+
+        [Test] // CV4:经服务层,断服(远程裁决器)→ 不本地发奖
+        public void CV4_Service_WithRemoteValidator_NoSession_NoLocalGrant()
+        {
+            SeedItems();
+            var service = new RedeemService(new RemoteRedeemValidator());
+            var state = new MergeOrderState();
+            var outcome = RunSync(service.RedeemAsync("WELCOME2026", state, null));
+            Assert.AreEqual(RedeemResult.ServiceUnavailable, outcome.Result);
+            Assert.AreEqual(0, outcome.Granted.Count, "断服不本地发奖");
+            Assert.AreEqual(0, state.Exp);
+        }
+
+        // ── CV6:成功与否完全取决于回包(同码不同裁决得不同结果)────
+
+        [Test] // CV6:同一码,裁决器回 Success vs AlreadyRedeemed → 客户端结果随回包变(客户端不持去重权威)
+        public void CV6_OutcomeFollowsResponse_NotLocalState()
+        {
+            SeedItems();
+            var ok = RunSync(new RedeemService(new StubValidator(RedeemVerdict.Success, Rewards((ItemExp, 1))))
+                .RedeemAsync("SAME", new MergeOrderState(), null));
+            var dup = RunSync(new RedeemService(new StubValidator(RedeemVerdict.AlreadyRedeemed))
+                .RedeemAsync("SAME", new MergeOrderState(), null));
+            Assert.AreEqual(RedeemResult.Success, ok.Result);
+            Assert.AreEqual(RedeemResult.AlreadyRedeemed, dup.Result);
+        }
+
+        // ── CV8:客户端原样提交码字符串(请求不含自报账号——协议只有 Code 字段)──
+
+        [Test] // CV8:服务层把玩家原始输入原样交裁决器提交(规整权威在服务端,客户端不预规整、不自报账号)
+        public void CV8_SubmitsRawCode_NoClientSideAccount()
+        {
+            var stub = new StubValidator(RedeemVerdict.InvalidCode);
+            var service = new RedeemService(stub);
+            RunSync(service.RedeemAsync("  abc  ", null, null));
+            Assert.AreEqual("  abc  ", stub.LastCode, "客户端原样提交,规整(trim+大写)权威在服务端");
+            // 协议 C2G_RedeemCodeRequest 仅 Code 字段、无账号字段(身份由会话承载,CV8/SV9 对称)——编译期即保证。
+        }
+
+        // ── 文案:七类结果码 textId 非 0 且互不相同 ────────────────
+
+        [Test] // 七类结果码 TextIdFor 返非 0 且互不相同(CV2 四失败互异 + CV3 不可用与无效有别)
+        public void TextIds_AllDistinct_NonZero()
+        {
             var ids = new HashSet<int>();
             foreach (RedeemResult r in Enum.GetValues(typeof(RedeemResult)))
             {
@@ -297,58 +259,7 @@ namespace GameLogic.BlockBlast.Tests
                 Assert.AreNotEqual(0, id, $"{r} textId 不应为 0");
                 Assert.IsTrue(ids.Add(id), $"{r} textId 与其它重复");
             }
-            Assert.AreEqual(6, ids.Count);
-        }
-
-        // ── 发奖 G ──────────────────────────────────────────────
-
-        [Test] // G1：货币道具 → state 对应字段增加正确数量（复用 16 落点）
-        public void G1_CurrencyReward_LandsOnState()
-        {
-            SeedItems();
-            RedeemConfigMgr.InitForTest(new[] { Code("EXP", rewards: new[] { (ItemExp, 250) }) });
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore());
-            var state = new MergeOrderState();
-
-            var outcome = service.Redeem("EXP", state, null);
-            Assert.AreEqual(RedeemResult.Success, outcome.Result);
-            Assert.AreEqual(250, state.Exp, "Exp 应 = 奖励 num（UseNum=1 × count=250）");
-        }
-
-        [Test] // G2：一码多奖 Granted 列表对应配置
-        public void G2_MultiReward_GrantedMatchesConfig()
-        {
-            SeedItems();
-            RedeemConfigMgr.InitForTest(new[]
-            {
-                Code("MULTI", rewards: new[] { (ItemExp, 10), (ItemEnergy, 5), (ItemPattern, 1) }),
-            });
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore());
-            var state = new MergeOrderState();
-
-            var outcome = service.Redeem("MULTI", state, null);
-            Assert.AreEqual(RedeemResult.Success, outcome.Result);
-            // 三项均 automatic=1 立即结算：2 货币 + 1 图案 → 3 产出
-            Assert.AreEqual(3, outcome.Granted.Count);
-            Assert.AreEqual(10, state.Exp);
-            Assert.AreEqual(5, state.Energy);
-            // 图案落收集区（Lv1 注入 5? 不：count=1 → 1 个 Lv1）
-            Assert.AreEqual(1, state.InventoryCount((MergeElement)100, 1));
-        }
-
-        [Test] // G3：state==null 仍 Success 且 Granted 含产出结构（纯解析路径，不抛）
-        public void G3_NullState_StillSuccess_GrantedHasStructure()
-        {
-            SeedItems();
-            RedeemConfigMgr.InitForTest(new[] { Code("EXP", rewards: new[] { (ItemExp, 7) }) });
-            var service = new RedeemService(new LocalConfigRedeemValidator(), new InMemoryRedeemStore());
-
-            RedeemOutcome outcome = default;
-            Assert.DoesNotThrow(() => outcome = service.Redeem("EXP", null, null));
-            Assert.AreEqual(RedeemResult.Success, outcome.Result);
-            Assert.AreEqual(1, outcome.Granted.Count);
-            Assert.AreEqual(GrantKind.Numeric, outcome.Granted[0].Kind);
-            Assert.AreEqual(7, outcome.Granted[0].Amount);
+            Assert.AreEqual(7, ids.Count);
         }
     }
 }
