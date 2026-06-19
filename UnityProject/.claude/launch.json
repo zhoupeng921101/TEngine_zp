@@ -12,8 +12,8 @@
     },
     {
       "name": "design-docs",
-      "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8082", "--directory", "design-docs"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "http-server", "design-docs", "-p", "8082", "-c-1"],
       "port": 8082
     }
   ]

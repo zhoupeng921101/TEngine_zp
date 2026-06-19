@@ -83,6 +83,29 @@ namespace Fantasy
 			session.Send(M2C_UnitMoveState_message);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_MailListResponse> C2G_MailListRequest(this Session session, C2G_MailListRequest C2G_MailListRequest_request)
+		{
+			return (G2C_MailListResponse)await session.Call(C2G_MailListRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_MailListResponse> C2G_MailListRequest(this Session session)
+		{
+			using var C2G_MailListRequest_request = Fantasy.C2G_MailListRequest.Create();
+			return (G2C_MailListResponse)await session.Call(C2G_MailListRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_MailClaimResponse> C2G_MailClaimRequest(this Session session, C2G_MailClaimRequest C2G_MailClaimRequest_request)
+		{
+			return (G2C_MailClaimResponse)await session.Call(C2G_MailClaimRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_MailClaimResponse> C2G_MailClaimRequest(this Session session, string mailId)
+		{
+			using var C2G_MailClaimRequest_request = Fantasy.C2G_MailClaimRequest.Create();
+			C2G_MailClaimRequest_request.MailId = mailId;
+			return (G2C_MailClaimResponse)await session.Call(C2G_MailClaimRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void C2G_TestEmptyMessage(this Session session, C2G_TestEmptyMessage C2G_TestEmptyMessage_message)
 		{
 			session.Send(C2G_TestEmptyMessage_message);
