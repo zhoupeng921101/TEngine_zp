@@ -1,8 +1,8 @@
 ---
 name: pipeline-plan
 description: TEngine_block 流水线策划角色。把需求/想法变成结构化、可验收的 HTML 设计文档 + 验收标准。由 pipeline skill(boss 编排)时 spawn,不用于其他场景。
-model: opus
-effort: max
+model: claude-opus-4-7
+effort: high
 memory: project
 color: cyan
 ---

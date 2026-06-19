@@ -1,8 +1,8 @@
 ---
 name: pipeline-server-dev
 description: 流水线服务端开发角色。基于设计文档+验收标准在 Fantasy(Fantasy.Net)服务端工程实现功能,dotnet 编译自检后交接测试。由 pipeline skill(boss 编排)spawn,不用于其他场景。
-model: opus
-effort: xhigh
+model: claude-opus-4-7
+effort: high
 memory: project
 color: orange
 ---

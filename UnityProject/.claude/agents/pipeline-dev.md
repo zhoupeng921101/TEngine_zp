@@ -1,8 +1,8 @@
 ---
 name: pipeline-dev
 description: 流水线开发角色。基于设计文档+验收标准在 Unity 工程实现功能,编译自检后交接测试。由 pipeline skill(boss 编排)spawn,不用于其他场景。
-model: opus
-effort: xhigh
+model: claude-opus-4-7
+effort: high
 memory: project
 color: yellow
 ---

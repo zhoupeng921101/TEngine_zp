@@ -143,7 +143,7 @@ if (baton === 'full') {
   phase('策划')
   const plan = await withTimeout(agent(
     `任务:${args.task}\n开工读 pipeline/state/plan.md 与 pipeline/memory/plan.md;产出设计稿(design-docs/)与验收标准(写交接区)。${RETURN_NOTE}`,
-    { agentType: 'pipeline-plan', phase: '策划', schema: PLAN_SCHEMA, model: 'opus' }
+    { agentType: 'pipeline-plan', phase: '策划', schema: PLAN_SCHEMA }
   ), '策划')
   if (!plan) return { status: 'BLOCKED', stage: 'plan', blocked: ['plan agent 异常退出'], decisions }
   decisions.push(...(plan.decisions || []))
