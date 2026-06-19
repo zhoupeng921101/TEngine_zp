@@ -5,8 +5,13 @@ namespace GameLogic.Rank
     /// </summary>
     public sealed class RankEntry
     {
-        /// <summary>玩家展示名 textId（陪榜 = 配置占位名；本人 = PlayerInfo 名占位）。</summary>
+        /// <summary>玩家展示名 textId（本地源：陪榜 = 配置占位名；本人 = PlayerInfo 名占位）。远程源用 <see cref="RemoteName"/>。</summary>
         public int PlayerNameTextId;
+        /// <summary>
+        /// 远程源服务端回的展示名（账号标识占位，设计 31 §3.5 / O5；本地源为 null）。
+        /// UI 渲染优先用此（非空时）；客户端有本地昵称则替换。本地源走 <see cref="PlayerNameTextId"/> 占位。
+        /// </summary>
+        public string RemoteName;
         /// <summary>成绩。</summary>
         public long Score;
         /// <summary>达到该分的时间（并列时早者靠前，§3.3.2）。</summary>

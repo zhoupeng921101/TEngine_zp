@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
@@ -80,9 +81,18 @@ namespace GameLogic.UI
 
         protected override void OnRefresh()
         {
-            var board = Svc?.GetBoard(RankId);   // 查榜：本机 + 陪榜 → 排序 → 回填名次（数据层 §3.3）。null = 榜不存在。
-            RenderList(board);                   // 逐条渲染榜行（占位行底 / 徽章 / 头像 + 真实名次 / 名 / 分）。
-            RenderMyRank(board);                 // 我的名次条（读 Self / SelfRank / SelfScore）。
+            // 查榜走异步入口（设计 31 CV1）：在线发查榜 RPC（服务端权威排序），断服 / 超时回退本地源
+            // （本机 + 陪榜，不阻断、不伪造全服名次）。即发即忘：渲染在回包 / 回退后做（UI 不阻塞）。
+            RefreshAsync().Forget();
+        }
+
+        private async UniTask RefreshAsync()
+        {
+            var svc = Svc;
+            // svc 为 null（未初始化）→ 渲染空；否则走异步查榜（远程优先、断服回退本地，设计 31 §四）。
+            var board = svc == null ? null : await svc.GetBoardAsync(RankId);
+            RenderList(board);     // 逐条渲染榜行（占位行底 / 徽章 / 头像 + 真实名次 / 名 / 分）。空榜 / null 不抛（W6）。
+            RenderMyRank(board);   // 我的名次条（读 Self / SelfRank / SelfScore）。
         }
 
         // ════════════ 纯逻辑：board → 行 VM 列表（设计 28 §九 W3 单测锚点）════════════
@@ -121,13 +131,17 @@ namespace GameLogic.UI
             foreach (var e in board.Entries)
             {
                 if (e == null) continue;
-                rows.Add(new RankRowVM(e.Rank, NameFor(e.PlayerNameTextId), e.Score.ToString(), e.IsSelf));
+                rows.Add(new RankRowVM(e.Rank, NameFor(e), e.Score.ToString(), e.IsSelf));
             }
             return rows;
         }
 
-        /// <summary>玩家名占位（真实多语言查表延后，设计 28 §六 O6）：暂显「玩家+textId」。</summary>
-        private static string NameFor(int playerNameTextId) => $"玩家{playerNameTextId}";
+        /// <summary>
+        /// 玩家名显示（设计 28 §六 O6 / 设计 31 §3.5）：远程源回的展示名（账号占位 <see cref="RankEntry.RemoteName"/>）优先；
+        /// 否则本地源走「玩家+textId」占位。真实多语言查表 / 本地昵称替换延后。
+        /// </summary>
+        private static string NameFor(RankEntry e)
+            => !string.IsNullOrEmpty(e?.RemoteName) ? e.RemoteName : $"玩家{e?.PlayerNameTextId ?? 0}";
 
         // ════════════ 渲染：列表（代码生成行，§5.1 方案 B）════════════
 
@@ -214,7 +228,7 @@ namespace GameLogic.UI
         public static string MyNameText(RankBoard board)
         {
             if ((board?.SelfRank ?? 0) <= 0) return "未上榜";
-            return board.Self != null ? NameFor(board.Self.PlayerNameTextId) : "我";
+            return board.Self != null ? NameFor(board.Self) : "我";
         }
 
         /// <summary>我的成绩文本：始终显当前最佳分（board.SelfScore；未入榜也显已达成的最佳分，可能 &lt; condition）。</summary>

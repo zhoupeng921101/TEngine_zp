@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 namespace GameLogic.Rank
 {
@@ -37,6 +38,7 @@ namespace GameLogic.Rank
     {
         private readonly IRankConfigSource _cfg;
         private readonly IRankSource _source;
+        private readonly IRemoteRankSource _remote; // 可选远程源（设计 31）；null = 纯本地（离线）
         private readonly IRankPersistence _persist;
         private readonly GameLogic.Mail.IMailService _mail;
         private RankProgressSave _progress;
@@ -49,13 +51,24 @@ namespace GameLogic.Rank
         /// <summary>
         /// 构造排行榜服务。<paramref name="cfg"/> 为 null 时默认包 <c>RankConfigMgr</c>。
         /// </summary>
+        /// <param name="source">
+        /// 本地数据源（<see cref="LocalRankSource"/>，本机 + 陪榜，客户端排序）。
+        /// 同时作为远程不可用时的<b>降级回退源</b>（设计 31 §四 / CV1），故离线 / 在线均须注入。
+        /// </param>
+        /// <param name="remote">
+        /// 可选远程源（<see cref="RemoteRankSource"/>，服务端权威排序，设计 31）。
+        /// 非 null → <see cref="GetBoardAsync"/> / <see cref="SubmitScoreAsync"/> 优先走 RPC、短路本地排序（CV2），
+        /// 断服 / 超时回退本地源（CV1）；null → 纯离线，异步入口直接走本地同步路径。
+        /// </param>
         public RankService(IRankSource source, IRankPersistence persist,
-                           GameLogic.Mail.IMailService mail, IRankConfigSource cfg = null)
+                           GameLogic.Mail.IMailService mail, IRankConfigSource cfg = null,
+                           IRemoteRankSource remote = null)
         {
             _source = source ?? throw new ArgumentNullException(nameof(source));
             _persist = persist ?? throw new ArgumentNullException(nameof(persist));
             _mail = mail ?? throw new ArgumentNullException(nameof(mail));
             _cfg = cfg ?? new RankConfigMgrSource();
+            _remote = remote;
             _progress = _persist.Load() ?? new RankProgressSave();
             if (_progress.boards == null) _progress.boards = new List<RankBoardProgress>();
         }
@@ -166,6 +179,44 @@ namespace GameLogic.Rank
             var board = GetBoard(rankId);
             if (board == null) return (0, 0);
             return (board.SelfRank, board.SelfScore);
+        }
+
+        // ── 远程数据源入口（设计 31，全服权威榜 + 降级回退本地源）──────
+
+        /// <summary>
+        /// 查一个榜（设计 31 §3.4 / CV1-CV2）：有远程源 → 发查榜 RPC，取服务端已排好的前 N 名 + 自己名次
+        /// （短路本地排序，CV2）；断服 / 超时 / 服务不可用 / 榜不存在 → 回退本地源同步 <see cref="GetBoard"/>
+        /// （不阻断玩法、不伪造全服名次，设计 31 §四）。无远程源（离线）→ 直接走本地同步路径。
+        /// </summary>
+        /// <remarks>服务层对外仍产出同一查询快照（<see cref="RankBoard"/>），调用方无需关心名次由本地还是服务端算。</remarks>
+        public async UniTask<RankBoard> GetBoardAsync(int rankId)
+        {
+            if (_remote != null)
+            {
+                var remoteBoard = await _remote.QueryBoardAsync(rankId); // 失败返 null（不抛）
+                if (remoteBoard != null) return remoteBoard;             // 服务端已排好，短路本地排序（CV2）
+                // null = 断服 / 超时 / 服务不可用 / 榜不存在 → 回退本地源（CV1）
+            }
+            return GetBoard(rankId); // 本地源：本机 + 陪榜 → 客户端排序（同步路径零改动）
+        }
+
+        /// <summary>
+        /// 上报一次成绩（设计 31 §3.1 / CV1）：有远程源 → 发上报 RPC（取最优由服务端裁定）；
+        /// 无论远程成功 / 失败，<b>始终</b>同步更新本地最佳（成绩已在本地，断服时本地源仍记本机最佳，设计 31 §四）。
+        /// 身份从会话取、不自报账号（CV3）。返回服务端裁决结果（断服 = ServiceUnavailable，不阻断玩法）。
+        /// </summary>
+        /// <remarks>
+        /// 本地落盘与远程上报并行不冲突：本地最佳是离线源的本机记录（设计 22），远程最佳是服务端权威。
+        /// 远程不可用时本地仍保住「本机历史最佳 + 陪榜榜」，重连后可重报（取最优、重报同分不掉名次）。
+        /// </remarks>
+        public async UniTask<RankSubmitOutcome> SubmitScoreAsync(int rankId, long score)
+        {
+            SubmitScore(rankId, score); // 本地最佳始终更新（断服降级时本地源仍记本机最佳，设计 31 §四）
+            if (_remote == null)
+            {
+                return new RankSubmitOutcome(RankSubmitCode.ServiceUnavailable, GetMyBest(rankId).score); // 离线：无远程裁决
+            }
+            return await _remote.SubmitScoreAsync(rankId, score); // 失败返 ServiceUnavailable（不抛，不阻断玩法）
         }
 
         /// <summary>名次排序比较：分数降序；同分按 AchievedTicks 升序（早者靠前）。</summary>
