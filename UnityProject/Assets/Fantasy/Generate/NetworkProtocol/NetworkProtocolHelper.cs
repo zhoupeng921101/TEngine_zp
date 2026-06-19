@@ -498,6 +498,31 @@ namespace Fantasy
 			return (G2C_TestMemoryPackResponse)await session.Call(C2G_TestMemoryPackRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_RankSubmitScoreResponse> C2G_RankSubmitScoreRequest(this Session session, C2G_RankSubmitScoreRequest C2G_RankSubmitScoreRequest_request)
+		{
+			return (G2C_RankSubmitScoreResponse)await session.Call(C2G_RankSubmitScoreRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_RankSubmitScoreResponse> C2G_RankSubmitScoreRequest(this Session session, int rankId, long score)
+		{
+			using var C2G_RankSubmitScoreRequest_request = Fantasy.C2G_RankSubmitScoreRequest.Create();
+			C2G_RankSubmitScoreRequest_request.RankId = rankId;
+			C2G_RankSubmitScoreRequest_request.Score = score;
+			return (G2C_RankSubmitScoreResponse)await session.Call(C2G_RankSubmitScoreRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_RankQueryResponse> C2G_RankQueryRequest(this Session session, C2G_RankQueryRequest C2G_RankQueryRequest_request)
+		{
+			return (G2C_RankQueryResponse)await session.Call(C2G_RankQueryRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_RankQueryResponse> C2G_RankQueryRequest(this Session session, int rankId)
+		{
+			using var C2G_RankQueryRequest_request = Fantasy.C2G_RankQueryRequest.Create();
+			C2G_RankQueryRequest_request.RankId = rankId;
+			return (G2C_RankQueryResponse)await session.Call(C2G_RankQueryRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_RedeemCodeResponse> C2G_RedeemCodeRequest(this Session session, C2G_RedeemCodeRequest C2G_RedeemCodeRequest_request)
 		{
 			return (G2C_RedeemCodeResponse)await session.Call(C2G_RedeemCodeRequest_request);
