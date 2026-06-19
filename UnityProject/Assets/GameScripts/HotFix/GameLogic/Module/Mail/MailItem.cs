@@ -124,6 +124,9 @@ namespace GameLogic.Mail
         public const int ClaimExpired   = 110704;
         /// <summary>「邮件不存在」。</summary>
         public const int MailNotFound   = 110705;
+        /// <summary>「邮件服务暂不可用，请稍后重试」（设计 32 §四服务端化新增分支：与上方各「此邮件不能领」文案有别——
+        /// 前者鼓励重试、邮件仍可领，后者告知此邮件本身不能领，误判会让玩家以为好邮件废了）。</summary>
+        public const int ServiceUnavailable = 110706;
 
         /// <summary>结果码 → 文案 textId。</summary>
         public static int TextIdFor(ClaimStatus s) => s switch

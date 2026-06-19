@@ -30,6 +30,9 @@ namespace GameLogic
         /// <summary>排行榜服务（查榜 / 我的名次 / 每日 + 点赞领取 / 结算编排，设计 22 数据层）。</summary>
         public RankService Rank { get; private set; }
 
+        /// <summary>远程邮件服务（运营来源拉列表 + 领奖走服务端校验，设计 32 客户端段）。</summary>
+        public RemoteMailService Mail { get; private set; }
+
         protected override void OnInit()
         {
             // 生产用框架键存储（PlayerPrefs），启动即从已保存的开关态加载。
@@ -43,6 +46,19 @@ namespace GameLogic
 
             // 排行榜服务（设计 22 数据层，设计 28 §四装配）。
             InitRank();
+
+            // 远程邮件服务（设计 32 客户端段）：运营来源拉列表 + 领奖走服务端校验。
+            InitMail();
+        }
+
+        /// <summary>
+        /// 装配远程邮件服务（生产接缝：远程来源 <see cref="RemoteMailSource"/>，设计 32 客户端段）。
+        /// 运营邮件来源唯一在服务端（设计 32 读前必看第 1 条），客户端不持第二份运营来源；
+        /// 领奖走服务端校验（防重 + 抽奖 + 过期），断服不本地放行（设计 32 §四）。
+        /// </summary>
+        private void InitMail()
+        {
+            Mail = new RemoteMailService(new RemoteMailSource());
         }
 
         /// <summary>
@@ -65,7 +81,9 @@ namespace GameLogic
             var source = new LocalRankSource(
                 id => svc.GetMyBest(id),                               // 本机成绩（闭包捕获后赋值的 svc）
                 _ => null);                                            // 陪榜：本轮无（待运营内容，设计 28 §十一 BLK1）
-            svc = new RankService(source, persist, mail);             // cfg 默认包 RankConfigMgr（运行期走 ConfigSystem）
+            var remote = new RemoteRankSource();                       // 远程源（上后端，设计 31）：发上报 / 查榜 RPC、服务端权威排序
+            // cfg 默认包 RankConfigMgr（运行期走 ConfigSystem）；remote 非 null → 异步入口优先 RPC、断服回退 source（设计 31 §四）。
+            svc = new RankService(source, persist, mail, cfg: null, remote: remote);
             Rank = svc;
         }
 
@@ -151,9 +169,19 @@ namespace GameLogic
         /// + fake 配置源（或先 <c>RankConfigMgr.InitForTest</c> 后用默认源），断言 <see cref="GetBoard"/> 数据贯通，
         /// 不污染真实 PlayerPrefs / 不连网（设计 28 §四 / §九 H2/H3）。
         /// </summary>
-        public void InitRankWithDeps(IRankSource source, IRankPersistence persist, IMailService mail, IRankConfigSource cfg = null)
+        public void InitRankWithDeps(IRankSource source, IRankPersistence persist, IMailService mail,
+                                     IRankConfigSource cfg = null, IRemoteRankSource remote = null)
         {
-            Rank = new RankService(source, persist, mail, cfg);
+            Rank = new RankService(source, persist, mail, cfg, remote);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口：用指定远程来源重建 <see cref="Mail"/>（仿 <see cref="InitRankWithDeps"/>）。
+        /// EditMode 经它灌入桩 <see cref="IRemoteMailSource"/>（注桩响应各分支），断言拉列表 / 领奖分发，不连网（设计 32 §8.2 CV）。
+        /// </summary>
+        public void InitMailWithSource(IRemoteMailSource remote)
+        {
+            Mail = new RemoteMailService(remote);
         }
     }
 }
