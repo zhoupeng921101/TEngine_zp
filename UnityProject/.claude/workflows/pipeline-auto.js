@@ -121,12 +121,30 @@ const blocked = []
 let baseline = args.baseline || ''
 let feasibilityNote = ''
 
+// 看门狗:给每个 agent() 调用套超时竞速,把「静默挂起(永不返回)」转成「超时→null」,复用既有
+// null-死亡处理(retry 一次→仍超时则 BLOCKED + 通知),不再无限等(2026-06-19 实测 server-dev
+// 静默挂起 9.5h 无人知、harness 还把任务回收成无主僵尸)。超时是死亡的一种,走同一恢复路径。
+// 沙箱若无 setTimeout 则退回无超时(best-effort,绝不因看门狗本身破坏流程)。默认 45min/调用
+// (远低于挂起阈、远高于正常单轮);boss 可经 args.agentTimeoutMin 覆盖。超时不杀孤儿 agent(沙箱内
+// 杀不了),只停止等待并走 retry;孤儿若后续完成会写 state,retry agent 读 state 可复用。
+const AGENT_TIMEOUT_MS = Math.max(5, Number(args.agentTimeoutMin) || 45) * 60 * 1000
+function withTimeout(p, label) {
+  if (typeof setTimeout !== 'function') return p
+  return Promise.race([
+    p,
+    new Promise(resolve => setTimeout(() => {
+      log(`${label} 超时 ${Math.round(AGENT_TIMEOUT_MS / 60000)}min 未返回,判疑似挂起(按 null-死亡处理,走 retry/BLOCKED)`)
+      resolve(null)
+    }, AGENT_TIMEOUT_MS)),
+  ])
+}
+
 if (baton === 'full') {
   phase('策划')
-  const plan = await agent(
+  const plan = await withTimeout(agent(
     `任务:${args.task}\n开工读 pipeline/state/plan.md 与 pipeline/memory/plan.md;产出设计稿(design-docs/)与验收标准(写交接区)。${RETURN_NOTE}`,
     { agentType: 'pipeline-plan', phase: '策划', schema: PLAN_SCHEMA, model: 'opus' }
-  )
+  ), '策划')
   if (!plan) return { status: 'BLOCKED', stage: 'plan', blocked: ['plan agent 异常退出'], decisions }
   decisions.push(...(plan.decisions || []))
   if (plan.taskFlaw) {
@@ -153,13 +171,13 @@ if (args.testModel) testOpts.model = args.testModel
 // 重试:返回 null 即重试一次,并提示重跑 agent 先读已写入的 state 文件,有结果则复用、不重复全量;两次都失
 // 败再交上层判定。对服务端 agent 同样适用(null 重试无害)。
 async function withReconnectRetry(prompt, opts, statePath) {
-  let r = await agent(prompt, opts)
+  let r = await withTimeout(agent(prompt, opts), opts.label || opts.phase)
   if (!r) {
-    log(`${opts.phase} agent 异常退出,重试一次(疑似外部运行时连接中断)`)
-    r = await agent(
-      prompt + `\n注:上一次本环节 agent 在返回前异常退出。先读 ${statePath},若已有本次结果则据此直接产出结构化返回,不重复跑全量验证。`,
+    log(`${opts.phase} agent 异常退出/超时,重试一次(疑似连接中断或挂起)`)
+    r = await withTimeout(agent(
+      prompt + `\n注:上一次本环节 agent 在返回前异常退出/超时。先读 ${statePath},若已有本次结果则据此直接产出结构化返回,不重复跑全量验证。`,
       opts
-    )
+    ), opts.label || opts.phase)
   }
   return r
 }
@@ -189,10 +207,10 @@ if (args.feasibilityCheck && args.feasibilityCheck.length) {
   phase('开发')
   const precheckOpts = { agentType: devAgentType, phase: '开发', schema: FEASIBILITY_SCHEMA, label: '可行性预检' }
   if (args.devModel) precheckOpts.model = args.devModel
-  const precheck = await agent(
+  const precheck = await withTimeout(agent(
     `可行性预检(只读评估,不实现、不碰工程、不进交接区)。任务:${args.task}\n设计基线:${baseline}\n存疑接缝与待验证问题:\n${args.feasibilityCheck.join('\n')}\n判定:能否按设计接线、粗略工作量(小/中/大)、有无现成链路可复用;不可行则给可行的替代接法。`,
     precheckOpts
-  )
+  ), '可行性预检')
   if (!precheck) return { status: 'BLOCKED', stage: 'feasibility', blocked: blocked.concat(['可行性预检 agent 异常退出']), decisions }
   if (!precheck.feasible) {
     // 接法不可行 = 提前发现的 designFlaw:不进 dev 空耗,带替代接法停,供 boss/plan 调整后重派
@@ -237,10 +255,10 @@ if (!verdict || verdict.verdict !== 'PASS') {
   // 3 轮仍不过:先做一次只读根因诊断,让 BLOCKED 报告可执行(供链式 boss 判断剩余增量能否继续),不自动 re-route
   const diagOpts = { agentType: devAgentType, phase: '测试', schema: DIAGNOSIS_SCHEMA, label: '熔断根因诊断' }
   if (args.devModel) diagOpts.model = args.devModel
-  const diag = await agent(
+  const diag = await withTimeout(agent(
     `熔断根因诊断(只读评估,不改工程、不进交接区)。3 轮返修后 test 仍未过。任务:${args.task}\n设计基线:${baseline}\n读 ${testStatePath} 历轮可复现清单、${devStatePath} 交接区与 git diff,归类不收敛根因(design-flaw 设计缺陷 / dev-misread dev 持续误读 / flaky-or-environment)并给建议下一步。`,
     diagOpts
-  )
+  ), '熔断根因诊断')
   const diagNote = diag ? `;根因诊断=${diag.category}:${diag.recommendation}` : ';根因诊断 agent 异常退出,人工查 pipeline/state'
   blocked.push(`3 轮熔断:${(verdict && verdict.reason) || '见 ' + testStatePath}${diagNote}`)
   return { status: 'BLOCKED', stage: 'circuit-breaker', blocked, decisions, round }
