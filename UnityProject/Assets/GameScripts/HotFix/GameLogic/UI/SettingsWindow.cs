@@ -199,7 +199,18 @@ namespace GameLogic.UI
         private void OnContact()   => ShowPlaceholder("客服形态待定（设计 19 §七 O2）");
         private void OnMoreGames() => ShowPlaceholder("更多游戏待建（去变现方向，不做真实导流）");
         private void OnLanguage()  => ShowPlaceholder("多语言系统待建（全局文案 textId 占位）");
-        private void OnLogout()    => ShowPlaceholder("离线版无账号系统（设计 19 §七 O8）");
+        // ── 登出（设计 36 §三）：断当前会话 + 立即重新走自动登录（=重新登录到同一账号）。
+        // 三步顺次：① ShowPlaceholder 反馈现状语义；② FantasyNetwork.Shutdown 清连接 + 心跳 + 四态;
+        // ③ FantasyNetwork.Boot 无参重连(账号沿 DefaultAccountName 派生,UUID 不变)。
+        // 顺序锁:Shutdown 把 _initialized=false 清掉,Boot 才会走完整初始化;调换则 Boot 内 _initialized 早返、复用旧 Scene 不重连。
+        private void OnLogout()
+        {
+            ShowPlaceholder("已断开连接，正在重新登录…");
+#if FANTASY_UNITY
+            FantasyClient.FantasyNetwork.Shutdown();
+            FantasyClient.FantasyNetwork.Boot();
+#endif
+        }
         private void OnHelp()      => ShowPlaceholder("帮助 / FAQ 内容系统待建");
         private void OnSocial(string platform)
             => ShowPlaceholder($"社交外链「{platform}」真实账号 URL 待产品提供");
