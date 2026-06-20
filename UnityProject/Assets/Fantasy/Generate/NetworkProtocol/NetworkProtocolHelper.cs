@@ -521,6 +521,47 @@ namespace Fantasy
 			return (G2C_TestMemoryPackResponse)await session.Call(C2G_TestMemoryPackRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_PropertyChangeResponse> C2G_PropertyChangeRequest(this Session session, C2G_PropertyChangeRequest C2G_PropertyChangeRequest_request)
+		{
+			return (G2C_PropertyChangeResponse)await session.Call(C2G_PropertyChangeRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_PropertyChangeResponse> C2G_PropertyChangeRequest(this Session session, PropertyType type, long delta, string reason)
+		{
+			using var C2G_PropertyChangeRequest_request = Fantasy.C2G_PropertyChangeRequest.Create();
+			C2G_PropertyChangeRequest_request.Type = type;
+			C2G_PropertyChangeRequest_request.Delta = delta;
+			C2G_PropertyChangeRequest_request.Reason = reason;
+			return (G2C_PropertyChangeResponse)await session.Call(C2G_PropertyChangeRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PropertyInitSnapshot(this Session session, G2C_PropertyInitSnapshot G2C_PropertyInitSnapshot_message)
+		{
+			session.Send(G2C_PropertyInitSnapshot_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PropertyInitSnapshot(this Session session, List<PropertyAmount> properties, int schemaVersion)
+		{
+			using var G2C_PropertyInitSnapshot_message = Fantasy.G2C_PropertyInitSnapshot.Create();
+			G2C_PropertyInitSnapshot_message.Properties = properties;
+			G2C_PropertyInitSnapshot_message.SchemaVersion = schemaVersion;
+			session.Send(G2C_PropertyInitSnapshot_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PropertyDeltaPush(this Session session, G2C_PropertyDeltaPush G2C_PropertyDeltaPush_message)
+		{
+			session.Send(G2C_PropertyDeltaPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_PropertyDeltaPush(this Session session, PropertyType type, long newAmount, string reason)
+		{
+			using var G2C_PropertyDeltaPush_message = Fantasy.G2C_PropertyDeltaPush.Create();
+			G2C_PropertyDeltaPush_message.Type = type;
+			G2C_PropertyDeltaPush_message.NewAmount = newAmount;
+			G2C_PropertyDeltaPush_message.Reason = reason;
+			session.Send(G2C_PropertyDeltaPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_RankSubmitScoreResponse> C2G_RankSubmitScoreRequest(this Session session, C2G_RankSubmitScoreRequest C2G_RankSubmitScoreRequest_request)
 		{
 			return (G2C_RankSubmitScoreResponse)await session.Call(C2G_RankSubmitScoreRequest_request);
