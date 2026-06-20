@@ -41,6 +41,26 @@ namespace FantasyClient
         /// <summary>连接断开后触发。</summary>
         public static event Action OnDisconnected;
 
+        /// <summary>
+        /// 服务端属性初始快照到达(设计 38 §五接线)。参数 = (coin, diamond, stamina, schemaVersion)。
+        /// 在主线程 Scene 内触发,业务侧可直接刷 UI;<see cref="G2C_PropertyInitSnapshotHandler"/> 内置薄壳分发。
+        /// </summary>
+        public static event Action<long, long, long, int> OnPropertyInitSnapshot;
+
+        /// <summary>
+        /// 服务端属性变更推送到达(设计 38 §五接线)。参数 = (type, newAmount, reason)。
+        /// type 整数值与协议 Fantasy.PropertyType 一致(Coin=0/Diamond=1/Stamina=2)。
+        /// </summary>
+        public static event Action<int, long, string> OnPropertyDeltaPush;
+
+        /// <summary>由 <see cref="G2C_PropertyInitSnapshotHandler"/> 调,把分发交给热更区订阅方(避免 FantasyClient 反向依赖 GameLogic)。</summary>
+        internal static void RaisePropertyInitSnapshot(long coin, long diamond, long stamina, int schemaVersion)
+            => OnPropertyInitSnapshot?.Invoke(coin, diamond, stamina, schemaVersion);
+
+        /// <summary>由 <see cref="G2C_PropertyDeltaPushHandler"/> 调,把分发交给热更区订阅方。</summary>
+        internal static void RaisePropertyDeltaPush(int type, long newAmount, string reason)
+            => OnPropertyDeltaPush?.Invoke(type, newAmount, reason);
+
         private static string _address;
         private static string _account;
         private static bool _initialized;

@@ -31,7 +31,7 @@
 > | --- | --- |
 > | **类型** | 表现层换皮 · 塔罗 UI 自治线第 2 屏 · 纯 UI 补完 复用设计 23 范式,兑现遗留 #22(player-info 表现层)。出设计稿 + 验收标准,交开发落地。 |
 > | **设计基线(经 grep 核实的真实符号)** | **数据层(已实装,只调用,命名空间 `GameLogic.BlockBlast.Player`)**:`PlayerInfo`(字段 `Id`/`Name`/`RenameCount`/`Exp`/`CurrentAvatarId`/`CurrentFrameId`/`UnlockedAvatarIds[]`/`UnlockedFrameIds[]`;只读 `Level`;静态 `CreateDefault(rng)`/`ExportToMeta(dto)`/`ImportFromMeta(dto,rng,…)`;常量 `DefaultAvatarId=1`/`DefaultFrameId=101`);`PlayerRenameService.TryRename(p, newName, IReadOnlyCollection<string> wordList, Func<int,bool> trySpendDiamond)` → `RenameResult`(`Success`/`Reason`/`Cost`;`RenameReject{None,Empty,TooLong,Profanity,NotEnoughDiamond}`;常量 `MinLen=1`/`MaxLen=16`);`RenamePriceConfig.RENAME_PRICE=100`/`PriceFor(count)`;`AvatarUnlockService.StateOf/IsUnlocked/TryEquip/SyncLevelUnlocks/GrantUnlock`;`PlayerLevelConfig.LevelFor/ExpIntoLevel/ExpToNext`;`ClipboardUtil.Copy(text)`(可注入 `Sink`)。配置 `GameLogic.Config.AvatarConfigMgr`(`GetAvatar/GetByType/All/EnsureLoaded`)。 **UI 框架 + 取图 API(与设计 23 同源,已打通)**:`UIWindow` + `[Window(UILayer, location, fullScreen, hideTimeToClose)]`;生命周期 `ScriptGenerator → OnCreate → OnRefresh`;绑定 `FindChildComponent<T>(path)`;打开 `GameModule.UI.ShowUIAsync<T>()` / 关闭 `CloseUI<T>()`;取子图 `Image.SetSubSprite(string location, string spriteName)`([设计 23 §三](#23-settings-window-art::atlas)实测:精灵表用单张 `Sheet_settings.png`「Sprite Mode=Multiple + 命名子精灵」,`location="Sheet_settings"`,子图名 = 源切图文件名)。 **运行期上下文(已建,本次换皮扩持有)**:`GameLogic.GameContext : SimpleSingleton<GameContext>`(`OnInit` 里 `new SettingsService(...)` + `Load`;现有成员 `Settings`;现有 `InitSettingsWithStore(store)` 测试注入入口);启动接线在热更入口 `GameApp.StartGameLogic()`([§五](#25-player-info-window-art::holder))。 **入口现状**:`GameLogic.BlockBlastUI.MainMenuWindow`(code-built,`OnCreate` 里 `UGuiFactory.CreateButton`)已加过 `BtnSettings` 入口(第 58–63 行),并留有 `// TODO(player-info UI 轮): 左上角入口 → 打开 PlayerInfoWindow` 钩子(第 65–67 行)——本次换皮兑现该钩子。 **分辨率**:UIRoot CanvasScaler 参考分辨率 **1080×1920**(场景 `main.unity` 已覆写,与美术基准一致);prefab 直接用 1080×1920 锚点,**不**套 `BlockLayout` 那套 750×1334 私有坐标系。 |
-> | **方向约束** | 离线还原 · **去变现**:窗口不含充值 / 内购 / 快捷登录(效果图也无)。改名扣钻经数据层 `trySpendDiamond` 接缝、生产默认返 true(钻石无可花费余额字段,去变现:不靠钻石卡改名,[设计 18](#18-player-info) O8)。加法式:新建窗口 + prefab + GameContext 扩一个成员,不改框架、不改数据层逻辑、不动既有玩法窗口。 |
+> | **方向约束** | 离线还原 · **去变现**:窗口不含充值 / 内购 / 快捷登录(效果图也无)。改名扣钻经设计 38 `PlayerAttrService` 同步等服务端响应(数据层 `trySpendDiamond` 接缝形态保留;首次改名免费不发 RPC;非首次按服务端钻石账本扣减,[设计 18](#18-player-info) O8 已兑现)。加法式:新建窗口 + prefab + GameContext 扩一个成员,不改框架、不改数据层逻辑、不动既有玩法窗口。 |
 > | **影响范围** | **新增资源**:`PlayerInfoWindow.prefab`(`AssetRaw/UI/Prefabs/`);**无新切图**(复用 `Sheet_settings`)。 **新增代码(热更区)**:`PlayerInfoWindow.cs`(窗口脚本,落 `GameScripts/HotFix/GameLogic/UI/`,同 `SettingsWindow.cs`)。 **改既有(最小)**:`GameContext.cs` 加一个 `Player` 成员 + `OnInit` 里 Load([§五](#25-player-info-window-art::holder));`MainMenuWindow.cs` 兑现 TODO 钩子接入口按钮(一处约 5 行,同 `BtnSettings` 做法)。 **不改**:`GameLogic.BlockBlast.Player` 各类逻辑、`AvatarConfigMgr`、`SettingsService`、框架 UI / 资源代码、Classic / Merge 玩法窗口、数据层单测、`MergeMetaSave` 任一字段(生日不入盘,[§5.3](#25-player-info-window-art::birthday))。 |
 > | **关键约束(继承设计 23)** | 窗口逻辑可被反射 / 直调驱动单测(EditMode 编译 + `GameContext` 往返 + 改名贯通),但**真实视觉对位 / 指针点击 / 输入法改名**须 Play 模式人眼 + 手验。验收按「逻辑可单测(EditMode)」与「需 Play / 人眼」两档拆开([§九](#25-player-info-window-art::accept))。 |
 
@@ -265,11 +265,14 @@ namespace GameLogic.UI
         }
         private void OnRenameSubmit(string newName)
         {
-            // 屏蔽字词表可注入空表（去变现/不阻塞，设计 18 O6）；扣钻接缝默认 no-op→true（设计 18 O8）。
+            // 屏蔽字词表可注入空表（去变现/不阻塞，设计 18 O6）；扣钻经服务端 PlayerAttrService.TryChangeAsync（设计 38）。
+            // 同步等响应（OnRenameSubmit 改 async UniTask；细节见设计 38 §六）。
+            bool spent = await GameContext.Instance.PlayerAttr.TryChangeAsync(
+                AttrType.Diamond, -cost, "player_rename").ContinueWith(r => r.Success);
             var result = PlayerRenameService.TryRename(
                 P, newName,
                 wordList: System.Array.Empty<string>(),
-                trySpendDiamond: cost => true);   // TODO(设计 25 §七): 钻石实装后接真实扣减
+                trySpendDiamond: _ => spent);   // 经设计 38 兑现 18 §3.4 O8
             if (result.Success)
             {
                 if (_textName != null) _textName.text = P.Name;
@@ -327,7 +330,7 @@ namespace GameLogic.UI
 | 功能位 | 本次换皮处置 | 接什么 / 留什么 |
 |---|---|---|
 | **玩家名显示**(`m_text_Name`) | 实做 | `OnRefresh` 读 `GameContext.Instance.Player.Name` → 文本。**核心验收项**(W2)。 |
-| **改名**(铅笔 → `m_input_Name`) | 实做(贯通数据层) | 点铅笔进改名态 → 输入 → `PlayerRenameService.TryRename(P, newName, 空词表, cost=>true)` → `RenameResult`:成功刷名 + 落盘;失败按 `Reason` 分支提示(空 / 超长 / 屏蔽字 / 钻石不足)。**核心验收项**(W3)。屏蔽字词表本次换皮注空表(去变现 / 不阻塞,设计 18 O6);扣钻 `trySpendDiamond` 默认 `true`(去变现,设计 18 O8)。 |
+| **改名**(铅笔 → `m_input_Name`) | 实做(贯通数据层 + 接服务端) | 点铅笔进改名态 → 输入 → 同步等 `PlayerAttrService.TryChangeAsync(Diamond, -cost, "player_rename")` 服务端响应(设计 38)→ 把响应成败封装为 `trySpendDiamond` 传 `PlayerRenameService.TryRename` → `RenameResult`:成功刷名 + 落盘;失败按 `Reason` 分支提示(空 / 超长 / 屏蔽字 / 钻石不足)。**核心验收项**(W3)。屏蔽字词表本次换皮注空表(去变现 / 不阻塞,设计 18 O6);首次改名(`RenameCount = 0`)免费,不发 RPC(设计 38 §六)。 |
 | **头像显示**(`m_img_Avatar`) | 实做(显当前)<br><span class="pill-no">真图占位</span> | `OnRefresh` 读 `CurrentAvatarId`。<mark>头像 Sprite 无美术</mark>(设计 18 O2)→ 占位纯色圆 / 通用图,留 TODO 接 `AvatarConfigMgr.GetAvatar(id).Image`。 |
 | **编辑头像**(`m_btn_EditAvatar` 铅笔) | 占位 | 头像三态选择网格是设计 18 完整界面元素,<mark>效果图本屏未画</mark>(本屏只显当前头像)。点击 → Toast「头像选择待建」+ TODO。完整网格(`AvatarUnlockService.StateOf` + 换装 `TryEquip`)属设计 18 后续屏 / 后续轮(<a href="#25-player-info-window-art::open">§十一 D3</a>)。 |
 | **生日 + 3 下拉**(`BirthdayBlock`) | 占位(整块) | 数据层无生日字段(<a href="#25-player-info-window-art::birthday">§5.3</a> D2)。摆 3 个下拉框对位,值固定「3」,不绑数据 / 不入盘。点击 → Toast「生日待接数据层」+ TODO。是否真做交 boss / 产品。 |
@@ -362,7 +365,7 @@ namespace GameLogic.UI
 | H1 | 编译通过 | 新增 `PlayerInfoWindow.cs` + 改 `GameContext.cs` / `MainMenuWindow.cs` 后,热更程序集编译 0 error。 |
 | H2 | GameContext 持有 PlayerInfo 往返 | EditMode:`GameContext.Instance.Player` 非 null;经测试注入入口(仿 `InitSettingsWithStore` 加一个 `InitPlayerFromMeta(dto, rng)` 或直读)灌入已知 DTO → `Player.Name`/`CurrentAvatarId` 等字段 == DTO 值;无 DTO 时 == `CreateDefault` 缺省(默认头像 1 / 框 101 / 系统名)。 |
 | W2 | 玩家名显示读数据层 | EditMode:构造 `PlayerInfo` 设 `Name="测试名"` → 窗口 `OnRefresh` 后 `m_text_Name.text == "测试名"`(经反射调 `OnRefresh` + 读字段,同设计 23 反射驱动口径)。 |
-| W3 | 改名贯通数据层(4 分支) | EditMode 直调 `PlayerRenameService.TryRename`(窗口的 `OnRenameSubmit` 委托它):合法名 → `Success` 且 `Player.Name` 改、`RenameCount+1`;空 → `Reason==Empty`;超 16 → `TooLong`;空词表 → 不拦(`Profanity` 不触发);`trySpendDiamond=>false` 且非首次 → `NotEnoughDiamond`。<mark>这层数据层已有单测(设计 18 R1–R5),本次换皮验收 = 窗口确实委托它、不自己另写改名逻辑</mark>。 |
+| W3 | 改名贯通数据层 + 接服务端(4 分支) | EditMode 经 `GameContext.InitPlayerAttrWith(桩 IRpcGateway)` 注入桩响应,直调 `PlayerInfoWindow.OnRenameSubmit`(或 await 等价的纯逻辑入口):合法名 + 桩返成功 → `Success` 且 `Player.Name` 改、`RenameCount+1`;空 → `Reason==Empty`;超 16 → `TooLong`;空词表 → 不拦(`Profanity` 不触发);桩返失败(余额不足)且非首次 → `NotEnoughDiamond`(同设计 38 CV5 + W4 范式);首次改名(`RenameCount == 0`)→ 桩 `IRpcGateway` 调用次数 = 0(免费不走 RPC,W6)。<mark>这层数据层已有单测(设计 18 R1–R5),本次换皮验收 = 窗口确实委托它 + 接 PlayerAttrService 同步等响应、不自己另写改名逻辑、不 fire-and-forget</mark>。 |
 | W4 | 窗口绑定路径对齐 prefab | `ScriptGenerator` 里每个 `FindChildComponent<T>(path)` 的 path 与 §四节点树逐一对齐(dev 自查 + test code review 核);Play 模式打开窗口无「FindChild 返回 null」报错(并入 V 组实测)。 |
 | W5 | 占位项不崩 | 编辑头像 / 生日下拉 / 各占位点击 → 走 `ShowPlaceholder`(`Log.Info`),不抛异常、不空引用。EditMode 可调对应方法断言不抛。 |
 

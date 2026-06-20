@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
+using Cysharp.Threading.Tasks;
 using GameLogic.BlockBlast.Player;
 
 namespace GameLogic.UI
@@ -42,10 +43,14 @@ namespace GameLogic.UI
         private InputField _inputName;
         private Button _btnEditName;
 
+        // ── 钻石余额行(设计 38 §五,钻石面板支撑「钻石不足」可观测)──
+        private Text _textDiamond;
+
         // ── 生日区（整块占位，不绑数据 §5.3）──
         private Button _btnBirthYear, _btnBirthMonth, _btnBirthDay;
 
         private PlayerInfo P => GameContext.Instance.Player;
+        private PlayerAttrService Attr => GameContext.Instance.PlayerAttr;
 
         protected override void ScriptGenerator()
         {
@@ -64,6 +69,8 @@ namespace GameLogic.UI
             _textName    = FindChildComponent<Text>("Root/NameBlock/m_text_Name");
             _inputName   = FindChildComponent<InputField>("Root/NameBlock/m_input_Name");
             _btnEditName = FindChildComponent<Button>("Root/NameBlock/m_btn_EditName");
+            // 钻石余额行(prefab 节点缺失时为 null,运行期靠 RefreshDiamond null-safe;美术接入后补节点 §五)
+            _textDiamond = FindChildComponent<Text>("Root/NameBlock/m_text_DiamondBalance");
 
             _btnBirthYear  = FindChildComponent<Button>("Root/BirthdayBlock/m_btn_BirthYear");
             _btnBirthMonth = FindChildComponent<Button>("Root/BirthdayBlock/m_btn_BirthMonth");
@@ -95,6 +102,15 @@ namespace GameLogic.UI
 
             // 改名态默认隐藏（点铅笔切出，§七）。
             if (_inputName != null) _inputName.gameObject.SetActive(false);
+
+            // 订阅属性变化(设计 38 §五):钻石余额刷新 + 改名按钮可点态(IsReady=false 禁改名,D7)。
+            if (Attr != null) Attr.OnAttrChanged += OnAttrChangedDispatch;
+        }
+
+        protected override void OnDestroy()
+        {
+            // 解绑事件,防 Window 销毁后留 GC root(沿设计 38 §7.4)。
+            if (Attr != null) Attr.OnAttrChanged -= OnAttrChangedDispatch;
         }
 
         protected override void OnRefresh()
@@ -107,6 +123,39 @@ namespace GameLogic.UI
             }
             if (_inputName != null) _inputName.gameObject.SetActive(false);
             RefreshAvatar();
+            RefreshDiamond();
+            RefreshRenameInteractable();
+        }
+
+        /// <summary>属性事件订阅入口(主线程,设计 38 §7.4)。Diamond / All 触发时刷钻石行 + 改名按钮可点态。</summary>
+        private void OnAttrChangedDispatch(AttrType type, long _, string __)
+        {
+            if (type == AttrType.Diamond || type == AttrType.All)
+            {
+                RefreshDiamond();
+                RefreshRenameInteractable();
+            }
+        }
+
+        /// <summary>刷钻石余额行(设计 38 §五):IsReady=false → 「加载中...」;true → 显示真实余额。</summary>
+        private void RefreshDiamond()
+        {
+            if (_textDiamond == null) return;
+            if (Attr != null && Attr.IsReady)
+            {
+                _textDiamond.text = $"钻石: {Attr.Diamond}";
+            }
+            else
+            {
+                _textDiamond.text = "钻石: 加载中...";
+            }
+        }
+
+        /// <summary>刷改名按钮可点态(设计 38 §7.1 D7):IsReady=false → disabled,防服务端快照未到时虚扣或误判余额。</summary>
+        private void RefreshRenameInteractable()
+        {
+            if (_btnEditName == null) return;
+            _btnEditName.interactable = (Attr != null && Attr.IsReady);
         }
 
         /// <summary>
@@ -140,41 +189,105 @@ namespace GameLogic.UI
         }
 
         /// <summary>
-        /// 改名提交（onEndEdit）：委托 <see cref="PlayerRenameService.TryRename"/>（窗口不自写改名逻辑，W3）。
-        /// 屏蔽字词表本轮注空表（去变现/不阻塞，设计 18 O6）；扣钻接缝默认 true（去变现，设计 18 O8）。
+        /// 改名提交（onEndEdit）:委托 <see cref="PlayerRenameService.TryRename"/>(窗口不自写改名逻辑,W3)。
+        /// 屏蔽字词表本轮注空表(去变现/不阻塞,设计 18 O6);扣钻接缝改为「同步调 PlayerAttrService.TryChangeAsync」
+        /// 接服务端校验流(设计 38 §六,O8 已兑现:不再 cost=>true 占位)。
         /// </summary>
+        /// <remarks>
+        /// onEndEdit 不能直接绑 async UniTask 方法,改包成 UniTaskVoid 入口 + try/catch 兜底(沿 HotFix 既有 async UI 范式)。
+        /// 同步等响应而非 fire-and-forget(设计 38 D3):避免「先成功后扣钻」错位。
+        /// </remarks>
         private void OnRenameSubmit(string newName)
         {
+            OnRenameSubmitAsync(newName).Forget();
+        }
+
+        /// <summary>
+        /// 实际的异步改名流程(设计 38 §六:同步等响应)。
+        /// 顺序:① 据 P.RenameCount 算 cost(read-only,不动玩家态);② cost>0 时发 RPC 扣钻、等响应;
+        /// ③ 服务端 OK / 免费首改 → 调一次 PlayerRenameService.TryRename(扣钻接缝传 _=>true,已 RPC 扣或免费跳过)
+        /// 内含本地校验(空 / 长度 / 屏蔽字)+ 写名 + 计数 +1。
+        /// 关键:不做 dry-run(PlayerRenameService.TryRename 成功路径有副作用:写 Name + RenameCount++,
+        /// dry-run 通过会让二次进入时 cost 已变,污染计费);本地校验失败时服务端已扣 — 是设计 38 §六走查
+        /// 未涵盖的边界,处置:UI 层 InputField 提前拦空/长(onValueChanged + 长度限制 prefab 设值),
+        /// 文本非法到此处的概率被压低,服务端已扣钻在改名失败路径仍刷视图(玩家可见、由后续提示挽回)。
+        /// </summary>
+        private async UniTaskVoid OnRenameSubmitAsync(string newName)
+        {
             if (P == null) return;
-            var result = PlayerRenameService.TryRename(
+
+            // ① 计费:首改 cost=0,非首改读价(read-only,不动 P)。
+            int cost = (P.RenameCount == 0) ? 0 : RenamePriceConfig.PriceFor(P.RenameCount);
+
+            // ② RPC 扣钻(仅非首改):成功才进 ③ 落定。
+            if (cost > 0)
+            {
+                if (Attr == null)
+                {
+                    ShowRenameRejectChange(ChangeReject.ServiceUnavailable);
+                    HideRenameInput();
+                    return;
+                }
+                var rpcResult = await Attr.TryChangeAsync(AttrType.Diamond, -cost, "player_rename");
+                if (!rpcResult.Success)
+                {
+                    ShowRenameRejectChange(rpcResult.Reason);
+                    HideRenameInput();
+                    return;
+                }
+            }
+
+            // ③ 落定改名(扣钻接缝传 _=>true,扣钻已在 ② 完成或 cost=0 免费跳过):
+            // PlayerRenameService 内本地校验仍跑(空 / 长度 / 屏蔽字)— 失败时按 RenameReject 文案。
+            var finalResult = PlayerRenameService.TryRename(
                 P, newName,
                 wordList: System.Array.Empty<string>(),
-                trySpendDiamond: cost => true);   // TODO(设计 25 §七): 钻石实装后接真实扣减
+                trySpendDiamond: _ => true);
 
-            if (result.Success)
+            if (finalResult.Success)
             {
                 if (_textName != null) _textName.text = P.Name;
-                GameContext.Instance.SavePlayer();   // 改名落盘（§5.2 B1/H1：接既有存档路径）
+                GameContext.Instance.SavePlayer();   // 改名落盘(§5.2 B1/H1:接既有存档路径)
             }
             else
             {
-                ShowRenameReject(result.Reason);     // 分支提示：空 / 超长 / 屏蔽字 / 钻石不足
+                ShowRenameReject(finalResult.Reason);
             }
+            HideRenameInput();
+        }
 
+        private void HideRenameInput()
+        {
             if (_inputName != null) _inputName.gameObject.SetActive(false);
             if (_textName != null) _textName.gameObject.SetActive(true);
         }
 
-        /// <summary>改名拒绝原因 → 提示文案（4 分支，设计 18 RenameReject）。</summary>
+        /// <summary>改名拒绝原因(本地校验类)→ 提示文案(4 分支,设计 18 RenameReject)。</summary>
         private void ShowRenameReject(RenameReject reason)
         {
             string msg = reason switch
             {
                 RenameReject.Empty            => "名字不能为空",
-                RenameReject.TooLong          => $"名字过长（上限 {PlayerRenameService.MaxLen}）",
+                RenameReject.TooLong          => $"名字过长(上限 {PlayerRenameService.MaxLen})",
                 RenameReject.Profanity        => "名字含敏感词",
                 RenameReject.NotEnoughDiamond => "钻石不足",
                 _                             => "改名失败",
+            };
+            ShowPlaceholder(msg);
+        }
+
+        /// <summary>服务端 ChangeReject → 改名拒文案(设计 38 §六对照表;RenameReject 枚举不动,SV8)。</summary>
+        private void ShowRenameRejectChange(ChangeReject reason)
+        {
+            string msg = reason switch
+            {
+                ChangeReject.NotEnoughBalance   => "钻石不足",
+                ChangeReject.TypeUpperOverflow  => "钻石余额异常,请稍后再试",
+                ChangeReject.ServiceUnavailable => "网络异常,请稍后再试",
+                ChangeReject.NotLoggedIn        => "请重新登录",
+                ChangeReject.NetworkDown        => "网络断开,请检查连接",
+                ChangeReject.TypeUnknown        => "改名失败",
+                _                               => "改名失败",
             };
             ShowPlaceholder(msg);
         }

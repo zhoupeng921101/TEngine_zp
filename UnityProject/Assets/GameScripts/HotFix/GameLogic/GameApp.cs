@@ -39,6 +39,19 @@ public partial class GameApp
         // 启动 Fantasy 客户端网络：初始化运行时 -> 连接服务器 Gate -> 自动登录。
         // 地址/账号取自 FantasyClient.FantasyNetworkConfig；业务可订阅 FantasyNetwork.OnLoggedIn 进主流程。
         FantasyClient.FantasyNetwork.Boot();
+
+        // 玩家元层属性接线(设计 38 §五):把 Fantasy 推送/快照分发到热更区 PlayerAttrService。
+        // 早挂(在 Boot 之后、登录前)保 InitSnapshot 不丢;事件已在网络主线程触发,可直安全刷视图。
+        FantasyClient.FantasyNetwork.OnPropertyInitSnapshot += (coin, diamond, stamina, _) =>
+        {
+            GameLogic.GameContext.Instance.PlayerAttr?.ApplySnapshot(coin, diamond, stamina);
+        };
+        FantasyClient.FantasyNetwork.OnPropertyDeltaPush += (type, newAmount, reason) =>
+        {
+            // PropertyType 整数值与 AttrType 一一映射(Coin=0/Diamond=1/Stamina=2)
+            var attrType = (GameLogic.BlockBlast.Player.AttrType)type;
+            GameLogic.GameContext.Instance.PlayerAttr?.ApplyDeltaPush(attrType, newAmount, reason);
+        };
 #endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
         // 接 AudioSink，把设置开关推到真实音频模块（设计 23 §五；落点在热更入口而非

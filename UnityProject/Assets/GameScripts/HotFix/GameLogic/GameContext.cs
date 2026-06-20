@@ -33,6 +33,9 @@ namespace GameLogic
         /// <summary>远程邮件服务（运营来源拉列表 + 领奖走服务端校验，设计 32 客户端段）。</summary>
         public RemoteMailService Mail { get; private set; }
 
+        /// <summary>玩家元层属性服务(Coin/Diamond/Stamina 客户端账本视图,设计 38 客户端段)。</summary>
+        public PlayerAttrService PlayerAttr { get; private set; }
+
         protected override void OnInit()
         {
             // 生产用框架键存储（PlayerPrefs），启动即从已保存的开关态加载。
@@ -49,6 +52,11 @@ namespace GameLogic
 
             // 远程邮件服务（设计 32 客户端段）：运营来源拉列表 + 领奖走服务端校验。
             InitMail();
+
+            // 玩家元层属性服务(设计 38 客户端段):生产用 RpcGatewayProd(经 FantasyNetwork.Session 发协议);
+            // FantasyNetwork.On* 事件订阅在 GameApp.StartGameLogic 内挂(GameContext 不直接 using FantasyClient,
+            // 沿设计 38 §五接线落点;Fantasy 程序集受 FANTASY_UNITY 约束,事件订阅须在 #if 内)。
+            PlayerAttr = new PlayerAttrService(new RpcGatewayProd());
         }
 
         /// <summary>
@@ -182,6 +190,15 @@ namespace GameLogic
         public void InitMailWithSource(IRemoteMailSource remote)
         {
             Mail = new RemoteMailService(remote);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口：用指定 RPC 接缝重建 <see cref="PlayerAttr"/>(沿 <see cref="InitMailWithSource"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IRpcGateway"/>(注桩响应各分支),断言改名扣钻 + 余额刷新,不连网(设计 38 §9.1 CV9)。
+        /// </summary>
+        public void InitPlayerAttrWith(IRpcGateway gateway)
+        {
+            PlayerAttr = new PlayerAttrService(gateway);
         }
     }
 }
