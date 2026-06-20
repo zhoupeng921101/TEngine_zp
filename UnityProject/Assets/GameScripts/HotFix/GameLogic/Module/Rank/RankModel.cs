@@ -39,29 +39,6 @@ namespace GameLogic.Rank
         public long SelfScore;
     }
 
-    /// <summary>
-    /// 一次结算的结果（设计 22 §3.5，供 UI 提示「X 榜已结算」）。
-    /// </summary>
-    public readonly struct SettleResult
-    {
-        /// <summary>结算的榜 id。</summary>
-        public readonly int RankId;
-        /// <summary>本机玩家本次结算的名次（0 = 未入榜）。</summary>
-        public readonly int MyRank;
-        /// <summary>本机玩家本次结算的成绩。</summary>
-        public readonly long MyScore;
-        /// <summary>本次发出的奖励库 id（0 = 未发奖 / 未中奖档）。</summary>
-        public readonly int RewardPoolId;
-
-        public SettleResult(int rankId, int myRank, long myScore, int rewardPoolId)
-        {
-            RankId = rankId;
-            MyRank = myRank;
-            MyScore = myScore;
-            RewardPoolId = rewardPoolId;
-        }
-    }
-
     /// <summary>领取结果码（每日 / 点赞奖，设计 22 §3.9）。</summary>
     public enum RankClaimStatus
     {

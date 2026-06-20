@@ -27,7 +27,7 @@ namespace GameLogic
         /// <summary>玩家个人信息（昵称 / 头像 / 等级 / 解锁集，设计 18 数据层）。</summary>
         public PlayerInfo Player { get; private set; }
 
-        /// <summary>排行榜服务（查榜 / 我的名次 / 每日 + 点赞领取 / 结算编排，设计 22 数据层）。</summary>
+        /// <summary>排行榜服务（查榜 / 我的名次 / 每日 + 点赞领取 / 红点查询,设计 22 数据层;结算编排上移服务端,设计 33)。</summary>
         public RankService Rank { get; private set; }
 
         /// <summary>远程邮件服务（运营来源拉列表 + 领奖走服务端校验，设计 32 客户端段）。</summary>
@@ -69,9 +69,9 @@ namespace GameLogic
         /// <remarks>
         /// selfProvider 存在「服务引用源、源引用服务」的循环，用「先声明 svc、闭包捕获、后赋值」打破
         /// （同设计 22 测试 SK1 / 持久化往返用例写法）。邮件服务取真实生产实例
-        /// <c>new MailboxService(new MailPersistence())</c>（设计 21 数据层的发奖出口，设计 28 §四 B1 路②）：
-        /// 排名层点赞 / 结算奖经它真实下发进收件箱存档；邮件表现层（遗留 #26）落地后此处零改动复用
-        /// 同一持久化键 <c>Mail.Inbox</c>，奖即在邮件窗可见（MailboxService 类头已声明此接法）。
+        /// <c>new MailboxService(new MailPersistence())</c>(设计 21 数据层的本机收件接口,设计 28 §四 B1 路②):
+        /// 排名层每日 / 点赞奖经它真实下发进收件箱存档(结算奖经设计 33 服务端发奖入口投出,不走此接口);
+        /// 邮件表现层落地后此处零改动复用同一持久化键 <c>Mail.Inbox</c>,奖即在邮件窗可见(MailboxService 类头已声明此接法)。
         /// </remarks>
         private void InitRank()
         {

@@ -25,14 +25,15 @@ namespace GameLogic.Rank
     }
 
     /// <summary>
-    /// 排行榜服务（设计 22 §3.3–§3.7）：查榜 / 排序并列 / 结算编排 / 每日 + 点赞领取 / 红点 getter。
-    /// 纯逻辑可单测：注入数据源 / 持久化 / 邮件服务 / 时钟 / 开服日期 / 配置源。
+    /// 排行榜服务（设计 22 §3.3–§3.7）：查榜 / 排序并列 / 每日 + 点赞领取 / 红点 getter。
+    /// 纯逻辑可单测:注入数据源 / 持久化 / 邮件服务 / 时钟（每日 + 点赞跨天用） / 配置源。
+    /// 结算编排上移服务端（设计 33），客户端本服务不提供结算检查 / 结算时机判定 / 上次结算时间 / 已结标记任何对外表面。
     /// </summary>
     /// <remarks>
-    /// 加法式：结算 / 每日 / 点赞发奖一律经注入 <see cref="GameLogic.Mail.IMailService.Send"/>（设计 21，复用不另造发奖），
+    /// 加法式:每日 / 点赞发奖经注入 <see cref="GameLogic.Mail.IMailService.Send"/>（设计 21，复用不另造发奖），
     /// 排名层不碰 <c>MergeOrderState</c> / <c>ItemGrant</c> / <c>GiftOpener</c>（奖励经邮件领取链展开）。
-    /// 元层进度（本机最佳 / 上次结算 / 领取日期）经注入 <see cref="IRankPersistence"/> 落盘，复用既有 Provider。
-    /// 无任何网络调用（离线还原方向，§3.6 / O1）。
+    /// 元层进度（本机最佳 / 每日 + 点赞领取日期）经注入 <see cref="IRankPersistence"/> 落盘，复用既有 Provider。
+    /// 结算奖经设计 33 服务端发奖入口投玩家邮箱（玩家走设计 32 客户端段领取链取奖），本服务不本地组结算邮件草稿、不本地发结算奖。
     /// </remarks>
     public sealed class RankService
     {
@@ -43,10 +44,8 @@ namespace GameLogic.Rank
         private readonly GameLogic.Mail.IMailService _mail;
         private RankProgressSave _progress;
 
-        /// <summary>时钟（注入；默认系统时钟）。结算时机 / 跨天重置用它。</summary>
+        /// <summary>时钟（注入;默认系统时钟）。每日 + 点赞跨天重置 / 提交成绩刷新 AchievedTicks 用它。</summary>
         public Func<DateTime> NowProvider = () => DateTime.Now;
-        /// <summary>开服日期（注入；OpenDays 结算用）。</summary>
-        public DateTime OpenDate = DateTime.MinValue;
 
         /// <summary>
         /// 构造排行榜服务。<paramref name="cfg"/> 为 null 时默认包 <c>RankConfigMgr</c>。
@@ -227,95 +226,10 @@ namespace GameLogic.Rank
             return a.AchievedTicks.CompareTo(b.AchievedTicks); // 升序（早者靠前）
         }
 
-        // ── 结算时机判定（设计 22 §3.5.1，valid_type 四档）────────
-
-        /// <summary>
-        /// 给定 now / 开服日期 / 上次结算时间，判该榜是否到结算点（且本周期未结过）。
-        /// </summary>
-        public bool IsSettleDue(RankDef def, DateTime now, DateTime openDate, DateTime? lastSettle)
-        {
-            if (def == null) return false;
-            switch (def.ValidType)
-            {
-                case RankValidType.Always:
-                    return false; // 无结算，持续开启，永不结算
-                case RankValidType.OpenDays:
-                    return now >= openDate.AddDays(def.ValidVal) && lastSettle == null; // 开服第 X 天后，一次性
-                case RankValidType.FixedTime:
-                {
-                    var t = FromUnixSeconds(def.ValidVal);
-                    return now >= t && lastSettle == null; // 指定时间，一次性
-                }
-                case RankValidType.Weekly:
-                    return IsWeeklyDue(now, def.ValidVal, lastSettle); // 周循环，每周一次
-                default:
-                    return false;
-            }
-        }
-
-        /// <summary>周循环判据：算 now 所在自然周的「星期 X 结算时刻」，到点且本周未结过 → due（设计 22 §3.5.1）。</summary>
-        private static bool IsWeeklyDue(DateTime now, long weekdayVal, DateTime? lastSettle)
-        {
-            var thisWeekSettle = ThisWeekSettleTime(now, weekdayVal);
-            if (now < thisWeekSettle) return false;
-            return lastSettle == null || lastSettle.Value < thisWeekSettle;
-        }
-
-        /// <summary>本自然周内「星期 X（1=周一..7=周日）」当天 0 点（本轮精度到天，O4）。</summary>
-        private static DateTime ThisWeekSettleTime(DateTime now, long weekdayVal)
-        {
-            int target = (int)weekdayVal;
-            if (target < 1) target = 1;
-            if (target > 7) target = 7;
-            // ISO 周：周一为一周起点。DayOfWeek.Sunday==0，转成 1..7（周一=1..周日=7）
-            int todayIso = ((int)now.DayOfWeek + 6) % 7 + 1;
-            var monday = now.Date.AddDays(-(todayIso - 1));
-            return monday.AddDays(target - 1); // 目标星期 X 当天 0 点
-        }
-
-        /// <summary>valid_val（Unix 秒，UTC 纪元）→ 本地 DateTime（FixedTime 用）。</summary>
-        private static DateTime FromUnixSeconds(long seconds)
-            => DateTimeOffset.FromUnixTimeSeconds(seconds).LocalDateTime;
-
-        // ── 结算编排（设计 22 §3.5.2）─────────────────────────────
-
-        /// <summary>
-        /// 检查所有榜，对到点且未结的榜结算：算本机名次 → 查档奖 → 组结算邮件经 21 发 → 记已结算。
-        /// 返回本次结算了哪些榜（供 UI 提示）。纯方法，调用方按需调（登录 / tick，O9）。
-        /// </summary>
-        public List<SettleResult> CheckAndSettle(DateTime now)
-        {
-            var results = new List<SettleResult>();
-            bool dirty = false;
-            foreach (var def in _cfg.All())
-            {
-                if (def == null) continue;
-                var last = GetLastSettle(def.Id);
-                if (!IsSettleDue(def, now, OpenDate, last)) continue;
-
-                var (myRank, myScore) = GetMyRank(def.Id);
-                var tier = myRank > 0 ? def.TierForRank(myRank) : null;
-                int rewardPoolId = tier?.RewardPoolId ?? 0;
-
-                if (tier != null && rewardPoolId != 0 && def.MailDefId != 0)
-                {
-                    var draft = GameLogic.Mail.MailDraft.FromTemplate(def.MailDefId, RankText.SettleSender)
-                                ?? new GameLogic.Mail.MailDraft
-                                {
-                                    SenderTextId = RankText.SettleSender,
-                                    TitleTextId = RankText.SettleTitle,
-                                };
-                    draft.RewardPoolId = rewardPoolId; // 名次档奖励挂结算邮件（spec「奖励写到邮件中」）
-                    _mail.Send(draft);                 // → 设计 21，本地真实发奖入口
-                }
-
-                SetLastSettle(def.Id, now); // 记已结算（防重复结）
-                dirty = true;
-                results.Add(new SettleResult(def.Id, myRank, myScore, rewardPoolId));
-            }
-            if (dirty) _persist.Save(_progress);
-            return results;
-        }
+        // ── 结算编排（设计 22 §3.5）已上移服务端（设计 33）──────────
+        // 本服务不暴露「结算检查 / 结算时机判定 / 上次结算时间 / 已结标记」对外表面;
+        // 结算到点 / 算名次 / 按名次档查奖 / 发结算邮件 / 周期幂等全程在服务端,
+        // 客户端在结算上无动作。玩家在邮箱里见结算奖,经设计 32 客户端段领取链取奖。
 
         // ── 每日 / 点赞领取（设计 22 §3.4.2，跨天重置，经邮件发）───
 
@@ -362,7 +276,7 @@ namespace GameLogic.Rank
             return Ok();
         }
 
-        /// <summary>组草稿挂奖励库 id，经 21 IMailService.Send 发邮件（每日 / 点赞 / 结算统一渠道，O5）。</summary>
+        /// <summary>组草稿挂奖励库 id，经 21 IMailService.Send 发本机邮件（每日 / 点赞经此渠道,O5;结算奖经设计 33 服务端发,不走本方法）。</summary>
         private void SendRewardMail(RankDef def, int rewardPoolId, int titleTextId)
         {
             GameLogic.Mail.MailDraft draft = null;
@@ -377,19 +291,18 @@ namespace GameLogic.Rank
         // ── 红点 getter（设计 22 §3.7）────────────────────────────
 
         /// <summary>
-        /// 排行榜 icon 红点：任一榜「今日每日奖可领」或「今日点赞可领」或「到点未结算」即亮。
-        /// 结算奖进邮箱后由邮件红点（21）接管，本红点不为已结算项亮（避免重复）。
+        /// 排行榜 icon 红点:任一榜「今日每日奖可领」或「今日点赞可领」即亮。
+        /// 结算奖红点交[邮件红点 21]接管(结算奖经设计 33 服务端发到玩家邮箱,「有未领结算奖」由邮件红点统一表达,
+        /// 本红点不感知「到点未结算」状态分支以免与邮件红点同源亮两次)。
         /// </summary>
         public bool HasClaimable
         {
             get
             {
-                var now = NowProvider();
-                var today = now.Date;
+                var today = NowProvider().Date;
                 foreach (var def in _cfg.All())
                 {
                     if (def == null) continue;
-                    if (IsSettleDue(def, now, OpenDate, GetLastSettle(def.Id))) return true; // 到点未结
                     var (rank, _) = GetMyRank(def.Id);
                     if (rank > 0)
                     {
@@ -414,19 +327,6 @@ namespace GameLogic.Rank
             var p = new RankBoardProgress { rankId = rankId };
             _progress.boards.Add(p);
             return p;
-        }
-
-        private DateTime? GetLastSettle(int rankId)
-        {
-            var p = FindProgress(rankId, create: false);
-            if (p == null || p.lastSettleTicks == 0) return null;
-            return new DateTime(p.lastSettleTicks);
-        }
-
-        private void SetLastSettle(int rankId, DateTime now)
-        {
-            var p = FindProgress(rankId, create: true);
-            p.lastSettleTicks = now.Ticks;
         }
 
         private bool AlreadyClaimedDailyToday(int rankId, DateTime today)

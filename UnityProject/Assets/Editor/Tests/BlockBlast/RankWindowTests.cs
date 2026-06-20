@@ -33,7 +33,6 @@ namespace GameLogic.BlockBlast.Tests
 
         private const int BoardWeekly = 1;
         private static readonly DateTime T_Mon = new DateTime(2026, 6, 8, 12, 0, 0);  // 周一
-        private static readonly DateTime T_Open = new DateTime(2026, 6, 1, 0, 0, 0);
 
         // 周榜：condition=100，praise=1003（与设计 22 测试同口径）。
         private static RankDef WeeklyDef()
@@ -60,7 +59,6 @@ namespace GameLogic.BlockBlast.Tests
         {
             GameContext.Instance.InitRankWithDeps(source, new InMemoryRankPersistence(), mail);
             GameContext.Instance.Rank.NowProvider = () => T_Mon;
-            GameContext.Instance.Rank.OpenDate = T_Open;
         }
 
         [SetUp]

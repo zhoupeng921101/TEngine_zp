@@ -33,7 +33,6 @@ namespace GameLogic.BlockBlast.Tests
         private const int BoardAlways = 2;  // valid_type=0 总榜，一档
 
         private static readonly DateTime T_Mon = new DateTime(2026, 6, 8, 12, 0, 0);  // 2026-06-08 是周一
-        private static readonly DateTime T_Open = new DateTime(2026, 6, 1, 0, 0, 0);
 
         // 周榜：三档（1名 / 2-10名 / 11-100名），praise=1003，daily=1004，mail=1
         private static RankDef WeeklyDef()
@@ -79,7 +78,6 @@ namespace GameLogic.BlockBlast.Tests
             return new RankService(source, persist, mail)
             {
                 NowProvider = () => now,
-                OpenDate = T_Open,
             };
         }
 
@@ -254,150 +252,15 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(0, svc2.GetMyRank(BoardWeekly).rank);
         }
 
-        // ════════════ 结算时机 DUE ════════════
-
-        [Test] // DUE1：valid_type=0 Always → IsSettleDue 恒 false
-        public void DUE1_Always_NeverDue()
-        {
-            RankConfigMgr.InitForTest(new[] { AlwaysDef() });
-            var svc = NewService(FixedSource(0, 0, null), new InMemoryRankPersistence(), new RecordingMailService(), T_Mon);
-            var def = AlwaysDef();
-            Assert.IsFalse(svc.IsSettleDue(def, T_Mon, T_Open, null));
-            Assert.IsFalse(svc.IsSettleDue(def, T_Mon.AddYears(1), T_Open, null));
-        }
-
-        [Test] // DUE2：OpenDays(val=7)：now<open+7→false；now≥且last==null→true；已结→false
-        public void DUE2_OpenDays_OnceOff()
-        {
-            var def = new RankDef { Id = 3, ValidType = RankValidType.OpenDays, ValidVal = 7, Tiers = new List<RankRewardTier>() };
-            var svc = NewService(FixedSource(0, 0, null), new InMemoryRankPersistence(), new RecordingMailService(), T_Mon);
-            var open = T_Open; // 6/1
-            Assert.IsFalse(svc.IsSettleDue(def, new DateTime(2026, 6, 7), open, null), "6/7 < 6/1+7=6/8 → false");
-            Assert.IsTrue(svc.IsSettleDue(def, new DateTime(2026, 6, 8), open, null), "6/8 ≥ 6/8 且未结 → true");
-            Assert.IsFalse(svc.IsSettleDue(def, new DateTime(2026, 6, 9), open, new DateTime(2026, 6, 8)), "已结 → false（一次性）");
-        }
-
-        [Test] // DUE3：FixedTime：now<指定→false；now≥且last==null→true；已结→false
-        public void DUE3_FixedTime_OnceOff()
-        {
-            // valid_val = 2026/7/1 00:00 的 Unix 秒
-            long unix = ((DateTimeOffset)new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Local)).ToUnixTimeSeconds();
-            var def = new RankDef { Id = 4, ValidType = RankValidType.FixedTime, ValidVal = unix, Tiers = new List<RankRewardTier>() };
-            var svc = NewService(FixedSource(0, 0, null), new InMemoryRankPersistence(), new RecordingMailService(), T_Mon);
-            Assert.IsFalse(svc.IsSettleDue(def, new DateTime(2026, 6, 30, 23, 0, 0), T_Open, null), "6/30 < 7/1 → false");
-            Assert.IsTrue(svc.IsSettleDue(def, new DateTime(2026, 7, 1, 0, 1, 0), T_Open, null), "7/1 0:01 ≥ → true");
-            Assert.IsFalse(svc.IsSettleDue(def, new DateTime(2026, 7, 2), T_Open, new DateTime(2026, 7, 1)), "已结 → false");
-        }
-
-        [Test] // DUE4：Weekly(val=周一)：本周周一后且 last 不在本周→true；同周已结→false；下周到点→再 true
-        public void DUE4_Weekly_PerWeek()
-        {
-            var def = WeeklyDef(); // ValidVal=1（周一）
-            var svc = NewService(FixedSource(0, 0, null), new InMemoryRankPersistence(), new RecordingMailService(), T_Mon);
-            var tue = new DateTime(2026, 6, 9, 12, 0, 0);  // 周二（本周周一已过）
-            Assert.IsTrue(svc.IsSettleDue(def, tue, T_Open, null), "周二、本周未结 → true");
-            // 同周已结（last = 周一）
-            var lastThisWeek = new DateTime(2026, 6, 8, 12, 0, 0);
-            Assert.IsFalse(svc.IsSettleDue(def, tue, T_Open, lastThisWeek), "本周已结 → false");
-            // 下周周二，last 在上周 → 再 true
-            var nextTue = new DateTime(2026, 6, 16, 12, 0, 0);
-            Assert.IsTrue(svc.IsSettleDue(def, nextTue, T_Open, lastThisWeek), "下周到点、last 在上周 → true");
-            // 本周周一结算时刻当天即到点（周一 00:00 即结算时刻，周一 12:00 ≥ 之 → true）
-            Assert.IsTrue(svc.IsSettleDue(def, T_Mon, T_Open, null), "本周周一当天到点 → true");
-        }
-
-        // ════════════ 结算编排 ST ════════════
-
-        [Test] // ST1：到点+本机名次落中奖档 → 注入 IMailService 收到 1 封 Send，草稿 RewardPoolId==该档；SettleResult 含名次+奖励
-        public void ST1_Settle_SendsMailWithTierReward()
-        {
-            RankConfigMgr.InitForTest(new[] { WeeklyDef() });
-            MailConfigMgr.InitForTest(Array.Empty<MailDef>()); // 防 FromTemplate 触发 ConfigSystem/YooAsset
-            // 本机 900 → 第1名 → 档1 reward 1002；周二触发
-            var fillers = new List<RankEntry> { Filler(500, 10) };
-            var mail = new RecordingMailService();
-            var svc = NewService(FixedSource(900, 100, fillers), new InMemoryRankPersistence(), mail, new DateTime(2026, 6, 9, 12, 0, 0));
-
-            var results = svc.CheckAndSettle(new DateTime(2026, 6, 9, 12, 0, 0));
-            Assert.AreEqual(1, mail.Sent.Count, "应发 1 封结算邮件");
-            Assert.AreEqual(1002, mail.Sent[0].RewardPoolId, "草稿挂第1名档奖励库 1002");
-            Assert.AreEqual(1, results.Count);
-            Assert.AreEqual(BoardWeekly, results[0].RankId);
-            Assert.AreEqual(1, results[0].MyRank);
-            Assert.AreEqual(1002, results[0].RewardPoolId);
-        }
-
-        [Test] // ST2：幂等防重 —— 同周期第二次 CheckAndSettle 不再发（lastSettle 已写）
-        public void ST2_Settle_Idempotent()
-        {
-            RankConfigMgr.InitForTest(new[] { WeeklyDef() });
-            MailConfigMgr.InitForTest(Array.Empty<MailDef>()); // 防 FromTemplate 触发 ConfigSystem/YooAsset
-            var fillers = new List<RankEntry> { Filler(500, 10) };
-            var mail = new RecordingMailService();
-            var now = new DateTime(2026, 6, 9, 12, 0, 0);
-            var svc = NewService(FixedSource(900, 100, fillers), new InMemoryRankPersistence(), mail, now);
-
-            svc.CheckAndSettle(now);
-            svc.CheckAndSettle(now); // 同周期再调
-            Assert.AreEqual(1, mail.Sent.Count, "同周期第二次不重复发奖");
-        }
-
-        [Test] // ST3：边界 —— 未入榜/无档/reward==0/mail==0 不发仅记已结；FromTemplate 返 null 兜底草稿仍挂奖发出
-        public void ST3_Settle_Boundaries()
-        {
-            // (a) 未入榜（本机 50 < Condition 100）→ 不发，但记已结（幂等）
-            RankConfigMgr.InitForTest(new[] { WeeklyDef() });
-            var mail = new RecordingMailService();
-            var persist = new InMemoryRankPersistence();
-            var now = new DateTime(2026, 6, 9, 12, 0, 0);
-            var svc = NewService(FixedSource(50, 100, new List<RankEntry> { Filler(900, 10) }), persist, mail, now);
-            var res = svc.CheckAndSettle(now);
-            Assert.AreEqual(0, mail.Sent.Count, "未入榜 → 不发");
-            Assert.AreEqual(1, res.Count, "仍记一次已结算结果");
-            Assert.AreEqual(0, res[0].MyRank);
-            // 已记 lastSettle → 第二次不再处理
-            Assert.AreEqual(0, svc.CheckAndSettle(now).Count, "已结 → 第二次空");
-
-            // (b) FromTemplate 返 null（MailConfigMgr 灌空模板表，mail=1 模板不存在）→ 兜底占位草稿仍挂奖发出
-            RankConfigMgr.ResetForTest();
-            RankConfigMgr.InitForTest(new[] { WeeklyDef() });
-            MailConfigMgr.InitForTest(Array.Empty<MailDef>()); // 空模板表 → FromTemplate(1) 返 null → 走兜底草稿
-            var mail2 = new RecordingMailService();
-            var svc3 = NewService(FixedSource(900, 100, new List<RankEntry> { Filler(500, 10) }), new InMemoryRankPersistence(), mail2, now);
-            svc3.CheckAndSettle(now);
-            Assert.AreEqual(1, mail2.Sent.Count, "模板缺 → 兜底草稿仍发");
-            Assert.AreEqual(1002, mail2.Sent[0].RewardPoolId, "兜底草稿仍挂奖 1002");
-        }
-
-        [Test] // ST3b：reward==0 的档不发；mail==0 的榜不发，均记已结
-        public void ST3b_Settle_NoRewardOrNoMail_NotSent()
-        {
-            // reward==0 档：构造一个 1 名档 reward=0
-            var def = new RankDef
-            {
-                Id = 5, Condition = 0, ValidType = RankValidType.Weekly, ValidVal = 1, MailDefId = 1, CountMax = 100, ShowMax = 50,
-                Tiers = new List<RankRewardTier> { new RankRewardTier { RankMin = 1, RankMax = 1, RewardPoolId = 0 } },
-            };
-            RankConfigMgr.InitForTest(new[] { def });
-            MailConfigMgr.InitForTest(Array.Empty<MailDef>());
-            var mail = new RecordingMailService();
-            var now = new DateTime(2026, 6, 9, 12, 0, 0);
-            var svc = NewService(FixedSource(900, 100, null), new InMemoryRankPersistence(), mail, now);
-            Assert.AreEqual(1, svc.CheckAndSettle(now).Count);
-            Assert.AreEqual(0, mail.Sent.Count, "reward==0 → 不发");
-
-            // mail==0 的榜
-            var def2 = new RankDef
-            {
-                Id = 6, Condition = 0, ValidType = RankValidType.Weekly, ValidVal = 1, MailDefId = 0, CountMax = 100, ShowMax = 50,
-                Tiers = new List<RankRewardTier> { new RankRewardTier { RankMin = 1, RankMax = 1, RewardPoolId = 1002 } },
-            };
-            RankConfigMgr.ResetForTest(); RankConfigMgr.InitForTest(new[] { def2 });
-            var mail2 = new RecordingMailService();
-            var svc2 = NewService(FixedSource(900, 100, null), new InMemoryRankPersistence(), mail2, now);
-            Assert.AreEqual(1, svc2.CheckAndSettle(now).Count);
-            Assert.AreEqual(0, mail2.Sent.Count, "mail==0 → 不发");
-        }
+        // ════════════ 本地结算退役 RT(设计 22 §五 退役 RT 组) ════════════
+        // 客户端排名服务不再持有「结算检查 / 结算时机判定 / 上次结算时间 / 已结标记」对外表面;
+        // 结算编排上移服务端(设计 33),客户端无结算入口、不本地发结算奖、不本地存结算幂等标记。
+        // RT1-RT3 验收点的客户端可观测面体现为:
+        //   ① DUE1-DUE4(IsSettleDue 四档)+ ST1-ST3b(CheckAndSettle 编排)整组测试已删除——
+        //      若服务恢复任一对外结算表面,本测试块编译失败 = 退役被违反;
+        //   ② RD 组「到点未结」断言已删,红点不再因结算到点亮起;
+        //   ③ P1「上次结算时间」往返断言已删,P2 新增老存档含遗留字段反序列化不抛断言;
+        //   ④ 字段表退化由 RankBoardProgress / SettleResult struct 删除编译期保证。
 
         // ════════════ 每日/点赞 DP ════════════
 
@@ -482,20 +345,10 @@ namespace GameLogic.BlockBlast.Tests
 
         // ════════════ 红点 RD ════════════
 
-        [Test] // RD1：到点未结/今日每日可领/今日点赞可领任一 → true；全已领且无到点 → false
+        [Test] // RD1:今日每日可领 OR 今日点赞可领 → true;两项全已领 → false(结算分支已退役,本红点不感知结算到点)
         public void RD1_HasClaimable()
         {
-            RankConfigMgr.InitForTest(new[] { WeeklyDef() });
-            MailConfigMgr.InitForTest(Array.Empty<MailDef>());
-            var now = new DateTime(2026, 6, 9, 12, 0, 0); // 周二，周榜到点未结
-            var svc = NewService(FixedSource(900, 100, null), new InMemoryRankPersistence(), new RecordingMailService(), now);
-            Assert.IsTrue(svc.HasClaimable, "周榜到点未结 → true");
-        }
-
-        [Test] // RD2：领过今日每日/点赞后该项不再亮；结算后该榜 IsSettleDue false 不再亮
-        public void RD2_AfterClaimAndSettle_NoRedDot()
-        {
-            // 用 Always 榜（不会到点结算）隔离「每日/点赞」红点
+            // 用 Always 榜(不到点结算)隔离结算分支:仅每日/点赞驱动红点
             var def = new RankDef
             {
                 Id = 8, Condition = 0, ValidType = RankValidType.Always, PraiseRewardPoolId = 1003, MailDefId = 1, CountMax = 100, ShowMax = 50,
@@ -508,29 +361,36 @@ namespace GameLogic.BlockBlast.Tests
 
             Assert.IsTrue(svc.HasClaimable, "有每日/点赞可领 → true");
             svc.ClaimDaily(8);
+            Assert.IsTrue(svc.HasClaimable, "点赞仍可领 → 仍 true");
             svc.ClaimPraise(8);
-            Assert.IsFalse(svc.HasClaimable, "全领过且 Always 不结算 → false");
-
-            // 结算红点：周榜（无每日/点赞奖，隔离）到点先 true，结算后不再亮（结算红点交邮件 21）
-            var now2 = new DateTime(2026, 6, 9, 12, 0, 0);
-            RankConfigMgr.ResetForTest(); RankConfigMgr.InitForTest(new[] { WeeklyNoClaim() });
-            var svc3 = NewService(FixedSource(900, 100, null), new InMemoryRankPersistence(), new RecordingMailService(), now2);
-            Assert.IsTrue(svc3.HasClaimable, "周榜到点未结 → true");
-            svc3.CheckAndSettle(now2);
-            Assert.IsFalse(svc3.HasClaimable, "结算后该榜不再亮（结算红点交邮件 21）");
+            Assert.IsFalse(svc.HasClaimable, "全领过 → false");
         }
 
-        // 周榜变体：无每日/点赞奖（隔离结算红点）
-        private static RankDef WeeklyNoClaim()
-            => new RankDef
+        [Test] // RD2:周榜「到点未结算」分支已退役 —— HasClaimable 不感知结算时机,
+               //      无每日/点赞奖的周榜即使到结算点也不亮(结算红点由设计 21 邮件红点表达)
+        public void RD2_SettleDueNoLongerTriggersRedDot()
+        {
+            // 周榜变体:无每日/点赞奖,只剩名次档结算奖;现状:本红点应始终 false(结算上移服务端)
+            var weeklyNoClaim = new RankDef
             {
-                Id = 9, Condition = 0, ValidType = RankValidType.Weekly, ValidVal = 1, PraiseRewardPoolId = 0, MailDefId = 1, CountMax = 100, ShowMax = 50,
-                Tiers = new List<RankRewardTier> { new RankRewardTier { RankMin = 1, RankMax = 1, RewardPoolId = 1002, DailyRewardPoolId = 0 } },
+                Id = 9, Condition = 0, ValidType = RankValidType.Weekly, ValidVal = 1,
+                PraiseRewardPoolId = 0, MailDefId = 1, CountMax = 100, ShowMax = 50,
+                Tiers = new List<RankRewardTier>
+                {
+                    new RankRewardTier { RankMin = 1, RankMax = 1, RewardPoolId = 1002, DailyRewardPoolId = 0 },
+                },
             };
+            RankConfigMgr.InitForTest(new[] { weeklyNoClaim });
+            MailConfigMgr.InitForTest(Array.Empty<MailDef>());
+            // 周二、本机第1(到结算点,老行为应亮);新行为:不亮(结算红点交邮件 21)
+            var now = new DateTime(2026, 6, 9, 12, 0, 0);
+            var svc = NewService(FixedSource(900, 100, null), new InMemoryRankPersistence(), new RecordingMailService(), now);
+            Assert.IsFalse(svc.HasClaimable, "到点未结分支已退役 → 不亮(结算红点交邮件 21)");
+        }
 
         // ════════════ 持久化 P ════════════
 
-        [Test] // P1：跨实例往返保真（最佳分/lastSettle/每日领取日期）
+        [Test] // P1:跨实例往返保真(本机最佳分 + 每日/点赞领取日期);上次结算时间字段已退役,不再断言
         public void P1_Persistence_RoundTrip()
         {
             RankConfigMgr.InitForTest(new[] { WeeklyDef() });
@@ -538,19 +398,25 @@ namespace GameLogic.BlockBlast.Tests
             var persist = new InMemoryRankPersistence();
             var now = new DateTime(2026, 6, 9, 12, 0, 0);
 
-            // 实例1：提交成绩 + 结算 + 领每日
-            var svc1 = NewService(FixedSource(0, 0, null), persist, new RecordingMailService(), now);
+            // 实例1:提交成绩 + 领每日/点赞;FixedSource 本机分=900 入榜,使 ClaimDaily 能命中名次档
+            var svc1 = NewService(FixedSource(900, 100, null), persist, new RecordingMailService(), now);
             svc1.SubmitScore(BoardWeekly, 777);
             // 用基于进度的本地源验证 SubmitScore 反映到榜
             var svcRead = new RankService(
                 new LocalRankSource(id => svc1.GetMyBest(id), _ => new List<RankEntry>()),
                 persist, new RecordingMailService())
-            { NowProvider = () => now, OpenDate = T_Open };
+            { NowProvider = () => now };
             Assert.AreEqual(777, svcRead.GetBoard(BoardWeekly).SelfScore, "提交成绩反映到榜");
 
-            // 实例2：复用同 persist 新建（模拟重启）→ 最佳分保真
-            var svc2 = NewService(FixedSource(0, 0, null), persist, new RecordingMailService(), now);
+            // 领每日 + 点赞,标记当天日期(本机分=900 入榜,每日奖落第1名档)
+            Assert.AreEqual(RankClaimStatus.Success, svc1.ClaimDaily(BoardWeekly).Status);
+            Assert.AreEqual(RankClaimStatus.Success, svc1.ClaimPraise(BoardWeekly).Status);
+
+            // 实例2:复用同 persist 新建(模拟重启) → 最佳分 + 每日/点赞领取日期保真
+            var svc2 = NewService(FixedSource(900, 100, null), persist, new RecordingMailService(), now);
             Assert.AreEqual(777, svc2.GetMyBest(BoardWeekly).score, "重启后最佳分保真");
+            Assert.AreEqual(RankClaimStatus.AlreadyClaimedToday, svc2.ClaimDaily(BoardWeekly).Status, "每日领取日期保真,当天再领仍 AlreadyClaimedToday");
+            Assert.AreEqual(RankClaimStatus.AlreadyClaimedToday, svc2.ClaimPraise(BoardWeekly).Status, "点赞领取日期保真,当天再领仍 AlreadyClaimedToday");
 
             // 提交更高分刷新；提交更低分不覆盖
             svc2.SubmitScore(BoardWeekly, 500);
@@ -559,7 +425,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(900, svc2.GetMyBest(BoardWeekly).score, "更高分刷新");
         }
 
-        [Test] // P2：脏数据/无键/负分保底产合法默认不抛
+        [Test] // P2:脏数据/无键/负分保底产合法默认不抛;老存档含遗留「上次结算时间」字段反序列化不抛(向后兼容)
         public void P2_Persistence_DirtyDataSafe()
         {
             // 无键
@@ -575,8 +441,20 @@ namespace GameLogic.BlockBlast.Tests
             provider.Set(RankPersistence.Key, "{not valid json");
             var prod = new RankPersistence();
             var loaded = prod.Load();
-            Assert.IsNotNull(loaded, "脏 JSON → 合法空，不抛");
+            Assert.IsNotNull(loaded, "脏 JSON → 合法空,不抛");
             Assert.IsNotNull(loaded.boards);
+
+            // 老存档含遗留 `lastSettleTicks` 字段:JsonUtility 忽略 DTO 中不存在的字段,不抛,保真其它字段
+            provider.Set(RankPersistence.Key,
+                "{\"version\":1,\"boards\":[{\"rankId\":1,\"bestScore\":555,\"bestAchievedTicks\":1234,\"lastSettleTicks\":9999,\"dailyClaimDateBin\":777,\"praiseClaimDateBin\":888}]}");
+            var legacyLoaded = prod.Load();
+            Assert.IsNotNull(legacyLoaded, "老存档含遗留字段 → 不抛");
+            Assert.AreEqual(1, legacyLoaded.boards.Count);
+            Assert.AreEqual(1, legacyLoaded.boards[0].rankId);
+            Assert.AreEqual(555, legacyLoaded.boards[0].bestScore, "遗留字段忽略,本机最佳分保真");
+            Assert.AreEqual(1234, legacyLoaded.boards[0].bestAchievedTicks);
+            Assert.AreEqual(777, legacyLoaded.boards[0].dailyClaimDateBin);
+            Assert.AreEqual(888, legacyLoaded.boards[0].praiseClaimDateBin);
 
             // 负分提交夹 ≥0
             RankConfigMgr.InitForTest(new[] { WeeklyDef() });

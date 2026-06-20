@@ -343,8 +343,8 @@ private void OnPraise()
 | **点赞按钮** | 占位 / 省略(可选接) | <mark>效果图无该钮</mark>(D2)。默认不加;留 `ClaimPraise` 接线点(<a href="#28-rank-window-art::praise">§6.1</a>)。若产品要 → 加 `m_btn_Praise` 接数据层,奖进邮箱。 |
 | **奖励预览** | 不做(本屏) | <mark>效果图无奖励预览位</mark>(D5)。数据层有 `TierForRank(rank).ShowRewardPoolId` + 17 `RewardView` 归一可显,效果图未画 → 本次换皮不强加,留后续屏(阻塞于奖励图标美术,同遗留 #20)。 |
 | **多榜页签** | 默认单榜(可选接) | <mark>效果图只显一个榜、无页签</mark>(D1)。默认展示 `RankId=1` 单榜;数据层 `RankDef.Group` + `RankConfigMgr.All()` 支持多榜分组,若产品要 → 加页签按组切换选中 `RankId`(留接线点,本次换皮按效果图单榜)。 |
-| **红点** | 不做(本屏内) | 数据层 `HasClaimable` 供主菜单 / HUD 入口 icon 红点(D6)。本屏是被打开的窗,红点显示在入口侧(后续轮接入口 icon 时用);本屏内不重复显。 |
-| **结算触发** | 默认不触发(可选) | 数据层 `CheckAndSettle(now)` 是纯方法,触发交调用方(登录 / tick,设计 22 O9)。本屏 `OnRefresh` 可选调一次(开窗时补结算),也可不调(交后续登录流程)。默认**不在本屏起结算**(避免开窗副作用),D4。 |
+| **红点** | 不做(本屏内) | 数据层 `HasClaimable`(仅每日 / 点赞,结算移服务端见设计 33) 供主菜单 / HUD 入口 icon 红点(D6)。本屏是被打开的窗,红点显示在入口侧(后续轮接入口 icon 时用);本屏内不重复显。 |
+| **结算触发** | 不触发(结算已移服务端) | 结算上移[设计 33](#33-rank-settle-server) 服务端,由服务端调度触发,客户端无结算触发入口;本屏不调用任何结算入口,玩家结算奖经邮箱见(走[设计 32](#32-mail-server) 拉列表 / 领取)。D4 退役。 |
 
 ## 八、打开入口 + 关闭 {#entry}
 
@@ -401,9 +401,9 @@ private void OnPraise()
 | D1 | 多榜页签是否本屏做 | 单榜(展示 `RankId=1`,对位效果图无页签) | 产品要多榜 → 加页签按 `RankDef.Group` 分组切换(数据层 `All()` 支持,留接线点) |
 | D2 | 点赞按钮是否本屏做 | 不做(效果图无该钮);留 `ClaimPraise` 接线点([§6.1](#28-rank-window-art::praise)) | 产品要点赞 → 加 `m_btn_Praise` 接数据层,奖进邮箱 |
 | D3 | 底部「再来一次」语义 | 关窗(回上一界面);文案沿用效果图「再来一次」 | 「再开一局」→ dev 接 `CloseUI + ShowUIAsync<GameWindow>`(需定从哪个玩法再来) |
-| D4 | 结算是否在本屏触发 | 不触发(`CheckAndSettle` 交后续登录 / tick 流程,避免开窗副作用) | 要开窗补结算 → `OnRefresh` 调一次 `CheckAndSettle(now)` |
+| D4 | 结算是否在本屏触发 | 不触发(结算上移服务端[设计 33](#33-rank-settle-server),客户端无结算入口) | — 退役,无备选 |
 | D5 | 名次档奖励预览是否本屏做 | 不做(效果图无该位) | 后续屏接 `TierForRank.ShowRewardPoolId` + 17 `RewardView`(阻塞于奖励图标美术,同遗留 #20) |
-| D6 | 入口 icon 红点 | 本屏内不显;红点用 `HasClaimable` 显在入口侧(后续轮接入口 icon 时用) | — |
+| D6 | 入口 icon 红点 | 本屏内不显;红点用 `HasClaimable`(每日 / 点赞;结算红点交[邮件红点 21](#21-mail-system)) 显在入口侧(后续轮接入口 icon 时用) | — |
 | D7 | 行实现方案 | 推荐 Widget+池(方案 A);art 受限可退固定槽(方案 C) | 三方案验收等价([§五](#28-rank-window-art::row)),dev 按工程现状取 |
 | BLK1 | **真实全服榜 + 真实他人成绩** | **跳过(无安全默认):无网络模块**。`RemoteRankSource` 返空,本屏榜单 = 本机 + 配置 / 注入陪榜(非随机 NPC)。陪榜内容是运营 / 配置项,本次换皮 `filler=null`(榜上可能只有本机一条) | 解阻 = 网络模块就绪后实现 `RemoteRankSource`,服务层零改动切注入(设计 22 §3.6);陪榜基准分由运营配置补 |
 | BLK2 | **点赞奖真进邮箱可见** | **部分阻塞:mail 表现层(#26)未做**。点赞 `ClaimPraise` 经 `IMailService.Send` 发奖,但无邮件窗看不到收到的奖。本屏验收只锚 `ClaimPraise` 返码 + 数据层调用(W4) | 解阻 = mail 表现层(#26)落地后,点赞奖在邮件窗可见可领 |

@@ -15,8 +15,6 @@ namespace GameLogic.Rank
         public long bestScore;
         /// <summary>达到最佳分的时间（DateTime.Ticks；并列排序用）。</summary>
         public long bestAchievedTicks;
-        /// <summary>上次结算时间（DateTime.Ticks；0 = 从未结算）。</summary>
-        public long lastSettleTicks;
         /// <summary>上次领每日奖的日期（DateTime.Date.Ticks；跨天比对重置；0 = 从未领）。</summary>
         public long dailyClaimDateBin;
         /// <summary>上次领点赞奖的日期（DateTime.Date.Ticks；0 = 从未领）。</summary>
