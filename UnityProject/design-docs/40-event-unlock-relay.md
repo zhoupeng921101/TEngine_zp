@@ -280,7 +280,7 @@ sequenceDiagram
 | --- | --- |
 | E1 | 真往返 server 段切片:模拟账号累计登录 7 次 → 服务端发 EVENT 活动邮件 → 该账号 32 客户端拉列表见活动邮件(`mail_def=7002` 标题 / 正文 + 附件库 `6101`)→ 领取得 `[(道具 id=30101, 数量=1)]` 响应 |
 | E2 | OneShot 永发跨会话:第 7 次登录后即领取邮件 → 重启服务端 + 同账号再登录第 8/9/... 次 → `lastClaimedCycleKey=1` 持久不变 → 不重发 EVENT 邮件 |
-| E3 | 客户端段未实做时的可观测限制:客户端收到道具 30101 后,[16 §3.7 解析层](#16-item-system::useeffect) 当前 5 档无 EVENT 分支,行为按 [§四 异常](#40-event-unlock-relay::degrade) 「未定义」处置;**本子单不验「头像真正解锁」**,标 BLOCKED(客户端段下一刀实做后联调验)|
+| E3 | 客户端段 EVENT 解析 + 适配器接通 → 头像真正解锁:由 [设计 41 客户端段](#41-event-unlock-client) 兑现(`ItemGrant.Resolve` switch 加 `case 5` + `ResolveAndApply` EVENT 分支调 `AvatarUnlockService.GrantUnlock`),Tier 4 第 2 子单全栈联调由 41 §8.2 E1 收口 |
 
 > [!WARNING]
 > **不在本特性验收 / 视环境 BLOCKED**

@@ -100,6 +100,10 @@ namespace GameLogic.Redeem
 
             // 成功:仅此分支按服务端奖励列表本地发奖(复用 16 既有落点,CV1)。
             var granted = GrantRewards(verdict.Rewards, state, rng);
+            // EVENT 解锁落盘(设计 41 §3.5 D3 / D8 三处落点一致):兑换码发奖含 EVENT → 触发 SavePlayer。
+            // 兑换码理论上不发 EVENT 道具(沿设计 41 §5 「EVENT 头像由活动专属」),但代码层与邮件路径同一处理以防漂移。
+            if (ItemGrant.ContainsEventUnlock(granted) && GameContext.IsValid)
+                GameContext.Instance.SavePlayer();
             return new RedeemOutcome(RedeemResult.Success, RedeemText.Success, granted);
         }
 

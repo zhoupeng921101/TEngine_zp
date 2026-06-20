@@ -144,6 +144,10 @@ namespace GameLogic.Mail
             m.Claimed = true;
             m.Read = true;                                  // 领后标已领 + 已读
             _persist.Save(_inbox);
+            // EVENT 解锁落盘（设计 41 §3.5 D3）：本地抽出的 produced 含 EVENT → 触发 SavePlayer 平铺 UnlockedAvatarIds。
+            // IsValid 防 EVENT 触发时无谓 OnInit（EditMode 单测无 GameContext 实例时静默）。
+            if (ItemGrant.ContainsEventUnlock(granted) && GameLogic.GameContext.IsValid)
+                GameLogic.GameContext.Instance.SavePlayer();
             return new ClaimResult(ClaimStatus.Success, MailText.ClaimSuccess, granted);
         }
 
@@ -168,6 +172,9 @@ namespace GameLogic.Mail
                 }
             }
             _persist.Save(_inbox);
+            // EVENT 解锁落盘（设计 41 §3.5 D3）：一键领取累积的 all 含 EVENT → 触发 SavePlayer。
+            if (ItemGrant.ContainsEventUnlock(all) && GameLogic.GameContext.IsValid)
+                GameLogic.GameContext.Instance.SavePlayer();
             return new ClaimResult(ClaimStatus.Success, MailText.ClaimSuccess, all);
         }
 

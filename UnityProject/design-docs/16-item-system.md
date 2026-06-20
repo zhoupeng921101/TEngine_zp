@@ -286,6 +286,7 @@ flowchart TD
 | 2 | 图案 | 效果目标(图案标识) | 效果数量 × 道具数量 | 图案等级 | — |
 | 3 | 自选礼包 | 效果目标(礼包 id) | — | — | 参数 |
 | 4 | 随机礼包 | 效果目标(礼包 id) | — | — | 参数 |
+| **5** | **EVENT 解锁** | **效果目标(头像 / 框 id,指向 avatar 表)** | **道具数量(适配器忽略,恒按 1 解锁)** | — | — |
 | 0 | 无(纯持有材料) | 道具 id | 道具数量 | — | — |
 
 **调用方落点(本系统提供「适配器」示范但不强制接 UI):**
@@ -296,6 +297,7 @@ flowchart TD
 | 图案 | 既有图案注入入口 | 产出「(图案, 等级, 数量)」;适配器调既有图案注入 |
 | 自选礼包 | 返回候选列表交 UI(UI 本设计不接) | 产出礼包 id + 次数;调自选列表 |
 | 随机礼包 | 递归:抽出的道具再解析 + 落点 | 产出礼包 id + 次数;调随机抽取再逐项解析 |
+| **EVENT 解锁** | **[18 §3.6 AvatarUnlockService.GrantUnlock](#18-player-info::unlock):把头像 / 框 id 写进 `PlayerInfo.UnlockedAvatarIds` 或 `UnlockedFrameIds`(由 AvatarEntry.Type 自动分流)** | **产出「(头像 / 框 id, 1)」;适配器查 [AvatarConfigMgr.GetAvatar(targetId)](#18-player-info) 得 entry → 调 `GrantUnlock(player, entry)`(已含则幂等)。落盘由调用方按 [41 §3.5 D3](#41-event-unlock-client::adapter) 触发 `SavePlayer`。** |
 | 无(纯材料) | 进背包 | 适配器把材料放进背包 |
 
 注:图案产出的目标 id 存图案的标识值(如钻石对应一个约定整数值,各图案标识值见合成棋盘约定)。适配器把目标 id 转回图案标识。
@@ -313,7 +315,9 @@ flowchart TD
 >
 > **调用方落点(EVENT)**:产出「(头像/框 id, 1)」;适配器调 `AvatarUnlockService.GrantUnlock`(客户端进程内 API,[设计 18](#18-player-info::unlock) §3.6 旁注「真实『发放』动作 = 把 id 加进该玩家的已解锁集合」),把 id 加入 `PlayerInfo.UnlockedAvatarIds` 或 `UnlockedFrameIds`(按头像表「类型」字段区分)。已含则幂等无操作。
 >
-> **服务端段(Tier 4 第 2 子单 server 段)交付**:在 `item.xlsx` 加 1 行 EVENT 解锁道具(示例 `id=30101, 使用效果=5, 效果目标=3, 自动使用=1, 叠放=0`,效果目标指向 [18 §3.5](#18-player-info::schema) 头像表 id=3 `avt_star` 活动发放档)+ 在 `giftrandom.xlsx` 加 1 行 EVENT 礼包(示例 `所属礼包=6101, 奖品=30101, 数量=1, 权重=100`)+ 在 `__enums__.xlsx` 的「使用效果」枚举加 `EVENT=5` 档;**`UseEffect` 解析层与适配器层(本系统纯逻辑 + 客户端调用方)在本子单 server 段不动**(server 段纯服务端,客户端工程零 diff),留客户端段下一刀实做解析 + 适配器接 `GrantUnlock`。
+> **服务端段(Tier 4 第 2 子单 server 段)交付**(已 PASS Fantasy `bafed768` + 设计稿 `d3e3b4fd`):服务端 `AuthoritativeDefs` 加 EVENT 活动实例(`activity_id=2, target=7, reward=6101`)+ `GiftPoolSeeds` 加 EVENT 礼包条目(`Index=6101 → ItemId=30101 × 1, Rate=100` 单项必中);服务端工程无 Luban,只守 `(道具 id=30101, 数量=1)` 抵达邮件附件。
+>
+> **客户端段(Tier 4 第 2 子单 client 段)交付**(由 [设计 41](#41-event-unlock-client) 兑现):① 客户端 `itemdef.xlsx` 加 1 行 EVENT 解锁道具(`id=30101, use_effect=5, use_value=3 指 avatar id=3 avt_star, automatic=1 立即结算, type=MATERIAL`,详 [41 §3.2](#41-event-unlock-client::item));② 客户端 `giftrandom.xlsx` 加 1 行 EVENT 礼包(`index=6101, item_id=30101, num=1, rate=100`,与 server `GiftPoolSeeds` 共识对齐,详 [41 §3.3](#41-event-unlock-client::gift));③ 本系统 `ItemGrant.cs` 扩 `GrantKind.EventUnlock` 枚举档 + `Resolve` switch 加 `case 5: return GrantPayload(EventUnlock, use_value, count, 0, 0)` + `ResolveAndApply` switch 加 `case GrantKind.EventUnlock` 分支(取 `GameContext.Instance?.Player` + `AvatarConfigMgr.GetAvatar(targetId)` → 都非 null → `AvatarUnlockService.GrantUnlock(p, e)`,详 [41 §3.4-3.5](#41-event-unlock-client::parse));④ 三处领奖路径(`MailboxService.ClaimMail` / `RemoteMailService.OnClaimResp` / `RedeemService.Apply`)按 [41 §3.5 D3](#41-event-unlock-client::adapter) 在 `GrantOnAcquire` 调用后核对 `produced` 列表含 `EventUnlock` 时触发 `GameContext.Instance?.SavePlayer()` 落盘。**注**:客户端 `use_effect` 字段是 `int`(非枚举),无需在 `__enums__.xlsx` 加 `EUseEffect.EVENT` 枚举档,`use_effect` 列直接填整数 `5`。
 >
 > **「为什么不在 ActivityDef 加 EventUnlockId 字段 / 不在邮件 reward 列表附 EVENT 标记」**:沿 16 现有道具系统,EVENT 解锁就是「一个特殊使用效果的道具」,经礼包随机库携带(同货币 / 图案道具一样)。在 [设计 39 ActivityDef](#39-activity-server::config) 的 `reward` 字段填 EVENT 礼包 id(如 `reward=6101`)即可,**不需要在 39 ActivityDef 加新字段、不需要在 32 SendMailTo 签名加 EVENT 参数、不需要扩邮件领取响应**——这条通路与现有所有奖励(货币 / 图案 / 嵌套礼包)走同一条「道具 → 使用效果 → 适配器」路径,正交扩展,守 [设计 32 §3.5 SendMailTo 入口](#32-mail-server::source-api) 签名不变。
 

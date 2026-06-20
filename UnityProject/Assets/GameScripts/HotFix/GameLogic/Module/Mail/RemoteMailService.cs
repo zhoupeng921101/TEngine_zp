@@ -86,6 +86,10 @@ namespace GameLogic.Mail
 
             // 成功：仅此分支按服务端奖励列表本地落地（复用 16 既有落点，客户端不本地抽奖，CV2 / CV7）。
             var granted = GrantRewards(outcome.Rewards, state, rng);
+            // EVENT 解锁落盘（设计 41 §3.5 D3 / §3.6 E1）：远程领取的奖励含 EVENT 解锁 → 触发 SavePlayer
+            // 平铺 UnlockedAvatarIds，保跨会话持久（EVENT 头像三态 Locked → Unlocked 跨会话不丢失）。
+            if (ItemGrant.ContainsEventUnlock(granted) && GameContext.IsValid)
+                GameContext.Instance.SavePlayer();
             return new MailClaimDisplay(MailClaimCode.Success, MailText.ClaimSuccess, granted);
         }
 

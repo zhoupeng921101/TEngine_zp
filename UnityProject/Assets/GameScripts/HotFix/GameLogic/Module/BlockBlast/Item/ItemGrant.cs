@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using GameLogic.BlockBlast.Player;
 using GameLogic.Config;
 
 namespace GameLogic.BlockBlast.Item
 {
-    /// <summary>礼包 / 道具产出的种类（设计 16 §3.7）。</summary>
+    /// <summary>礼包 / 道具产出的种类（设计 16 §3.7 + 设计 41 §3.4 EVENT 扩档）。</summary>
     public enum GrantKind
     {
         /// <summary>纯持有材料（进背包，无即时效果）。</summary>
@@ -17,6 +18,8 @@ namespace GameLogic.BlockBlast.Item
         GiftSelect,
         /// <summary>随机礼包（按权重抽）。</summary>
         GiftRandom,
+        /// <summary>EVENT 头像/框解锁（TargetId=avatar id，Amount 恒 1，适配器忽略；设计 41 §3.4）。</summary>
+        EventUnlock,
     }
 
     /// <summary>
@@ -61,18 +64,31 @@ namespace GameLogic.BlockBlast.Item
         public const int MaxGiftDepth = 5;
 
         /// <summary>
+        /// 判产出列表是否含 EVENT 解锁（设计 41 §3.5 D3：调用方据此决策是否触发 SavePlayer 落盘）。
+        /// <c>list</c> 为 null / 空 → false（不抛）。
+        /// </summary>
+        public static bool ContainsEventUnlock(IReadOnlyList<GrantPayload> list)
+        {
+            if (list == null) return false;
+            for (int i = 0; i < list.Count; i++)
+                if (list[i].Kind == GrantKind.EventUnlock) return true;
+            return false;
+        }
+
+        /// <summary>
         /// 解析单个道具的产出（不发，只产出结构）。
-        /// UseEffect：1 货币 / 2 图案 / 3 自选礼包 / 4 随机礼包 / 其余纯持有。
+        /// UseEffect：1 货币 / 2 图案 / 3 自选礼包 / 4 随机礼包 / 5 EVENT 头像/框解锁（设计 41 §3.4）/ 其余纯持有。
         /// </summary>
         public static GrantPayload Resolve(ItemDef def, int count)
         {
             if (def == null) return new GrantPayload(GrantKind.None, 0, count, 0, 0);
             switch (def.UseEffect)
             {
-                case 1: return new GrantPayload(GrantKind.Numeric,    def.UseValue, def.UseNum * count, 0, 0);
-                case 2: return new GrantPayload(GrantKind.Pattern,    def.UseValue, def.UseNum * count, def.UseLevel, 0);
-                case 3: return new GrantPayload(GrantKind.GiftSelect, def.UseValue, 0, 0, def.Param);
-                case 4: return new GrantPayload(GrantKind.GiftRandom, def.UseValue, 0, 0, def.Param);
+                case 1: return new GrantPayload(GrantKind.Numeric,     def.UseValue, def.UseNum * count, 0, 0);
+                case 2: return new GrantPayload(GrantKind.Pattern,     def.UseValue, def.UseNum * count, def.UseLevel, 0);
+                case 3: return new GrantPayload(GrantKind.GiftSelect,  def.UseValue, 0, 0, def.Param);
+                case 4: return new GrantPayload(GrantKind.GiftRandom,  def.UseValue, 0, 0, def.Param);
+                case 5: return new GrantPayload(GrantKind.EventUnlock, def.UseValue, count, 0, 0);            // 设计 41 §3.4 EVENT
                 default: return new GrantPayload(GrantKind.None, def.Id, count, 0, 0); // 纯持有材料
             }
         }
@@ -154,10 +170,32 @@ namespace GameLogic.BlockBlast.Item
                     // 自选礼包：交 UI 选，本轮不自动展开（UI 不接，O9）。记产出结构供调用方处理。
                     produced.Add(payload);
                     break;
+                case GrantKind.EventUnlock:
+                    // EVENT 头像/框解锁（设计 41 §3.5）：取 GameContext.Player + AvatarConfigMgr.GetAvatar 调
+                    // AvatarUnlockService.GrantUnlock（Type 自动分流头像/框）。任何情形（成功 / Player null /
+                    // entry null）均 produced.Add（供调用方按 D3 决策核 SavePlayer），不抛。
+                    ApplyEventUnlock(payload);
+                    produced.Add(payload);
+                    break;
                 default:
                     produced.Add(payload); // 纯持有材料：调用方入背包
                     break;
             }
+        }
+
+        /// <summary>
+        /// EVENT 解锁适配器（设计 41 §3.5）：纯静态、查无即静默。落盘归调用方触发（D3）。
+        /// PlayerInfo 来源：<c>GameContext.Instance.Player</c>（沿设计 18/25 范式，与 PlayerInfoWindow 同源）；
+        /// 配置查询：<see cref="AvatarConfigMgr.GetAvatar"/>（查无返 null 不抛）；
+        /// 写入分流：<see cref="AvatarUnlockService.GrantUnlock"/> 内 <c>AvatarEntry.Type</c> 自动分流头像/框集合 + AppendDistinct 幂等。
+        /// </summary>
+        private static void ApplyEventUnlock(GrantPayload payload)
+        {
+            var player = GameLogic.GameContext.IsValid ? GameLogic.GameContext.Instance.Player : null;
+            if (player == null) return; // EditMode 单测 / 启动期未加载玩家 → 静默
+            var entry = AvatarConfigMgr.GetAvatar(payload.TargetId);
+            if (entry == null) return; // 配置错指 / 表未注入 → 静默（沿 40 §五崩法表）
+            AvatarUnlockService.GrantUnlock(player, entry);
         }
     }
 }
