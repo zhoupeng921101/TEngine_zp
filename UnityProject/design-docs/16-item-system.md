@@ -302,6 +302,21 @@ flowchart TD
 
 **自动使用字段:**自动使用=1 的道具,获取时立即解析 + 落点(不进背包);自动使用=0 的进背包待用户手动用。本系统提供「获取即处理」入口读自动使用字段,决定走「立即结算」还是「进背包」两条路。
 
+> [!NOTE]
+> **EVENT 类使用效果(`使用效果=5`)— 活动发放头像/框解锁通路接缝** {#useeffect-event}
+>
+> 头像与头像框的「活动发放」三态([设计 18 §3.6](#18-player-info::unlock))需要一条「服务端活动达标 → 邮件礼包奖励 → 客户端落地把 id 写进玩家已解锁集合」的通路。沿用本系统既有「礼包 → 道具 → 使用效果解析 → 适配器落点」范式接入,**不在 SendMailTo 签名 / 邮件领取响应里加旁路标记**。
+>
+> | 使用效果 | 产出种类 | 目标 id | 数量 | 等级 | 次数 |
+> | --- | --- | --- | --- | --- | --- |
+> | 5 | EVENT 解锁 | 效果目标(头像/框 id,指向 [18 §3.5](#18-player-info::schema) 表) | 1 | — | — |
+>
+> **调用方落点(EVENT)**:产出「(头像/框 id, 1)」;适配器调 `AvatarUnlockService.GrantUnlock`(客户端进程内 API,[设计 18](#18-player-info::unlock) §3.6 旁注「真实『发放』动作 = 把 id 加进该玩家的已解锁集合」),把 id 加入 `PlayerInfo.UnlockedAvatarIds` 或 `UnlockedFrameIds`(按头像表「类型」字段区分)。已含则幂等无操作。
+>
+> **服务端段(Tier 4 第 2 子单 server 段)交付**:在 `item.xlsx` 加 1 行 EVENT 解锁道具(示例 `id=30101, 使用效果=5, 效果目标=3, 自动使用=1, 叠放=0`,效果目标指向 [18 §3.5](#18-player-info::schema) 头像表 id=3 `avt_star` 活动发放档)+ 在 `giftrandom.xlsx` 加 1 行 EVENT 礼包(示例 `所属礼包=6101, 奖品=30101, 数量=1, 权重=100`)+ 在 `__enums__.xlsx` 的「使用效果」枚举加 `EVENT=5` 档;**`UseEffect` 解析层与适配器层(本系统纯逻辑 + 客户端调用方)在本子单 server 段不动**(server 段纯服务端,客户端工程零 diff),留客户端段下一刀实做解析 + 适配器接 `GrantUnlock`。
+>
+> **「为什么不在 ActivityDef 加 EventUnlockId 字段 / 不在邮件 reward 列表附 EVENT 标记」**:沿 16 现有道具系统,EVENT 解锁就是「一个特殊使用效果的道具」,经礼包随机库携带(同货币 / 图案道具一样)。在 [设计 39 ActivityDef](#39-activity-server::config) 的 `reward` 字段填 EVENT 礼包 id(如 `reward=6101`)即可,**不需要在 39 ActivityDef 加新字段、不需要在 32 SendMailTo 签名加 EVENT 参数、不需要扩邮件领取响应**——这条通路与现有所有奖励(货币 / 图案 / 嵌套礼包)走同一条「道具 → 使用效果 → 适配器」路径,正交扩展,守 [设计 32 §3.5 SendMailTo 入口](#32-mail-server::source-api) 签名不变。
+
 ### 3.8 基础背包容器(叠加 / 上限 / 占格) {#bag}
 
 背包是与配置弱关联的纯计数容器:持有「道具 id → 数量」,叠加规则查道具的「叠放」标志决定。
