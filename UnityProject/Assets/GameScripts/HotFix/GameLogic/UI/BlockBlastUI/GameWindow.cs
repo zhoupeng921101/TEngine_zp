@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TEngine;
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
+using GameLogic.BlockBlast.Player;   // PlayerAttrService / AttrType(设计 38 数据层 + 设计 42 HUD 接入)
 using GameLogic.Config;
 using GameLogic.UI;   // SettingsWindow（齿轮入口，设计 23）所在命名空间
 
@@ -45,9 +46,17 @@ namespace GameLogic.BlockBlastUI
         private int _displayedScore;
         private int _initialHigh;
 
+        // ── HUD 三资源条数字位(设计 42):订阅 PlayerAttrService.OnAttrChanged 实时刷新 Coin/Diamond/Stamina。──
+        private Text _resNumCoin;
+        private Text _resNumDiamond;
+        private Text _resNumStamina;
+
         private int _draggingShapeId = -1;
         private bool _gameOverTriggered;
         private bool _newBestTriggered;
+
+        /// <summary>玩家元层属性视图(设计 38 数据层 + 设计 42 HUD 接入)。null-safe getter,EditMode 异常路径下保护。</summary>
+        private PlayerAttrService Attr => GameContext.Instance?.PlayerAttr;
 
         protected override void OnCreate()
         {
@@ -83,6 +92,63 @@ namespace GameLogic.BlockBlastUI
             InitGhostPool();
             RenderBoard();
             RenderSlots();
+        }
+
+        /// <summary>解绑 PlayerAttrService.OnAttrChanged(设计 42 §四步 5 + §5.3):
+        /// Window 销毁时解,防 Attr(单例长存)持 GameWindow delegate 致 GC root 泄漏 + 销毁后回调写 Text 抛 MissingReferenceException。
+        /// 沿 PlayerInfoWindow.OnDestroy 范式。</summary>
+        protected override void OnDestroy()
+        {
+            if (Attr != null) Attr.OnAttrChanged -= OnAttrChangedDispatch;
+        }
+
+        /// <summary>属性事件订阅入口(主线程,设计 38 §7.4)。按 type 刷对应资源条;All(快照触发) → 三条全刷。
+        /// 沿 PlayerInfoWindow.OnAttrChangedDispatch 范式(设计 42 §四步 4)。</summary>
+        private void OnAttrChangedDispatch(AttrType type, long _, string __)
+        {
+            switch (type)
+            {
+                case AttrType.All:
+                    RefreshResource(AttrType.Coin);
+                    RefreshResource(AttrType.Diamond);
+                    RefreshResource(AttrType.Stamina);
+                    break;
+                case AttrType.Coin:
+                case AttrType.Diamond:
+                case AttrType.Stamina:
+                    RefreshResource(type);
+                    break;
+                // 未知 type 忽略(协议层应已保不会出现,此处只防御)
+            }
+        }
+
+        /// <summary>刷指定资源条数字(设计 42 §三):Attr 为 null 或 IsReady=false → 显「—」加载中态;
+        /// 否则按类型取对应余额字符串。</summary>
+        private void RefreshResource(AttrType type)
+        {
+            Text target = type switch
+            {
+                AttrType.Coin    => _resNumCoin,
+                AttrType.Diamond => _resNumDiamond,
+                AttrType.Stamina => _resNumStamina,
+                _ => null,
+            };
+            if (target == null) return;
+            target.text = FormatAttr(type);
+        }
+
+        /// <summary>格式化资源条数字(设计 42 §三):Attr 为 null 或 IsReady=false → 「—」(加载中态,非 0 不误导玩家);
+        /// 否则按类型返对应余额(long.ToString,沿 PlayerInfoWindow 钻石面板直显范式,不做 K/M 缩写)。</summary>
+        private string FormatAttr(AttrType type)
+        {
+            if (Attr == null || !Attr.IsReady) return "—";
+            return type switch
+            {
+                AttrType.Coin    => Attr.Coin.ToString(),
+                AttrType.Diamond => Attr.Diamond.ToString(),
+                AttrType.Stamina => Attr.Stamina.ToString(),
+                _ => "—",
+            };
         }
 
         private static int[][] MakeEmptyBoard()
@@ -143,8 +209,9 @@ namespace GameLogic.BlockBlastUI
         }
 
         /// <summary>
-        /// 静态顶栏（设计 27 §5.3，纯视觉壳 + 占位/接线）：头像占位 + 3 资源条占位 + 齿轮(真接设置窗) + 退出钮(回调不动)。
-        /// 顶栏数据层无资源字段（D1）→ 资源条占位；头像无 PlayerInfo（D2）→ 占位图。不往数据层加任何状态。
+        /// 静态顶栏（设计 27 §5.3 + 设计 42 HUD 三属性接入）：头像占位 + 3 资源条(绑 PlayerAttrService 三属性) + 齿轮(真接设置窗) + 退出钮(回调不动)。
+        /// 3 资源条自左到右 = Coin / Diamond / Stamina(沿协议枚举顺序),数字位订阅 OnAttrChanged 实时刷新,IsReady=false 显「—」加载中态。
+        /// 头像无 PlayerInfo（D2）→ 占位图。加号保留 Log 待建(去变现红线,不接购买)。不往数据层加任何状态。
         /// </summary>
         private void BuildTopBar()
         {
@@ -152,8 +219,10 @@ namespace GameLogic.BlockBlastUI
             var avatar = UGuiFactory.CreateImage(_content, "Avatar", 64, 64, 84, 84, Color.white);
             avatar.SetSubSprite(Atlas, "mask");
 
-            // ② 3 资源条（视觉占位 D1）：条底 + 图标 + 数字 + 加号。第 1 条接 HighScore（有真数据），其余占位。
+            // ② 3 资源条(设计 42):条底 + 图标 + 数字(绑 PlayerAttrService 三属性) + 加号(去变现 Log)。
+            //    自左到右 = Coin / Diamond / Stamina,图标沿用现有切图占位对位(产品要专属图另开抛光刀)。
             string[] resIcons = { "gemstone", "gemstone2", "potion" };
+            AttrType[] resTypes = { AttrType.Coin, AttrType.Diamond, AttrType.Stamina };
             for (int i = 0; i < 3; i++)
             {
                 float cx = 230 + i * 150;
@@ -163,17 +232,27 @@ namespace GameLogic.BlockBlastUI
                 var ic = UGuiFactory.CreateImage(_content, $"ResIcon_{i}", cx - 48, 64, 40, 40, Color.white);
                 ic.SetSubSprite(Atlas, resIcons[i]);
 
-                // 数字：第 1 条接 HighScore（真数据，只读），其余静态占位。不写回数据层。
-                string num = i == 0 ? _initialHigh.ToString() : "0";
-                UGuiFactory.CreateText(_content, $"ResNum_{i}", cx + 6, 64, 80, 36, num, 26,
+                // 数字:绑 PlayerAttrService 三属性,IsReady=false 显「—」非 0(0 是合法余额值,占位用「—」不误导)。
+                string num = FormatAttr(resTypes[i]);
+                var numText = UGuiFactory.CreateText(_content, $"ResNum_{i}", cx + 6, 64, 80, 36, num, 26,
                     new Color32(0x5a, 0x2e, 0x10, 0xFF), TextAnchor.MiddleLeft);
+                switch (resTypes[i])
+                {
+                    case AttrType.Coin:    _resNumCoin    = numText; break;
+                    case AttrType.Diamond: _resNumDiamond = numText; break;
+                    case AttrType.Stamina: _resNumStamina = numText; break;
+                }
 
-                // 加号 → 占位（去变现，不接购买；点击仅 Log 待建）
+                // 加号 → 占位（去变现，不接购买；点击仅 Log 待建,沿设计 27 §十 D1 / 设计 42 §一 去变现红线）
                 var plus = UGuiFactory.CreateButton(_content, $"ResPlus_{i}", cx + 56, 64, 30, 30,
                     "+", 26, new Color(0, 0, 0, 0), new Color32(0x3a, 0x8a, 0x3a, 0xFF), out _, out _);
                 plus.onClick.AddListener(() =>
-                    Log.Info("[GameWindow] 资源条加号：待建（无资源系统，设计 27 §十 D1，去变现不接购买）"));
+                    Log.Info("[GameWindow] 资源条加号：待建（去变现红线不接购买,设计 27 §十 D1 / 设计 42 §一）"));
             }
+
+            // 订阅属性变化(设计 42 §四步 3):Coin/Diamond/Stamina 推送或快照到达时按 type 刷对应资源条。
+            // 主线程触发(Fantasy Scene,沿设计 38 §7.4),OnDestroy 解绑防 GC root 泄漏(§5.3)。
+            if (Attr != null) Attr.OnAttrChanged += OnAttrChangedDispatch;
 
             // ③ 齿轮 → 真接设置窗（设计 23 已建）：叠层弹出，不关本窗、不丢局（R4）
             var gear = UGuiFactory.CreateButton(_content, "Gear", BlockLayout.DesignWidth - 64, 64, 72, 72,

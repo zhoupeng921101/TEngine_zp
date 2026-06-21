@@ -77,10 +77,10 @@
 | `Combo` (int) | 连击数(瞬态,消除清零) | 瞬态、非「资源」语义,不接资源条 |
 | — | <mark>无体力 / 金币 / 钻石 / 心 / 宝石 / 提示次数字段</mark> | 资源条要的「货币 / 资源」语义无数据源 |
 
-> [!WARNING]
-> **结论：3 资源条多数无数据源 → 占位（决策 D1）**
+> [!NOTE]
+> **结论：3 资源条绑 PlayerAttrService 三属性(Coin / Diamond / Stamina)**
 >
-> Classic `BlockGameState` 只有得分语义字段(`Score` / `HighScore` / `Combo`),<mark>没有效果图资源条暗示的「3 种可累积资源(金币 / 宝石 / 钻石 之类)」</mark>。切图里有 `gemstone`(宝石)/ `gemstone2` / `potion`(药水)等资源图标,但**它们各代表什么资源、从哪累积、加号点了干什么,均无 spec 定义、无数据源**。本次换皮安全默认 = **资源条作视觉占位**:摆出 3 条对位效果图骨架,数字位 ——「接得上的接(如一条接 `HighScore`)、接不上的摆静态占位数字(如 "0" 或 "—")」,加号「+」点击 → `Log`「待建」+ TODO,<mark>不接任何货币系统、不擅自定义资源语义、不接购买</mark>(去变现)。这些资源条代表什么、是否真做,列待裁决交 boss / 产品(<a href="#27-tarot-mode-hud-art::open">§十 D1</a>),本次换皮按占位推进不阻塞。
+> Classic `BlockGameState` 只有得分语义字段(`Score` / `HighScore` / `Combo`),无三属性资源字段。但 Tier 2 真实玩家属性权威体系已在 [设计 37 服务端段](#37-player-attr-server) + [设计 38 客户端数据层](#38-player-attr-client) 落地三属性账本(金币 / 钻石 / 体力),客户端经 `GameContext.Instance.PlayerAttr`(`PlayerAttrService`)持有视图 + 订阅服务端推送实时刷新。HUD 顶栏 3 资源条绑这三属性([设计 42](#42-tarot-hud-player-attr-bind) 接续刀):**自左到右 = Coin / Diamond / Stamina**,数字位订阅 `PlayerAttrService.OnAttrChanged` 自动刷新,`IsReady=false`(快照未到)时显「—」非 0 不误导玩家。图标沿用现有切图 `gemstone / gemstone2 / potion` 占位对位(产品要专属图标另开 UI 抛光刀)。加号「+」点击保留为 `Log` 待建 + TODO,<mark>不接任何购买 / 充值入口</mark>(去变现红线);具体属性变更入口归各业务玩法刀(38 已接的改名扣钻 / 后续邮件领奖 / 兑换码到账 / 任务奖励等)。本节(D1)在设计 42 落地后由原「视觉占位」改写为现行的「绑三属性」现状。
 
 ## 三之补 · 效果图拆解（对位基准） {#effigy}
 
@@ -176,38 +176,24 @@ Assets/AssetRaw/UIRaw/Atlas/tarot_mode/        ← 新建 ASCII 子目录，16 �
 
 ### 5.3 新增静态顶栏（头像 + 3 资源条 + 齿轮） {#topbar}
 
-效果图顶栏在既有 `GameWindow` 里**不存在**(它当前只有 BEST + 大分数 + ×)。本次换皮新增静态节点对位顶栏,全是 `UGuiFactory.CreateImage` / `CreateButton` 摆在 `_content` 上(750 设计系坐标,对着效果图微调):
+效果图顶栏在既有 `GameWindow` 里**不存在**(它当前只有 BEST + 大分数 + ×)。本次换皮新增静态节点对位顶栏(头像 + 3 资源条 + 齿轮 + 退出钮),全是 `UGuiFactory.CreateImage` / `CreateButton` 摆在 `_content` 上(750 设计系坐标);**3 资源条数字位绑 `GameContext.Instance.PlayerAttr` 三属性**(Coin / Diamond / Stamina,自左到右,见[设计 42](#42-tarot-hud-player-attr-bind))订阅 `OnAttrChanged` 实时刷新,`IsReady=false` 显「—」加载中态;头像占位无数据源(D2);齿轮真接 [设计 23 设置窗](#23-settings-window-art);加号 `Log` 待建去变现(D1)。
 
-```text
-// BuildStaticUI 末尾新增（静态顶栏，全部 SetSubSprite 取 Sheet_tarot_mode 子图）
-private const string Atlas = "Sheet_tarot_mode";
-// ① 头像（占位，无数据源 D2）
-var avatar = UGuiFactory.CreateImage(_content, "Avatar", 70, 70, 90, 90, Color.white);
-avatar.SetSubSprite(Atlas, "mask");   // 或占位圆；接设计18默认头像见 §十 D2
-// ② 3 资源条（占位，无数据源 D1）—— 条底 + 图标 + 数字 + 加号
-string[] icons = { "gemstone", "gemstone2", "potion" };
-for (int i = 0; i < 3; i++) {
-    float cx = 230 + i * 175;
-    var bar = UGuiFactory.CreateImage(_content, $"ResBar_{i}", cx, 70, 160, 56, Color.white);
-    bar.SetSubSprite(Atlas, "resourcebar2");
-    var ic = UGuiFactory.CreateImage(_content, $"ResIcon_{i}", cx - 55, 70, 44, 44, Color.white);
-    ic.SetSubSprite(Atlas, icons[i]);
-    // 数字：接得上的接（如 i==0 接 HighScore），接不上摆占位 "0"/"—"
-    UGuiFactory.CreateText(_content, $"ResNum_{i}", cx + 10, 70, 90, 40,
-        i == 0 ? _state.HighScore.ToString() : "0", 28, Color.white);
-    // 加号按钮 → 占位（去变现，不接购买）
-    var plus = UGuiFactory.CreateButton(_content, $"ResPlus_{i}", cx + 70, 70, 36, 36,
-        "+", 28, Color.white, Color.white, out var plusBg, out _);
-    plus.onClick.AddListener(() => Log.Info("[GameWindow] 资源条加号：待建（无资源系统，设计27 §十 D1）"));
-}
-// ③ 齿轮 → 真接设置窗（设计23 已建）
-var gear = UGuiFactory.CreateButton(_content, "Gear", BlockLayout.DesignWidth - 70, 70, 80, 80,
-    "", 0, Color.white, Color.white, out var gearBg, out _);
-gearBg.SetSubSprite(Atlas, "icon_setting");
-gear.onClick.AddListener(() => GameModule.UI.ShowUIAsync<SettingsWindow>());
-```
+**接线行为(行为级,代码层 dev 现场定位)**:
 
-**资源条数据分流**(决策 D1):接得上的接(默认把第 1 条接 `HighScore` = 最高分语义,有真数据);其余 2 条数字摆占位("0" / "—"),图标用 `gemstone`/`potion` 占位。<mark>加号一律占位 → <code>Log</code>「待建」(去变现,不接购买)</mark>。资源条真语义 / 真数据源待 boss / 产品定义([§十 D1](#27-tarot-mode-hud-art::open))。
+| 步 | 行为 | 落点 |
+| --- | --- | --- |
+| 1 | 头像 `CreateImage` 贴 `mask` 占位(D2) | `BuildTopBar` |
+| 2 | 3 资源条:`CreateImage` 条底 `resourcebar2` + 图标 `gemstone/gemstone2/potion`(默认对位 Coin/Diamond/Stamina)+ 数字 `CreateText` 初值「`IsReady ? Attr.<Type> : "—"`」 + 加号 `Log` 待建 | `BuildTopBar` |
+| 3 | 保存 3 数字 `Text` 引用(`_resNumCoin / _resNumDiamond / _resNumStamina`) | `GameWindow` 字段 |
+| 4 | `Attr.OnAttrChanged += OnAttrChangedDispatch`(null-safe);分发按 type 刷对应 `Text`(All → 三条全刷) | `BuildTopBar` 末 |
+| 5 | 窗销毁/关闭钩子内 `Attr.OnAttrChanged -=` 解绑(防泄漏,沿 `PlayerInfoWindow` 范式) | 销毁/关闭钩子 |
+| 6 | 齿轮 `CreateButton` 贴 `icon_setting` + `onClick → ShowUIAsync<SettingsWindow>` | `BuildTopBar` |
+| 7 | 退出钮 `CreateButton`「×」+ `onClick → CloseUI<GameWindow> + ShowUIAsync<MainMenuWindow>`(回调一字不改,R4)| `BuildTopBar`(见 §5.4) |
+
+> [!NOTE]
+> **本节(资源条数据接入)与本篇换皮的关系**
+>
+> 本篇([设计 27](#27-tarot-mode-hud-art))最初交付的资源条是「视觉占位 + 第 1 条接 HighScore」,因当时无三属性账本。Tier 2 服务端段(37) + 客户端数据层(38) + HUD 接续刀(42)落地后,资源条已升级为绑 `PlayerAttrService` 三属性的现状(沿 conventions §6 覆盖式重写本节为现状)。HighScore 显示位已挪到大分数下方独立 `Best` 文本(见 §5.1),不在顶栏挤位。
 
 ### 5.4 退出入口须保留（效果图无 ×，但不能丢退出） {#exit}
 
@@ -321,7 +307,7 @@ flowchart LR
 
 | # | 开关 | 本次换皮默认（安全默认） | 备选 / 改动触发 |
 | --- | --- | --- | --- |
-| **D1** | 顶栏 3 资源条代表什么 / 数据源 / 加号干什么(数据层无资源字段) | **视觉占位**([§5.3](#27-tarot-mode-hud-art::topbar))—— 摆 3 条对位骨架,第 1 条接 `HighScore`、其余数字占位,图标用 gemstone/potion 占位,加号 → Log 待建(去变现不接购买);不擅自定义资源语义 | 若产品定义 3 资源各是什么(金币 / 宝石 / 提示券…)+ 数据源 + 加号行为 → 后续轮真做(加货币系统 + 接数字位)。<mark>资源语义无 spec 定义,提请 boss / 产品复核</mark> |
+| **D1** | 顶栏 3 资源条数据源 / 图标 / 加号行为 | **绑 PlayerAttrService 三属性 + 图标占位 + 加号去变现**([§5.3](#27-tarot-mode-hud-art::topbar) + [设计 42](#42-tarot-hud-player-attr-bind))—— Coin/Diamond/Stamina 自左到右,订阅 OnAttrChanged 实时刷新;图标沿用 gemstone/gemstone2/potion 占位对位,IsReady=false 显「—」;加号保留 `Log` 待建(去变现不接购买) | 产品要专属三属性图标(真金币 / 真钻石 / 真闪电心)→ 美术新切图 + 重跑打表 + 替图,另开 UI 抛光刀(超 27 + 42 接线范围,不阻塞);加号变购买入口违去变现红线,若产品方向变需另开新设计 |
 | **D5** | 3 动作按钮(更换 / 删除 / 提示)真机制 | **stub 占位**([§六](#27-tarot-mode-hud-art::stub))—— 摆视觉 + 点击 Log 待建 + TODO;真机制本范围外 | 更换 / 删除 / 提示是新玩法功能(花什么资源 / 几次 / 规则未定),产品定义后另开轮真做。<mark>本次换皮不实现(违纯 UI 补完 + 零回归)</mark> |
 | D2 | 顶栏头像数据源(Classic 无 PlayerInfo 接入) | **占位圆图**(用 mask / 通用子图)—— 不为头像把 PlayerInfo 接进 Classic `GameWindow` | 若要真头像:接 [设计 18](#18-player-info) 默认头像(`GameContext.Instance.Player`),属接数据层、可后续做 |
 | D3 | 切图 `advertisement`(广告)是否投放 | **不投放**([§4.3](#27-tarot-mode-hud-art::map))—— 去变现方向,不接广告 | 切图自带但本次换皮不用;若产品要广告位则违去变现方向,须 boss 拍(默认不投) |

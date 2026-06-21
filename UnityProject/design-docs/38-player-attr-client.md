@@ -48,7 +48,7 @@
 | 校验变更合法性 | **服务端**(37 已建) | 沿用 37 §3.4 校验体系(MongoDB FindOneAndUpdate 原子) |
 | 接收响应 + 更新视图 | **客户端 · 本子单新增** | 收 `G2C_PropertyChangeResponse` 后:成功 → 用响应携带的新余额覆盖本地视图;失败 → 不动视图、按错码处理 |
 | 接 `G2C_PropertyDeltaPush` | **客户端 · 本子单新增** | 推送来即覆盖本地视图(绝对值快照覆盖,不做相对推断) |
-| 显示属性(HUD / 面板) | **客户端 · 本子单部分新增** | 本子单只在 `PlayerInfoWindow` 改名面板加钻石余额文本(支撑「钻石不足」可观测);全屏 HUD 显示是表现层后续刀 |
+| 显示属性(HUD / 面板) | **客户端 · 本子单部分新增** | 本子单只在 `PlayerInfoWindow` 改名面板加钻石余额文本(支撑「钻石不足」可观测);Classic 主玩法 HUD 顶栏三属性接续 = [设计 42](#42-tarot-hud-player-attr-bind)(已收口) |
 | 业务内部消费 / 增加(商店 / 兑换码 / 活动 / 邮件 / 任务 / 排行结算等) | **后续刀** | 各业务系统刀按其各自范围接 RPC / 服务端进程内变更 API;本子单不接 |
 | ledger 历史流水 | **不做** <span class="pill-cut">Tier 2+</span> | 37 已明示本子单不含 |
 
@@ -282,7 +282,7 @@ sequenceDiagram
 
 本子单**不守**:
 - **金币 / 体力玩法路径接入**(无既有玩法消费/产出,留 Tier 2+ 业务玩法刀;数据层视图本子单挂入,但无 UI / 无消费/产出调用方)
-- **HUD 全屏显示三属性余额**(UI 表现层,需美术 + 设计 25/27 表现层换皮;本子单只在 PlayerInfoWindow 改名面板有钻石余额行)
+- **HUD 全屏显示三属性余额** —— 本子单不守,但 Classic 主玩法 HUD 顶栏三属性接续 = [设计 42](#42-tarot-hud-player-attr-bind)(已收口,沿 `PlayerInfoWindow` 钻石面板订阅范式扩到 `GameWindow.BuildTopBar` 三资源条)
 - **本地视图与服务端的强一致性**(沿 37 §5.4 推送丢失 / 顺序乱序 = 下次登录拉快照对齐;本子单不加客户端去抖 / 不定期主动 GetSnapshot 校准)
 - **离线变更 / 队列重发**(网络断 = 改名拒绝,沿 30 兑换码不本地放行口径,关闭超发面)
 - **`PlayerNameGenerator` 本身**(文件仅含名字生成,与属性无关;简报误指,本子单不动)
@@ -354,7 +354,7 @@ sequenceDiagram
 
 - **本机 MongoDB 不可达 / Fantasy 服务端起不来** → E1 / E2 / E3 判 BLOCKED 非 FAIL
 - **金币 / 体力玩法路径** → Tier 2+ 业务玩法刀
-- **HUD 全屏显示三属性** → 表现层后续刀
+- **HUD 全屏显示三属性** → 已接续 = [设计 42](#42-tarot-hud-player-attr-bind)(Classic 主玩法 HUD `GameWindow` 顶栏三资源条接 `PlayerAttrService`)
 - **客户端去抖 / 主动 GetSnapshot 校准** → Tier 3 强一致需求时加
 - **`PlayerNameGenerator` 改动**(简报误指,本子单不动)
 

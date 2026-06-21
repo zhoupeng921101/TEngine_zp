@@ -150,21 +150,31 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsFalse(src.Contains("public int HintCount"), "R3: 不得为提示按钮加 HintCount 字段（stub D5）");
         }
 
-        // ── R3b：GameWindow 资源条/动作按钮是占位/stub（点击 Log，不动数据层/玩法）─────
+        // ── R3b：GameWindow 资源条 / 动作按钮接入断言(设计 42 接续后翻转:资源条改绑 PlayerAttrService 三属性,动作按钮仍 stub)──
+        // 设计 42 已把资源条由「占位 + 第 1 条接 HighScore」改为绑 Coin/Diamond/Stamina 三属性,
+        // 订阅 OnAttrChanged 实时刷新 + OnDestroy 解绑;故旧版「num = i==0 ? _initialHigh : "0"」断言已与设计意图对立(必删)。
+        // 翻转后的断言对位设计 42 §七 SV1/SV3 + §7.3 W1/W2:订阅 / 解绑 / 三属性绑定字段命中。
+        // 加号 Log 待建 + 动作按钮 stub 仍是去变现红线 + Tier 2+ 业务范围,保留不动。
         [Test]
         public void R3b_GameWindow_ResourceBarAndActions_ArePlaceholderStub()
         {
             var src = ReadSource(GameWindowPath);
 
-            // 资源条加号 → Log 待建（去变现，不接购买）
-            Assert.IsTrue(src.Contains("资源条加号：待建"), "R3b: 资源条加号点击应 Log 待建（占位 D1）");
-            // 动作按钮 → Log 待建（不实现机制）
-            Assert.IsTrue(src.Contains("动作按钮"), "R3b: 动作按钮点击应 Log 待建（stub D5）");
-            Assert.IsTrue(src.Contains("待建（新玩法机制"), "R3b: 动作按钮应标注新玩法机制待建（不实现）");
-            // 反向：换皮不得在本窗实现更换/删除/提示机制（不得调用改 OperaArr/SaveArr 的新逻辑）
-            // 资源条第 1 条只读 HighScore（不写回）：核占位数字来源是只读 _initialHigh
-            Assert.IsTrue(src.Contains("string num = i == 0 ? _initialHigh.ToString() : \"0\";"),
-                "R3b: 资源条第 1 条接只读 HighScore（_initialHigh），其余静态占位，不写回数据层");
+            // 资源条加号 → Log 待建(去变现红线,不接购买;设计 42 §一 不守加号变购买入口)
+            Assert.IsTrue(src.Contains("资源条加号：待建"), "R3b: 资源条加号点击应 Log 待建(去变现红线 D1)");
+            // 动作按钮 → Log 待建(不实现机制;Tier 2+ 业务玩法刀,设计 27 §六)
+            Assert.IsTrue(src.Contains("动作按钮"), "R3b: 动作按钮点击应 Log 待建(stub D5)");
+            Assert.IsTrue(src.Contains("待建（新玩法机制"), "R3b: 动作按钮应标注新玩法机制待建(不实现)");
+
+            // 设计 42 接续:资源条数字绑 PlayerAttrService 三属性,IsReady=false 显「—」,订阅 OnAttrChanged + OnDestroy 解绑
+            Assert.IsTrue(src.Contains("Attr.OnAttrChanged += OnAttrChangedDispatch"),
+                "R3b/设计 42 W1: 资源条须订阅 PlayerAttrService.OnAttrChanged(注册命中)");
+            Assert.IsTrue(src.Contains("Attr.OnAttrChanged -= OnAttrChangedDispatch"),
+                "R3b/设计 42 W2: 资源条须在 OnDestroy 解绑 OnAttrChanged(防 GC root 泄漏)");
+            Assert.IsTrue(src.Contains("AttrType.Coin") && src.Contains("AttrType.Diamond") && src.Contains("AttrType.Stamina"),
+                "R3b/设计 42 §三: 资源条须绑 Coin/Diamond/Stamina 三属性");
+            Assert.IsTrue(src.Contains("\"—\""),
+                "R3b/设计 42 §三 W4: IsReady=false 时应显「—」加载中态(非 0 不误导玩家)");
         }
 
         // ── R4：退出回调目标 + 齿轮叠层未改 ──────────────────────────────────────────
