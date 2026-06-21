@@ -15,5 +15,5 @@ dotnet %LUBAN_DLL% ^
     -x code.lineEnding=crlf ^
     -x outputCodeDir=%CODE_OUTPATH% ^
     -x outputDataDir=%DATA_OUTPATH% 
-if not defined AI_MODE pause
+if not defined AI_MODE if errorlevel 1 pause
 

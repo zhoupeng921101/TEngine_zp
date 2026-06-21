@@ -31,6 +31,7 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 - 测试资产位置:`Assets/Editor/Tests`、`BlockBlast.Tests.csproj`
 - 记录通过/失败数;失败用例贴名称 + 断言信息
 - 改动涉及新逻辑但无对应用例 → 在报告里标「测试覆盖缺口」
+- **`#if FANTASY_UNITY`-gated 代码无法 EditMode 直测**(`typeof(Fantasy.C2G_XxxRequest)` 在测试 asmdef 报 CS0234):正确分层是把无依赖转换逻辑抽到 gated 块**外**做 EditMode 单测,gated 内字段映射交 E1 PlayMode 真往返核——这是**设计边界,不是覆盖缺口**,在报告里区分
 
 ### 3. 手动功能验证
 - `manage_editor` 进入 Play 模式,按开发「验证点」逐条操作核对

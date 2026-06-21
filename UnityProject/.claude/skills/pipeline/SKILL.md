@@ -126,7 +126,7 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 3. **挑下一个推荐增量**:据 backlog 目标范围与已关单增量,挑推进目标的下一个(boss 给范围,不逐轮问;新批次/新领域的第一个增量也算「下一个」)
 4. 用 Workflow 工具启动 `pipeline-auto`(name 调用,args 含 task/baton/baseline)执行该增量闭环
    > **用 name 调用直接传 `args`,不复制 `pipeline-auto.js` + 顶部内联 `args`**:复制会在 `.claude/workflows/` 留下 canonical 的整份副本(随 pipeline-auto.js 演进而漂移、污染规则栈目录)。长任务串直接作 `args.task` 传入即可(`Workflow({name:'pipeline-auto', args:{task, target, baton, baseline}})`)。
-5. 收到 PASS → 走「关单事务」→ **链式 checkpoint commit**:把该增量提交为一个本地 commit(message = 增量名 + 决策摘要),给按增量粒度的回退点 + 让决策日志对齐到具体 commit。**跨仓库**:checkpoint 提交到该增量改动所在的仓库——client 增量 → UnityProject;server 增量 → Fantasy 仓库(`git -C "D:\work\TEngine_block\Fantasy"`);协议增量横跨两仓 → 两仓各自 commit、放弃跨仓原子性,`state/boss.md` 决策日志按仓库分别记 commit 指针。启动自动基线同理:不干净的工作树按本增量目标端在对应仓库各自提基线
+5. 收到 PASS → 走「关单事务」(checkpoint commit 在事务末步执行,跨仓库规则、消息模板、空提交处理见关单事务第 6 步)。**自治链式特有**:不逐增量回报,checkpoint 累积到链终止一次性汇总;`state/boss.md` 决策日志按仓库分别挂 commit 指针(协议增量跨两仓 = 两条指针)。启动自动基线同理:不干净的工作树按本增量目标端在对应仓库各自提基线
 6. 回步骤 3 续接;**终止判定**(命中即停,跳到汇总呈报):
    - backlog 目标达成(无推进目标的推荐增量)
    - 遇 BLOCKED:剩余增量独立于它 → 继续做独立项;无独立项 → 停
@@ -152,6 +152,13 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
    - `state/boss.md`:「当前任务」节重置为「(无活跃任务)」;「最近关单」**只追加一行索引**(日期·任务·结论·archive 路径),不留详情
 4. 回报用户:结果 + 证据位置 + 遗留事项(自治模式另附决策日志与 BLOCKED 清单)。**自治链式模式不逐增量回报**——关单后接 checkpoint commit 续接下一个增量,累积到链终止(目标达成/硬阻塞/安全上限)一次性汇总呈报
 5. 按 `.claude/rules/conventions.md`「收尾必做」过一遍本次改过的持久文件
+6. **checkpoint commit**(本地、不 push;两种模式均执行):把本增量改动提交为一个本地 commit,给按增量粒度的回退点 + 让决策日志对齐到具体 commit
+   - **范围**:对该增量目标端的仓库跑 `git add -A` + `git commit`——client 增量 → UnityProject(`git -C "D:\work\TEngine_block\UnityProject"`);server 增量 → Fantasy(`git -C "D:\work\TEngine_block\Fantasy"`);协议增量横跨两仓 → 两仓各自 commit,放弃跨仓原子性
+   - **消息**:首行 = 增量名;正文 = 决策摘要(关单结论 + 验收要点)
+   - **空提交跳过**:`git status` 已干净则不强行造空 commit,在回报里说明「无改动可 commit」
+   - **回写**:把 commit hash 追加到第 3 步写入的「最近关单」索引行末尾(协议增量跨两仓 = 两个 hash)
+   - **追加回报**:第 4 步给用户的回报后追加 commit hash + 「可 `git reset --hard <hash>^` 一键退回该增量」提示(自治链式模式不逐增量回报,hash 累积到链终止汇总时一并报)
+   - **常规模式边界提醒**:常规 `/pipeline` 无启动基线 commit(自动基线 121 行仅自治触发);若 `/pipeline` 启动时工作树就有不相关脏改动,会一并卷入本次 checkpoint——需要分离的,用户应在 `/pipeline` 启动前自己 commit/stash
 
 ## 独立评审(高风险决策防顺从)
 

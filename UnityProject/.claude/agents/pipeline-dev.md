@@ -20,6 +20,12 @@ TEngine_block 项目的开发。基于策划的设计文档 + 验收标准,在 U
 
 > 不在本卡复制红线条文:副本必漂移——曾有红线副本引用了已不存在的目录而无人发现(2026-06 实测)。
 
+## 热更与网络层(涉及 Fantasy / 客户端 RPC 时必读)
+
+- **asmdef 引用不传递**:`GameLogic.asmdef` 引 `FantasyClient` 不等于能用 `Fantasy.Unity` 里的类型(`Session` / `AMessage` / `FTask` / 协议消息全在 `Fantasy.Unity`)。用到必须直接把 `Fantasy.Unity` 加进 `GameLogic.asmdef` references。RPC 扩展方法 `C2G_XxxRequest(this Session, ...)` 在 `Fantasy` namespace,调用点 `using Fantasy;`。`Fantasy.Unity` 带 `defineConstraints:["FANTASY_UNITY"]`,GameLogic 无 define 约束——**对外接口/公开签名不暴露 Fantasy 类型**,只在 `#if FANTASY_UNITY` 块内用。
+- **跨平台接口返 UniTask 而非 FTask**:接口/服务层须在所有平台编译,返 `Cysharp.Threading.Tasks.UniTask`(无 define 约束,统一 TEngine 异步红线);**不返** `FTask`(随 FANTASY_UNITY 约束,接口暴露会令无该 define 的平台编译失败)。`FTask` 自带 `GetAwaiter()`,可在 `async UniTask` 体内直接 `await session.C2G_XxxRequest(...)`;同步桩 `await UniTask.CompletedTask; return x;`;EditMode 同步驱动 `UniTask<T>` 用 `task.GetAwaiter().GetResult()`。
+- **RPC 回包不建 Message Handler**:`IResponse` 配 `IRequest` 由框架按请求关联,`await session.C2G_XxxRequest(...)` **调用点内联返回回包对象**,**不建** `Message<G2C_XxxResponse>` Handler——`Message<T>` 只给服务器主动推送(`M2C_*` / `G2C_PushMessage`)用,给 RPC 响应建 Message Handler 会与框架关联冲突。判据:既有 `C2G_LoginGameRequest` / `C2G_TestRequest` 都内联 await、无对应 Message Handler。
+
 ## 开工前(碰 Unity 前)
 先跑 `/unity-check` 确认 MCP 连到正确的 Unity 实例(按名 UnityProject);连不上时按其指引处置,不在未连通的实例上瞎试。
 
@@ -41,6 +47,9 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 
 ## 自检(交接前必做)
 - `read_console` 确认**编译 0 报错**(域重载完成,`editor_state.isCompiling=false`)
+  - 「编译错」只认 `CSxxxx`;`MCP-FOR-UNITY: disposed object`(域重载期桥重连瞬态)和无堆栈 `NullReferenceException`(PlayMode 运行期事件)**不是**编译错
+  - EditMode 测试能跑起来 = 相关程序集已编译通过,本身就是最强编译自检
+  - `run_tests` 在编辑器(正)进入 Play Mode 时直接返 `status:failed`(非测试失败),先 `manage_editor action=stop` 退 Play 再复跑
 - 自己跑一遍核心路径,确保不是明显 broken 才交接
 - **过异常路径不只 happy path**:对改动涉及的机制,挑最可能崩的一类手验一次——空/null、集合为空、资源未加载完、重复/乱序触发、极端值(0/满/中途存档);崩法与已加的防护写进交接区「验证点」,给 test 复核(没有防护的边界情形也照实写,交 test 判)
 

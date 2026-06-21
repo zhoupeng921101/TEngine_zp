@@ -15,6 +15,15 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["-y", "http-server", "design-docs", "-p", "8082", "-c-1"],
       "port": 8082
+    },
+    {
+      "name": "ccaudit-real",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd /d E:\\AgentTools\\分析上下文\\ccaudit && python server.py --port 7844"
+      ],
+      "port": 7844
     }
   ]
 }

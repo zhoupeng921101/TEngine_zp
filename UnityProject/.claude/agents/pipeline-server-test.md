@@ -31,9 +31,11 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 ### 1. 编译验证
 - `dotnet build` 对应解决方案(server 业务 = `examples/Server/Server.sln`;框架改动涉 `Fantasy.sln`),Debug 下核心项目 `TreatWarningsAsErrors`。具体命令以 `Fantasy/CLAUDE.md`「常用命令」为准
 - 有报错**先分类再判**:**代码编译错(CSxxxx 类型/语法/缺引用、源生成器未产出应有注册等)→ FAIL** 并贴日志;**构建环境错(产物 DLL 被占用 CS2012、NuGet 还原失败/网络不可达、SDK 缺失、磁盘/权限)→ BLOCKED**(非代码缺陷,打回 dev 只会空转)。0 error 干净通过 = 该类 PASS
+- **Main.exe 文件锁专项**:`dotnet run` 触发增量构建时,若上次 Main 进程仍在跑,会因 DLL 锁(MSB3027/MSB3021)失败 → 判 BLOCKED-env 不判 FAIL;改用 `dotnet build Server.sln`(不触发产物拷贝)继续完成编译/SG/CR 三类;详见 [.claude/agent-memory/pipeline-server-test/feedback-dll-lock-blocked.md](D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-test/feedback-dll-lock-blocked.md)
 
 ### 2. 源生成器产物验证(替代单元测试)
 - 服务端仓库**无独立单测项目**(`Fantasy/CLAUDE.md` 明示),验证靠源生成器产物:确认本次改动涉及的 Handler/协议 OpCode/SceneType 在生成的注册代码里**按预期出现**
+- **强制产 .g.cs 的命令**:`dotnet build -p:EmitCompilerGeneratedFiles=true -p:CompilerGeneratedFilesOutputPath=<临时目录>`,然后 Grep `*EntitySystemRegistrar*.g.cs` 确认类型注册;编译 0 error/0 warning 是次级证明
 - 改动涉及新 Handler/消息/Scene 但产物无对应注册 → 标「注册缺口」或判 FAIL(消息收不到/路由不到)
 - 不手改 `.g.cs`、不手动注册是红线——产物缺失要回溯源(entity/handler/proto/config)而非补注册
 
@@ -47,7 +49,11 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 - Read `Fantasy/Skills/fantasy-net/references/review.md` 作入口,按改动涉及的域(ECS/Event/Timer/Protocol/Roaming/SphereEvent/HTTP/Database/Config)跳对应 `*-check.md`,逐条核对
   > 以 fantasy-net 正本为准、不在本卡枚举条目:枚举副本在正本新增检查项时会静默漏检
 - FTask 不用 Task、sealed、文件作用域命名空间、错误码而非抛异常、不手动注册等(均以正本清单为准)
+- **MongoDB 写入路径专项**:① 多 Scene(如两 Gate)并发执行的初始化「先 AnyAsync 后 InsertOneAsync」幂等播种**必须 catch DuplicateKey(11000)**,否则二号 Scene 抛异常致 ReloadCache 不跑、缓存空、功能失效;② DuplicateKey 异常**双 catch 缺一不可**:`MongoWriteException(Category==DuplicateKey)` + `MongoCommandException(Code==11000)`(不同写入路径抛不同类型)
 - **持久文件交叉检**:对开发改过的持久文件(含 `pipeline/state/server-dev.md` 交接区)按 `.claude/rules/conventions.md`「交叉检」执行「收尾必做」自检 + 抽查
+
+## 被打回时(返修轮)
+读自己上轮报告 + dev 修复说明 → 复验**只需**核对:① CR 闭合(原 FAIL 项 + 越界试探出的崩法都改了)② 编译/SG 无回归(`dotnet build` 仍 0 error)③ dev 未动的代码区无变化(`git diff` 范围对得上交接区文件清单);其余已 PASS 项**沿用上轮结论,不从头重审**(返修轮抢的就是返工速度,全审等于零返修)。详见 [.claude/agent-memory/pipeline-server-test/feedback-retest-scope.md](D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-test/feedback-retest-scope.md)
 
 ## 协议同步检查项(涉及 proto 变更时,必做)
 若本任务改了协议:核对 `UnityProject/Assets/Fantasy/Generate/NetworkProtocol/` 是否与最新导出一致(server-dev 是否漏拷客户端生成物)+ 客户端能否编译。**漏同步判 FAIL 并入可复现清单**(否则前后端协议错位、联调假错)。

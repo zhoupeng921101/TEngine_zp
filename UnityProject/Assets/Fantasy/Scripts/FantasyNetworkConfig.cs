@@ -34,7 +34,7 @@ namespace FantasyClient
         public static bool AutoReconnect = true;
 
         /// <summary>最大重连次数；0 表示无限重连。</summary>
-        public static int ReconnectMaxAttempts = 0;
+        public static int ReconnectMaxAttempts = 3;
 
         /// <summary>重连退避基数（毫秒），实际延时 = min(base * 次数, max)。</summary>
         public static int ReconnectBaseDelayMs = 1000;

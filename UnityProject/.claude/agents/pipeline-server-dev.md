@@ -44,6 +44,21 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 
 > 漏同步客户端生成物会导致前后端协议错位、联调报「假错」,这是全栈最高风险点,务必在交接区显式声明同步状态。
 
+> **协议导出工具的非显式坑点**(枚举语法 / Main 进程锁 / 跑服 framework / 重排 opcode):详见 [.claude/agent-memory/pipeline-server-dev/proto-exporter-quirks.md](D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-dev/proto-exporter-quirks.md)。两条最常踩:① **proto 枚举值用逗号(非分号)**,否则导出工具报 "Enum has no values";② **导出按 proto 文件名序重排 opcode**(非追加),无害——双端同次重生成、移动对称,opcode 是双端共识的运行期常量(非持久 wire 契约),核对 = `diff` 两端 OuterOpcode.cs 全量相同即可,不必逐条比对绝对值。
+
+## MongoDB 原子写范式(涉及防重/限量/取最优时必读)
+
+- 框架 `IDatabase` 高层 API 只能**先读后写**,无并发原子保证。需并发安全时走原生 `IMongoDatabase`(`database.GetDatabaseInstance() as IMongoDatabase`)。
+- **「取最优 / 条件刷新」**:`_id` 复合唯一键 + `FindOneAndUpdate(filter: _id 匹配 且 旧值<新值, SetOnInsert 不可变字段 + Set 可变字段, IsUpsert)`。旧值已≥新值 → filter 不匹配 → upsert 撞 _id 主键 → DuplicateKey(11000) → 裁定「未刷新」。单次原子,并发下无低分覆盖高分。
+- **「首次注册即建账 / 重连仅刷新部分字段」**:`UpdateOneAsync(filter: _id == key, SetOnInsert(只在 insert 写的字段,如首次注册时间) + Set(每次都写的字段,如末次活跃时间), IsUpsert=true)`。`$setOnInsert` 仅 insert 路径写、`$set` 两路径都写。并发同 key 双登 → 一次 insert / 一次 update,不可变字段稳(insert 写入)+ 可变字段最新。**不需触碰的字段不写进 Update Builder**(避免覆盖运营后台改写,连默认值也不写)。
+- **DuplicateKey 异常双 catch 缺一不可**:`MongoWriteException(Category==DuplicateKey)` + `MongoCommandException(Code==11000)`,两条 catch 都要写(不同写入路径抛不同异常类型)。
+
+## 时钟驱动逻辑(过期/结算/周期判定必读)
+
+- **「当前时刻 nowMs」做成 helper 入参**:生产传 `TimeHelper.Now`,server-test 传可控时刻。既守住「客户端改不了」(服务端权威时钟)又让逻辑可在探针/测试里驱动各时间分支,不必等真实时钟到点。**禁止** helper 内部直读 `TimeHelper.Now` / `DateTime.UtcNow`——一读即不可测。
+- **「周期触发 + 同周期只做一次」幂等范式**(结算/每日重置先例):用「本周期应结时刻」作幂等键(非布尔/计数,每周递增、一次性结后定格),存 `_id=业务id` 的标记文档;判未结+写已结用 `FindOneAndUpdate(filter: _id 匹配 且 存量标记<本周期时刻, $set 本周期时刻, IsUpsert)` 单次原子抢占。**抢占必须在执行副作用(发奖)之前(claim-then-act)**,否则并发两 tick 都先判未结、各自执行一遍;半程崩溃窗因此从「重做(多发)」变「漏做(可补偿)」,落安全侧。
+- **ISO 周循环坑**:ISO 周以周一为首日、周日是周末日,「注入 now 在本周该星期时刻之后」须仍落同一自然周内——周日榜用 now=该时刻+1天会跨入下周致重算到下周日(探针实测踩坑,用 +1 秒)。
+
 ## 产出(交给测试 → 写入 pipeline/state/server-dev.md 交接区)
 1. **改动摘要**:做了什么、为何这么做、关键决策(Scene/Entity 归属、通信方式 Address/Roaming/SphereEvent 的选择)
 2. **文件清单**:新增/修改的文件路径(便于 code review 和 diff)
@@ -51,9 +66,13 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 4. 标注:涉及协议改动?需源生成器重生成?需要跑服手验的消息往返?依赖 MongoDB / 多 Scene 拓扑(`Fantasy.config`)?
 
 ## 自检(交接前必做)
-- **编译干净**:`dotnet build` 对应解决方案(server 业务 = `examples/Server/Server.sln`;框架改动才涉 `Fantasy.sln`)0 error 0 warning(Debug 下核心项目 `TreatWarningsAsErrors`);具体命令以 `Fantasy/CLAUDE.md`「常用命令」为准
+- **编译干净**:`dotnet build examples/Server/Server.sln` 0 error 0 warning(Debug 下核心项目 `TreatWarningsAsErrors`)
+  - **sln 级 build 不要传 `--framework`**:sln 含 netstandard2.0-only 的 SourceGenerator 项目,solution 级传 framework 会 NETSDK1005 报错;业务项目 multi-target 会自动选对
+  - 框架改动才涉 `Fantasy.sln`;具体命令以 `Fantasy/CLAUDE.md`「常用命令」为准
 - **源生成器产物核对**:确认 Handler/协议/SceneType 注册按预期生成(不手改 `.g.cs`、不手动注册是红线;改注册要改源再重 build)
-- **跑一遍核心路径**(可选但推荐):`dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop` 起服,Log.Debug 确认消息往返/Handler 命中
+- **跑一遍核心路径**(可选但推荐):`dotnet run --project examples/Server/APP/Main/Main.csproj -c Debug --framework net9.0 -- --m Develop`
+  - **run 必须带 `--framework net9.0`**:本机无 net8.0 运行时,multi-target 项目用 net8.0 会 app-launch-failed
+  - **build 前先杀残留 Main**:`Get-Process Main | Stop-Process -Force`,否则上次起的 Main.exe 锁 `Fantasy-Net.dll` 致 MSB3027/3021 拷贝错(非编译错)
 - **过异常路径不只 happy path**:挑最可能崩的一类手验——空/null、断线重连、并发消息、Entity 未就绪、跨 Scene 路由失败;崩法与已加防护写进交接区「验证点」交 test 复核
 
 ## 被打回时
