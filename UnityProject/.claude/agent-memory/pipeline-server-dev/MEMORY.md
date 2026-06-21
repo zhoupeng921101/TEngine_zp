@@ -1,2 +1,9 @@
 - [协议导出工具坑点](proto-exporter-quirks.md) — 枚举值用逗号分隔(非分号)、客户端生成路径可直指 UnityProject、跑服必须 --framework net9.0
-- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/server-dev.md 整体迁入(服务端无 Luban/独立 console 探针/mongod 已在跑探测/空 body Outer 消息/广播+定向存储模型/FTask RepeatedTimer/客户端 .bytes varint 解码/bash /tmp 路径不一致 8 条),后续按条独立化
+- [服务端工程无 Luban,与客户端同源配置走 MongoDB 播种](project-no-luban-mongodb-seed.md) — 按 redeem/rank 先例 AuthoritativeDefs upsert,值手抄客户端 xlsx 口径,不建 Luban→导出路径
+- [服务端裁决逻辑用独立 console 探针对活 MongoDB 实跑](project-mongodb-isolated-probe.md) — 不起整服,console 探针复刻 helper 调用,在隔离集合断言 SV 行为,用后 DropCollection 清理
+- [本机 mongod 可能已在跑,起服先探测](project-mongod-already-running-probe.md) — 再起会 DBPathInUse;Get-Process mongod + Test-NetConnection 27017 探测后再决定起不起
+- [空 body Outer 消息可用](project-empty-body-outer-message.md) — `message C2G_X // IRequest,G2C_Y { }` 留空大括号,导出工具支持;用于身份从会话取的无参请求
+- [广播+定向 两路插入存储模型](project-broadcast-targeted-storage.md) — 来源前缀(t/d)+ _id="{account}|{标识}" 防重键空间不重叠,一套领取兼容两路
+- [FTask.RepeatedTimer 触发节律范式](project-ftask-repeatedtimer-pattern.md) — Awake 起 / Destroy 取消;节律快慢不影响正确性(幂等兜底),取最省间隔
+- [Luban .bytes varint 解码取真实行值](project-luban-bytes-varint-decoder.md) — 核服务端与客户端配置同源时,一次性 C# 解码器按行类字段顺序解 .bytes,比读 POCO 缺省值靠谱
+- [bash /tmp 与 Write /tmp 路径解析不一致,用 Windows 绝对路径](feedback-bash-tmp-path-not-equal-write-tmp.md) — Write 报成功 bash 却 ls 不到时是路径不一致;Write 用 C:\Users\pc\AppData\Local\Temp\ 绝对路径
