@@ -56,7 +56,7 @@
 | `activity_id` | int(主键) | 活动唯一 id | 1 |
 | `name_text_id` | int | 活动名 textId(占位口径同 num/item/mail) | 390001 |
 | `desc_text_id` | int | 活动描述 textId | 390002 |
-| `type` | enum | 触发类型(本子单只接 `Login`,其余留 O3) | `Login` |
+| `type` | enum | 触发类型(`Login` / `Cumulative` 已交付;`Schedule / Action` 留 O3) | `Login` |
 | `cycle` | enum | 周期(`Daily` 跨服务端日重置 / `Weekly` 跨周 / `OneShot` 一次性永发 / `Always` 满足即可领) | `Daily` |
 | `target` | int | 达标阈值(计数器需 ≥ target 才达标) | 1 |
 | `reward` | int | 达标发放的礼包随机库 id(指向 `giftrandom` 索引,与 22/32 同源) | 5001 |
@@ -70,7 +70,7 @@
 > | `type` | 计数器更新时机 | 本子单状态 |
 > | --- | --- | --- |
 > | `Login` | 玩家登录时 +1(每日去重 / 累计去重由 `cycle` 控) | **本子单实现**(每日登录奖示例) |
-> | `Cumulative` | 服务端进程内某动作触发(如「累计游戏 N 局」「累计交付 N 单」),由各业务系统调一个服务端进程内 API | 留 O3(架构挖好接缝,实现待业务接入) |
+> | `Cumulative` | 服务端进程内某动作触发(如「累计游戏 N 局」「累计交付 N 单」),由各业务系统调一个服务端进程内 API | **第 4 子单已兑现**:`ActivityProgressService.Increment` + 归一 RPC `C2G_ActivityIncrement` + 1 套样例(累计游戏 100 局 OneShot,`activity_id=5`),详 [设计 47](#47-activity-cumulative) |
 > | `Schedule` | 周期 tick(如「每日某时段领」)由服务端定时器触发 | 留 O3(节律由 server-dev 按 Fantasy.Net 现状定) |
 > | `Action` | 某一次性动作(如「分享一次」「邀请一人」),需对应业务系统的事件钩子 | 留 O3(本作目前无分享 / 邀请系统) |
 >
@@ -134,14 +134,14 @@
 | `type` | 触发时机 | 本子单状态 |
 | --- | --- | --- |
 | `Login` | 玩家登录链路完成时(沿 35 RegisterOrLogin upsert 链),对该账号所有 `type=Login` 的活动各自走「`counter+1 → 判达标 → 发奖编排`」流程 | **已兑现:多活动并存**(Tier 4 累计 4 套 `type=Login` 活动,详 [设计 43](#43-activity-login-batch));`Daily / OneShot / Weekly` 三种 cycle 在同一钩子内各自独立处理 |
-| `Cumulative` | 各业务系统经服务端进程内 API 调「`ActivityProgressService.Increment(account, activityId, delta)`」 | 留 O3(架构挖接缝,实现待业务接入。架构层接缝即在 `Login` 实做时已存在,只需各业务系统接入触发) |
+| `Cumulative` | 各业务系统经服务端进程内 API 调「`ActivityProgressService.Increment(account, activityId, delta)`」(服务端业务方直调) / 客户端业务系统经归一 RPC `C2G_ActivityIncrement(activityId, delta)` 推达 handler → handler 校验后调同一 service | **第 4 子单已兑现**:service + handler + 协议 + 1 套样例(累计游戏 100 局),详 [设计 47](#47-activity-cumulative) |
 | `Schedule` | 服务端定时器触发(每小时 / 每分钟 tick),节律由 server-dev 定 | 留 O3(同 33 §3.4 触发节律口径) |
 | `Action` | 业务系统某一次性事件钩子(分享 / 邀请等) | 留 O3(本作目前无分享 / 邀请系统) |
 
 > [!NOTE]
 > **登录触发节律为什么足够 `Login` 类活动?**
 >
-> `Login` 类活动的「计数+1 时机」本就是登录(玩家不登录则不会判达标);登录链路在 35 已建,在 35 RegisterOrLogin upsert 完成后挂一个钩子,**按 `type=Login` 全表过滤遍历**,对每个活动各自 `counter+1 + 判达标 + 发奖`(沿用 [§3.4](#39-activity-server::orchestrate) 单活动原子条件写,不同活动文档由 `{account}_{activityId}` 复合主键天然隔离)。架构上,**`Login` 触发是「随路插入」、`Cumulative` 是「事件订阅」、`Schedule` 是「定时 tick」**,三类节律入口形态不同但共用 §3.4 发奖编排。Tier 4 已落地 4 套 `type=Login` 活动并存(`Daily / OneShot / Weekly` 三种 cycle):每日登录奖 / EVENT 解锁 / 累计 7 天大奖 / 周累计 5 天奖(具体见 [设计 40](#40-event-unlock-relay) + [设计 43](#43-activity-login-batch))。
+> `Login` 类活动的「计数+1 时机」本就是登录(玩家不登录则不会判达标);登录链路在 35 已建,在 35 RegisterOrLogin upsert 完成后挂一个钩子,**按 `type=Login` 全表过滤遍历**,对每个活动各自 `counter+1 + 判达标 + 发奖`(沿用 [§3.4](#39-activity-server::orchestrate) 单活动原子条件写,不同活动文档由 `{account}_{activityId}` 复合主键天然隔离)。架构上,**`Login` 触发是「随路插入」、`Cumulative` 是「事件订阅」、`Schedule` 是「定时 tick」**,三类节律入口形态不同但共用 §3.4 发奖编排。Tier 4 已落地 4 套 `type=Login` 活动并存(`Daily / OneShot / Weekly` 三种 cycle):每日登录奖 / EVENT 解锁 / 累计 7 天大奖 / 周累计 5 天奖(具体见 [设计 40](#40-event-unlock-relay) + [设计 43](#43-activity-login-batch))+ 1 套 `type=Cumulative` 活动(累计游戏 100 局,`activity_id=5`,详 [设计 47](#47-activity-cumulative))。
 
 ### 3.6 每日登录奖跑通示例 {#example}
 
@@ -229,8 +229,8 @@ sequenceDiagram
 | # | 开关 | 安全默认 | 备选 / 触发改动 |
 | --- | --- | --- | --- |
 | O1 | 9 套活动具体清单 | **Tier 4 累计已交付 4 套**(每日登录奖 / EVENT 解锁 / 累计 7 天大奖 / 周累计 5 天奖,见 [设计 40](#40-event-unlock-relay) + [设计 43](#43-activity-login-batch));其余 5 套留运营后续定具体名称 + 类型 + 数值 <span class="pill-core">核心</span> | 运营按 GDD 后续刀定其余 5 套活动,逐套刀加 `activity.xlsx` 行(若仍 `type=Login` 类则零代码改 = 沿 [设计 43 §3.5](#43-activity-login-batch::iterate) 已验扩展能力) |
-| O2 | `type=Login` 节律支撑多活动并存 | **已兑现**(Tier 4 累计 4 套 `Login` 活动 + 三种 cycle 并存),`Cumulative / Schedule / Action` 留架构接缝不接(每接一类各需对应外部触发) <span class="pill-core">核心</span> | 9 套活动若需 `Cumulative` 类(累计游戏 N 局 / 累计交付 N 单等)→ 各业务系统按各自范围调服务端 API 触发达标判 |
-| O3 | `Cumulative/Schedule/Action` 节律实现 | **不在本子单**:架构层接缝在 `Login` 实做时已挖好(同一 `ActivityProgressService` 内部 API),只待各业务系统接入触发钩子 / server-dev 加定时器节律 <span class="pill-cut">后续</span> | 各类型需求出现时各自接入;`Schedule` 节律沿 33 §3.4 同范式由 server-dev 定 |
+| O2 | `type=Login` 节律支撑多活动并存 + `type=Cumulative` 节律支撑客户端业务推活动 | **均已兑现**(Tier 4 累计 4 套 `Login` 活动 + 三种 cycle 并存,详 [设计 43](#43-activity-login-batch);1 套 `Cumulative` 活动 + 归一 RPC + handler + service,详 [设计 47](#47-activity-cumulative))。`Schedule / Action` 留架构接缝不接(每接一类各需对应外部触发) <span class="pill-core">核心</span> | 9 套活动若需 `Schedule` 类(每日某时段领等)→ server-dev 加定时器节律;若需 `Action` 类(分享 / 邀请等)→ 各业务系统加事件钩子 |
+| O3 | `Schedule/Action` 节律实现 | **不在本子单**:架构层接缝挖好(同一 `ActivityProgressService` 内部 API),只待 server-dev 加定时器节律 / 各业务系统接入事件钩子;`Cumulative` 已交付(详 [设计 47](#47-activity-cumulative)) <span class="pill-cut">后续</span> | 各类型需求出现时各自接入;`Schedule` 节律沿 33 §3.4 同范式由 server-dev 定 |
 | O4 | 9 套活动客户端 UI(活动入口 / 详情 / 进度条) | **不做** <span class="pill-cut">客户端段后续</span>:本子单纯 server only;每日登录奖玩家可观测路径 = 邮箱(沿 21/32) | 后续客户端段刀加「活动窗」UI 展示活动列表 / 进度(需美术);本子单架构已为 UI 展示备好「拉 `activity_progress`」服务端能力的扩展位 |
 | O5 | 头像 EVENT 解锁通路 | **由 [设计 40 server 段](#40-event-unlock-relay)(已 PASS Fantasy `bafed768`)+ [设计 41 client 段](#41-event-unlock-client) 联合兑现 Tier 4 第 2 子单**:server 段 `AuthoritativeDefs` 加 EVENT 活动实例(`activity_id=2, target=7, reward=6101`)+ `GiftPoolSeeds` 加 EVENT 礼包条目(单项必中 `ItemId=30101 × 1`),本 39 ActivityDef schema 与 [32 SendMailTo](#32-mail-server::source-api) 签名零改;client 段沿 [16 §3.7 UseEffect](#16-item-system::useeffect) 范式扩 `ItemGrant.Resolve` switch 加 `case 5` + `ResolveAndApply` EVENT 分支调 `AvatarUnlockService.GrantUnlock` + 客户端 Luban `itemdef.xlsx / giftrandom.xlsx` 加共识对齐行 <span class="pill-cut">由 40+41 联合接</span> | 见 [设计 40 EVENT server 段](#40-event-unlock-relay) + [设计 41 EVENT client 段](#41-event-unlock-client) |
 | O6 | 活动奖直发属性(非礼包) | **不做**:本子单 `reward` 字段仅指向 `giftrandom` 库 id(经邮件领奖链落地),不直发 +N 金币 / 钻石 / 体力 | 未来若需「活动达标即时 +N 钻石」(无邮件中间步)→ 加 `reward_type` 字段(库 id / 属性 delta)+ 服务端按 type 分支选 32 SendMailTo / 37 ChangeProperty;本子单架构已能扩 |
@@ -281,7 +281,7 @@ sequenceDiagram
 > **不在本特性验收 / 视环境 BLOCKED**
 >
 > - 9 套活动其它 8 套(O1)→ 后续逐套刀,本子单不验。
-> - `Cumulative/Schedule/Action` 类型节律实现(O3)→ 留后续。
+> - `Schedule/Action` 类型节律实现(O3)→ 留后续(Cumulative 已交付,详 [设计 47](#47-activity-cumulative))。
 > - 头像 EVENT 解锁通路(O5)→ Tier 4 第 2 子单。
 > - 客户端活动 UI 入口(O4)→ 客户端段后续。
 > - 直发属性类活动(O6)→ 后续扩 `reward_type`。

@@ -9,6 +9,19 @@ namespace Fantasy
    public static class NetworkProtocolHelper
    {
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_ActivityIncrementResponse> C2G_ActivityIncrement(this Session session, C2G_ActivityIncrement C2G_ActivityIncrement_request)
+		{
+			return (G2C_ActivityIncrementResponse)await session.Call(C2G_ActivityIncrement_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_ActivityIncrementResponse> C2G_ActivityIncrement(this Session session, int activityId, int delta)
+		{
+			using var C2G_ActivityIncrement_request = Fantasy.C2G_ActivityIncrement.Create();
+			C2G_ActivityIncrement_request.ActivityId = activityId;
+			C2G_ActivityIncrement_request.Delta = delta;
+			return (G2C_ActivityIncrementResponse)await session.Call(C2G_ActivityIncrement_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_LoginGameResponse> C2G_LoginGameRequest(this Session session, C2G_LoginGameRequest C2G_LoginGameRequest_request)
 		{
 			return (G2C_LoginGameResponse)await session.Call(C2G_LoginGameRequest_request);
