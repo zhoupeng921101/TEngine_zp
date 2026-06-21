@@ -562,6 +562,20 @@ namespace Fantasy
 			session.Send(G2C_PropertyDeltaPush_message);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_QueryAttrLedgerResponse> C2G_QueryAttrLedger(this Session session, C2G_QueryAttrLedger C2G_QueryAttrLedger_request)
+		{
+			return (G2C_QueryAttrLedgerResponse)await session.Call(C2G_QueryAttrLedger_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_QueryAttrLedgerResponse> C2G_QueryAttrLedger(this Session session, int kind, long sinceTs, int limit)
+		{
+			using var C2G_QueryAttrLedger_request = Fantasy.C2G_QueryAttrLedger.Create();
+			C2G_QueryAttrLedger_request.Kind = kind;
+			C2G_QueryAttrLedger_request.SinceTs = sinceTs;
+			C2G_QueryAttrLedger_request.Limit = limit;
+			return (G2C_QueryAttrLedgerResponse)await session.Call(C2G_QueryAttrLedger_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_RankSubmitScoreResponse> C2G_RankSubmitScoreRequest(this Session session, C2G_RankSubmitScoreRequest C2G_RankSubmitScoreRequest_request)
 		{
 			return (G2C_RankSubmitScoreResponse)await session.Call(C2G_RankSubmitScoreRequest_request);

@@ -54,7 +54,8 @@
 | 写库成功后追加 ledger | **服务端 · 本子单新增** | 在 37 「成功裁决」分支后挂钩,**旁路写**(不进 37 FindOneAndUpdate 原子边界,见 [§3.4](#44-player-attr-ledger::time)) |
 | 推送 G2C_PropertyDeltaPush | **服务端 · 37 已有** | ledger 写完后推送 / 失败也推送(余额变动是真,ledger 写失败仅告警) |
 | reason 字符串 → source 枚举映射 | **服务端 · 本子单新增** | 服务端进程内查表,**不**升级协议字段类型 |
-| 拉流水 / 查历史 / 我的流水 UI | **不做 · Tier 2+** | 客户端 RPC + UI 留后续刀 |
+| 拉流水 / 查历史(协议契约 + 服务端 handler + 客户端协议生成物) | **服务端 · 45 已交付** | 协议 `C2G_QueryAttrLedger` + `G2C_QueryAttrLedgerResponse`,handler 按 (account, timestamp DESC) 主索引取前 limit 条,详见 [设计 45](#45-player-attr-ledger-query) |
+| 客户端业务接入(`RemoteAttrLedgerService`)+ 我的流水 UI | **不做 · Tier 2+ 客户端段后续刀** | RemoteAttrLedgerService 沿 22 RankService 远程源同范式 / 我的流水 UI 沿 28 排行榜窗 art 受限范式 |
 | 客服后台查账 | **不做 · 运营直读 MongoDB** | 本子单不交付 GM 后台,运营经 mongo shell / MongoDB Compass 按 account + timestamp 查 |
 | 退款 / 回滚 | **不做 · Tier 2+** | 退款需 ledger 找原笔 + 同笔反向,本子单只铺地基 |
 
@@ -290,7 +291,7 @@ sequenceDiagram
 
 本子单**不守**:
 - **ledger 与余额的严格一致性**:Mongo 写 ledger 失败时余额仍变 + 仅告警(§3.4 决策表);若客服查账时看到一行余额变了但 ledger 没记,运营据告警日志补查(Tier 2+ 若需「最终一致」可加重试队列,本子单成本-收益不匹配不做)
-- **客户端可查 ledger**:无客户端 RPC、无「我的流水」UI(留 Tier 2+ 客户端段)
+- **客户端可查 ledger**:协议契约 + 服务端 handler + 客户端协议生成物 = 45 已交付;客户端业务接入(`RemoteAttrLedgerService`)+ 我的流水 UI 投放 = 留 Tier 2+ 客户端段后续刀(详见 [设计 45](#45-player-attr-ledger-query))
 - **客服后台 GM**:无 GM 系统,运营经 mongo shell / MongoDB Compass 直读(去变现下无运营团队,内部查账成本可接受)
 - **跨进程 ledger 顺序**:单服务端进程内 ObjectId + timestamp 自然有序,多进程时不同进程的 ledger 不强求全局顺序(玩家维度由 account 索引隔离,跨账号顺序无审计意义)
 - **退款 / 回滚**:Tier 2+(同笔反向 `source=Refund + refundOf=<原 ledgerId>`)
@@ -317,7 +318,7 @@ sequenceDiagram
 
 | Tier 2+ 目标 | 在本子单 `player_attr_ledger` 集合上的演进 |
 | --- | --- |
-| 客户端「我的流水」UI + 拉流水 RPC | 新协议:`C2G_QueryAttrLedger(kind?, sinceTs?, limit)` + `G2C_AttrLedgerResponse(entries[])`;handler 读 `(account, timestamp DESC)` 主索引取前 limit 条;客户端段表现层投放 |
+| 客户端「我的流水」UI + 拉流水 RPC | **服务端段 + 客户端协议生成物 = 45 已交付**(协议 `C2G_QueryAttrLedger(kind?, sinceTs?, limit)` + `G2C_QueryAttrLedgerResponse(resultCode + entries[] + hasMore)`,handler 读 `(account, timestamp DESC)` 主索引取前 limit 条 + kind 过滤 + sinceTs 滑动窗口 + limit 上限钳制 + 字段裁剪 7 字段白名单);客户端业务接入(`RemoteAttrLedgerService` 沿 22 RankService 远程源同范式) + 我的流水 UI 投放(沿 28 排行榜窗 art 受限范式) + source 整数 → 文本映射 = 留 Tier 2+ 客户端段后续刀(见 [45](#45-player-attr-ledger-query)) |
 | 客服后台 GM | Tier 3+ 系统化运营平台 / 简单 mongo shell 查询脚本;本子单不预留 |
 | 退款 / 回滚 | 找到原 ledger 行 → 调 37 进程内 API 发反向 delta + reason=`"refund_<originalLedgerId>"` → 本子单自动写新 ledger 行 source=Refund;**关键**:retainedLedger 的 source 字段就成了反向追溯钩子 |
 | TTL 自动归档 / 冷库 | 索引 `(timestamp DESC)` 挂 TTL 即可(如 `expireAfterSeconds = 730 天 = 2 年`);热库只留近 2 年,冷库归档外部存储 |
@@ -370,7 +371,7 @@ sequenceDiagram
 
 - **本机 MongoDB(`D:\mongodb-portable`)不可达** → 真往返写库类 SV(SV2 / SV4 / SV5 / SV6 / SV7 / SV8 / SV9 / SV10 / SV11 / SV12 / SV13 / SV15)判 **BLOCKED 非 FAIL**(沿 37 §7.2 + memory `local-mongodb-for-server-roundtrip` + server-test memory `feedback-blocked-vs-fail`);编译 / 配置 / 索引创建脚本(SV1 / SV3 / SV14 / SV16 / SV17 / SV18)照常验
 - **30 / 32 / 33 / 39+40+43 接 37 进程内变更 API 的实际接线** → 各业务系统 Tier 2+ 接线刀,本子单只**预登记** source 枚举值;若接线刀未跑 → SV7 用「直接调 37 进程内 API + 各类 reason 字符串」模拟验证 source 映射 + ledger 写入(不依赖业务系统真接通)
-- **客户端「我的流水」UI / 拉流水 RPC** → Tier 2+ 客户端段(§6.2)
+- **客户端「我的流水」UI / 拉流水 RPC** → 协议契约 + 服务端 handler + 客户端协议生成物 = 45 已交付;客户端业务接入(`RemoteAttrLedgerService`)+ UI 投放(我的流水窗口) = 留 Tier 2+ 客户端段后续刀(详见 [设计 45](#45-player-attr-ledger-query))
 - **客服后台 GM** → 运营经 mongo shell / Compass 直读(本子单不交付,见 §一切分表「客服后台查账」行)
 - **退款 / 回滚** → Tier 2+
 - **TTL 自动归档** → 本子单不限存久(审计完整性优先);Tier 2+ 按合规加
