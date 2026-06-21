@@ -92,6 +92,9 @@ plan 产出 code-free 设计意图、不做代码层可行性预检(接缝定位
 - **跳过 plan 必须声明设计基线**:落成具体文件路径(归档设计稿/design-docs/现行实现),写进 `state/boss.md` 任务定义与 dev 简报。不写「按现有设计」这类悬空指代。
 
   > 没有基线锚,dev 会自由发挥出第二份设计,test 也没有验收依据。(state/plan.md 随关单归档,「现有设计」往往已不在原处。)
+- **跳过 plan 时 boss 必须 grep design-docs 反向引用**(仅行为/语义/接口级改动适用,纯重构豁免):简报给 dev 之前,boss 用本次改动的关键词(算法名 / 接口名 / 行为关键字)grep 整个 `design-docs/` 目录,命中即在简报里列「需同步过时段落」清单交给 dev 一并改;dev 改完后 test Code Review 时核对该清单是否同步到位。
+
+  > plan-agent 在环时把「读 design-docs 锚基线 + 改设计时同步过时反向引用」当默认动作;跳 plan 走 dev-test 链路时,dev 简报只列代码改动,没人去翻设计稿反向引用,会留下 conventions §6 的「同步过时他篇」漏洞。本规则把 plan 角色的反向引用职责显式回灌给 boss(2026-06-22 merge-order trio 分摊关单后旁路发现 design-docs/10 + 09 漏同步,补这一条防复发)。
 - **ui 环节的交接语义**:ui 在 plan 与 dev 之间,产出完整的 Unity UGUI Prefab + 代码骨架。含 ui 时 dev 简报锚点 = `state/ui.md` 交接区(Prefab 路径 + 节点清单 + 素材清单),dev 不碰 UI 节点搭建,只填业务逻辑。ui 产出的 Prefab/素材打回走 ui→dev→test,不触发 plan 返修——plan 的设计基线在 ui 环节已验证可行才往下流。
 - **跳过 ui 必须声明 UI 基线**:若 plan 描述了 UI 原型但 boss 判断不启用 ui(如仅微调已有窗口),在 `state/boss.md` 记录跳过的理由 + dev 简报中指明需改动的既有 Prefab 路径。避免 dev 在"要新建还是改旧"上歧义。
 - dev 报告设计本身有错(微调救不了)→ 报用户拍板是否升级为从 plan 环节重做;自治模式下记 BLOCKED

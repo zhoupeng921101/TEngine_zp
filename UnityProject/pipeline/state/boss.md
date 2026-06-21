@@ -84,6 +84,6 @@
 - 2026-06-21 · Tier 4 活动系统·服务端段第 1 子单（基础架构 + 每日登录奖最简活动）· PASS（full,round 0；首次因 session-limit 触顶 BLOCKED → resume 续 server-dev/server-test 一次过）· Fantasy `de5d4da7` + 设计稿 `f5d44f7f` · `archive/2026-06-21-activity-server-tier4/`
 - 2026-06-21 · Tier 4 活动系统·服务端段第 2 子单（EVENT 解锁活动 - 每日登录 7 次得头像）· PASS（full,round 0；plan 现场转方案 B 沿 16 UseEffect=5 范式,零动 39 ActivityDef schema 零 helper 代码改;E3 客户端段未实做 BLOCKED 非 FAIL 不打回）· Fantasy `bafed768` + 设计稿 `d3e3b4fd` · `archive/2026-06-21-event-unlock-server-tier4/`
 - 2026-06-21 · Tier 4 活动系统·客户端段第 2 子单（EVENT 解锁通路接通 — EVENT 解锁全栈收口）· PASS（full,round 0；62 分钟；BlockBlast.Tests 444/444 + E1 全栈真往返跑通 UnlockedAvatarIds=[1,3] 重启持久；plan 又一次矫正 boss 简报偏差：工程 ItemDef.UseEffect 是 int 无 EffectType 枚举/handler 体系）· client `37977dc7` · `archive/2026-06-21-event-unlock-client-tier4/`
-- 2026-06-22 · merge-order 候选块元素分配改「容量加权随机」· PASS（dev-test,round 0 一次过；BlockBlast.Tests 497/497 + 1 改写 + 3 新增用例全过；旁路发现 `CompletedOrders` 持久化 bug 进 Carry forward）· `archive/2026-06-22-merge-order-trio-element-distribution/`
+- 2026-06-22 · merge-order 候选块元素分配改「容量加权随机」· PASS（dev-test,round 0 一次过；BlockBlast.Tests 497/497 + 1 改写 + 3 新增用例全过；旁路发现 `CompletedOrders` 持久化 bug 进 Carry forward）· client `c86d7bbf` · `archive/2026-06-22-merge-order-trio-element-distribution/`
 
 > 完整关单历史以 `archive/` 目录为准（boss.md 仅留最近指针）。
