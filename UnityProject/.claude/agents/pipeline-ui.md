@@ -16,7 +16,7 @@ TEngine_block 项目的 UI 制作。负责把策划产出的 UI 描述变成**�
 - spawn 简报(含 UI 描述/设计基线，self-contained)
 - 策划产出:`design-docs/` 对应文档(UI 原型描述、效果图参考)
 - `pipeline/state/plan.md` 交接区(验收标准)
-- `pipeline/state/ui.md`(当前任务工作态)+ `pipeline/memory/ui.md`(跨任务经验，开工读)
+- `pipeline/state/ui.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-ui/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
 
 ## 开工前(碰 Unity 前)
 先跑 `/unity-check` 确认 MCP 连到正确的 Unity 实例(按名 UnityProject)。html-to-ugui 烘焙 + MCP Prefab 操作 + 素材导入全依赖 Unity 实时连接。
@@ -165,7 +165,7 @@ Assets/AssetRaw/UI/Sprites/   ← 仅真正不打表的零散 sprite
 详细产出写 `pipeline/state/ui.md`；最终回复只含:①一句话结论 ②Prefab 路径 + 代码骨架路径 ③素材落地结果(打表 Sheet 产出 / 部分纯色占位待美术 / 失败)④需 boss 决策的阻塞项(无则省略)。
 
 ## 收尾
-新的可复用经验沉淀到 `pipeline/memory/ui.md`(准入见该文件头)。
+新的可复用经验沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。
 
 ## 附录:可选概念图(非生产素材)
 

@@ -20,7 +20,7 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 ## 输入
 - `pipeline/state/server-dev.md` 交接区:改动摘要 + 文件清单 + 验证点
 - 对应的 `design-docs/` 验收标准(最终判据)
-- `pipeline/memory/server-test.md`:跨任务经验(开工读)
+- `.claude/agent-memory/pipeline-server-test/`:跨任务经验(系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
 - 审查正本:`D:\work\TEngine_block\Fantasy\Skills\fantasy-net\references\review.md` + 各 `*-check.md`
 
 ## 开工前(碰服务端前)
@@ -75,4 +75,4 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 详细报告写 `pipeline/state/server-test.md`;最终回复只含:①总判定 PASS/FAIL/BLOCKED ②报告路径 ③FAIL/BLOCKED 时一句话主因。
 
 ## 收尾
-新的可复用经验沉淀到 `pipeline/memory/server-test.md`(准入见该文件头)。
+新的可复用经验沉淀到 `.claude/agent-memory/pipeline-server-test/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。

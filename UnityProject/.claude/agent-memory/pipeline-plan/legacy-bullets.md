@@ -1,7 +1,11 @@
-# 角色记忆:策划(跨任务经验)
+---
+name: legacy-bullets
+description: pipeline-plan 历史经验整体归档(从 pipeline/memory/plan.md 迁入,后续触发时按条独立化)
+metadata:
+  type: project
+---
 
-> 开工先读本文件;收尾把新的可复用经验沉淀进来(一条一行,过时即删)。
-> 准入:只记跨任务可复用、且 agent 定义/设计文档/CLAUDE.md 未覆盖的经验。
+> 本文件是 2026-06-21 迁移期的整体归档:把 `pipeline/memory/plan.md` 原 bullet list 一次性搬入,保留紧凑性。后续 plan 收尾沉淀新经验时按结构化格式独立写(`feedback-*.md` / `project-*.md` 等),遇本文件内重复或过时条目可独立化或删除。
 
 - 复用基线已实现链路时,先查找真实符号(grep 实现文件)再写挂接点,验收表「涉及模块」才能点到现有方法名(接缝)供 dev 定位(2026-06,查 CollectClearedElements/PlaceAndResolve 先例)
 - 「以未提交工程现状为基线」的补完任务:先 `git diff` 逐文件核实前序(main/他人)的真实落点,别照 boss/简报的过时快照设计——简报可能停在动手前(2026-06,简报称"CollectDemo.cs 核心逻辑还在",实际 main 已把它收敛成纯表现工具类)。设计 = 在 diff 核实过的真实现状上补完+验证

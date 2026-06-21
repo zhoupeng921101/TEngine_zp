@@ -4,3 +4,4 @@
 - [服务端内部触发特性的真往返验证](project-server-internal-trigger-verify.md) — 进程内定时器触发(无客户端 RPC)可实现 PASS:起服+等节律+日志观测+MongoDB 查询临时探针,临时探针用 D:\tmp 下 .NET 控制台项目+MongoDB.Driver 3.0.0
 - [Main 进程文件锁阻塞起服的处置](feedback-dll-lock-blocked.md) — 现有 Main.exe 持有产物 DLL 文件锁时 dotnet run 触发 MSB3027 构建失败,判 BLOCKED-env 非 FAIL;三类(编译/源生成器/CR)仍全执行;MongoDB 探针可独立验 SV12/SV13 存储持久层
 - [探针直接写测试数据须满足业务不变量](feedback-probe-testdata-invariant.md) — 探针绕过服务端写入校验时,若测试数据自身不满足不变量(如 ledger BalanceAfter≠BalanceBefore+Delta),读路径探针会误报 FAIL;须按业务约束构造合法数据
+- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/server-test.md 整体迁入(MongoDB 临时探针/mongod 起服命令/无客户端 RPC 触发器策略/SG 产物空/git status tracked vs untracked 5 条,与已独立的 6 条去重),后续按条独立化

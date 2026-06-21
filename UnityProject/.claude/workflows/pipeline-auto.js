@@ -112,8 +112,9 @@ const devAgentType  = isServer ? 'pipeline-server-dev'  : 'pipeline-dev'
 const testAgentType = isServer ? 'pipeline-server-test' : 'pipeline-test'
 const devStatePath  = isServer ? 'pipeline/state/server-dev.md'  : 'pipeline/state/dev.md'
 const testStatePath = isServer ? 'pipeline/state/server-test.md' : 'pipeline/state/test.md'
-const devMemPath    = isServer ? 'pipeline/memory/server-dev.md'  : 'pipeline/memory/dev.md'
-const testMemPath   = isServer ? 'pipeline/memory/server-test.md' : 'pipeline/memory/test.md'
+// agent-memory 由系统经 frontmatter `memory: project` 自动注入,无需在简报里 Read 路径;保留路径常量用于诊断/日志/未来扩展(2026-06-21 pipeline/memory 退役)
+const devMemPath    = isServer ? '.claude/agent-memory/pipeline-server-dev/'  : '.claude/agent-memory/pipeline-dev/'
+const testMemPath   = isServer ? '.claude/agent-memory/pipeline-server-test/' : '.claude/agent-memory/pipeline-test/'
 
 const decisions = []
 const blocked = []
@@ -142,7 +143,7 @@ function withTimeout(p, label) {
 if (baton === 'full') {
   phase('策划')
   const plan = await withTimeout(agent(
-    `任务:${args.task}\n开工读 pipeline/state/plan.md 与 pipeline/memory/plan.md;产出设计稿(design-docs/)与验收标准(写交接区)。${RETURN_NOTE}`,
+    `任务:${args.task}\n开工读 pipeline/state/plan.md 交接区(跨任务经验由系统自动注入 .claude/agent-memory/pipeline-plan/,无需手动 Read);产出设计稿(design-docs/)与验收标准(写交接区)。${RETURN_NOTE}`,
     { agentType: 'pipeline-plan', phase: '策划', schema: PLAN_SCHEMA }
   ), '策划')
   if (!plan) return { status: 'BLOCKED', stage: 'plan', blocked: ['plan agent 异常退出'], decisions }
@@ -182,7 +183,7 @@ async function withReconnectRetry(prompt, opts, statePath) {
   return r
 }
 
-const testBrief = `被测任务:${args.task}\n开工读 ${testStatePath}、${testMemPath} 与 ${devStatePath} 交接区;按角色卡四类验证执行。验收判据:${baseline}。判定三态:代码缺陷=FAIL;环境阻塞(运行验证跑不了)=BLOCKED,勿判 FAIL。**先把报告写入 ${testStatePath} 持久保存,再返回结构化结果**——返回阶段若遇连接中断,已写入的报告可被重试 agent 复用。${RETURN_NOTE}`
+const testBrief = `被测任务:${args.task}\n开工读 ${testStatePath} 与 ${devStatePath} 交接区(跨任务经验由系统自动注入 ${testMemPath},无需手动 Read);按角色卡四类验证执行。验收判据:${baseline}。判定三态:代码缺陷=FAIL;环境阻塞(运行验证跑不了)=BLOCKED,勿判 FAIL。**先把报告写入 ${testStatePath} 持久保存,再返回结构化结果**——返回阶段若遇连接中断,已写入的报告可被重试 agent 复用。${RETURN_NOTE}`
 
 // test-only:代码已就绪,只补运行验证。无 dev 在环,不进打回循环;按 verdict 直接定结果。
 if (baton === 'test-only') {
@@ -223,7 +224,7 @@ if (args.feasibilityCheck && args.feasibilityCheck.length) {
 
 let round = 0
 let verdict = null
-let devBrief = `任务:${args.task}\n设计基线:${baseline}${feasibilityNote ? '\n可行性预检回执:' + feasibilityNote : ''}${args.batonNote ? '\n附加指令:' + args.batonNote : ''}\n开工读 ${devStatePath}、${devMemPath}、pipeline/state/plan.md 交接区与设计基线;实现后编译自检,交接区写「改动摘要+文件清单+验证点」。${RETURN_NOTE}`
+let devBrief = `任务:${args.task}\n设计基线:${baseline}${feasibilityNote ? '\n可行性预检回执:' + feasibilityNote : ''}${args.batonNote ? '\n附加指令:' + args.batonNote : ''}\n开工读 ${devStatePath} 与 pipeline/state/plan.md 交接区与设计基线(跨任务经验由系统自动注入 ${devMemPath},无需手动 Read);实现后编译自检,交接区写「改动摘要+文件清单+验证点」。${RETURN_NOTE}`
 
 while (round < 3) {
   phase('开发')

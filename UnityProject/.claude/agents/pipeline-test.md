@@ -15,7 +15,7 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 ## 输入
 - `pipeline/state/dev.md` 交接区:改动摘要 + 文件清单 + 验证点
 - 对应的 `design-docs/` 验收标准(最终判据)
-- `pipeline/memory/test.md`:跨任务经验(开工读)
+- `.claude/agent-memory/pipeline-test/`:跨任务经验(系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
 
 ## 开工前(碰 Unity 前)
 先跑 `/unity-check` 确认 MCP 连到正确的 Unity 实例(按名 UnityProject)。四类验证全程依赖 Unity 响应,连不上时先解决连接再验证。
@@ -62,4 +62,4 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 详细报告写 `pipeline/state/test.md`;最终回复只含:①总判定 PASS/FAIL/BLOCKED ②报告路径 ③FAIL/BLOCKED 时一句话主因。
 
 ## 收尾
-新的可复用经验沉淀到 `pipeline/memory/test.md`(准入见该文件头)。
+新的可复用经验沉淀到 `.claude/agent-memory/pipeline-test/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。

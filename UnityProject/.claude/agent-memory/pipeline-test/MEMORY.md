@@ -1,0 +1,1 @@
+- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/test.md 整体迁入(UI 渲染/MCP 拖拽/execute_code 反射/UIWindow 寻址/conventions §6 交叉检/真往返/Fantasy 服务端 Log 等 42 条),后续按条独立化

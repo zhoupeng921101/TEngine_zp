@@ -1,0 +1,1 @@
+- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/dev.md 整体迁入(模式开关安全做法/UIWindow 改名/状态机叠新系统/Luban 表/Image SetSubSprite/精灵表 PackTextures/UIWindow 代码生成 prefab 多坑等 42 条),后续按条独立化

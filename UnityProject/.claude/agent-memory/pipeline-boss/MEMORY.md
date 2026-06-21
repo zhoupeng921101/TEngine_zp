@@ -1,0 +1,1 @@
+- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/boss.md 整体迁入(注入机制/CLAUDE.md 快照/SendMessage 不可用/Workflow 可用/batchmode 单测),后续按条独立化

@@ -31,7 +31,7 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 ## 输入(信息源 = 需求 + 设计 + 服务端工程)
 - spawn 简报(含 code-free 设计意图,self-contained)
 - 策划产出:`design-docs/` 对应文档(行为级验收,不含代码接缝)+ `pipeline/state/plan.md` 交接区的验收标准
-- `pipeline/state/server-dev.md`(当前任务工作态)+ `pipeline/memory/server-dev.md`(跨任务经验,开工读)
+- `pipeline/state/server-dev.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-server-dev/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
 - 服务端工程本体(`D:\work\TEngine_block\Fantasy\examples\Server\APP\`)+ fantasy-net 正本
 
 > 设计稿给的是 code-free 设计意图:**server-dev 自行读服务端工程把意图映射到 ECS/Handler/协议接缝**。映射不出或接法不通(确是设计层错、非实现层可绕)才报 designFlaw 回 plan。
@@ -88,4 +88,4 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 详细产出写 `pipeline/state/server-dev.md`;最终回复只含:①一句话结论 ②交接区路径 ③需 boss 决策的阻塞项(无则省略)。不长篇复述代码。
 
 ## 收尾
-新的可复用经验沉淀到 `pipeline/memory/server-dev.md`(准入见该文件头)。
+新的可复用经验沉淀到 `.claude/agent-memory/pipeline-server-dev/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。

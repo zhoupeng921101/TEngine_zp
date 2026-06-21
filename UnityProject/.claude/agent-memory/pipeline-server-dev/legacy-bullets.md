@@ -1,7 +1,11 @@
-# 角色记忆:服务端开发(跨任务经验)
+---
+name: legacy-bullets
+description: pipeline-server-dev 历史经验整体归档(从 pipeline/memory/server-dev.md 迁入,后续触发时按条独立化)
+metadata:
+  type: project
+---
 
-> 开工先读本文件;收尾把新的可复用经验沉淀进来(一条一行,过时即删)。
-> 准入:只记跨任务可复用、且 agent 定义 / fantasy-net skill / Fantasy CLAUDE.md / conventions 未覆盖的经验。
+> 本文件是 2026-06-21 迁移期的整体归档:把 `pipeline/memory/server-dev.md` 原 bullet list 一次性搬入,保留紧凑性。后续 server-dev 收尾沉淀新经验时按结构化格式独立写(`feedback-*.md` / `project-*.md` 等),遇本文件内重复或过时条目可独立化或删除。独立文件 [[proto-exporter-quirks]] 已与本文件互不重复(导出工具坑点专项)。
 
 - 服务端工程**无 Luban 配置集成**(无 TbXxx / .bytes 加载链);需要「与客户端配置同源」的服务端权威配置时,按 redeem/rank 先例**播种 MongoDB 文档**(值手抄客户端 xlsx 口径),不建 Luban→服务端导出路径(那是不存在的大工程)。运营热改需求出现时才上数据库集合管理。
 - 服务端裁决逻辑可在不起整服的前提下**对活 MongoDB 实跑验证**:独立 console 探针(`MongoDB.Driver` 版本对齐 Fantasy.Net 引用的 3.8.0)复刻 helper 的 MongoDB 调用,在隔离集合上断言 SV 行为(尤其并发取最优),用后 DropCollection 清理。比"仅编译 + 起服看 init 日志"强,且不需客户端 RPC harness。

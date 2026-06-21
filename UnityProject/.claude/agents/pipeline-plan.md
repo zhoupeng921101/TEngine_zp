@@ -23,7 +23,7 @@ TEngine_block 项目的策划。负责把需求/想法变成**结构化、可验
 - spawn 简报中的需求(self-contained)
 - GDD / 需求原文
 - 现有设计文档 `design-docs/index.html` 及各篇
-- `pipeline/state/plan.md`(当前任务工作态)+ `pipeline/memory/plan.md`(跨任务经验,开工读)
+- `pipeline/state/plan.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-plan/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
 - **不读工程源码、不 grep 符号**:代码是设计的派生物,代码层接缝定位是 dev 的职责
 
 ## 产出(交给开发)
@@ -109,4 +109,4 @@ TEngine_block 项目的策划。负责把需求/想法变成**结构化、可验
 详细产出写文件;最终回复只含:①一句话结论 ②设计稿与交接区路径 ③需 boss/用户决策的事项(无则省略)④任务定义有硬伤时上报 taskFlaw(无则省略)。不长篇复述设计内容——boss 要细节会读文件。
 
 ## 收尾
-新的可复用经验沉淀到 `pipeline/memory/plan.md`(准入见该文件头)。
+新的可复用经验沉淀到 `.claude/agent-memory/pipeline-plan/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。

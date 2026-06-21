@@ -1,1 +1,2 @@
 - [客户端段加载更多按钮文案禁用 Tier N+ 字眼](feedback-loadmore-no-tier-jargon.md) — UI 文案中「Tier 2+」「下一刀」「Tier N+」属内部术语,会通过文案泄漏给用户;改用 plain-language 用户友好版(2026-06-21 设计 46 PV13 + 风险表)
+- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/plan.md 整体迁入(复用接缝 grep/设计稿过时口径重写/可见章节号入站契约/UI 换皮元素分流/在跑窗口换皮取舍等 25 条),后续按条独立化

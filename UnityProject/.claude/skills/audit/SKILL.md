@@ -17,7 +17,7 @@ description: 规则栈审计,防规则副本/死规则/矛盾腐烂。触发:/au
 执行要点:
 
 1. **增量短路**:读 `.claude/rules/audit-log.md` 的上次审计基线(git rev/日期),规则栈自基线无改动 → 在 audit-log 记「无变化,跳过」即止
-2. **规则栈范围**:项目根 `CLAUDE.md`、`.claude/rules/`、`.claude/skills/*/SKILL.md`、`.claude/skills/tengine-dev/conventions-dev.md`(dev 开发规约,已移出注入路径)、`.claude/agents/*.md`、`pipeline/memory/*.md` 文件头准入规则
+2. **规则栈范围**:项目根 `CLAUDE.md`、`.claude/rules/`、`.claude/skills/*/SKILL.md`、`.claude/skills/tengine-dev/conventions-dev.md`(dev 开发规约,已移出注入路径)、`.claude/agents/*.md`、`.claude/agent-memory/<agent>/*.md`(每个 agent 目录下 MEMORY.md 索引 + 独立 memory 文件 + legacy-bullets.md 历史归档)准入规则
 3. 有改动 → 按上方查项查(1-3 必查,4-7 按触发条件)
 4. 结论叙述写入活账本 `.claude/rules-archive/audit-log.md`(注入路径外,一次审计一段);并更新注入态 `.claude/rules/audit-log.md` 的最近审计基线指针(一行)
 5. **删除候选先报用户拍板,不静默删**

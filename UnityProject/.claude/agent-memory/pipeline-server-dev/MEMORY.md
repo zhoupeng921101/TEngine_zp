@@ -1,1 +1,2 @@
 - [协议导出工具坑点](proto-exporter-quirks.md) — 枚举值用逗号分隔(非分号)、客户端生成路径可直指 UnityProject、跑服必须 --framework net9.0
+- [迁移期历史 bullets 整体归档](legacy-bullets.md) — 2026-06-21 从 pipeline/memory/server-dev.md 整体迁入(服务端无 Luban/独立 console 探针/mongod 已在跑探测/空 body Outer 消息/广播+定向存储模型/FTask RepeatedTimer/客户端 .bytes varint 解码/bash /tmp 路径不一致 8 条),后续按条独立化

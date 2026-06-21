@@ -14,7 +14,7 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 - **boss 的记忆不在上下文里,在 `pipeline/state/boss.md`**。任何编排动作(spawn/拍板/打回/关单)发生后,立刻更新它。
 - **恢复协议**(`/pipeline resume`、compaction 后、新会话续接,执行顺序):
   1. 读 `pipeline/state/boss.md` —— 任务定义、拍板决策、打回轮次、自治授权、遗留事项
-  2. 读 `pipeline/memory/boss.md` —— 跨任务经验
+  2. 读 `.claude/agent-memory/pipeline-boss/` —— 跨任务经验(MEMORY.md 索引 + 各独立 .md 文件;boss 不是 sub-agent 故不被系统自动注入,主会话开工手动 Read 该目录)
   3. **现场推导进度**:读 `pipeline/state/plan.md|ui.md|dev.md|test.md` 各交接区 → 推出当前到哪个环节、上一环节产出是否就绪
   4. 据此决定:收产出转下一环节 / 重新派活 / 报告用户,然后继续
 - 进度只能推导,不能查档:`state/boss.md` **不记录阶段/进度**(记录必漂移)。各角色 state 交接区才是进度的唯一来源。
@@ -33,7 +33,7 @@ description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编�
 ## 编排流程(常规模式,`/pipeline <任务>`)
 
 1. 接到任务 → `state/boss.md` 记任务定义(含参与环节与设计基线)→ 定参与环节:用户用 `/pipeline <环节> <任务>` 显式指定则直接采用,否则按「环节裁剪」判断
-2. Agent 工具 spawn 角色 agent。简报 self-contained:任务内容、设计基线、要读的 state/memory 路径;角色职责已在 agent 定义里,简报不复述
+2. Agent 工具 spawn 角色 agent。简报 self-contained:任务内容、设计基线、要读的 state 交接区路径;跨任务经验由系统经 `memory: project` frontmatter 自动注入 `.claude/agent-memory/pipeline-<role>/`,简报不需复述;角色职责已在 agent 定义里,简报不复述
 3. **收产出首选验文件**:读各角色 state 交接区 / `git diff`;agent 返回文本只当「完成信号 + 取件路径」
 4. 验收 OK → 转下一环节(plan→[ui→]dev→test,ui 按裁剪规则可选);对每个环节的产出做交叉检(`.claude/rules/conventions.md`「交叉检」:「收尾必做」自检 + 抽查该角色改过的持久文件)
 5. test 出判定 → 走「打回循环」;全绿 → 「关单事务」

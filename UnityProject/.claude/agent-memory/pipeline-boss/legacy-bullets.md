@@ -1,7 +1,11 @@
-# 角色记忆:Boss(跨任务经验)
+---
+name: legacy-bullets
+description: pipeline-boss 历史经验整体归档(从 pipeline/memory/boss.md 迁入,后续触发时按条独立化)
+metadata:
+  type: project
+---
 
-> 开工先读本文件;收尾把新的可复用经验沉淀进来(一条一行,过时即删)。
-> 准入:只记跨任务可复用、且 pipeline SKILL/conventions 未覆盖的经验。
+> 本文件是 2026-06-21 迁移期的整体归档:把 `pipeline/memory/boss.md` 原 bullet list 一次性搬入,保留紧凑性。后续 boss 收尾沉淀新经验时按结构化格式独立写(`feedback-*.md` / `project-*.md` 等),遇本文件内重复或过时条目可独立化或删除。
 
 - 项目 CLAUDE.md 会自动注入子 agent,但注入的是**主会话启动时的快照**:改 CLAUDE.md 后须重启会话才对子 agent 生效(2026-06-12 探针实测,新增章节未出现在子 agent 上下文)
 - SendMessage 续接子 agent 在本环境不可用(2026-06-12 探针实测):打回一律 spawn 新 dev、靠 state/test.md 可复现清单交接;再次 spawn 同类型 agent 是全新会话、零上下文(隔离彻底,独立评审保证成立)
