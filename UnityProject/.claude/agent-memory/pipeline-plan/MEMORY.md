@@ -1,0 +1,1 @@
+- [客户端段加载更多按钮文案禁用 Tier N+ 字眼](feedback-loadmore-no-tier-jargon.md) — UI 文案中「Tier 2+」「下一刀」「Tier N+」属内部术语,会通过文案泄漏给用户;改用 plain-language 用户友好版(2026-06-21 设计 46 PV13 + 风险表)

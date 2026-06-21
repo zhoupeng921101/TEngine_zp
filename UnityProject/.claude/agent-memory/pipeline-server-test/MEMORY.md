@@ -1,0 +1,6 @@
+- [复验返修轮缩减策略](feedback-retest-scope.md) — 返修轮复验只需核「CR 闭合 + 编译无回归 + 未动处无变化」,其余已 PASS 项沿用上轮结论,不从头重审
+- [DuplicateKey 双 catch 口径](project-duplicate-key-catch.md) — Fantasy 服务端统一用 MongoWriteException(Category==DuplicateKey) + MongoCommandException(Code==11000) 两条 catch,缺一不可
+- [BLOCKED 非 FAIL 判定边界](feedback-blocked-vs-fail.md) — MongoDB 不可达等环境阻塞判 BLOCKED,代码缺陷一律判 FAIL;两者不混淆
+- [服务端内部触发特性的真往返验证](project-server-internal-trigger-verify.md) — 进程内定时器触发(无客户端 RPC)可实现 PASS:起服+等节律+日志观测+MongoDB 查询临时探针,临时探针用 D:\tmp 下 .NET 控制台项目+MongoDB.Driver 3.0.0
+- [Main 进程文件锁阻塞起服的处置](feedback-dll-lock-blocked.md) — 现有 Main.exe 持有产物 DLL 文件锁时 dotnet run 触发 MSB3027 构建失败,判 BLOCKED-env 非 FAIL;三类(编译/源生成器/CR)仍全执行;MongoDB 探针可独立验 SV12/SV13 存储持久层
+- [探针直接写测试数据须满足业务不变量](feedback-probe-testdata-invariant.md) — 探针绕过服务端写入校验时,若测试数据自身不满足不变量(如 ledger BalanceAfter≠BalanceBefore+Delta),读路径探针会误报 FAIL;须按业务约束构造合法数据

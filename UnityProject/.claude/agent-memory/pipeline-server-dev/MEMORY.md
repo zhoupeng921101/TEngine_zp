@@ -1,0 +1,1 @@
+- [协议导出工具坑点](proto-exporter-quirks.md) — 枚举值用逗号分隔(非分号)、客户端生成路径可直指 UnityProject、跑服必须 --framework net9.0
