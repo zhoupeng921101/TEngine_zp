@@ -1,6 +1,6 @@
 # boss 状态
 
-## 当前状态(2026-06-21)
+## 当前状态(2026-06-22)
 
 **在跑:无。** mongod 27017 在,Main 进程已停。
 
@@ -19,6 +19,8 @@
 - design-docs/40(3 处)+ 39(1 处)过时「客户端段下一刀实做」标注 — 代码行为已正确,文档同步遗漏,test 按文档同步漏点先例不升 FAIL,留下一轮顺手清。
 - 邮件 E1 真往返欠(server `22c21843` code-complete,等环境稳后补)。
 - ~~Fantasy `PlayerAttrLedgerDoc.Kind` doc comment 误差~~ — 已清 `1f18d35b`(2026-06-21 Tier 2 client 段第 4 子单跨仓清)
+- **`CompletedOrders` 持久化 bug**(2026-06-22 发现):`MergeOrderState.ImportMeta` L603 把 dto.completedOrders 灌回 `CompletedOrders`,而 `IsDemoComplete()` L636 用 `CompletedOrders >= 5` 判通关——两套语义冲突,本机累计满 5 单后再开新局就秒触发 `TriggerWin()` 弹「恭喜通关」窗。用户已手动清存档绕过,根因诊断与三方案选项见主会话记录。修法待用户拍板(推荐方案 A:`ImportMeta` 不覆盖 `CompletedOrders`,需要长期统计另起 `LifetimeCompletedOrders` 字段;附带改 design-docs/14 §3.1「累计完成单数」描述)。
+- **本次任务遗留**:测试注释 `MergeOrderTests.cs:366`「不再 FIFO 抽干」含 diff 叙事,dev 下次顺手清;人工冒烟未跑(MCP 不支持拖拽,分布性已由单测覆盖);dev 报 EditMode 515 vs test 实跑 497 差异待澄清(可能 PlayMode 用例混入)。
 
 **流水线变更 ✅ committed `bc31dbd4`**:server-test 路由由 codex 启动器(`pipeline-server-test-codex`)切回 Claude 卡 `pipeline-server-test`——codex 执行流程当前不稳定;启动器卡 + run-codex-verify.mjs 保留在盘可逆,`SKILL.md`/`pipeline-auto.js` 旁注记重新启用路径。
 
@@ -82,5 +84,6 @@
 - 2026-06-21 · Tier 4 活动系统·服务端段第 1 子单（基础架构 + 每日登录奖最简活动）· PASS（full,round 0；首次因 session-limit 触顶 BLOCKED → resume 续 server-dev/server-test 一次过）· Fantasy `de5d4da7` + 设计稿 `f5d44f7f` · `archive/2026-06-21-activity-server-tier4/`
 - 2026-06-21 · Tier 4 活动系统·服务端段第 2 子单（EVENT 解锁活动 - 每日登录 7 次得头像）· PASS（full,round 0；plan 现场转方案 B 沿 16 UseEffect=5 范式,零动 39 ActivityDef schema 零 helper 代码改;E3 客户端段未实做 BLOCKED 非 FAIL 不打回）· Fantasy `bafed768` + 设计稿 `d3e3b4fd` · `archive/2026-06-21-event-unlock-server-tier4/`
 - 2026-06-21 · Tier 4 活动系统·客户端段第 2 子单（EVENT 解锁通路接通 — EVENT 解锁全栈收口）· PASS（full,round 0；62 分钟；BlockBlast.Tests 444/444 + E1 全栈真往返跑通 UnlockedAvatarIds=[1,3] 重启持久；plan 又一次矫正 boss 简报偏差：工程 ItemDef.UseEffect 是 int 无 EffectType 枚举/handler 体系）· client `37977dc7` · `archive/2026-06-21-event-unlock-client-tier4/`
+- 2026-06-22 · merge-order 候选块元素分配改「容量加权随机」· PASS（dev-test,round 0 一次过；BlockBlast.Tests 497/497 + 1 改写 + 3 新增用例全过；旁路发现 `CompletedOrders` 持久化 bug 进 Carry forward）· `archive/2026-06-22-merge-order-trio-element-distribution/`
 
 > 完整关单历史以 `archive/` 目录为准（boss.md 仅留最近指针）。

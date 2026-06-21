@@ -107,28 +107,70 @@ namespace GameLogic.BlockBlast
 
         public PendingPiece BuildPiece(int shapeId)
         {
-            var piece = new PendingPiece(shapeId, RandomColor());
-            if (MergeOrderMode && MergeState != null) DrainPendingElementsInto(piece, shapeId);
-            return piece;
+            return new PendingPiece(shapeId, RandomColor());
         }
 
         /// <summary>
-        /// merge-order 模式补牌：从 <see cref="MergeOrderState.PendingElements"/> 队头按填充格行优先顺序
-        /// FIFO 抽取元素写入 <paramref name="piece"/>。队空则不分配 <c>Elements</c>（=纯方块）；
-        /// 队列元素少于填充格时，余下格留空（None）。元素来源由消除得分驱动（见 EnqueueScoreElements）。
+        /// merge-order 模式补牌:把 <see cref="MergeOrderState.PendingElements"/> 队头元素按「trio 级容量加权
+        /// 随机」分摊到 3 块候选块。每元素以 1 格 = 1 票的均权抽签落入某块,大块(cellCount 高)统计上拿到更多、
+        /// 小块少但每块都有机会;队列吃光或 3 块全满止。各块内部按入桶序填到 Elements 前若干格(余格 None),
+        /// 与 <see cref="PlacePiece"/> 行优先转移到 ElementArr 的顺序同源。
         /// </summary>
-        private void DrainPendingElementsInto(PendingPiece piece, int shapeId)
+        /// <remarks>短路条件:模式 off / 无 MergeState / 队列空 / trio 总容量 0。off 时 piece.Elements 全保持
+        /// null,经典模式逐字节零回归。</remarks>
+        private void DistributePendingElementsAcrossTrio(IList<PendingPiece> trio)
         {
+            if (!MergeOrderMode || MergeState == null || trio == null) return;
             var queue = MergeState.PendingElements;
             if (queue.Count == 0) return;
 
-            int cellCount = BlockShapeMap.GetCellCount(shapeId);
-            if (cellCount <= 0) return;
+            int n = trio.Count;
+            if (n == 0) return;
 
-            var elements = new MergeElement[cellCount];
-            for (int i = 0; i < cellCount && queue.Count > 0; i++)
-                elements[i] = queue.Dequeue();
-            piece.Elements = elements;
+            // 每块剩余空格(cellCount=0 的块自动不参与抽签)
+            var capacity = new int[n];
+            int totalCap = 0;
+            for (int i = 0; i < n; i++)
+            {
+                int cells = BlockShapeMap.GetCellCount(trio[i].ShapeId);
+                if (cells < 0) cells = 0;
+                capacity[i] = cells;
+                totalCap += cells;
+            }
+            if (totalCap == 0) return;
+
+            // 入桶序由抽签顺序决定;桶预设为每块 cellCount(末尾余格保持 None)
+            var buckets = new MergeElement[n][];
+            var bucketWrite = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (capacity[i] > 0) buckets[i] = new MergeElement[capacity[i]];
+            }
+
+            while (queue.Count > 0 && totalCap > 0)
+            {
+                int pick = RandomSource.Index(totalCap); // [0, totalCap)
+                // 按累计区间定位中签块(跳过 capacity==0 的块)
+                int target = -1;
+                int acc = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    if (capacity[i] == 0) continue;
+                    acc += capacity[i];
+                    if (pick < acc) { target = i; break; }
+                }
+                if (target < 0) break; // 防御:理论上 totalCap>0 时必命中
+
+                buckets[target][bucketWrite[target]++] = queue.Dequeue();
+                capacity[target]--;
+                totalCap--;
+            }
+
+            // 写回:命中过的块挂上 Elements(余格已是 None);未命中的块保持 Elements=null
+            for (int i = 0; i < n; i++)
+            {
+                if (bucketWrite[i] > 0) trio[i].Elements = buckets[i];
+            }
         }
 
         /// <summary>3 个形状互不重复的随机 trio（池耗尽时回落到允许重复）。</summary>
@@ -185,6 +227,7 @@ namespace GameLogic.BlockBlast
                     p.SetAlgo(off.Algo);
                     OperaArr[i] = p;
                 }
+                DistributePendingElementsAcrossTrio(OperaArr);
                 return;
             }
 
@@ -208,6 +251,7 @@ namespace GameLogic.BlockBlast
                 };
             }
             for (int i = 0; i < 3; i++) OperaArr[i] = chosen[i];
+            DistributePendingElementsAcrossTrio(OperaArr);
         }
 
         /// <summary>首发 3 个固定形状（默认 [9,39,24]），颜色随机。不带算法标签。</summary>
@@ -215,6 +259,7 @@ namespace GameLogic.BlockBlast
         {
             var ids = GameConfigBB.FirstHand;
             for (int i = 0; i < 3; i++) OperaArr[i] = BuildPiece(ids[i]);
+            DistributePendingElementsAcrossTrio(OperaArr);
         }
 
         /// <summary>把指定槽位的方块放置到棋盘上（不做校验）。</summary>

@@ -350,7 +350,7 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void EnqueueScoreElements_TypesSubsetOfNeeded_DrainsFifoOnBuild()
+        public void EnqueueScoreElements_TypesSubsetOfNeeded_DistributedAcrossTrio()
         {
             var s = BlockGameState.Instance;
             var board = new BinaryBoard();
@@ -363,14 +363,32 @@ namespace GameLogic.BlockBlast.Tests
             var needed = m.NeededTypes();
             foreach (var e in m.PendingElements) Assert.Contains(e, needed, "类型 ⊆ NeededTypes");
 
-            // 补牌按填充格行优先 FIFO 抽干：3x3(13) 9 格候选块取队头 2 个，余格 None
-            var expected = new List<MergeElement>(m.PendingElements);
+            // 新行为(trio 级容量加权随机):BuildPiece 单独调用不再吃队列(不再 FIFO 抽干)
+            int beforeCount = m.PendingElements.Count;
             var p = s.BuildPiece(13);
-            Assert.IsNotNull(p.Elements);
-            Assert.AreEqual(expected[0], p.Elements[0]);
-            Assert.AreEqual(expected[1], p.Elements[1]);
-            Assert.AreEqual(MergeElement.None, p.Elements[2], "抽干后余格留空");
-            Assert.AreEqual(0, m.PendingElements.Count, "队列被抽干");
+            Assert.IsNull(p.Elements, "BuildPiece 单独调用不再分配元素");
+            Assert.AreEqual(beforeCount, m.PendingElements.Count, "BuildPiece 单独调用不再吃队列");
+
+            // RefillPieces 触发 trio 级分摊:吃掉 min(队列, totalCap) 个元素
+            int originalQueue = m.PendingElements.Count;
+            // 清空 OperaArr 让 RefillPieces 走分支
+            for (int i = 0; i < 3; i++) s.OperaArr[i] = null;
+            s.RefillPieces(board);
+            int totalCap = 0;
+            int placed = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                int cells = BlockShapeMap.GetCellCount(s.OperaArr[i].ShapeId);
+                totalCap += cells;
+                if (s.OperaArr[i].Elements != null)
+                {
+                    for (int j = 0; j < s.OperaArr[i].Elements.Length; j++)
+                        if (s.OperaArr[i].Elements[j] != MergeElement.None) placed++;
+                }
+            }
+            int expectedDrained = System.Math.Min(originalQueue, totalCap);
+            Assert.AreEqual(expectedDrained, placed, "trio 内非 None 元素总数 = min(原队列, totalCap)");
+            Assert.AreEqual(originalQueue - expectedDrained, m.PendingElements.Count, "队列剩 = 原队列 - 分摊掉的");
         }
 
         [Test]
@@ -385,6 +403,115 @@ namespace GameLogic.BlockBlast.Tests
                 Assert.IsNull(s.OperaArr[i].Elements, "队空时候选块不应携带元素");
             // 不消除（不入队）→ 继续 BuildPiece 仍纯方块
             Assert.IsNull(s.BuildPiece(13).Elements, "队空 → 纯方块");
+        }
+
+        // ─── trio 级容量加权随机分摊 ────────────────────────────────
+
+        [Test]
+        public void DistributeElements_SpreadsAcrossMultiplePieces()
+        {
+            // 入队顶到 MaxPendingElements(12),trio 用 3 块 cellCount≥4 的块手工塞入
+            // → 大概率(种子固定)至少 2 块拿到 ≥1 元素,杜绝「FIFO 全堆第 1 块」的旧行为回归。
+            // 种子已在 SetUp 固定(20260612),分布稳定可复现。
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            m.EnqueueScoreElements(12);
+            Assert.AreEqual(MergeOrderConfig.MaxPendingElements, m.PendingElements.Count, "队列顶到上限");
+
+            // 手工三块都用 3x3 (shapeId=13, cellCount=9),totalCap=27 > 12 → 队列必被吃光
+            s.OperaArr[0] = new PendingPiece(13, BlockColor.Red);
+            s.OperaArr[1] = new PendingPiece(13, BlockColor.Blue);
+            s.OperaArr[2] = new PendingPiece(13, BlockColor.Green);
+
+            // 反射调私有 DistributePendingElementsAcrossTrio(IList<PendingPiece>)
+            var mi = typeof(BlockGameState).GetMethod(
+                "DistributePendingElementsAcrossTrio",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.IsNotNull(mi, "私有方法签名应稳定");
+            mi.Invoke(s, new object[] { s.OperaArr });
+
+            int piecesWithElements = 0;
+            int totalNonNone = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                if (s.OperaArr[i].Elements == null) continue;
+                int nonNone = 0;
+                for (int j = 0; j < s.OperaArr[i].Elements.Length; j++)
+                    if (s.OperaArr[i].Elements[j] != MergeElement.None) nonNone++;
+                if (nonNone > 0) piecesWithElements++;
+                totalNonNone += nonNone;
+            }
+            Assert.AreEqual(12, totalNonNone, "12 元素全分摊出去(队列被吃光)");
+            Assert.GreaterOrEqual(piecesWithElements, 2, "至少 2 块拿到元素(分布性,反 FIFO 集中第 1 块)");
+            Assert.AreEqual(0, m.PendingElements.Count, "队列吃光");
+        }
+
+        [Test]
+        public void DistributeElements_RespectsCapacityCeiling()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            // case A: totalCap > 队列 → 全分摊、队列剩 0、各块 Elements 总和 = 原队列
+            m.EnqueueScoreElements(4);
+            int originalQ = m.PendingElements.Count;
+            s.OperaArr[0] = new PendingPiece(13, BlockColor.Red);   // 9 格
+            s.OperaArr[1] = new PendingPiece(13, BlockColor.Blue);  // 9 格
+            s.OperaArr[2] = new PendingPiece(13, BlockColor.Green); // 9 格,totalCap=27
+            var mi = typeof(BlockGameState).GetMethod(
+                "DistributePendingElementsAcrossTrio",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            mi.Invoke(s, new object[] { s.OperaArr });
+
+            int placedA = CountNonNoneInTrio(s);
+            Assert.AreEqual(originalQ, placedA, "totalCap>队列 → 全分摊");
+            Assert.AreEqual(0, m.PendingElements.Count, "队列吃光");
+
+            // case B: totalCap < 队列 → bucket 总和 = totalCap、队列剩 (队列 - totalCap)
+            s.OperaArr[0] = null; s.OperaArr[1] = null; s.OperaArr[2] = null;
+            m.PendingElements.Clear();
+            m.EnqueueScoreElements(12); // 顶到 12
+            int originalQ2 = m.PendingElements.Count;
+            // 三块都 1x1 (shapeId=1, cellCount=1),totalCap=3
+            s.OperaArr[0] = new PendingPiece(1, BlockColor.Red);
+            s.OperaArr[1] = new PendingPiece(1, BlockColor.Blue);
+            s.OperaArr[2] = new PendingPiece(1, BlockColor.Green);
+            mi.Invoke(s, new object[] { s.OperaArr });
+
+            int placedB = CountNonNoneInTrio(s);
+            Assert.AreEqual(3, placedB, "totalCap<队列 → bucket 总和 = totalCap");
+            Assert.AreEqual(originalQ2 - 3, m.PendingElements.Count, "队列剩 = 原队列 - totalCap");
+        }
+
+        [Test]
+        public void DistributeElements_OffMode_NoAllocation()
+        {
+            // off 模式零回归:RefillPieces 后所有块 Elements == null
+            var s = BlockGameState.Instance;
+            Assert.IsFalse(s.MergeOrderMode, "默认 off");
+            s.RefillPieces(new BinaryBoard());
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.IsNotNull(s.OperaArr[i], "off 模式仍补满 3 块");
+                Assert.IsNull(s.OperaArr[i].Elements, "off 模式不分配 Elements");
+            }
+        }
+
+        private static int CountNonNoneInTrio(BlockGameState s)
+        {
+            int n = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                if (s.OperaArr[i] == null || s.OperaArr[i].Elements == null) continue;
+                for (int j = 0; j < s.OperaArr[i].Elements.Length; j++)
+                    if (s.OperaArr[i].Elements[j] != MergeElement.None) n++;
+            }
+            return n;
         }
 
         [Test]
