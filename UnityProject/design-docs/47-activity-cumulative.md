@@ -12,13 +12,13 @@
 
 把 [Tier 4 第 1 子单 §3.5](#39-activity-server::trigger) 声明的 `Cumulative` 节律接缝(`ActivityProgressService.Increment(account, activityId, delta)`,留 [O3 架构挖坑](#39-activity-server::open))**首次真实做**:加客户端可触发的归一 RPC `C2G_ActivityIncrement(activityId, delta)` + handler 校验 + service 内部 API 实做(沿用 [39 §3.4 发奖编排](#39-activity-server::orchestrate) 一字未改的「累 counter → 判达标 → 抢占 → 发奖」流程,只是把「+counter 起点」从「登录触发」换成「客户端业务推 + 服务端进程内调」),并交付**首套** `type=Cumulative` 活动实例(累计游戏 100 局,OneShot 永发一次)验证通路。
 
-本子单只做 server 段(协议契约 + handler + 通用 Increment service + 1 套样例配置);客户端段下一刀实做「[设计 11 / 29](#11-core-loop-completion) GameOver 路径接入处调 `C2G_ActivityIncrement(5, 1)`」+ UI 反馈(可选)+ 离线缓存 pending delta 策略。
+本子单只做 server 段(协议契约 + handler + 通用 Increment service + 1 套样例配置);客户端段已交付:见 [48 · Cumulative 客户端 GameOver hook + RemoteActivityService](#48-activity-cumulative-client)(三处 GameOver 出口 fire-and-forget hook + `RemoteActivityService` 编排 + 离线丢弃不缓存 + 无 UI 反馈沿 EVENT 同范式)。
 
 > [!WARNING]
 > **读前必看 · 六条边界**
 >
 > - **本子单是「Cumulative 节律首次实做 + 1 套 server 端验通路」,不是「9 套 Cumulative 活动全做」。** Cumulative 节律真做 = 1 个归一 RPC `C2G_ActivityIncrement` + 1 个 handler + 1 个 `ActivityProgressService.Increment` service + 1 套样例活动(累计游戏 100 局),共用 [39 §3.4 已实做的发奖编排](#39-activity-server::orchestrate)。后续 Cumulative 类活动(累计交付 / 累计消费 / 累计获得 / 累计签到等)= 加 1 行 `activity.xlsx` 配置 + 客户端业务系统调一次 RPC,**无新 handler / 无新 service / 无新协议**(沿 [设计 43 同范式](#43-activity-login-batch::iterate) 但应用在 Cumulative 上)。
-> - **客户端业务接入(GameOver hook 调 RPC)留下一子单,本子单纯 server only + 客户端协议生成物。** 服务端 RPC + handler + service 完整可独立验(server-test mock 客户端 mock 发包),不依赖客户端 GameOver 真触发;客户端业务接入是单点修改([设计 11 / 29 GameOver 路径](#11-core-loop-completion) 接入处调一行 RPC),plan 不指代码定位,留客户端段子单 dev 接。
+> - **客户端业务接入已交付**(见 [48 客户端段](#48-activity-cumulative-client))**,本子单服务端段 + 客户端协议生成物**。服务端 RPC + handler + service 完整可独立验(server-test mock 客户端 mock 发包),不依赖客户端 GameOver 真触发;客户端业务接入三处 GameOver 出口(Classic GameWindow.TriggerGameOver + MergeOrder MergeOrderWindow.TriggerGameOver / TriggerWin)在 48 已落,沿本子单已定协议契约。
 > - **不动 [39 ActivityDef / activity_progress schema](#39-activity-server::config) / [§3.4 发奖编排](#39-activity-server::orchestrate) / [32 SendMailTo 签名](#32-mail-server::source-api)。** 仅加 1 行 `activity.xlsx`(`activity_id=5`)+ 视需要 `mail.xlsx` 1 行(可砍) + `giftrandom.xlsx` 1 行(可砍,可指 [40 6101 EVENT 礼包](#40-event-unlock-relay::gift) 或 [43 5003 钻石礼包](#43-activity-login-batch::rewards) 复用)+ `__enums__.xlsx` 活动 type 加 `Cumulative=2` 档(若 39 第 1 子单已加则零增)+ `AuthoritativeDefs` 注册新行。
 > - **handler 校验 `type=Cumulative` 是反作弊硬约束,不可降级。** 客户端 RPC 不应能推 `type=Login` 活动(沿 [39 §3.5 节律](#39-activity-server::trigger)「`Login` 触发是『随路插入』服务端独占」)。handler 拿到 activityId → 查 `activity.xlsx` 行 → 若 `type ≠ Cumulative` → 返 `NotCumulative` 错误码、`activity_progress` 文档零改动。
 > - **与 [第 1 / 2 / 3 子单已交付 4 套 Login 活动 + 1 套 EVENT](#39-activity-server) 共存零回归。** Login 活动经 35 登录钩子触发(沿 [39 §3.5](#39-activity-server::trigger) + [43 §3.5](#43-activity-login-batch::iterate)),Cumulative 活动经 RPC + service 触发,两路节律入口完全独立、不交叉(沿 [39 §3.2 复合主键 `{account}_{activityId}`](#39-activity-server::storage) 文档独立)。
@@ -29,10 +29,10 @@
 >
 > | 项 | 内容 |
 > | --- | --- |
-> | **类型** | 全栈特性 · Tier 4 活动系统第 4 子单 · 服务端段。出 code-free 设计意图 + 行为级协议契约 + 行为级验收,交服务端段(协议生成 + handler 实做 + Cumulative service 实做 + 1 行 `activity.xlsx` + 可选 `mail.xlsx` / `giftrandom.xlsx` 行 + `__enums__.xlsx` Cumulative 枚举档 + `AuthoritativeDefs` 注册)落地;客户端段交付协议生成物 + 编译过,客户端业务接入(GameOver hook)留下一子单。 |
-> | **方向约束** | 离线还原 · **去变现**:Cumulative 类活动奖来自 [16 §3.6 礼包随机库](#16-item-system::gift),不引入付费 / VIP / 充值返利。**加法式 + 复用至上**:不动 [39 ActivityDef schema](#39-activity-server::config) / [activity_progress schema](#39-activity-server::storage) / [§3.4 发奖编排](#39-activity-server::orchestrate) / [§3.5 Login 触发节律](#39-activity-server::trigger) / [32 SendMailTo 签名](#32-mail-server::source-api) / [既有六全栈 + 35-46](#46-player-attr-ledger-client) 任何代码。新增全在:① 客户端可触发的归一 RPC `C2G_ActivityIncrement` + handler(本子单首次新建客户端可触发的活动系统 RPC,沿 [30 兑换码 / 31 排行榜上报](#30-redeem-code-server) 归一专用 RPC 范式);② `ActivityProgressService.Increment` service 实做(39 §3.5 接缝兑现);③ 1 行 `activity.xlsx`(`activity_id=5`)+ 可选 mail / gift 行;④ `__enums__.xlsx` Cumulative 枚举档;⑤ `AuthoritativeDefs` 注册。客户端业务接入(GameOver hook)+ 离线缓存 pending delta + UI 反馈留下一子单。 |
-> | **需求降层** | **a. 表层要求**(简报字面):Tier 4 活动系统第 4 子单 = Cumulative 节律首次实做 + 累计游戏 N 局样例;ActivityProgressService.Increment API + C2G_ActivityIncrement RPC + handler 校验 + 配置 + 客户端 GameOver hook 接入留下一刀。 **b. 底层目的**(为玩家 / 运营 / 工程 / 反作弊达成什么):**对玩家**——长期累计目标多元化(除「每日 + 累计登录 + 周累计登录 + EVENT 解锁」外,新增「累计游戏 N 局 / 累计交付 N 单 / 累计消费 N 钻 / 累计获得 N 道具」类成就抓手),与 Login 类「玩家被动登录得奖」互补,Cumulative 类是「玩家主动参与游戏得奖」。**对运营**——Cumulative 节律真做后能配 4-5 套同类活动,运营需求池显著扩大,每套加成本 = 1 行配置 + 1 行客户端 hook 调用。**对工程**——兑现 [39 §3.5 旁注](#39-activity-server::trigger) Cumulative 节律「架构挖接缝、实现待业务接入」的 O3 接口,从「架构上声明」升为「真实可用」+ 同范式可扩展验证(本子单 1 套样例验通路,后续运营加同类活动零代码改)。**对反作弊**——首次新建客户端可触发的活动 RPC,确立「handler 校验 `type=Cumulative` + 身份从会话取 + delta 上限钳」三层防御基线,守住「客户端不可推任意活动 counter」服务端权威。 **c. 有无更直达 b 的做法**:b 的本质 = 「Cumulative 节律真做 + 提供归一 RPC 给客户端业务推」。直达做法对比: **方案 A(本子单采纳)** — 新建归一 RPC `C2G_ActivityIncrement(activityId, delta)`,handler 校验 `type=Cumulative`,统一调 `ActivityProgressService.Increment`;一个 RPC 对应任意 Cumulative 类活动。 **方案 B(放弃)** — 复用现有 `C2G_GameEnd` 协议携活动元数据(`gameEnded + activityId + delta` 一包发)。**方案 B 否的理由**:① 工程 grep 无 `C2G_GameEnd` 协议(GameOver 是客户端进程内事件,未上 RPC),即便有也属「本局结算」语义,扩它携活动 activityId 让协议关注点混杂;② Cumulative 节律的客户端触发源会扩(累计游戏 / 累计交付 / 累计消费 / 累计获得 / 累计签到等),给每个触发源各扩一个现有 RPC 不可持续 — 后续 5 套 Cumulative 各扩 1 个 RPC = 协议表大膨胀;③ 「归一 RPC」是 [设计 30 兑换码 / 31 排行榜上报](#30-redeem-code-server) 同范式(新建专用 RPC 而非塞进既有协议)。 **方案 C(放弃)** — 不开 RPC,Cumulative 全靠服务端内部事件(如服务端拦截每局 `C2G_*GameAction`)算「玩家完成一局」+ 自动 Increment。**方案 C 否的理由**:① 「玩家完成一局」的判据复杂(通关 / 软 GameOver / 硬 GameOver 三出口,服务端无业务上下文判区);② 把客户端业务上下文上推服务端 = 服务端要懂玩法 = 反层级;③ 客户端业务系统直接调归一 RPC 报告「我完成了一局」是更明确的关注点边界。 **结论**:取方案 A — 归一 RPC + handler 校验 + service 内部 API 统一逻辑路径,纯加法式、零现有协议改、客户端业务接入边界清晰。 |
-> | **范围(产品 · 玩法)** | **服务端段交付**:① 新建协议 `C2G_ActivityIncrement(activityId, delta)` + `G2C_ActivityIncrementResponse(resultCode, currentCounter, targetReached)`(沿 30/31/32/33/45 协议范式,字段名由 server-dev 据 Fantasy.Net 约定取);② handler `C2G_ActivityIncrementHandler` 实做 5 项校验(身份从会话取 + activityId 配置存在 + `type=Cumulative` + delta > 0 + delta ≤ 10000 钳制) → 调 service;③ `ActivityProgressService.Increment(account, activityId, delta)` service 实做(沿 [39 §3.4 发奖编排](#39-activity-server::orchestrate) 流程,只「+counter 起点」换为本入口);④ `activity.xlsx` 加 1 行(`activity_id=5, type=Cumulative, cycle=OneShot, target=100, reward=5005 或 6101 或 5003 任一, mail_def=7005 或 0`);⑤ `__enums__.xlsx` 活动 type 加 `Cumulative=2` 档(若 39 第 1 子单已加则零增);⑥ 可选:`mail.xlsx` 加 1 行 `mail_def=7005` 邮件模板 + `giftrandom.xlsx` 加 1 行 `5005` 礼包(沿 [43 §3.4 兜底](#43-activity-login-batch::mail) `mail_def=0` 走占位文案、`reward` 复用既有礼包亦合法);⑦ Fantasy.Net `AuthoritativeDefs` 注册新行。 **服务端段不动**:① [32 SendMailTo](#32-mail-server::source-api) 入口签名;② [39 ActivityDef schema](#39-activity-server::config) / [activity_progress schema](#39-activity-server::storage);③ [39 §3.4 发奖编排](#39-activity-server::orchestrate) 流程;④ [39 §3.5 Login 触发节律](#39-activity-server::trigger);⑤ [既有六全栈 + 35/36/37/38/40/41/43/44/45](#43-activity-login-batch) 任何代码。 **客户端段交付**:协议生成物(Unity 工程内 `C2G_ActivityIncrement / G2C_ActivityIncrementResponse` 类编译过)。 **客户端业务接入**:GameOver hook 调 RPC + UI 反馈 + 离线缓存 pending delta → 留下一子单。 |
+> | **类型** | 全栈特性 · Tier 4 活动系统第 4 子单 · 服务端段。出 code-free 设计意图 + 行为级协议契约 + 行为级验收,交服务端段(协议生成 + handler 实做 + Cumulative service 实做 + 1 行 `activity.xlsx` + 可选 `mail.xlsx` / `giftrandom.xlsx` 行 + `__enums__.xlsx` Cumulative 枚举档 + `AuthoritativeDefs` 注册)落地;客户端段交付协议生成物 + 编译过,客户端业务接入(GameOver hook)由 [48 客户端段](#48-activity-cumulative-client) 承接(已交付)。 |
+> | **方向约束** | 离线还原 · **去变现**:Cumulative 类活动奖来自 [16 §3.6 礼包随机库](#16-item-system::gift),不引入付费 / VIP / 充值返利。**加法式 + 复用至上**:不动 [39 ActivityDef schema](#39-activity-server::config) / [activity_progress schema](#39-activity-server::storage) / [§3.4 发奖编排](#39-activity-server::orchestrate) / [§3.5 Login 触发节律](#39-activity-server::trigger) / [32 SendMailTo 签名](#32-mail-server::source-api) / [既有六全栈 + 35-46](#46-player-attr-ledger-client) 任何代码。新增全在:① 客户端可触发的归一 RPC `C2G_ActivityIncrement` + handler(本子单首次新建客户端可触发的活动系统 RPC,沿 [30 兑换码 / 31 排行榜上报](#30-redeem-code-server) 归一专用 RPC 范式);② `ActivityProgressService.Increment` service 实做(39 §3.5 接缝兑现);③ 1 行 `activity.xlsx`(`activity_id=5`)+ 可选 mail / gift 行;④ `__enums__.xlsx` Cumulative 枚举档;⑤ `AuthoritativeDefs` 注册。客户端业务接入(GameOver hook)+ 离线缓存 pending delta + UI 反馈由 [48 客户端段](#48-activity-cumulative-client) 承接(已交付,沿 30/32/46 不本地放行 + EVENT 无 UI 反馈范式)。 |
+> | **需求降层** | **a. 表层要求**(简报字面):Tier 4 活动系统第 4 子单 = Cumulative 节律首次实做 + 累计游戏 N 局样例;ActivityProgressService.Increment API + C2G_ActivityIncrement RPC + handler 校验 + 配置 + 客户端 GameOver hook 接入由 [48 客户端段](#48-activity-cumulative-client) 承接(已交付)。 **b. 底层目的**(为玩家 / 运营 / 工程 / 反作弊达成什么):**对玩家**——长期累计目标多元化(除「每日 + 累计登录 + 周累计登录 + EVENT 解锁」外,新增「累计游戏 N 局 / 累计交付 N 单 / 累计消费 N 钻 / 累计获得 N 道具」类成就抓手),与 Login 类「玩家被动登录得奖」互补,Cumulative 类是「玩家主动参与游戏得奖」。**对运营**——Cumulative 节律真做后能配 4-5 套同类活动,运营需求池显著扩大,每套加成本 = 1 行配置 + 1 行客户端 hook 调用。**对工程**——兑现 [39 §3.5 旁注](#39-activity-server::trigger) Cumulative 节律「架构挖接缝、实现待业务接入」的 O3 接口,从「架构上声明」升为「真实可用」+ 同范式可扩展验证(本子单 1 套样例验通路,后续运营加同类活动零代码改)。**对反作弊**——首次新建客户端可触发的活动 RPC,确立「handler 校验 `type=Cumulative` + 身份从会话取 + delta 上限钳」三层防御基线,守住「客户端不可推任意活动 counter」服务端权威。 **c. 有无更直达 b 的做法**:b 的本质 = 「Cumulative 节律真做 + 提供归一 RPC 给客户端业务推」。直达做法对比: **方案 A(本子单采纳)** — 新建归一 RPC `C2G_ActivityIncrement(activityId, delta)`,handler 校验 `type=Cumulative`,统一调 `ActivityProgressService.Increment`;一个 RPC 对应任意 Cumulative 类活动。 **方案 B(放弃)** — 复用现有 `C2G_GameEnd` 协议携活动元数据(`gameEnded + activityId + delta` 一包发)。**方案 B 否的理由**:① 工程 grep 无 `C2G_GameEnd` 协议(GameOver 是客户端进程内事件,未上 RPC),即便有也属「本局结算」语义,扩它携活动 activityId 让协议关注点混杂;② Cumulative 节律的客户端触发源会扩(累计游戏 / 累计交付 / 累计消费 / 累计获得 / 累计签到等),给每个触发源各扩一个现有 RPC 不可持续 — 后续 5 套 Cumulative 各扩 1 个 RPC = 协议表大膨胀;③ 「归一 RPC」是 [设计 30 兑换码 / 31 排行榜上报](#30-redeem-code-server) 同范式(新建专用 RPC 而非塞进既有协议)。 **方案 C(放弃)** — 不开 RPC,Cumulative 全靠服务端内部事件(如服务端拦截每局 `C2G_*GameAction`)算「玩家完成一局」+ 自动 Increment。**方案 C 否的理由**:① 「玩家完成一局」的判据复杂(通关 / 软 GameOver / 硬 GameOver 三出口,服务端无业务上下文判区);② 把客户端业务上下文上推服务端 = 服务端要懂玩法 = 反层级;③ 客户端业务系统直接调归一 RPC 报告「我完成了一局」是更明确的关注点边界。 **结论**:取方案 A — 归一 RPC + handler 校验 + service 内部 API 统一逻辑路径,纯加法式、零现有协议改、客户端业务接入边界清晰。 |
+> | **范围(产品 · 玩法)** | **服务端段交付**:① 新建协议 `C2G_ActivityIncrement(activityId, delta)` + `G2C_ActivityIncrementResponse(resultCode, currentCounter, targetReached)`(沿 30/31/32/33/45 协议范式,字段名由 server-dev 据 Fantasy.Net 约定取);② handler `C2G_ActivityIncrementHandler` 实做 5 项校验(身份从会话取 + activityId 配置存在 + `type=Cumulative` + delta > 0 + delta ≤ 10000 钳制) → 调 service;③ `ActivityProgressService.Increment(account, activityId, delta)` service 实做(沿 [39 §3.4 发奖编排](#39-activity-server::orchestrate) 流程,只「+counter 起点」换为本入口);④ `activity.xlsx` 加 1 行(`activity_id=5, type=Cumulative, cycle=OneShot, target=100, reward=5005 或 6101 或 5003 任一, mail_def=7005 或 0`);⑤ `__enums__.xlsx` 活动 type 加 `Cumulative=2` 档(若 39 第 1 子单已加则零增);⑥ 可选:`mail.xlsx` 加 1 行 `mail_def=7005` 邮件模板 + `giftrandom.xlsx` 加 1 行 `5005` 礼包(沿 [43 §3.4 兜底](#43-activity-login-batch::mail) `mail_def=0` 走占位文案、`reward` 复用既有礼包亦合法);⑦ Fantasy.Net `AuthoritativeDefs` 注册新行。 **服务端段不动**:① [32 SendMailTo](#32-mail-server::source-api) 入口签名;② [39 ActivityDef schema](#39-activity-server::config) / [activity_progress schema](#39-activity-server::storage);③ [39 §3.4 发奖编排](#39-activity-server::orchestrate) 流程;④ [39 §3.5 Login 触发节律](#39-activity-server::trigger);⑤ [既有六全栈 + 35/36/37/38/40/41/43/44/45](#43-activity-login-batch) 任何代码。 **客户端段交付**:协议生成物(Unity 工程内 `C2G_ActivityIncrement / G2C_ActivityIncrementResponse` 类编译过)。 **客户端业务接入**:GameOver hook 调 RPC + UI 反馈 + 离线缓存 pending delta → 由 [48 客户端段](#48-activity-cumulative-client) 承接(已交付,Classic + MergeOrder 三出口 hook + 无 UI 反馈沿 EVENT 同范式 + 离线丢弃不缓存沿 30/32/46 同口径)。 |
 > | **关键约束** | 服务端遵 Fantasy.Net 既有约定(协议生成 / handler 注册 / MongoDB 存储 / 错误码非异常 / 不手改生成物 / 不手动注册);沿 [39 §3.4 发奖编排](#39-activity-server::orchestrate) 流程不动一行代码,Cumulative 节律共用同一流程;`counter` 累加用 MongoDB `$inc` 原子(沿 [33 §3.2](#33-rank-settle-server::orchestrate)),「判未发 + 写已发」用 [39 §3.4 原子条件写](#39-activity-server::orchestrate);handler 错误码归一(`Success / InvalidRequest / NotCumulative / ServiceUnavailable` 四档);**身份从会话取**(沿 [30 §3](#30-redeem-code-server)),客户端不自报 account。本篇正文为 code-free 设计意图,不含协议消息名 / 字段代码名 / 类名 / 文件路径 / 接缝清单——server-dev 据行为语义定 schema 字段名 / handler 注册 / service 实做。 |
 
 ## 二、现状审计(给定基线证据) {#audit}
@@ -45,8 +45,8 @@
 | 简报「新 RPC `C2G_ActivityIncrement(activityId, delta)` 协议字段 + 错误码集,或复用其它 RPC(典型扩 `C2G_GameEnd` 携活动达标元数据)」 | 工程 grep 无 `C2G_GameEnd` 协议;[设计 11 / 29 GameOver](#11-core-loop-completion) 是客户端进程内事件,未上 RPC | **新建专用 RPC**(立项框 c.方案 A);拒方案 B 复用 C2G_GameEnd(无该协议 + 即便有也违协议关注点单一) |
 | 简报「handler 校验项: 身份从会话取 / activityId 必须 type=Cumulative / delta 必须正数 + 上限 / 防刷」 | [设计 30 §3 兑换码身份从会话取](#30-redeem-code-server) + [31 §3 排行榜上报身份从会话取](#31-rank-server) + [37 §3.3 PropertyChangeRequest 上界 999999 防客户端推爆](#37-player-attr-server::internal-api) 同源范式 | **handler 校验 4 项**(身份 + activityId 存在 + `type=Cumulative` + delta > 0 + delta ≤ 10000 钳制);**防刷**用「单次 delta 上限钳制 + service 内 type 校验 + counter 跨周期非递减(OneShot 永发停)」三层(详 [§3.3 决策](#47-activity-cumulative::handler) + [§五崩法表](#47-activity-cumulative::walk)) |
 | 简报「Increment 后是否走 §3.4 发奖编排(达标即发邮件,与 Login 同路)」 | [39 §3.4 发奖编排](#39-activity-server::orchestrate) 完整流程已实做(原子条件写 + claim-then-act + SendMailTo);[43 §3.5](#43-activity-login-batch::iterate) Login 节律 PASS 验过同流程 | **完全沿用** [39 §3.4](#39-activity-server::orchestrate):Cumulative 节律的「+counter 起点」换为 `Increment` 调用,「+counter 之后」走完全同一发奖编排(判达标 + 抢占 + SendMailTo) |
-| 简报「第 1 套样例活动:累计游戏 N 局」(触发源 = 客户端 GameOver) | [设计 29 §三 三出口](#29-gameplay-fusion::v2):通关 / 软 GameOver / 硬 GameOver,「玩完一局」语义客户端独占(服务端无业务上下文判区);[设计 11 §7.3 软 GameOver 三出路](#11-core-loop-completion::energy-empty) | **客户端业务接入(GameOver hook 调 RPC)留下一子单**;本子单 server 段 only,server-test 用 mock 客户端 mock 发包验完整 server 通路(SV2-SV10) |
-| 简报「客户端业务接入(GameOver hook 调 C2G_ActivityIncrement)留下一刀(本子单 server 段先行,沿 Login 批量 + ledger 写入范式)」 | [设计 43](#43-activity-login-batch) Tier 4 第 3 子单是「server only,客户端段后续刀」范式;[44 / 45](#44-player-attr-ledger) Tier 2 第 1 / 2 / 3 子单是「server 段先行,客户端段后续刀」范式 | 沿此分段范式,本子单只交付 server 段 + 客户端协议生成物;客户端 GameOver hook 接入 + UI 反馈 + 离线缓存策略留下一子单(客户端段 dev 接) |
+| 简报「第 1 套样例活动:累计游戏 N 局」(触发源 = 客户端 GameOver) | [设计 29 §三 三出口](#29-gameplay-fusion::v2):通关 / 软 GameOver / 硬 GameOver,「玩完一局」语义客户端独占(服务端无业务上下文判区);[设计 11 §7.3 软 GameOver 三出路](#11-core-loop-completion::energy-empty) | **客户端业务接入(GameOver hook 调 RPC)由 [48 客户端段](#48-activity-cumulative-client) 承接(已交付,三处 GameOver 出口等价计数)**;本子单 server 段 only,server-test 用 mock 客户端 mock 发包验完整 server 通路(SV2-SV10) |
+| 简报「客户端业务接入(GameOver hook 调 C2G_ActivityIncrement)留下一刀(本子单 server 段先行,沿 Login 批量 + ledger 写入范式)」 | [设计 43](#43-activity-login-batch) Tier 4 第 3 子单是「server only,客户端段后续刀」范式;[44 / 45](#44-player-attr-ledger) Tier 2 第 1 / 2 / 3 子单是「server 段先行,客户端段后续刀」范式 | 沿此分段范式,本子单只交付 server 段 + 客户端协议生成物;客户端 GameOver hook 接入 + UI 反馈 + 离线缓存策略由 [48 客户端段](#48-activity-cumulative-client) 承接(已交付) |
 
 ## 三、设计正文 {#detail}
 
@@ -58,7 +58,7 @@ graph LR
     L2 --> L3["对每个 Login 活动<br/>调 ActivityProgressService.IncrementForLogin"]
     L3 --> SHARE["共用 §3.4 发奖编排<br/>(判达标 + 抢占 + SendMailTo)"]
 
-    C1["客户端业务系统<br/>(本子单首套: GameOver hook)<br/>下一刀接"] -.沿 §3.2 协议契约 .-> C2["C2G_ActivityIncrement<br/>(activityId, delta)"]
+    C1["客户端业务系统<br/>(48 已接: Classic / MergeOrder<br/>三处 GameOver 出口)"] -.沿 §3.2 协议契约 .-> C2["C2G_ActivityIncrement<br/>(activityId, delta)"]
     C2 --> HDL["handler 校验 5 项<br/>(身份 + activityId 存在<br/>+ type=Cumulative<br/>+ delta > 0 + delta ≤ 10000)"]
     HDL --> C3["调 ActivityProgressService.Increment<br/>(account, activityId, delta)"]
     C3 --> SHARE
@@ -107,7 +107,7 @@ graph LR
 | `NotCumulative` | activityId 对应配置 `type ≠ Cumulative`(典型:客户端尝试推 `type=Login` 活动) | handler 校验拒,`activity_progress` 文档零改动 |
 | `ServiceUnavailable` | MongoDB 不可达 / Fantasy.Net 内部异常 | handler 兜底,`activity_progress` 状态未知,客户端不本地放行(沿 [30 §3 不本地放行](#30-redeem-code-server)) |
 
-**为什么 `NotCumulative` 单列而非归 `InvalidRequest`?** ① 语义差异大(`InvalidRequest` 是「客户端发包写错」/ `NotCumulative` 是「活动类型不允许此 RPC」,差异化提示有助客户端诊断);② 客户端段下一刀的 UI 可据 `NotCumulative` 显示「活动配置异常,请联系客服」类专属提示;③ 反作弊日志可统计「`NotCumulative` 拒数」识别异常客户端(频繁尝试推非 Cumulative 类活动 = 行为可疑)。
+**为什么 `NotCumulative` 单列而非归 `InvalidRequest`?** ① 语义差异大(`InvalidRequest` 是「客户端发包写错」/ `NotCumulative` 是「活动类型不允许此 RPC」,差异化提示有助客户端诊断);② 客户端 [48](#48-activity-cumulative-client) 据此码落 Error 级日志(代表客户端 / 配置 bug,与 InvalidRequest 同级但触发场景不同);③ 反作弊日志可统计「`NotCumulative` 拒数」识别异常客户端(频繁尝试推非 Cumulative 类活动 = 行为可疑)。
 
 ### 3.3 handler 校验链 + 错误码决策 {#handler}
 
@@ -225,7 +225,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant C as 客户端<br/>(下一刀 GameOver hook 接)
+    participant C as 客户端<br/>(48 已接 Classic / MergeOrder<br/>三处 GameOver 出口)
     participant H as C2G_ActivityIncrementHandler
     participant SVC as ActivityProgressService.Increment
     participant DB as MongoDB
@@ -269,13 +269,13 @@ sequenceDiagram
     Note over C,MAIL: 玩家拉邮件即见活动 5 大奖<br/>(走 32 拉列表 / 领取链)
 ```
 
-**玩家可观测路径**:第 100 局 GameOver 时客户端段 hook 调 RPC → 服务端响应 `targetReached=true` → (可选)客户端 UI 弹「累计 100 局达成!」类提示(本子单不做、留下一刀) → 玩家打开邮箱(走 [21 / 32](#32-mail-server) 客户端表现层)→ 邮件列表多一封「累计游戏 100 局奖励」 → 玩家点领走 [32 领奖链](#32-mail-server::claim) 拿礼包奖励。
+**玩家可观测路径**:第 100 局 GameOver 时客户端段 hook 调 RPC([48 fire-and-forget](#48-activity-cumulative-client::fire-forget)) → 服务端响应 `targetReached=true` → 客户端落日志(48 决策无 UI 反馈,沿 EVENT 同范式) → 玩家打开邮箱(走 [21 / 32](#32-mail-server) 客户端表现层)→ 邮件列表多一封「累计游戏 100 局奖励」 → 玩家点领走 [32 领奖链](#32-mail-server::claim) 拿礼包奖励。
 
 ## 四、服务异常下的行为 {#degrade}
 
 | 情形 | 服务端行为 | 为什么 |
 | --- | --- | --- |
-| MongoDB 不可达(读 / 写 `activity_progress` 失败) | handler 返 `ServiceUnavailable`;客户端不本地放行(累计 delta 丢弃 / 缓存重试由客户端段下一刀决策);server-test 此情形列 **BLOCKED** 非 FAIL | 存储不可达环境问题,沿 [30 / 39 同口径](#39-activity-server::degrade);客户端本地放行 = 服务端复连后丢失 delta 上推违审计完整性 |
+| MongoDB 不可达(读 / 写 `activity_progress` 失败) | handler 返 `ServiceUnavailable`;客户端不本地放行(48 决策累计 delta 直接丢弃不缓存,沿 30/32/46 同口径);server-test 此情形列 **BLOCKED** 非 FAIL | 存储不可达环境问题,沿 [30 / 39 同口径](#39-activity-server::degrade);客户端本地放行 = 服务端复连后丢失 delta 上推违审计完整性 |
 | 32 发奖入口投邮件失败(MongoDB / 序列化) | 周期键已写、邮件未投 = 漏发窄窗(沿 [39 §3.4 claim-then-act](#39-activity-server::orchestrate));运营可补,不抛致 handler 中断 | 漏发可补 + 不超发,优于反向次序 |
 | `activity.xlsx` activityId=5 行缺(配置未导入) | handler 返 `InvalidRequest`;`activity_progress` 文档零改动 | 沿 §3.3 handler 校验链;运营事后补配置不漏 |
 | `mail_def=7005` 邮件模板缺 / `reward=5005` 礼包未登记 | 兜底:邮件用占位文案(110806 / 110805)仍挂未登记 reward 投出;玩家领取时 [32 §3.4 「抽取查无 → 成功但奖励列表空」](#32-mail-server::claim-resp) | 沿 [39 §四 + 32 已有口径](#32-mail-server::claim-resp) |
@@ -297,7 +297,7 @@ sequenceDiagram
 | 判达标 + 写已发周期键非原子 | 并发两次 Increment 都达标 → 各自抢占 → 双发邮件 | 并发 | [§3.5 原子条件写](#47-activity-cumulative::service)(沿 [39 §3.4](#39-activity-server::orchestrate));SV8 验仅一次抢占 + 一次邮件 |
 | SendMailTo 中途崩 | 周期键已写、邮件未投 → 漏一封 | 中途存档 | [§3.5 claim-then-act](#47-activity-cumulative::service)(沿 [39 §3.4 旁注](#39-activity-server::orchestrate));接受漏发窄窗(运营可补);**不**接受反过来超发 |
 | Daily / Weekly Cumulative counter 跨周期不清零 | server-dev 用 OneShot 实现路径处理 Daily Cumulative → counter 跨日不清零 → 越累越多 → 跨日 1 次登录直接达标 | 中途存档 / 边界 | [§3.5 service 跨周期清零](#47-activity-cumulative::service)(沿 [43 §3.2 旁注](#43-activity-login-batch::activities));本子单样例是 OneShot 不涉及,但 service 须前瞻支持(SV9 提示);Code Review SV12 ⑤ 核 |
-| 服务端不可达 → 客户端本地放行 | 客户端断网时客户端本地累计 delta + 服务端复连后丢失 delta 上推 = 永久漏奖 | 恶意利用 / 中途存档 | [§四 不本地放行](#47-activity-cumulative::degrade)(沿 [30 §3](#30-redeem-code-server));客户端段下一刀决定缓存策略(留下一刀的 decisions) |
+| 服务端不可达 → 客户端本地放行 | 客户端断网时客户端本地累计 delta + 服务端复连后丢失 delta 上推 = 永久漏奖 | 恶意利用 / 中途存档 | [§四 不本地放行](#47-activity-cumulative::degrade)(沿 [30 §3](#30-redeem-code-server));客户端 [48 §3.3](#48-activity-cumulative-client::offline) 决策不本地缓存直接丢弃(沿 30/32/46 同口径) |
 | 协议字段缺失 / 格式错(activityId / delta) | handler 拿不到字段 / 解析抛 | 零值 / 边界 | [§3.3 校验链](#47-activity-cumulative::handler) 返 `InvalidRequest` 兜底;不抛致连接中断 |
 | handler 校验顺序错(先 type 后 activityId 存在) | activityId 不存在时返 `NotCumulative` 泄露「该 id 在配但 type 不对」vs「该 id 不在配」信息差 | 边界 | [§3.3 顺序声明](#47-activity-cumulative::handler) 先 activityId 存在再 type;Code Review SV12 ⑥ 核 |
 | 客户端伪造 account 字段 | 客户端硬塞 account 字段企图推他人活动 counter | 恶意利用 | [§3.2 身份从会话取](#47-activity-cumulative::protocol) + 协议字段表不含 account 字段(服务端忽略客户端任何 account 字段) + Code Review SV12 ① 核 |
@@ -308,7 +308,7 @@ sequenceDiagram
 >
 > 本子单**守的**:① Cumulative 节律服务端真做(归一 RPC + handler + service);② handler 校验 5 项防客户端推非 Cumulative 类活动 / 负 delta / 上限溢出 / 伪 account / 不存在 activityId;③ counter 累加原子(`$inc` 文档级)+ 抢占原子(`FindOneAndUpdate` 条件写)+ claim-then-act;④ service 层兜底 type 校验(纵深防御未来扩展);⑤ 1 套样例活动累计 100 局通路验通(SV4 / SV10);⑥ 与 [39 / 40 / 43 已交付 5 套活动](#43-activity-login-batch) 共存零回归(SV11)。
 >
-> 本子单**不守的**:① 客户端业务接入(GameOver hook 调 RPC)→ 留下一子单(客户端段);② 离线缓存 pending delta + 网络恢复重试 → 留下一子单(由客户端段决策);③ Daily / Weekly Cumulative 节律的样例验证(service 须前瞻支持但本子单只 OneShot 样例验过 — SV9 验跨会话 / 重启幂等限 OneShot;Daily / Weekly Cumulative 样例验证留运营加新活动行后随访);④ 其它 4 套 Cumulative 活动(累计交付 / 累计消费 / 累计获得 / 累计签到)→ 留运营后续逐套刀加 1 行配置 + 客户端业务接入;⑤ 客户端 UI 反馈「累计 100 局达成!」类提示 → 客户端段下一刀做;⑥ 反过来「漏发」窄窗(`SendMailTo` 失败,玩家漏一封,运营可补;严格不漏 = 账号级事务沿 [39 O7](#39-activity-server::open));⑦ counter 上限钳 10000 运营可配 → 留 [O3 后续](#47-activity-cumulative::open);⑧ 服务端业务方直调 service 的场景(运营 GM 工具 / 自动赠送) → 接口已留但本子单不实做调用方;⑨ 多端跨设备 counter 同步 → Tier 3 跨设备识别另开;⑩ 反作弊「客户端是否真完成 1 局」(客户端可调 RPC 但本局未真打完)→ 服务端不验「玩法本身真假」(沿 [31 排行榜诚实边界](#31-rank-server) 同源,反作弊另开特性)。
+> 本子单**不守的**:① 客户端业务接入(GameOver hook 调 RPC)→ [48 客户端段已落](#48-activity-cumulative-client);② 离线缓存 pending delta + 网络恢复重试 → [48 决策不缓存直接丢弃](#48-activity-cumulative-client::offline)(沿 30/32/46 同口径);③ Daily / Weekly Cumulative 节律的样例验证(service 须前瞻支持但本子单只 OneShot 样例验过 — SV9 验跨会话 / 重启幂等限 OneShot;Daily / Weekly Cumulative 样例验证留运营加新活动行后随访);④ 其它 4 套 Cumulative 活动(累计交付 / 累计消费 / 累计获得 / 累计签到)→ 留运营后续逐套刀加 1 行配置 + 客户端业务接入(48 已建归一服务可直接复用);⑤ 客户端 UI 反馈「累计 100 局达成!」类提示 → [48 决策无 UI 反馈](#48-activity-cumulative-client::ui)(沿 EVENT 同范式);⑥ 反过来「漏发」窄窗(`SendMailTo` 失败,玩家漏一封,运营可补;严格不漏 = 账号级事务沿 [39 O7](#39-activity-server::open));⑦ counter 上限钳 10000 运营可配 → 留 [O3 后续](#47-activity-cumulative::open);⑧ 服务端业务方直调 service 的场景(运营 GM 工具 / 自动赠送) → 接口已留但本子单不实做调用方;⑨ 多端跨设备 counter 同步 → Tier 3 跨设备识别另开;⑩ 反作弊「客户端是否真完成 1 局」(客户端可调 RPC 但本局未真打完)→ 服务端不验「玩法本身真假」(沿 [31 排行榜诚实边界](#31-rank-server) 同源,反作弊另开特性)。
 
 ## 六、与既有特性的关系 {#relations}
 
@@ -321,7 +321,7 @@ sequenceDiagram
 | [设计 32 §3.5 SendMailTo](#32-mail-server::source-api) | 完全沿用,签名零改 | 零改动 |
 | [设计 33 §3.2 `$inc` + FindOneAndUpdate 原子](#33-rank-settle-server::orchestrate) | 本子单 counter 累加 + 抢占都沿用此范式 | 零改动 |
 | [设计 30 兑换码服务端](#30-redeem-code-server) / [31 排行榜上报](#31-rank-server) | 本子单 RPC 沿其归一专用 RPC + 身份从会话取 + 服务端不可达不本地放行范式 | 零改动 |
-| [设计 11 核心补全 / 29 玩法融合](#11-core-loop-completion) | GameOver 三出口(通关 / 软 / 硬)是客户端业务上下文,本子单不涉(GameOver hook 接入留下一刀) | 零改动 |
+| [设计 11 核心补全 / 29 玩法融合](#11-core-loop-completion) | GameOver 三出口(通关 / 软 / 硬)是客户端业务上下文,本子单不涉(GameOver hook 接入在 [48](#48-activity-cumulative-client) 已落) | 零改动 |
 | [设计 16 道具系统 `giftrandom`](#16-item-system::gift) | 活动 5 `reward` 字段可指向 5005(可选新建) / 6101 / 5003 任一,沿 22/32/33/39/40/43 同范式 | 零改动(若新建 5005 行则 16 同任务内加 1 行,沿 [43 同任务内加礼包行](#43-activity-login-batch::rewards) 范式) |
 | [设计 21 邮件 / 32 客户端段领奖链](#21-mail-system) | 活动 5 奖落玩家邮箱,沿既有拉列表 + 领奖链(已落地) | 零改动 |
 | [设计 37 玩家属性服务端](#37-player-attr-server) | 若 reward 含「+N 钻石 / 金币 / 体力」类货币,客户端经 [32 领取链](#32-mail-server::claim-resp) + [16 §3.7 货币 useEffect=1](#16-item-system::useeffect) + [37 PropertyChangeRequest](#37-player-attr-server::internal-api) 落地 | 零改动 |
@@ -335,11 +335,11 @@ sequenceDiagram
 | # | 开关 | 安全默认 | 备选 / 触发改动 |
 | --- | --- | --- | --- |
 | O1 | 协议形态:新建专用 RPC vs 复用 `C2G_GameEnd` | **新建专用 RPC `C2G_ActivityIncrement`** <span class="pill-core">核心</span> | 复用现有 GameEnd / 各业务系统扩自身 RPC — 违协议关注点单一 + Cumulative 类触发源多元化不可持续,详 [立项框 c.方案 B](#47-activity-cumulative::intro) |
-| O2 | handler 错误码扩展 | **4 档**(Success / InvalidRequest / NotCumulative / ServiceUnavailable) <span class="pill-core">核心</span> | 客户端段下一刀按 UI 反馈需要扩 `ActivityNotFound`(归 InvalidRequest 拆) / `DeltaTooLarge`(钳制不报错,默默裁剪)等;本子单先归一 4 档 |
+| O2 | handler 错误码扩展 | **4 档**(Success / InvalidRequest / NotCumulative / ServiceUnavailable) <span class="pill-core">核心</span> | 客户端 [48](#48-activity-cumulative-client) 已沿 4 档 + 加 `NetworkDown` 区分客户端断网;后续若需扩 `ActivityNotFound`(归 InvalidRequest 拆) / `DeltaTooLarge`(钳制不报错,默默裁剪)按需 |
 | O3 | delta 上限钳制 = 10000 硬编码 vs 运营可配 | **硬编码 10000** <span class="pill-core">核心</span> | 运营调控需求时扩 `activity.xlsx` 加 `max_delta_per_call` 字段或全局 `cumulative.xlsx` 配置;违 [39 ActivityDef schema 零字段加](#39-activity-server::config) 守不变量,本子单不动,留后续 |
 | O4 | Daily / Weekly Cumulative 样例验证 | **本子单只验 OneShot Cumulative**(累计 100 局)<span class="pill-cut">后续</span> | service 须前瞻支持 Daily / Weekly Cumulative(SV9 提示),但样例验证留运营加新活动行后随访(如「每日累计交付 5 单」Daily / 「周累计消费 1000 钻」Weekly) |
 | O5 | 累计 100 局 target 数值 | **100**(中期目标,日均 5-10 局 10-20 天可达)<span class="pill-core">核心</span> | 运营据玩家活跃度调,典型档:50 / 100 / 200 / 500;数值由运营定后改 `activity.xlsx target` 字段即可(SV1 验配置加载,SV4 验达标行为不依赖具体数值) |
-| O6 | 客户端 GameOver hook 接入 + UI 反馈 + 离线缓存策略 | **不在本子单**:留下一子单(客户端段)<span class="pill-cut">后续</span> | 客户端段下一刀决定:① GameOver 哪个出口算 1 局(通关 / 软 / 硬,沿 [设计 29 §三 三出口](#29-gameplay-fusion::v2));② UI 弹「累计 100 局达成」类提示 vs 无感累计;③ 服务端不可达时缓存 pending delta 重试 vs 丢弃;④ Code Review 核「不在 HotFix 业务层引用 Fantasy.*」 |
+| O6 | 客户端 GameOver hook 接入 + UI 反馈 + 离线缓存策略 | **48 已交付**(客户端段)<span class="pill-core">核心</span> | 48 决策:① GameOver 三处出口等价计数(Classic GameWindow + MergeOrder 软/硬 GameOver + MergeOrder 通关);② 无 UI 反馈(沿 EVENT 同范式);③ 服务端不可达 → fire-and-forget 丢弃不缓存(沿 30/32/46 同口径);④ HotFix 业务层不直引 Fantasy.*(沿 38 §五 IRpcGateway 范式)。详 [设计 48](#48-activity-cumulative-client) |
 | O7 | 其它 Cumulative 类活动清单(累计交付 / 累计消费 / 累计获得 / 累计签到) | **不在本子单**:本子单只交付 1 套样例验通路 <span class="pill-cut">后续</span> | 运营 / 产品后续逐套定具体名称 + target + reward,每套 = 加 1 行 `activity.xlsx` + 客户端业务系统调 RPC,无新 handler / service / 协议(沿 [43 同范式](#43-activity-login-batch::iterate)) |
 | O8 | 服务端业务方调 `Increment` service 的场景(运营 GM 工具 / 自动赠送) | **接口留**:service 已实做,任意服务端业务方可直调 <span class="pill-cut">后续</span> | 运营后续接 GM 工具时直调 service `Increment`,本子单 service 层兜底 type 校验保障(handler 路径 / service 直调两路统一 + 校验) |
 
@@ -373,7 +373,7 @@ sequenceDiagram
 | # | 验收点 |
 | --- | --- |
 | PVC1 | **客户端协议生成物加载**:Unity 工程内 `Assets/GameScripts/HotFix/GameProto/` 或 `Assets/Fantasy/Scripts/` 下生成的 `C2G_ActivityIncrement / G2C_ActivityIncrementResponse` 类编译过 + 字段集与 [§3.2 协议契约](#47-activity-cumulative::protocol) 一致;Unity 编辑器 / Player 编译 0 error |
-| PVC2 | **客户端业务接入零 diff**:`git status` 显示 `Assets/GameScripts/HotFix/GameLogic/` 业务代码零改动(客户端业务接入留下一子单);本子单只交付协议生成物 + Unity 编译过 |
+| PVC2 | **客户端业务接入已交付**:见 [48](#48-activity-cumulative-client)(三处 GameOver 出口 hook + `RemoteActivityService` 编排 + `GameContext.Activity` 挂入);本子单只交付协议生成物 + Unity 编译过,业务接入由 48 落 |
 
 ### 8.3 联调验收(本子单与既有 32 客户端段) {#accept-e2e}
 
@@ -388,11 +388,11 @@ sequenceDiagram
 > [!WARNING]
 > **不在本特性验收 / 视环境 BLOCKED**
 >
-> - 客户端业务接入(GameOver hook 调 RPC)+ UI 反馈 + 离线缓存策略([O6](#47-activity-cumulative::open))→ 客户端段下一子单
+> - 客户端业务接入(GameOver hook 调 RPC)+ UI 反馈 + 离线缓存策略([O6](#47-activity-cumulative::open))→ **48 已交付**(客户端段)
 > - 其它 4 套 Cumulative 类活动(累计交付 / 累计消费 / 累计获得 / 累计签到)([O7](#47-activity-cumulative::open))→ 运营后续逐套刀
 > - Daily / Weekly Cumulative 样例验证([O4](#47-activity-cumulative::open))→ 运营加新活动后随访
 > - delta 上限运营可配([O3](#47-activity-cumulative::open))→ 需扩 ActivityDef schema,违守不变量,留后续
-> - 客户端段对 `NotCumulative` 错误码的差异化提示([O2](#47-activity-cumulative::open))→ 客户端段下一刀
+> - 客户端段对 `NotCumulative` 错误码的差异化提示([O2](#47-activity-cumulative::open))→ [48 §3.1](#48-activity-cumulative-client::poco) 落 Error 级日志
 > - 严格账号级幂等(沿 [39 O7](#39-activity-server::open))→ 漏发零容忍场景另开
 > - 跨设备同 UUID counter 同步 → Tier 3 跨设备识别另开
 > - 反作弊「客户端是否真完成 1 局」(玩法本身真假)→ 反作弊另开特性,沿 [31 排行榜诚实边界](#31-rank-server) 同源
@@ -408,13 +408,13 @@ sequenceDiagram
 | **判达标 + 写已发周期键非原子**:并发双发 | [§3.5 原子条件写](#47-activity-cumulative::service);SV8 验仅 1 封邮件 |
 | **SendMailTo 中途崩漏发**:周期键已写邮件未投 | [§3.5 claim-then-act](#47-activity-cumulative::service)(沿 [39 §3.4 旁注](#39-activity-server::orchestrate));接受漏发窄窗(运营可补);**不**接受反过来超发;诚实边界明示 |
 | **Daily / Weekly Cumulative counter 跨周期不清零**(本子单只 OneShot 但 service 须前瞻支持) | [§3.5 跨周期清零](#47-activity-cumulative::service)(沿 [43 §3.2](#43-activity-login-batch::activities) 范式);Code Review SV12 ⑤ 核;Daily / Weekly 样例验证留 [O4 后续](#47-activity-cumulative::open) |
-| **服务端不可达客户端本地放行 counter** | [§四 不本地放行](#47-activity-cumulative::degrade)(沿 [30 §3](#30-redeem-code-server));客户端段下一刀决定缓存策略;本子单服务端只保证「返 ServiceUnavailable + 文档零改动」 |
+| **服务端不可达客户端本地放行 counter** | [§四 不本地放行](#47-activity-cumulative::degrade)(沿 [30 §3](#30-redeem-code-server));客户端 [48 §3.3](#48-activity-cumulative-client::offline) 决策不本地缓存直接丢弃;本子单服务端只保证「返 ServiceUnavailable + 文档零改动」 |
 | **客户端伪造 account 字段** | [§3.2 协议字段表不含 account](#47-activity-cumulative::protocol) + [身份从会话取](#47-activity-cumulative::protocol);Code Review SV12 ① 核 |
 | **service 层 type 校验漏致未来服务端业务方绕 handler 推非 Cumulative 活动** | [§3.5 service 层兜底 type 校验](#47-activity-cumulative::service)(双层防御);Code Review SV12 ② 核 |
 | **handler 校验顺序错泄露信息差**(activityId 不存在时返 NotCumulative) | [§3.3 顺序声明](#47-activity-cumulative::handler) 先 activityId 存在再 type;Code Review SV12 ⑥ 核 |
 | **抢占在 SendMailTo 之后致超发**:崩在中间 → 重启重达标 → 重发邮件 | [§3.5 claim-then-act](#47-activity-cumulative::service)(抢占必在 SendMailTo 之前);Code Review SV12 ⑧ 核 |
 | **另造发奖路径**:Cumulative 自己写一套「投活动邮件」绕过 32 §3.5 入口 → 与邮件领取链漂移 | 读前必看第 3 条 + [§3.5 发奖经 32](#47-activity-cumulative::service);Code Review SV12 ⑨ 核 |
-| **范围溢出做客户端 GameOver hook 接入** | 立项框范围 + 读前必看第 2 条 + [§七 O6](#47-activity-cumulative::open):本子单纯 server only + 协议生成物,客户端业务接入留下一刀 |
+| **范围溢出做客户端 GameOver hook 接入** | 立项框范围 + 读前必看第 2 条:本子单纯 server only + 协议生成物,客户端业务接入在 [48](#48-activity-cumulative-client) 已落 |
 | **范围溢出做其它 4 套 Cumulative 活动** | 读前必看第 1 条 + [§七 O7](#47-activity-cumulative::open):本子单只交付 1 套样例验通路,运营后续逐套刀 |
 | **新建 RPC 致协议表膨胀**(后续多类 Cumulative 各扩 1 个 RPC) | [立项框 c.方案 A](#47-activity-cumulative::intro):本子单是「归一 RPC」(一个 RPC 对应任意 Cumulative 活动),后续运营加同类活动零 RPC 新建,只加配置行 + 客户端业务 hook 调用 |
 
@@ -427,7 +427,8 @@ sequenceDiagram
 - [设计 32 邮件服务端化 §3.5 SendMailTo](#32-mail-server::source-api)(本子单复用,签名零改)
 - [设计 33 排行榜结算服务端 §3.2 `$inc` + `FindOneAndUpdate` 原子](#33-rank-settle-server::orchestrate)(本子单 counter 累加 + 抢占同范式)
 - [设计 30 兑换码服务端](#30-redeem-code-server) / [31 排行榜上报](#31-rank-server)(本子单 RPC 沿归一专用 RPC + 身份从会话取 + 不本地放行范式)
-- [设计 11 核心补全 / 29 玩法融合](#11-core-loop-completion)(GameOver 三出口是客户端业务上下文,GameOver hook 接入留下一刀)
+- [设计 11 核心补全 / 29 玩法融合](#11-core-loop-completion)(GameOver 三出口是客户端业务上下文,GameOver hook 接入在 [48](#48-activity-cumulative-client) 已落)
+- [设计 48 Cumulative 客户端 GameOver hook + RemoteActivityService(Tier 4 第 5 子单 · 客户端段)](#48-activity-cumulative-client)(本子单的客户端段收口刀,三处 GameOver 出口 hook + service / source 编排 + 离线丢弃 + 无 UI 反馈)
 - [设计 16 道具系统 §3.6 礼包随机库](#16-item-system::gift)(活动 5 `reward` 字段指向)
 - [设计 37 玩家属性服务端 §3.5 内部变更 API](#37-player-attr-server::internal-api)(若 reward 含货币时领奖落点)
 - [设计 38 玩家属性客户端](#38-player-attr-client) / [44 / 45 / 46 ledger 通路](#46-player-attr-ledger-client)(若 reward 含货币时 E1 自然联动)

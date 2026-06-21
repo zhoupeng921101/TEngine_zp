@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;       // .Forget() 扩展(fire-and-forget 活动累加 hook,设计 48 §3.6)
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
+using GameLogic.Activity;            // GameContext.Activity.IncrementAndLogAsync(GameOver hook,设计 48 §3.5)
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
 using GameLogic.BlockBlast.Player;   // PlayerAttrService / AttrType(设计 38 数据层 + 设计 42 HUD 接入)
@@ -500,6 +502,9 @@ namespace GameLogic.BlockBlastUI
             _state.Save();
             // 经典最高分并入元层落盘（设计 29 §5.4）：与元层进度同一节点，跨会话长期指标随元层存储。
             GameLogic.GameContext.Instance.SaveHighScore();
+            // 累计游戏 N 局活动 +1(设计 48 §3.5;fire-and-forget 不阻塞后续 UI 流程,
+            // 在防重标记之后调,服务端 $inc 原子幂等;Tarot / Classic 共用同一 GameWindow 实例,不分别计数)。
+            GameLogic.GameContext.Instance.Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget();
             int previousHigh = _initialHigh;
             GameModule.UI.CloseUI<GameWindow>();
             GameModule.UI.ShowUIAsync<GameOverWindow>(previousHigh);

@@ -3,6 +3,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
+using GameLogic.Activity;            // GameContext.Activity.IncrementAndLogAsync(GameOver / Win hook,设计 48 §3.5)
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
 
@@ -735,6 +736,9 @@ namespace GameLogic.BlockBlastUI
                 $"累计得分  {_merge.TotalScore}",
             };
             FlushSaveIfDirty(); // 通关前兜底落盘（设计 14 §3.4 ③）：须在 ExitMergeOrder 丢弃 MergeState 前
+            // 累计游戏 N 局活动 +1(设计 48 §3.5;通关也算「玩了一局」,与 GameOver 等价计数,
+            // 否则「玩得越好越没奖」反直觉;fire-and-forget 不阻塞 MergeOrderWinWindow 弹窗)。
+            GameLogic.GameContext.Instance.Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget();
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
             GameModule.UI.ShowUIAsync<MergeOrderWinWindow>(lines);
@@ -748,6 +752,9 @@ namespace GameLogic.BlockBlastUI
             // 把 demo 累计得分映射给结算窗显示；不写 HighScore（不污染 Classic 最高分）
             _state.Score = _merge.TotalScore;
             FlushSaveIfDirty(); // GameOver 前兜底落盘（设计 14 §3.4 ③）：须在 ExitMergeOrder 丢弃 MergeState 前
+            // 累计游戏 N 局活动 +1(设计 48 §3.5;精力耗尽 + GAME OVER 两路共用此函数,
+            // hook 在 _finished 防重之后调,一局只 +1;fire-and-forget 不阻塞 GameOverWindow 弹窗)。
+            GameLogic.GameContext.Instance.Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget();
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
             GameModule.UI.ShowUIAsync<GameOverWindow>(0);

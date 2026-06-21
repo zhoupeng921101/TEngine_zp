@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using GameLogic.Activity;
 using GameLogic.AttrLedger;
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Player;
@@ -40,6 +41,9 @@ namespace GameLogic
         /// <summary>远程 ledger 服务(我的流水查询,设计 46 客户端段)。</summary>
         public RemoteAttrLedgerService AttrLedger { get; private set; }
 
+        /// <summary>远程活动服务(累计 N 局类活动 fire-and-forget +1,设计 48 客户端段)。</summary>
+        public RemoteActivityService Activity { get; private set; }
+
         protected override void OnInit()
         {
             // 生产用框架键存储（PlayerPrefs），启动即从已保存的开关态加载。
@@ -65,6 +69,10 @@ namespace GameLogic
             // 远程 ledger 服务(设计 46 客户端段):生产用 RemoteAttrLedgerSource(经 FantasyNetwork.Session 发 C2G_QueryAttrLedger);
             // 服务端独占审计完整性(44 §5.4),客户端不持本地副本,每次打开窗实时拉真协议。
             AttrLedger = new RemoteAttrLedgerService(new RemoteAttrLedgerSource());
+
+            // 远程活动服务(设计 48 客户端段):生产用 RemoteActivityIncrementSource(经 FantasyNetwork.Session 发 C2G_ActivityIncrement);
+            // GameOver hook fire-and-forget 调,服务端 counter $inc 原子幂等;客户端不持本地状态(沿设计 48 §3.3 不本地放行)。
+            Activity = new RemoteActivityService(new RemoteActivityIncrementSource());
         }
 
         /// <summary>
@@ -216,6 +224,16 @@ namespace GameLogic
         public void InitAttrLedgerWith(IAttrLedgerSource source)
         {
             AttrLedger = new RemoteAttrLedgerService(source);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定数据源重建 <see cref="Activity"/>(沿 <see cref="InitAttrLedgerWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IActivityIncrementSource"/>(注桩响应各分支),
+        /// 断言 hook fire-and-forget + 错误码归一 + 防重计数,不连网(设计 48 PV6 / PV9 / PV11 / PV12)。
+        /// </summary>
+        public void InitActivityWith(IActivityIncrementSource source)
+        {
+            Activity = new RemoteActivityService(source);
         }
     }
 }
