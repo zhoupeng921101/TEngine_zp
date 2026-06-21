@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "BLOCKED"],
+      "description": "总判定。BLOCKED=环境阻塞(客户端:Unity MCP/编辑器不可达;服务端:跑不动服/MongoDB 不可达/端口占用)致运行验证跑不了,非代码缺陷——代码缺陷一律 FAIL。"
+    },
+    "statePath": {
+      "type": "string",
+      "description": "报告写入的 state 文件路径(客户端 pipeline/state/test.md;服务端 pipeline/state/server-test.md)。"
+    },
+    "reason": {
+      "type": "string",
+      "description": "FAIL/BLOCKED 主因一句话;PASS 时填空串。"
+    },
+    "decisions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "本环节自主拍板的取舍(自治审计用);无则空数组。"
+    }
+  },
+  "required": ["verdict", "statePath", "reason", "decisions"]
+}
