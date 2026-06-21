@@ -123,7 +123,9 @@ PlayerInfoWindow                       (根: RectTransform 全屏 stretch + Canv
    ├─ NameBlock                        RectTransform 玩家名区
    │  ├─ m_text_Name                   Text    显示当前昵称(读 PlayerInfo.Name)
    │  ├─ m_input_Name                  InputField 改名输入框(默认隐藏, 点铅笔显出; 见 §七)
-   │  └─ m_btn_EditName               Button  右侧编辑铅笔(占位图 + 可点); 点击→进入改名态
+   │  ├─ m_btn_EditName               Button  右侧编辑铅笔(占位图 + 可点); 点击→进入改名态
+   │  ├─ m_text_DiamondBalance         Text    钻石余额(设计 38 §五, 显当前 PlayerAttrService.Diamond 支撑「钻石不足」分支可观测)
+   │  └─ m_btn_LedgerEntry            Button  「我的流水」入口按钮(设计 46 §4.2, 点击→OpenWindow PlayerAttrLedgerWindow; 美术补图前节点占位 + null-safe 跳过, 沿 Sheet_settings.button 长条底图)
    ├─ BirthdayBlock                    RectTransform 生日区(整块 UI 占位, 不绑数据 §5.3)
    │  ├─ m_text_BirthdayLabel          Text    "🎂 生日"
    │  ├─ m_drop_Year                   Dropdown 年(占位; 或 Image+Text 摆位)

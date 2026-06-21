@@ -56,9 +56,9 @@
 | limit 上限钳制 | **服务端**(权威) | **交付**(handler 内,防 DOS) |
 | 返回字段裁剪(不暴露 ObjectId) | **服务端**(权威) | **交付**(handler 序列化时只填白名单字段) |
 | 协议响应解析(G2C_QueryAttrLedgerResponse 生成物) | **客户端 + 服务端两端共识** | **交付**(本子单:两端 protoc 生成物同源) |
-| 数据源 RemoteAttrLedgerService(切真实 RPC) | **客户端** <span class="pill-cli">表现</span> | **不交付**(Tier 2+ 客户端段:沿 22 RankService 远程源同范式,本地 stub + 远程 fetch 切换) |
-| 我的流水 UI 投放(列表行 / 过滤栏 / 分页) | **客户端** <span class="pill-cli">表现</span> | **不交付**(Tier 2+ 客户端段:需美术 + 沿 28 排行榜窗同范式) |
-| source 整数 → 文本映射 | **客户端** <span class="pill-cli">表现</span> | **不交付**(Tier 2+ 客户端段:Luban i18n 文本表或客户端硬编码映射) |
+| 数据源 RemoteAttrLedgerService(切真实 RPC) | **客户端** <span class="pill-cli">表现</span> | **交付 · 46 客户端段已落**(`IAttrLedgerSource` 接缝 + `RemoteAttrLedgerSource` 经 `FantasyNetwork.Session` 发协议 + `RemoteAttrLedgerService` 编排层挂 `GameContext.AttrLedger`,详见 [46](#46-player-attr-ledger-client)) |
+| 我的流水 UI 投放(列表行 / 过滤栏 / 分页) | **客户端** <span class="pill-cli">表现</span> | **交付 · 46 客户端段已落**(独立窗 `PlayerAttrLedgerWindow` 沿 28 排行榜窗范式 + 过滤栏四档 tab + 列表行四列 + 入口按钮挂 PlayerInfoWindow 改名面板下方;翻旧页留 Tier 2+ 协议加 `untilTs` 字段) |
+| source 整数 → 文本映射 | **客户端** <span class="pill-cli">表现</span> | **交付 · 46 客户端段已落**(硬编码 switch 中文 10 档 + default「其他」;i18n 留 46 O5 Tier 2+) |
 
 > [!NOTE]
 > **为什么本子单只交付协议 + handler,客户端业务接入与 UI 投放留下一刀?**
@@ -261,8 +261,8 @@ sequenceDiagram
 
 本子单**不守**:
 - **翻旧页 / cursor 分页**:协议字段 sinceTs 是「> 上界」语义,不是「< 下界」翻旧页;Tier 2+ 客户端段下一刀按 UI 需要扩 `untilTs` / `offset` / `cursor` 任一(O3)
-- **客户端业务接入**:RemoteAttrLedgerService / 我的流水 UI 留 Tier 2+ 客户端段(沿 32 server 段先行 + 客户端段后续同范式)
-- **source 整数 → 文本映射**:协议层 source 是整数枚举,客户端段下一刀按 i18n 或硬编码做(O4)
+- **客户端业务接入**:`RemoteAttrLedgerService` / 我的流水 UI / source 文本映射 = **46 客户端段已交付**(详见 [46](#46-player-attr-ledger-client))
+- **source 整数 → 文本映射**:**46 已交付**(硬编码 switch 中文 10 档,详见 [46 §3.4](#46-player-attr-ledger-client::source-text))
 - **客户端缓存 / 离线降级源**:无网络时 RemoteAttrLedgerService 不本地回退 ledger(本机无审计副本,与排行榜「断服回退本地源」语义不同——审计完整性是服务端独占,客户端不应有第二份)
 - **运营查询 / 客服后台 GM**:运营仍经 mongo shell / Compass 直读(沿 44 §5.4「不守」),本子单不开「运营经此协议查」入口(身份取的是玩家会话,运营无玩家会话)
 - **退款 / 反作弊 / BI 聚合查询**:沿 44 §5.4「不守」继续不做(Tier 2+)
@@ -285,9 +285,9 @@ sequenceDiagram
 
 | Tier 2+ 目标 | 在本子单 `C2G_QueryAttrLedger` 协议 + handler 上的演进 |
 | --- | --- |
-| 客户端业务接入(`RemoteAttrLedgerService`) | 沿 22 RankService 远程源同范式:RemoteAttrLedgerService 注入 PlayerAttrService;FetchLedger(kind?, sinceTs?, limit) 发协议 + 收响应 + 反序列化 entries → 客户端 POCO(LedgerEntry);**不**做本地回退(无审计副本) |
-| 客户端「我的流水」UI 投放 | 沿 28 排行榜窗同范式:Sheet_player_info / Sheet_settings 占位面板 + 列表行 Widget(timestamp 文本 + kind 图标 + delta 文本 + source 文本 + reasonRaw 折叠);需美术(塔罗素材无对应切图,占位先行)|
-| source 整数 → 人类可读文本映射 | 客户端段下一刀按 i18n 选型(Luban i18n 表或硬编码 switch / Dictionary);典型映射:1=「改名扣钻」/ 2=「邮件领奖」/ 3=「兑换码」/ 4=「排行榜结算」/ 5=「活动奖励」/ 6-9 = 增强 source 文本(Tier 2+ 实际接入后再补)/ 0=「其他」 |
+| 客户端业务接入(`RemoteAttrLedgerService`) | **46 已交付**:`IAttrLedgerSource` 接缝(沿 32 `IRemoteMailSource` 范式)+ `RemoteAttrLedgerSource` 生产实现(经 `FantasyNetwork.Session` 发协议)+ `RemoteAttrLedgerService` 编排层(挂 `GameContext.AttrLedger`)+ POCO `AttrLedgerEntry / AttrLedgerPage` + 客户端错误码 `AttrLedgerQueryCode`(4 档,加 `NetworkDown` 区分服务端不可用与客户端断网);**不**持本地副本(沿 44 §5.4 服务端独占)。详见 [46](#46-player-attr-ledger-client) |
+| 客户端「我的流水」UI 投放 | **46 已交付**:独立窗 `PlayerAttrLedgerWindow`(沿 28 排行榜窗范式,过滤栏全/金/钻/体四档 tab + 列表行四列时间/属性图标/delta/source/余额变化 + 加载更多按钮置灰提示「翻旧页 Tier 2+」 + 关闭按钮 + 状态栏错误兜底);入口按钮挂 PlayerInfoWindow 改名面板下方;属性图标复用 42 §三 占位(Coin → gemstone / Diamond → gemstone2 / Stamina → potion);默认首屏 50 条。详见 [46](#46-player-attr-ledger-client) |
+| source 整数 → 人类可读文本映射 | **46 已交付**:硬编码 switch 中文文案(10 档覆盖 44 §3.3:Unknown 其他 / ChangeNameSpend 改名扣钻 / MailClaim 邮件领奖 / RedeemCode 兑换码 / RankSettleReward 排行榜奖励 / ActivityReward 活动奖励 / GameplayConsume 玩法消费 / ShopPurchase 商店购买 / AdminGrant 管理员发放 / Refund 退款),default 「其他」降级;i18n 留 46 O5(Tier 2+ 上 Luban i18n 表再迁)。详见 [46](#46-player-attr-ledger-client) |
 | 翻旧页 / cursor 分页 | 协议字段加 `untilTs`(`ts < untilTs` 上界过滤)或 `offset`(skip 跳过 N 行);handler 按 `Find().Skip(offset).Limit(limit)` 实现;Tier 2+ 按 UI 实际需求决定哪种方案 |
 | kind 多选过滤 | 协议字段 `kind` 升级为 repeated / List(允许同时查多种 kind);handler 按 `{ Kind: { $in: kinds } }` 实现 |
 | source 过滤 | 协议字段加 `source`(整数枚举码,可选);handler 按 `{ Source: source }` 加入查询;**注意**:source 索引未建(44 §3.2 决策低基数无需),全表扫低频可接受,高频则补三键复合索引 |
@@ -351,9 +351,9 @@ sequenceDiagram
 ### 7.4 不在本子单验收 / BLOCKED {#blocked-list}
 
 - **本机 MongoDB(`D:\mongodb-portable`)不可达** → 真往返查 ledger 类 SV(SV3-SV13 / SV17 / E1)判 **BLOCKED 非 FAIL**(沿 [44 §7.2](#44-player-attr-ledger::bloked-list) + memory `local-mongodb-for-server-roundtrip` + server-test memory `feedback-blocked-vs-fail`);编译 / Code Review / 客户端协议生成物编译(SV1 / SV14 / SV16 / SV18 / CV1 / CV2 / CV3)照常验
-- **客户端业务接入(`RemoteAttrLedgerService`)** → Tier 2+ 客户端段(沿 22 RankService 远程源同范式)
-- **客户端「我的流水」UI 投放** → Tier 2+ 客户端段(需美术,沿 28 排行榜窗同范式)
-- **source 整数 → 人类可读文本映射** → Tier 2+ 客户端段(i18n / 硬编码 switch)
+- **客户端业务接入(`RemoteAttrLedgerService`)** → **46 客户端段已交付**(详见 [46](#46-player-attr-ledger-client))
+- **客户端「我的流水」UI 投放** → **46 客户端段已交付**(独立窗 `PlayerAttrLedgerWindow` 沿 28 排行榜窗范式,详见 [46](#46-player-attr-ledger-client))
+- **source 整数 → 人类可读文本映射** → **46 客户端段已交付**(硬编码 switch 中文 10 档,详见 [46 §3.4](#46-player-attr-ledger-client::source-text))
 - **翻旧页 / cursor 分页** → Tier 2+(扩 untilTs / offset / cursor 字段,见 O3)
 - **kind 多选 / source 过滤 / 时间范围过滤** → Tier 2+ 按 UI 实际需求加协议字段(O5 / O6 / O7)
 - **客服后台 GM** → 运营经 mongo shell / Compass 直读(沿 44 §5.4 不开运营协议入口)

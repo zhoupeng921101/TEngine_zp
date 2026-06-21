@@ -49,6 +49,9 @@ namespace GameLogic.UI
         // ── 生日区（整块占位，不绑数据 §5.3）──
         private Button _btnBirthYear, _btnBirthMonth, _btnBirthDay;
 
+        // ── 我的流水入口按钮(设计 46 §4.2,代码动态生成挂 NameBlock 下;美术 Tier 2+ 补图)──
+        private Button _btnLedgerEntry;
+
         private PlayerInfo P => GameContext.Instance.Player;
         private PlayerAttrService Attr => GameContext.Instance.PlayerAttr;
 
@@ -89,6 +92,69 @@ namespace GameLogic.UI
             if (_btnBirthYear != null)  _btnBirthYear.onClick.AddListener(OnBirthdayPlaceholder);
             if (_btnBirthMonth != null) _btnBirthMonth.onClick.AddListener(OnBirthdayPlaceholder);
             if (_btnBirthDay != null)   _btnBirthDay.onClick.AddListener(OnBirthdayPlaceholder);
+
+            // 我的流水入口按钮(设计 46 §4.2):代码动态生成挂 NameBlock 下方,prefab 不需新增节点;
+            // NameBlock 节点缺失 → _btnLedgerEntry 为 null,运行期跳过(PV12 null-safe)。
+            _btnLedgerEntry = BuildLedgerEntryButton();
+            if (_btnLedgerEntry != null)
+                _btnLedgerEntry.onClick.AddListener(OnLedgerEntryClicked);
+        }
+
+        /// <summary>
+        /// 代码动态生成「我的流水」按钮挂 NameBlock 下方(设计 46 §4.2)。
+        /// </summary>
+        /// <remarks>
+        /// 沿 RankWindow 全代码生成范式:不动 25 PlayerInfoWindow prefab 节点(美术 Tier 2+ 补图后即用,本子单不阻塞);
+        /// 占位色 + 文案,语义连续(玩家进 PlayerInfoWindow 看个人信息 → 自然顺手看流水)。
+        /// NameBlock 父节点缺失时返 null,调用方 null-safe 跳过(PV12)。
+        /// </remarks>
+        private Button BuildLedgerEntryButton()
+        {
+            var nameBlock = FindChildComponent<Transform>("Root/NameBlock");
+            if (nameBlock == null) return null;
+
+            // 创建占位按钮:240×60,挂在 NameBlock 下方(local y 偏移 -90)
+            var go = new GameObject("m_btn_LedgerEntry",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image), typeof(Button));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(nameBlock, false);
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(240f, 60f);
+            rt.anchoredPosition = new Vector2(0f, -90f);
+
+            var img = go.GetComponent<UnityEngine.UI.Image>();
+            img.color = new Color(0.95f, 0.78f, 0.42f);
+            // 沿 25 §三现有按钮范式占位:Sheet_settings 长条底图(美术补节点后可改 SetSubSprite)
+            img.SetSubSprite(Atlas, "button");
+
+            var btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+
+            // 文字「我的流水」
+            var textGo = new GameObject("Label",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var textRt = textGo.GetComponent<RectTransform>();
+            textRt.SetParent(go.transform, false);
+            textRt.anchorMin = textRt.anchorMax = textRt.pivot = new Vector2(0.5f, 0.5f);
+            textRt.sizeDelta = new Vector2(240f, 60f);
+            textRt.anchoredPosition = Vector2.zero;
+            var txt = textGo.GetComponent<Text>();
+            txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                       ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.text = "我的流水";
+            txt.fontSize = 28;
+            txt.color = new Color(0.30f, 0.20f, 0.08f);
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.fontStyle = FontStyle.Bold;
+            txt.raycastTarget = false;
+
+            return btn;
+        }
+
+        /// <summary>点「我的流水」按钮 → 打开 PlayerAttrLedgerWindow(设计 46 §4.2)。</summary>
+        private void OnLedgerEntryClicked()
+        {
+            GameModule.UI.ShowUIAsync<PlayerAttrLedgerWindow>();
         }
 
         protected override void OnCreate()
