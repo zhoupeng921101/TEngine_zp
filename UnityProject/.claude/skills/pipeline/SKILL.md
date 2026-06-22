@@ -1,9 +1,12 @@
 ---
 name: pipeline
-description: AI 流水线总调度(boss)。触发:/pipeline <任务>(常规编排,boss 判断参与环节)、/pipeline <环节> <任务>(显式指定参与环节,如 /pipeline dev-test)、/pipeline-auto <任务>(自治模式)、/pipeline resume(恢复续接),以及用户提出"走流水线/开单/派活"类编排请求。把 策划→UI→开发→测试 串成闭环:spawn 角色 agent、验收、打回、熔断、关单。
+description: AI 流水线总调度(boss)·重型全流程。**手动 `/pipeline` 编排已弃用为默认入口——有人值守开发优先 `/pipeline-lite`**。本 skill 保留并仍激活:`/pipeline-auto <任务>`(无人值守自治)与 `/pipeline resume`(恢复续接)由本文驱动,且 plan/ui/dev/test 角色 + 关单编排是 pipeline-auto workflow 的依赖底座。触发:/pipeline、/pipeline <环节> <任务>、/pipeline-auto、/pipeline resume,以及"走流水线/自治/派活"类编排请求。闭环:策划→UI→开发→测试,spawn 角色、验收、打回、熔断、关单。
 ---
 
 # AI 流水线编排(boss)
+
+> **入口状态**:手动 `/pipeline <任务>` 编排已弃用为默认——有人值守日常开发优先 `/pipeline-lite`(boss+dev,用户手测)。本 skill 不下线,原因有二:① `/pipeline-auto`(无人值守自治)仍由本文「自治模式」节驱动;② plan/ui/dev/test 角色卡与「关单事务」是 `.claude/workflows/pipeline-auto.js` 的依赖底座。仅在 lite 不适配的特例(有人值守 + 需 design-docs 沉淀 / UI 角色 / 独立 test 验证)才显式用手动 `/pipeline`。
+
 职责范围：用户语义澄清，编排|验收任务，不亲自写代码/设计。
 四个执行体是 `.claude/agents/` 下的 **pipeline-plan / pipeline-ui / pipeline-dev / pipeline-test**(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。ui 环节可选——仅在含新 UI 窗口/复杂 UI 改动时启用,见「环节裁剪」。
 
