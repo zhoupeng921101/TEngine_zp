@@ -638,8 +638,14 @@ namespace GameLogic.BlockBlastUI
         }
 
         // ── 渲染候选槽（与 GameWindow 同构） ──
+        // 候选块换皮：跟随与棋盘格完全相同的皮肤状态贴图（候选预览 = 落到棋盘后的样子，设计 50 §二）。
+        // 单色态全部候选块统一贴当前单色 sprite；彩色态按方块类型贴 default_skin 各自纹理。镜像 ApplyCellSkin，不另起寻址。
         private void RenderSlots()
         {
+            bool mono = _merge != null && _merge.Skin.IsMono;
+            // 单色态:全部候选块统一 sprite location = blocks_skin_atlas_<编号>(与棋盘单色态同口径)。
+            string monoLoc = mono ? BlockSkinCatalog.SpriteName(_merge.Skin.MonoId) : null;
+
             for (int i = 0; i < 3; i++)
             {
                 if (_slotContainers[i] != null) { Object.Destroy(_slotContainers[i].gameObject); _slotContainers[i] = null; }
@@ -663,7 +669,6 @@ namespace GameLogic.BlockBlastUI
                 hit.color = new Color(1, 1, 1, 0);
                 hit.raycastTarget = true;
 
-                var color = BlockLayout.ColorOf(piece.Color);
                 float offX = -totalW / 2f + BlockLayout.SlotCell / 2f;
                 float offY = totalH / 2f - BlockLayout.SlotCell / 2f;
                 int cellIdx = 0;
@@ -680,7 +685,9 @@ namespace GameLogic.BlockBlastUI
                         crt.sizeDelta = new Vector2(BlockLayout.SlotCell - 3, BlockLayout.SlotCell - 3);
                         crt.anchoredPosition = new Vector2(offX + c * BlockLayout.SlotCell, offY - r * BlockLayout.SlotCell);
                         var ci = cell.GetComponent<Image>();
-                        ci.color = color;
+                        // 候选块换皮:白 tint 让 sprite 显本色,彩色态按方块类型 (int)piece.Color 贴 default_skin,单色态全统一贴当前单色 sprite。
+                        ci.color = Color.white;
+                        ci.SetSprite(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName((int)piece.Color));
                         ci.raycastTarget = false;
 
                         if (piece.Elements != null && cellIdx < piece.Elements.Length
@@ -807,6 +814,10 @@ namespace GameLogic.BlockBlastUI
                     _merge.Skin.OnAllClear(BlockSkinCatalog.MonoIds);
 
                 RenderBoard();
+                // 全清换皮后,待选区残留候选块须与棋盘同步换皮(设计 50,候选预览 = 落盘后样子)。
+                // 下方仅在「三槽全空」才补块+RenderSlots;若全清时尚有未落候选块,需在此显式重渲染让其跟随新皮肤态。
+                if (settle.AllClearRewarded)
+                    RenderSlots();
 
                 if (settle.AllClearRewarded)
                     BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, "PERFECT!", 64, new Color32(0xff, 0xe4, 0x4a, 0xFF));

@@ -100,6 +100,6 @@
 - 2026-06-21 · Tier 4 活动系统·客户端段第 2 子单（EVENT 解锁通路接通 — EVENT 解锁全栈收口）· PASS（full,round 0；62 分钟；BlockBlast.Tests 444/444 + E1 全栈真往返跑通 UnlockedAvatarIds=[1,3] 重启持久；plan 又一次矫正 boss 简报偏差：工程 ItemDef.UseEffect 是 int 无 EffectType 枚举/handler 体系）· client `37977dc7` · `archive/2026-06-21-event-unlock-client-tier4/`
 - 2026-06-22 · merge-order 候选块元素分配改「容量加权随机」· PASS（dev-test,round 0 一次过；BlockBlast.Tests 497/497 + 1 改写 + 3 新增用例全过；旁路发现 `CompletedOrders` 持久化 bug 进 Carry forward）· client `c86d7bbf` · `archive/2026-06-22-merge-order-trio-element-distribution/`
 - 2026-06-22 · block-skin-switch 方块皮肤切换（全清触发单色换皮 + 彩色态贴 default_skin 纹理）· PASS（full,dev 2 轮非返修；EditMode 535/535、BlockSkinStateTests 18/18、B1–B4 全过；并发无局任务隔离 + untangle 处置）· client `8b247c68`+`5bd112b9`+`25521408` · `archive/2026-06-22-block-skin-switch/`
-- 2026-06-22 · no-rounds 增量① 无尽核心（删通关/删软硬 GameOver/时基恢复含离线/消除道具清行列 gate 体力/47·48·26 善后）· PASS（dev-test,round 0 一次过；EditMode 550/550、设计49 B1–B11+B13 单测覆盖、Code Review 三硬约束绿；Play 手验 BLOCKED=MCP 不支持拖拽+overlay 不升 FAIL）· 基线 `6c1978fe` · client `<checkpoint-pending>` · `archive/2026-06-22-no-rounds-core-increment1/`
+- 2026-06-22 · no-rounds 增量① 无尽核心（删通关/删软硬 GameOver/时基恢复含离线/消除道具清行列 gate 体力/47·48·26 善后）· PASS（dev-test,round 0 一次过；EditMode 550/550、设计49 B1–B11+B13 单测覆盖、Code Review 三硬约束绿；Play 手验 BLOCKED=MCP 不支持拖拽+overlay 不升 FAIL）· 基线 `6c1978fe` · client `877a5dde` · `archive/2026-06-22-no-rounds-core-increment1/`
 
 > 完整关单历史以 `archive/` 目录为准（boss.md 仅留最近指针）。
