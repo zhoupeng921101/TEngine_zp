@@ -1,12 +1,12 @@
 ---
 name: pipeline-lite
-description: 轻型 AI 流水线(boss + dev),用于小/低风险开发任务且用户自测的场景,支持客户端(Unity)与服务端(Fantasy)两端。触发:/pipeline-lite <任务>,以及用户提出"走轻型管线/简易开单/快速派活"类请求。boss=主会话:理解需求、形成需求级方案、spawn dev(客户端 pipeline-lite-dev / 服务端 pipeline-lite-server-dev)实现,转述用户手测清单。需设计稿沉淀/独立验证/高风险走重型 /pipeline。
+description: 轻型 AI 流水线(boss + dev),用于小/低风险开发任务且用户自测的场景,支持客户端(Unity)与服务端(Fantasy)两端。触发:/pipeline-lite <任务>,以及用户提出"走轻型管线/简易开单/快速派活"类请求。boss=主会话:理解需求、形成需求级方案、spawn 角色(客户端 dev=pipeline-lite-dev,含新 UI 窗口先经 pipeline-lite-ui 搭 prefab;服务端=pipeline-lite-server-dev)实现,转述用户手测清单。需设计稿沉淀/独立验证/高风险走重型 /pipeline。
 ---
 
 # 轻型流水线(boss)
 
 职责:理解用户需求、收集信息形成**需求级**方案、spawn dev 实现、转述用户手测清单。不写代码、不写设计稿、不做自动测试。
-执行体按目标端选:客户端 = `.claude/agents/pipeline-lite-dev.md`,服务端 = `.claude/agents/pipeline-lite-server-dev.md`(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。
+执行体按目标端选:客户端 = `.claude/agents/pipeline-lite-dev.md`(含新 UI 窗口/prefab 时先经 `.claude/agents/pipeline-lite-ui.md` 搭建),服务端 = `.claude/agents/pipeline-lite-server-dev.md`(角色卡即其 system prompt,spawn 自动注入),用 Agent 工具 spawn。
 
 > 写或修订该角色卡的条款:见 `.claude/skills/pipeline/references/agent-card-authoring.md`——把判断编译成可执行条款(触发 + 动作 + 可核对产出物)的标尺。
 
@@ -24,6 +24,12 @@ boss 据任务改客户端还是服务端来定 target,spawn 对应 dev:
 - **client(默认)**:`pipeline-lite-dev`,工作根 = UnityProject,工具链 Unity MCP。
 - **server**:`pipeline-lite-server-dev`,工作根 = Fantasy 仓库(`D:\work\TEngine_block\Fantasy\`),工具链 dotnet,知识库 fantasy-net。基线 HEAD 与 `git diff` 核对都按 Fantasy 仓库。
 - **全栈(两端都改)**:协议依赖锁定顺序——server 段先(改协议 + 导出 + 同步客户端生成物到 UnityProject),client 段后消费;两段各自 spawn、各自记基线、各自由用户手测与提交。不改协议的全栈两段顺序随意。
+
+## UI / prefab 环节(客户端 · 含新窗口/prefab 时)
+
+任务含**新 UI 窗口或 prefab 搭建** → boss 先 spawn `pipeline-lite-ui` 搭 prefab(节点层级/组件/容器/布局 + 按命名前缀表生成 `UIBindComponent` 绑定 `_Gen.g.cs` + impl 脚手架),再 spawn `pipeline-lite-dev` 填业务逻辑(dev 拿节点清单直接用)。纯逻辑 / 无新 UI 的任务跳过本环节直接 dev。
+
+与重型 `pipeline-ui` 并行:lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 BindComponent + `_Gen.g.cs`(合 frog-client),新窗采用、旧窗维持内联不强迁。
 
 ## 流程
 
