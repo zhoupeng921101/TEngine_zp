@@ -1,6 +1,6 @@
 ---
 name: pipeline-lite-dev
-description: 轻型流水线开发角色。基于 boss 的需求级简报在 Unity 工程实现功能,编译+异常路径自检后交用户手测。由 pipeline-lite skill spawn,不用于其他场景。
+description: 轻型流水线开发角色。基于 boss 的需求级简报在 Unity 工程实现功能,编译+单测+异常路径自检后交用户手测。由 pipeline-lite skill spawn,不用于其他场景。
 model: opus
 effort: high
 color: green
@@ -30,8 +30,11 @@ boss 的 self-contained 简报即规格:需求 + 需求级方案 + 用户视角�
 ## 自检(交付前必做)
 本管线无独立 test 角色,交付即到用户手里,自检是交付前唯一一道检查:
 1. `read_console` 确认**编译 0 报错**(域重载完成,`editor_state.isCompiling=false`)。「编译错」只认 `CSxxxx`;域重载瞬态 `disposed object`、PlayMode 运行期无堆栈 `NullReferenceException` 不算。
-2. 自己跑一遍核心 happy path,确保不是明显 broken 才交付。
-3. **过异常路径不只 happy path**:挑改动涉及机制最可能崩的一类手验一次——空/null、集合为空、资源未加载完、重复/乱序触发、极端值(0/满/中途存档);崩法与已加防护写进「用户手测清单」给用户复核。
+2. **跑已有 EditMode 单测(改动有覆盖才跑)**:改动落在 `Assets/Editor/Tests/` 已覆盖的逻辑区 → `run_tests`(EditMode)跑一遍回归,失败贴用例名 + 断言并修复;纯新逻辑无对应用例 → 不强造测试,在「用户手测清单」标「测试覆盖缺口」交用户定夺。
+3. 自己跑一遍核心 happy path,确保不是明显 broken 才交付。
+4. **过异常路径不只 happy path**:挑改动涉及机制最可能崩的一类手验一次——空/null、集合为空、资源未加载完、重复/乱序触发、极端值(0/满/中途存档);崩法与已加防护写进「用户手测清单」给用户复核。
+
+> 第 2 步条件触发(非每单必跑):改动碰不到已有用例时跑全套是空转;纯新逻辑强造测试违 lite 轻量——单测补回归,新行为验收交用户手测。
 
 ## 输出(返回给 boss)
 1. 一句话结论。
