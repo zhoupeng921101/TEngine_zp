@@ -2,17 +2,22 @@
 
 ## 当前状态(2026-06-22)
 
-**在跑:`merge-order-completedorders-pergame` bug 修复(dev-test,client)。**
+**在跑:`block-skin-switch` 方块皮肤切换(plan→dev→test,client,无 ui 环节)。**
 
-**任务定义**:修 MergeOrderWindow「第二次及以后进入,放第一块即秒通关」bug。根因 = `CompletedOrders`(及同构的 `TotalScore`)被一物两用——`Reset()=0` + `IsDemoComplete()`/HUD 当单局计数,却又经 `ExportMeta`/`ImportMeta` 当跨会话累计进盘;第二局 Reset 清 0 后被 ImportMeta 盖回上一局值,累计满 5 即每局秒触发 TriggerWin。
-**用户拍板**:通关目标按单局算(非跨会话累计)。
-**Boss 决策(对齐权威设计,非新拍板)**:`CompletedOrders` + `TotalScore` 均回归纯单局瞬态,从存档移除(MergeMetaSave 字段 + ExportMeta + ImportMeta)。依据:① 设计 29 L139「融合后取定」已把「分数」列单局态、元层 list 不含「完成单数」——是设计 14 §3.1 错列进盘,实现跟错;② 设计 14 O2 明文「累计交付得分若与本局分显示冲突可降级不进盘」。进盘项 13→11。`TotalScore` 无任何生涯统计 UI 消费(仅结算窗显示 + 往返测试),删除无功能损失。可逆:全部本地改动,关单 checkpoint commit 可 reset。
-**设计基线 + 反向引用同步清单**(跳 plan,boss 已 grep design-docs):
-- 代码:`MergeMetaSave.cs`(completedOrders/totalScore 字段)、`MergeOrderState.cs`(ExportMeta L573-574 / ImportMeta L603-604;Reset/Deliver/Snapshot 不动)。
-- 设计 14:§3.1 进盘表 L112-113、§3.2 字段表 L142-143、O2 旁注 L125、待拍板表 L250、A1 验收 L261「13 项」→「11 项」。
-- 设计 29:L138「...完成单数 / 今日祈愿等 13 项」一并改(对齐 L139 取定)。
-- 测试:`MergeMetaSaveTests.cs`(往返断言去 completedOrders/totalScore)+ 新增两局连玩回归(第一局达标存档 → 第二局 Reset+ImportMeta 后 CompletedOrders==0 且 IsDemoComplete()==false)。
-mongod 27017 在,Main 进程已停。
+**任务定义**:方块两套皮肤——彩色(`default_skin`,8 张 `blocks_main_*` 按方块类型固定配色,图集 `Atlas_blocks_blocks_main`)与单色(`blocks_skin`,337 张 `blocks_skin_atlas_*`,图集 `Atlas_blocks_blocks_skin`)。触发链:初始彩色 → 首次「清屏」整盘转单色(全盘统一一张随机 sprite)→ 此后每次清屏换一张单色。环节 full(plan→dev→test;无新 UI 窗口,纯棋盘渲染行为,故不启 ui)。
+
+**「清屏」定义已拍板(2026-06-22)**:= 一次落子消除后**整个棋盘被清空(全清 / perfect clear)** 的那一刻,非消除道具、非 DDA「清屏窗口」难度术语(工程中「清屏」多义,见 design 02/07/11/49 — 切勿挂错)。dev 现场定位该全清事件的代码触发点。
+
+**用户拍板**(2026-06-22):
+1. 单色 = 全盘所有方块(不分类型)统一显示从 `blocks_skin` 随机选中的**同一张** sprite(真正的单色棋盘,不是整套换风格)。
+2. 每次换色排除当前正在用的那张(避免连续重复)。
+3. 单色状态 + 当前选中 sprite 需跨会话/重进游戏续存(与「局内态跨会话续存」无尽设计一致,记忆 gameplay-no-rounds-infinite-orders)。
+
+**需调查的代码接缝(dev 现场推导,plan 不读码)**:方块当前如何按类型取 sprite、「清屏」对应哪个事件/逻辑、局内态续存走哪条存档通道。plan 出 code-free 设计意图 + 验收标准;dev 定位接缝实现。
+
+**git 基线**:`19303cdc`(无局设计稿隔离 commit)。本任务出问题可 `git reset` 回此。客户端纯渲染+存档逻辑,不依赖跑服。皮肤美术底料(图集/切图重整)已在工作树未提交,作本任务地基。
+
+**已暂停任务 `gameplay-no-rounds-infinite`**:plan 写稿已提交 `19303cdc`(设计 49 + 11/14/29/01 反向引用同步),**未进 dev**。恢复时从 dev 环节起,设计基线 = `design-docs/49-infinite-no-rounds.md`。用户拍板模型与硬约束见该 commit 的设计稿正文(不在此转述,避漂移)。被它吸收的 `CompletedOrders` bug 修复已提交基线 `e34bfeaa`。
 
 **自治批关单进度**(2026-06-18 起):
 
@@ -29,7 +34,7 @@ mongod 27017 在,Main 进程已停。
 - design-docs/40(3 处)+ 39(1 处)过时「客户端段下一刀实做」标注 — 代码行为已正确,文档同步遗漏,test 按文档同步漏点先例不升 FAIL,留下一轮顺手清。
 - 邮件 E1 真往返欠(server `22c21843` code-complete,等环境稳后补)。
 - ~~Fantasy `PlayerAttrLedgerDoc.Kind` doc comment 误差~~ — 已清 `1f18d35b`(2026-06-21 Tier 2 client 段第 4 子单跨仓清)
-- **`CompletedOrders` 持久化 bug**(2026-06-22 发现):`MergeOrderState.ImportMeta` L603 把 dto.completedOrders 灌回 `CompletedOrders`,而 `IsDemoComplete()` L636 用 `CompletedOrders >= 5` 判通关——两套语义冲突,本机累计满 5 单后再开新局就秒触发 `TriggerWin()` 弹「恭喜通关」窗。用户已手动清存档绕过,根因诊断与三方案选项见主会话记录。修法待用户拍板(推荐方案 A:`ImportMeta` 不覆盖 `CompletedOrders`,需要长期统计另起 `LifetimeCompletedOrders` 字段;附带改 design-docs/14 §3.1「累计完成单数」描述)。
+- ~~**`CompletedOrders` 持久化 bug**(2026-06-22 发现)~~ — 由在跑任务「无局·无尽」模型从根吸收:删「通关」概念后秒通关不可能再发生。基线修复 `e34bfeaa`,字段最终去留随新模型由 plan/dev 重定。
 - **本次任务遗留**:测试注释 `MergeOrderTests.cs:366`「不再 FIFO 抽干」含 diff 叙事,dev 下次顺手清;人工冒烟未跑(MCP 不支持拖拽,分布性已由单测覆盖);dev 报 EditMode 515 vs test 实跑 497 差异待澄清(可能 PlayMode 用例混入)。
 
 **流水线变更 ✅ committed `bc31dbd4`**:server-test 路由由 codex 启动器(`pipeline-server-test-codex`)切回 Claude 卡 `pipeline-server-test`——codex 执行流程当前不稳定;启动器卡 + run-codex-verify.mjs 保留在盘可逆,`SKILL.md`/`pipeline-auto.js` 旁注记重新启用路径。
