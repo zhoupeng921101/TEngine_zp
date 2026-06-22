@@ -321,7 +321,7 @@ sequenceDiagram
 | [设计 32 §3.5 SendMailTo](#32-mail-server::source-api) | 完全沿用,签名零改 | 零改动 |
 | [设计 33 §3.2 `$inc` + FindOneAndUpdate 原子](#33-rank-settle-server::orchestrate) | 本子单 counter 累加 + 抢占都沿用此范式 | 零改动 |
 | [设计 30 兑换码服务端](#30-redeem-code-server) / [31 排行榜上报](#31-rank-server) | 本子单 RPC 沿其归一专用 RPC + 身份从会话取 + 服务端不可达不本地放行范式 | 零改动 |
-| [设计 11 核心补全 / 29 玩法融合](#11-core-loop-completion) | GameOver 三出口(通关 / 软 / 硬)是客户端业务上下文,本子单不涉(GameOver hook 接入在 [48](#48-activity-cumulative-client) 已落) | 零改动 |
+| [设计 11 核心补全 / 29 玩法融合 / 49 无尽模型](#49-infinite-no-rounds) | 「累计游戏 N 局」样例活动原以客户端 GameOver 为触发源(hook 接入在 [48](#48-activity-cumulative-client))。<mark class="r">无尽模型([设计 49](#49-infinite-no-rounds))取消融合玩法的通关 / GameOver 离散事件</mark>——该样例活动的触发语义随之失效,需重定事件源或退役该样例。**Cumulative 节律基础设施(本子单 server 段交付)与触发源解耦、不受影响** | 零改动(触发源重定义是无尽模型衍生影响,见 [48](#48-activity-cumulative-client) 与交接区,由 boss/dev 裁) |
 | [设计 16 道具系统 `giftrandom`](#16-item-system::gift) | 活动 5 `reward` 字段可指向 5005(可选新建) / 6101 / 5003 任一,沿 22/32/33/39/40/43 同范式 | 零改动(若新建 5005 行则 16 同任务内加 1 行,沿 [43 同任务内加礼包行](#43-activity-login-batch::rewards) 范式) |
 | [设计 21 邮件 / 32 客户端段领奖链](#21-mail-system) | 活动 5 奖落玩家邮箱,沿既有拉列表 + 领奖链(已落地) | 零改动 |
 | [设计 37 玩家属性服务端](#37-player-attr-server) | 若 reward 含「+N 钻石 / 金币 / 体力」类货币,客户端经 [32 领取链](#32-mail-server::claim-resp) + [16 §3.7 货币 useEffect=1](#16-item-system::useeffect) + [37 PropertyChangeRequest](#37-player-attr-server::internal-api) 落地 | 零改动 |

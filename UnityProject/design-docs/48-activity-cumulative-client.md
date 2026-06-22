@@ -69,7 +69,7 @@
 | 既有稿 | 关系 | 本子单是否触发同步重写 |
 | --- | --- | --- |
 | [47 Cumulative 节律落地 + 累计游戏 N 局样例(Tier 4 第 4 子单 · server)](#47-activity-cumulative) | **本子单的协议地基**:消费 47 已交付的 `C2G_ActivityIncrement` + `G2C_ActivityIncrementResponse` + handler + service + 累计 100 局活动配置 + 客户端协议生成物,行为按 47 §3 契约 | **同任务内同步**(§六同步重写):① 47 §一立项框「客户端业务接入(GameOver hook 调 RPC)留下一刀」覆盖式重写为「**48 已交付**」;② 47 §3.6 跑通示例图示「下一刀 GameOver hook 接」覆盖式重写为「48 已接(Classic + MergeOrder 三出口)」;③ 47 §七 O6「客户端 GameOver hook 接入 + UI 反馈 + 离线缓存策略」覆盖式重写为「**48 已交付**:GameOver hook 已接三出口 / UI 反馈无(沿 EVENT 同范式) / 离线丢弃(不本地缓存,沿 30/32/46 不本地放行)」;④ 47 §八 8.2 PVC2「客户端业务接入零 diff」覆盖式重写为「**48 已接**(三出口 hook + `RemoteActivityService` 已落)」;⑤ 47 §八 BLOCKED 列表「客户端业务接入」行覆盖式重写为「**48 已交付**」 |
-| [11 核心补全 / 29 玩法融合 / GameOver 三出口](#11-core-loop-completion) | **GameOver 时机的语义参照**:11 § 7.3 软 GameOver 三出路 + 29 §三 通关 / 软 / 硬 GameOver 三出口语义,本子单三处 hook 落点覆盖三出口 | **不改 11 / 29**(GameOver 语义层不动,只是新增「玩了一局」hook 接入) |
+| [11 核心补全 / 29 玩法融合 / 49 无尽模型](#49-infinite-no-rounds) | **「玩了一局」事件源参照**:本子单三处 hook 挂在 Classic `GameWindow.TriggerGameOver` + MergeOrder `TriggerGameOver` / `TriggerWin`。<mark class="r">无尽模型([设计 49](#49-infinite-no-rounds))取消融合玩法的通关 / 软 / 硬 GameOver 离散事件</mark>——这些 hook 所依赖的「一局结束」事件在无尽模型落地后不再触发,「玩了一局」需重新定义事件源(如改计「会话进入次数」「累计交付单数」,或退役该样例活动) | **本子单不改 11 / 29 / 49**;事件源重定义是无尽模型落地的**衍生影响**(见交接区:cross-doc 冲突 · 47/48 GameOver 计数),由 boss/dev 裁后续适配。**注**:Cumulative 节律基础设施(RPC / handler / `$inc` counter / 邮件投奖)与触发源解耦、不受影响,只「累计游戏 N 局」样例活动的触发语义随无尽模型重定 |
 | [25 个人信息窗(PlayerInfoWindow 钻石余额行)](#25-player-info-window-art) / [38 玩家属性客户端](#38-player-attr-client) / [42 HUD 三属性绑定](#42-tarot-hud-player-attr-bind) / [46 我的流水 UI](#46-player-attr-ledger-client) | **正交**:本子单不改这些客户端段(钻石余额 / 属性服务 / HUD / 流水窗);若 reward=5005 含钻石或 6101 含 EVENT 头像,达标后玩家从邮箱领奖时这些客户端段自然联动 | **不改 25 / 38 / 42 / 46** |
 | [32 邮件服务端化 + 客户端段](#32-mail-server) | **达标投奖通路**:Cumulative 达标后服务端经 [32 §3.5 SendMailTo](#32-mail-server::source-api) 投活动邮件,玩家从客户端 [32 邮件窗](#32-mail-server) 拉列表 + 领奖;沿邮件通路天然完成奖励到账 | **不改 32** |
 | [40 EVENT 解锁通路(Tier 4 第 2 子单 · server)](#40-event-unlock-relay) / [41 EVENT 客户端段](#41-event-unlock-client) | **正交**:EVENT 是 Login 类活动(累计登录达标),本子单是 Cumulative 类(累计游戏达标),两路节律入口完全独立;EVENT 与本子单都通过 32 邮件链投奖,客户端通用通路无差异 | **不改 40 / 41** |
@@ -481,5 +481,6 @@ sequenceDiagram
 - [43 · Login 类活动批量(Tier 4 第 3 子单)— 与本子单正交,Login 类节律](#43-activity-login-batch)
 - [39 · 活动系统服务端地基(Tier 4 第 1 子单)— ActivityProgressService 接缝起点](#39-activity-server)
 - [30 · 兑换码服务端 — 不本地放行同口径](#30-redeem-code-server)
-- [11 · 核心补全 / 29 · 玩法融合 — GameOver 三出口语义](#11-core-loop-completion)
+- [49 · 无局 · 无尽核心模型 — 取消融合玩法 GameOver,本子单「玩了一局」触发源待重定(见 §二关系表)](#49-infinite-no-rounds)
+- [11 · 核心补全 / 29 · 玩法融合 — 旧 GameOver 三出口语义(已被 49 覆盖)](#11-core-loop-completion)
 - [26 · tarot_mode HUD = Classic GameWindow 再主题 — Tarot / Classic 共用 GameWindow 实例依据](#26-tarot-mode-hud-art)

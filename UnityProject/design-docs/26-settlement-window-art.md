@@ -38,6 +38,9 @@
 
 ## 一、做什么与为什么 {#what}
 
+> [!WARNING]
+> **无尽模型对结算窗触发的影响**:[设计 49](#49-infinite-no-rounds) 取消融合玩法的通关 / 软 / 硬 GameOver 离散事件。本篇换皮的 `MergeOrderWinWindow`(合成订单通关窗)在无尽模型落地后**不再被触发**;`GameOverWindow` 的合成订单 GameOver 触发路径同样退役。<mark class="r">本篇描述的是无尽模型落地前的 as-built 换皮(窗口 + 美术已交付,准确)</mark>;无尽模型落地后这些窗的去留(退役 / 改作他用)是 dev 落地决定,**不在本换皮稿范围**。Classic 入口被融合吸收的去向见 [29·§3.2](#29-gameplay-fusion::v2) / [01](#01-gameplay-overview)。
+
 现状:这两个结算窗<mark>已实装且在跑</mark> —— Classic 玩死会弹 `GameOverWindow`(SCORE / BEST / NEW BEST 纯色卡片),合成订单 DEMO 通关弹 `MergeOrderWinWindow`(「通关！」+ 结算行纯色卡片)。它们功能完整,缺的只是**美术**:全是 `UGuiFactory` 的纯色方块 + 内置字体,与塔罗木质风格([设计 23 设置窗](#23-settings-window-art) / [设计 25 个人信息窗](#25-player-info-window-art))不一致。
 
 把它们换皮成木质风格,复用[设计 23](#23-settings-window-art) 已打通的 `SetSubSprite` 取图链路。**与前两屏的本质差异**:设置窗 / 个人信息窗是「数据层已建、UI 从零造」(新建 prefab + 新窗口类);本次换皮两个窗<mark>UI 早已存在且在跑</mark> —— 不是从零造,而是给在跑窗口**换贴图**。这决定了取路 A(轻量换皮)而非路 B(prefab 重构),并把「零回归」抬为硬约束([§九 R](#26-settlement-window-art::regress))。
