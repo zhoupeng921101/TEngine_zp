@@ -40,3 +40,4 @@
 - [project-tengine-log-no-console-output](project-tengine-log-no-console-output.md) — TEngine Log.Info/Warning/Error 不进 Unity console,验日志调用须 Debug.Log 包一层作执行凭证
 - [project-fire-forget-hook-verify-five-steps](project-fire-forget-hook-verify-five-steps.md) — fire-and-forget hook 五步验证:反射取窗实例→调私有触发→read_console 捞→看后续窗弹出,证调用+日志+不阻塞
 - [project-anti-reentry-verify-via-reflection-field](project-anti-reentry-verify-via-reflection-field.md) — 防重(_gameOverTriggered/_finished)反射读字段 before/after + 连调两次日志只出现一次,比注入 FakeSource 直接
+- [project-setsprite-async-verify-pattern](project-setsprite-async-verify-pattern.md) — SetSprite 异步:触发 RenderBoard 与读 sprite.name 须分两轮 execute_code,同轮竞态读到旧值;名带 _0 后缀

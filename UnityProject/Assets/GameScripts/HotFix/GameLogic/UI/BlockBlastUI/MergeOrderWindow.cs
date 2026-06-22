@@ -415,9 +415,15 @@ namespace GameLogic.BlockBlastUI
             MergeMetaPersistence.SaveAsync(dto).Forget();
         }
 
-        // ── 渲染棋盘（方块色） ──
+        // ── 渲染棋盘（方块色 / 皮肤，设计 50 §二）──
+        // 皮肤态分叉，两态都贴图：彩色态按方块类型贴 default_skin 各自那张纹理（blocks_main_<编号>，B1）；
+        // 单色态全盘所有方块不分类型统一贴「当前单色标识」那张 sprite（blocks_skin_atlas_<编号>，B2/B3）。
         private void RenderBoard()
         {
+            bool mono = _merge != null && _merge.Skin.IsMono;
+            // 单色态:全盘统一 sprite location = blocks_skin_atlas_<编号>(散 PNG 按文件名寻址)。
+            string monoLoc = mono ? BlockSkinCatalog.SpriteName(_merge.Skin.MonoId) : null;
+
             for (int r = 0; r < N; r++)
             {
                 for (int c = 0; c < N; c++)
@@ -430,20 +436,35 @@ namespace GameLogic.BlockBlastUI
                     }
                     else
                     {
-                        var color = BlockLayout.ColorOf((BlockColor)colorIdx);
-                        if (existing != null) existing.color = color;
-                        else
+                        Image img = existing;
+                        if (img == null)
                         {
+                            // 初始纯色仅作 sprite 异步加载到位前的占位,避免闪空(到位后 ApplyCellSkin 切白 tint+贴图)。
+                            var placeholder = BlockLayout.ColorOf((BlockColor)colorIdx);
                             var center = BlockLayout.CellCenterDesign(c, r);
-                            var img = UGuiFactory.CreateImage(_boardLayer, $"cell_{r}_{c}", center.x, center.y,
-                                BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, color);
+                            img = UGuiFactory.CreateImage(_boardLayer, $"cell_{r}_{c}", center.x, center.y,
+                                BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, placeholder);
                             img.raycastTarget = false;
                             _cellImages[r, c] = img;
                         }
+                        ApplyCellSkin(img, mono, monoLoc, colorIdx);
                     }
                 }
             }
             RenderElements();
+        }
+
+        /// <summary>
+        /// 给一个棋盘格 Image 施加皮肤（设计 50 §二），两态都贴图、白色 tint 让 sprite 显本色：
+        /// 单色态 → 全盘统一贴当前单色 sprite；彩色态 → 按方块类型 colorIdx 贴 default_skin 各自那张纹理。
+        /// sprite 加载经既有 SetSprite 异步外壳（散 PNG 按文件名 location），引用计数自管。
+        /// </summary>
+        private void ApplyCellSkin(Image img, bool mono, string monoLoc, int colorIdx)
+        {
+            if (img == null) return;
+            img.color = Color.white;                 // 两态 sprite 均自带颜色,tint 用白避免叠色
+            // 单色态全盘同图;彩色态按类型取 default_skin 纹理(设计 50 §二)。
+            img.SetSprite(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName(colorIdx));
         }
 
         // ── 渲染元素 overlay（glyph） ──
@@ -645,6 +666,12 @@ namespace GameLogic.BlockBlastUI
                 // 都改了进盘字段(goddessLevel/goddessRating/blindBoxCount)。AllClearRewarded 隐含女神+盲盒,
                 // GoddessLeveledUp 与 BlindBoxGained 并列保险:无后续交付/开盒/修复时,这一手的女神/盲盒进度也须落盘。
                 metaChangedBySettle = settle.AllClearRewarded || settle.GoddessLeveledUp || settle.BlindBoxGained > 0;
+
+                // 方块皮肤切换（设计 50 §三）：全清发奖口径（已武装全清，同女神/图案奖励）触发换皮——
+                // 彩色→单色（首次）/ 单色换一张排除当前（后续）。纯视觉附加，不改上方全清结算（设计 50 §三 规则 5 / A9）。
+                // 皮肤态进元层存档（设计 50 §六），故换皮即标元层脏 → 下方 metaChangedBySettle 已为 true（AllClearRewarded 蕴含），落盘随之发生。
+                if (settle.AllClearRewarded)
+                    _merge.Skin.OnAllClear(BlockSkinCatalog.MonoIds);
 
                 RenderBoard();
 

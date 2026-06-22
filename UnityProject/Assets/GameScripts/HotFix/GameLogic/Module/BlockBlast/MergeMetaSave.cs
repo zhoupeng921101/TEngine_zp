@@ -33,6 +33,13 @@ namespace GameLogic.BlockBlast
         public int wishUsedToday;            // 今日已用祈愿次数
         public string lastWishResetDate;     // 上次祈愿重置日期 yyyy-MM-dd（本地日期）
 
+        // ── 方块皮肤态（设计 50 §六；做法同 18 §3.8 平铺，既有字段不动，CurrentVersion 不升）──
+        // 皮肤态是「已达成全清」的只增成就标记（单色不退回彩色，设计 50 §三 规则 4），跨会话单调累积——
+        // 语义与元层进度（goddessLevel/highScore 等只增字段）同类，故并入元层 DTO 落盘（与 goddessLevel 同时机加载/落盘）。
+        // 旧档缺这两字段 → JsonUtility 给缺省（false/0）→ BlockSkinState.Import 判为彩色态 + 未选（= 初始态，符合「初始 = 彩色」）。
+        public bool skinMono;                // 是否单色态（false = 彩色态，含缺省）
+        public int skinMonoId;               // 单色态当前在用 sprite 编号（彩色态 = BlockSkinState.Unselected）
+
         // ── 玩家信息字段（设计 18 §3.8 做法 a 平铺；既有字段一行不改，CurrentVersion 不升）──
         // 旧档缺这些字段 → JsonUtility 给缺省（""/0/null）；保底夹值在 PlayerInfo.ImportFromMeta（§3.8 注）。
         public string playerId;              // 玩家本地唯一 id

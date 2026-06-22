@@ -135,6 +135,14 @@ namespace GameLogic.BlockBlast
         /// <summary>特殊订单轨（设计 11 §三：0/1 占槽 + 等待队列，剧情&gt;加急&gt;黄金时段）。</summary>
         public readonly SpecialOrderTrack SpecialTrack = new SpecialOrderTrack();
 
+        // ── 方块皮肤态（全清触发单色换皮，设计 50）──────────────────
+        /// <summary>
+        /// 棋盘皮肤状态机（设计 50）：彩色 / 单色 + 当前单色标识。全清事件推进（窗口在结算后调 <see cref="BlockSkinState.OnAllClear"/>）；
+        /// 跨会话续存随元层一同走 <see cref="ExportMeta"/>/<see cref="ImportMeta"/>（皮肤态是「已达成全清」只增成就标记，
+        /// 语义同元层只增字段，设计 50 §六）。开局缺省 = 彩色态（设计 50 §三 规则 1）。
+        /// </summary>
+        public readonly BlockSkinState Skin = new BlockSkinState();
+
         // ── 长期主线：虔诚币 + 神庙修复 + 经验·守护者等级（设计 13）──
         /// <summary>
         /// 虔诚币（长期主线货币，设计 13）。唯一来源 = 订单交付的主要奖励；唯一出口 = 修复神庙大厅。
@@ -204,6 +212,9 @@ namespace GameLogic.BlockBlast
             for (int i = 0; i < ActiveOrders.Length; i++) ActiveOrders[i] = NextOrder();
 
             ResetSpecialTrack();
+
+            // 皮肤态缺省 = 彩色（设计 50 §三 规则 1）；存档若有皮肤态由 ImportMeta 覆盖（同元层口径）。
+            Skin.Reset();
         }
 
         // ── 体力 ──────────────────────────────────────────────
@@ -557,7 +568,7 @@ namespace GameLogic.BlockBlast
         /// </summary>
         public MergeMetaSave ExportMeta(string today = null)
         {
-            return new MergeMetaSave
+            var dto = new MergeMetaSave
             {
                 version = MergeMetaPersistence.CurrentVersion,
                 soul = Soul,
@@ -573,6 +584,8 @@ namespace GameLogic.BlockBlast
                 wishUsedToday = WishUsedToday,
                 lastWishResetDate = today ?? MergeMetaPersistence.Today(),
             };
+            Skin.Export(dto); // 皮肤态随元层一同落盘（设计 50 §六）
+            return dto;
         }
 
         /// <summary>
@@ -616,6 +629,10 @@ namespace GameLogic.BlockBlast
 
             // 祈愿:DTO 已经 ApplyDailyReset 夹过(跨天则 0),直接用。
             WishUsedToday = dto.wishUsedToday;
+
+            // 皮肤态(设计 50 §六):逐字段保底 + 加载校验(缺字段 → 彩色态;单色态非法标识 → 重随机)。
+            // 候选池传真实存在标识集 BlockSkinCatalog.MonoIds(设计 50 §四硬约束:非连续区间)。
+            Skin.Import(dto, BlockSkinCatalog.MonoIds);
         }
 
         /// <summary>神庙 bool 数组保底:null 或长度≠HallCount 时重建为全 false;否则原样(深拷贝避免共享引用)。</summary>
@@ -677,6 +694,10 @@ namespace GameLogic.BlockBlast
             private int _needRotor;
             private int _comboChain;
             private bool _allClearArmed;
+            // 皮肤态（设计 50）：随全清 reward 系列字段（_allClearArmed/_goddessRating/_blindBoxCount）同入快照——
+            // 同一手全清的皮肤切换须与女神/盲盒效果一并被悔棋回滚，否则悔棋后皮肤与其余全清产物不一致。
+            private SkinMode _skinMode;
+            private int _skinMonoId;
             private int _soul;
             private int _wishUsedToday;
             private int _goddessRating;
@@ -711,6 +732,8 @@ namespace GameLogic.BlockBlast
                     _needRotor = m._needRotor,
                     _comboChain = m.ComboChain,
                     _allClearArmed = m.AllClearArmed,
+                    _skinMode = m.Skin.Mode,
+                    _skinMonoId = m.Skin.MonoId,
                     _soul = m.Soul,
                     _wishUsedToday = m.WishUsedToday,
                     _goddessRating = m.GoddessRating,
@@ -748,6 +771,7 @@ namespace GameLogic.BlockBlast
                 m._needRotor = _needRotor;
                 m.ComboChain = _comboChain;
                 m.AllClearArmed = _allClearArmed;
+                m.Skin.RestoreState(_skinMode, _skinMonoId);
                 m.Soul = _soul;
                 m.WishUsedToday = _wishUsedToday;
                 m.GoddessRating = _goddessRating;

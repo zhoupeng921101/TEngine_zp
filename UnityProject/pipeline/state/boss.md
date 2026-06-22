@@ -2,22 +2,14 @@
 
 ## 当前状态(2026-06-22)
 
-**在跑:`block-skin-switch` 方块皮肤切换(plan→dev→test,client,无 ui 环节)。**
+**(无活跃任务)**
 
-**任务定义**:方块两套皮肤——彩色(`default_skin`,8 张 `blocks_main_*` 按方块类型固定配色,图集 `Atlas_blocks_blocks_main`)与单色(`blocks_skin`,337 张 `blocks_skin_atlas_*`,图集 `Atlas_blocks_blocks_skin`)。触发链:初始彩色 → 首次「清屏」整盘转单色(全盘统一一张随机 sprite)→ 此后每次清屏换一张单色。环节 full(plan→dev→test;无新 UI 窗口,纯棋盘渲染行为,故不启 ui)。
+**已暂停任务 `gameplay-no-rounds-infinite`**:plan 写稿已提交 `19303cdc`(设计 49 + 01/09/10/11/12/13/14/26/29/47/48 反向引用同步)+ `7a8441d1`(反向引用补全),**未进 dev**。恢复时从 dev 环节起,设计基线 = `design-docs/49-infinite-no-rounds.md`。用户拍板模型与硬约束见 commit 的设计稿正文(不转述,避漂移)。被它吸收的 `CompletedOrders` bug 修复已提交基线 `e34bfeaa`。
 
-**「清屏」定义已拍板(2026-06-22)**:= 一次落子消除后**整个棋盘被清空(全清 / perfect clear)** 的那一刻,非消除道具、非 DDA「清屏窗口」难度术语(工程中「清屏」多义,见 design 02/07/11/49 — 切勿挂错)。dev 现场定位该全清事件的代码触发点。
-
-**用户拍板**(2026-06-22):
-1. 单色 = 全盘所有方块(不分类型)统一显示从 `blocks_skin` 随机选中的**同一张** sprite(真正的单色棋盘,不是整套换风格)。
-2. 每次换色排除当前正在用的那张(避免连续重复)。
-3. 单色状态 + 当前选中 sprite 需跨会话/重进游戏续存(与「局内态跨会话续存」无尽设计一致,记忆 gameplay-no-rounds-infinite-orders)。
-
-**需调查的代码接缝(dev 现场推导,plan 不读码)**:方块当前如何按类型取 sprite、「清屏」对应哪个事件/逻辑、局内态续存走哪条存档通道。plan 出 code-free 设计意图 + 验收标准;dev 定位接缝实现。
-
-**git 基线**:`19303cdc`(无局设计稿隔离 commit)。本任务出问题可 `git reset` 回此。客户端纯渲染+存档逻辑,不依赖跑服。皮肤美术底料(图集/切图重整)已在工作树未提交,作本任务地基。
-
-**已暂停任务 `gameplay-no-rounds-infinite`**:plan 写稿已提交 `19303cdc`(设计 49 + 11/14/29/01 反向引用同步),**未进 dev**。恢复时从 dev 环节起,设计基线 = `design-docs/49-infinite-no-rounds.md`。用户拍板模型与硬约束见该 commit 的设计稿正文(不在此转述,避漂移)。被它吸收的 `CompletedOrders` bug 修复已提交基线 `e34bfeaa`。
+**Carry forward(block-skin-switch 关单 2026-06-22 新增)**:
+- **皮肤态续存层迁移**:皮肤态当前归元层(无局局内续存通道未落地)。无局·无尽任务落地局内整盘续存后,可把皮肤态从元层平移回局内段(DTO 字段语义不变,设计 50 §六已留前向注)。
+- **资源偏差(非皮肤任务引入,可单开修)**:`Assets/AssetRaw/UIRaw/Atlas/blocks/blocks_skin/README.md` 标 337 张实际 374,且把实有文件的 99-114/116-136 段误标「留空」;`Atlas_blocks_blocks_main` 图集只打包 6 sprite(实有 8)。两套皮肤运行期都走散 PNG 按文件名寻址(SpriteAtlas v2 SetSubSprite 不可用),故 Atlas_blocks_blocks_skin/main 图集实际未被皮肤功能使用——不阻塞,如需图集化渲染或清理冗余资源另开。
+- `MergeOrderTests.cs:366` 注释含 diff 叙事(上一任务遗留),dev 下次顺手清。
 
 **自治批关单进度**(2026-06-18 起):
 
@@ -100,5 +92,6 @@
 - 2026-06-21 · Tier 4 活动系统·服务端段第 2 子单（EVENT 解锁活动 - 每日登录 7 次得头像）· PASS（full,round 0；plan 现场转方案 B 沿 16 UseEffect=5 范式,零动 39 ActivityDef schema 零 helper 代码改;E3 客户端段未实做 BLOCKED 非 FAIL 不打回）· Fantasy `bafed768` + 设计稿 `d3e3b4fd` · `archive/2026-06-21-event-unlock-server-tier4/`
 - 2026-06-21 · Tier 4 活动系统·客户端段第 2 子单（EVENT 解锁通路接通 — EVENT 解锁全栈收口）· PASS（full,round 0；62 分钟；BlockBlast.Tests 444/444 + E1 全栈真往返跑通 UnlockedAvatarIds=[1,3] 重启持久；plan 又一次矫正 boss 简报偏差：工程 ItemDef.UseEffect 是 int 无 EffectType 枚举/handler 体系）· client `37977dc7` · `archive/2026-06-21-event-unlock-client-tier4/`
 - 2026-06-22 · merge-order 候选块元素分配改「容量加权随机」· PASS（dev-test,round 0 一次过；BlockBlast.Tests 497/497 + 1 改写 + 3 新增用例全过；旁路发现 `CompletedOrders` 持久化 bug 进 Carry forward）· client `c86d7bbf` · `archive/2026-06-22-merge-order-trio-element-distribution/`
+- 2026-06-22 · block-skin-switch 方块皮肤切换（全清触发单色换皮 + 彩色态贴 default_skin 纹理）· PASS（full,dev 2 轮非返修；EditMode 535/535、BlockSkinStateTests 18/18、B1–B4 全过；并发无局任务隔离 + untangle 处置）· client `8b247c68`+`5bd112b9`+`5c30ad0c` · `archive/2026-06-22-block-skin-switch/`
 
 > 完整关单历史以 `archive/` 目录为准（boss.md 仅留最近指针）。

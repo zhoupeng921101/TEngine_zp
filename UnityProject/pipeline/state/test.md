@@ -4,4 +4,4 @@
 
 ## 当前任务
 
-(无在跑任务 — 上一刀已归档:`pipeline/archive/2026-06-22-merge-order-trio-element-distribution/`)
+(无在跑任务 — 上一刀已归档:`pipeline/archive/2026-06-22-block-skin-switch/`)
