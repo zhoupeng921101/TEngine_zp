@@ -30,7 +30,11 @@ boss 据任务改客户端还是服务端来定 target,spawn 对应 dev:
 1. **理解需求**:歧义当场问用户一句(用户在场,不积压)。
 2. **形成需求级方案**:必要时轻量 grep / 读码确认可行性与大致指向;**不深读到实现级**——具体改哪个类/方法/接缝由 dev 读工程现场推导。
 3. **记基线 + spawn**:记录 target 对应仓库的 `git rev-parse HEAD` 作基线(client→UnityProject;server→Fantasy;供用户一键回退,不 auto-commit);用 Agent 工具 spawn 对应 dev(`pipeline-lite-dev` / `pipeline-lite-server-dev`)。
-4. **收产出转述**:读 target 对应仓库的 `git diff`(协议改动横跨两仓)核对 dev 声称的改动真实存在 → 整理 dev 的「用户手测清单」呈报用户,附基线 HEAD 与 `git reset --hard <HEAD>` 回退提示。
+4. **收产出核对**:读 target 对应仓库的 `git diff`(协议改动横跨两仓),核对 dev 声称的改动真实存在。
+5. **独立审查(裁定权在非作者侧)**:对本次 dev 改动跑 `/code-review`(默认 low/med——少而准、合轻量;大改可升 high),以 dev 的文件清单为范围,忽略工作树里的并发无关改动。查出真缺陷 → 走「再来一轮」派 dev 修、不放给用户;仅清理/风格类 → 并入呈报交用户定夺。改动触及安全面(server 鉴权/网络/持久化,或客户端处理不可信输入)才追加 `/security-review`,否则跳过。
+6. **转述呈报**:整理 dev 的「用户手测清单」+ 审查结论呈报用户,附基线 HEAD 与 `git reset --hard <HEAD>` 回退提示。
+
+> `/code-review` 的审查内容独立于触发者,但 findings 的裁定权须落在非作者侧:作者刚写完最盲(conventions「交叉检」),dev 自审会透过「这是对的」解读 findings;故由 boss 跑审查并裁定,对应重型 test 做 Code Review 的隔离。
 
 ## dev 简报(self-contained)
 
@@ -38,7 +42,7 @@ boss 据任务改客户端还是服务端来定 target,spawn 对应 dev:
 
 ## 再来一轮
 
-用户手测不满意 → 把反馈作为新 brief 再 spawn 一轮(**不设自动返修轮次上限**,何时停由用户判断)。dev 报疑似设计错(实现层绕不过)→ boss 重审需求级方案,调整后再派。
+用户手测不满意 → 把反馈作为新 brief 再 spawn 一轮(**不设自动返修轮次上限**,何时停由用户判断)。boss 跑 `/code-review` 查出真缺陷 → 同样派 dev 修(早于用户手测)。dev 报疑似设计错(实现层绕不过)→ boss 重审需求级方案,调整后再派。
 
 ## 红线
 
