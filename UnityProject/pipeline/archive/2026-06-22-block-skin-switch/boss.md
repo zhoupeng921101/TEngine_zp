@@ -40,7 +40,7 @@
 
 - `8b247c68` — plan 设计稿 50 + 01/14 反向引用 + nav/index + 皮肤美术底料(保护性提交,隔离并发无局任务)
 - `5bd112b9` — 11 §5.4 皮肤 NOTE(untangle 后补)
-- `5c30ad0c` — dev 代码 + 单测 + 设计稿续存层同步(关单 checkpoint)
+- `25521408` — dev 代码 + 单测 + 设计稿续存层同步(关单 checkpoint)
 
 ## 遗留事项(交 boss.md carry-forward)
 
