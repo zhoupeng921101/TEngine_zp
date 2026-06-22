@@ -4,7 +4,14 @@
 
 **(无活跃任务)**
 
-**已暂停任务 `gameplay-no-rounds-infinite`**:plan 写稿已提交 `19303cdc`(设计 49 + 01/09/10/11/12/13/14/26/29/47/48 反向引用同步)+ `7a8441d1`(反向引用补全),**未进 dev**。恢复时从 dev 环节起,设计基线 = `design-docs/49-infinite-no-rounds.md`。用户拍板模型与硬约束见 commit 的设计稿正文(不转述,避漂移)。被它吸收的 `CompletedOrders` bug 修复已提交基线 `e34bfeaa`。
+**`gameplay-no-rounds-infinite` 进度**:增量① 无尽核心 ✅ **PASS 关单**(`archive/2026-06-22-no-rounds-core-increment1/`,round 0 一次过;checkpoint 见「最近关单」)。落地了删通关 / 删软硬 GameOver / 时基恢复(含离线)/ 消除道具(清一行一列、gate 体力、无限可用)/ 47·48·26 触发源善后。基线链 `e34bfeaa`(吸收的 CompletedOrders bug)→ `6c1978fe`(前置美术料)。
+**增量②(待开工)**:整盘续存(棋盘/手牌/合成区/订单全进盘)+ 皮肤态从元层平移回局内段(skin-switch carry-forward)。设计基线 = `design-docs/49-infinite-no-rounds.md`(+ 14 整盘续存边界)。恢复从 dev 起,baton=dev-test。
+
+**无尽 follow-up(增量① 产出,交 boss/plan 后续)**:
+- **「累计游戏 N 局」活动(AccumulatePlayCount,设计47/48)无可达触发源**:无尽删「局」后唯一玩法内触发已删、Classic 入口又已下线;活动基建编译绿但不触发,**新语义待重定**(每完成 N 单 / 每用消除道具 / 废弃)。
+- CompletedOrders/TotalScore 生涯统计进盘(设计49 §五 O4 增强项)随增量② 整盘续存一并定。
+- GameOverWindow/MergeOrderWinWindow「重试→MergeOrderWindow」回调在无尽下语义模糊,代码保留未动,如需清理交后续。
+- 文档同步小遗漏(不升 FAIL):`MergeOrderTests.cs:366` diff 叙事注释;`ActivityClientTests.cs:228` 注释提已删的 `_finished` 字段。dev 下轮顺手清。
 
 **Carry forward(block-skin-switch 关单 2026-06-22 新增)**:
 - **皮肤态续存层迁移**:皮肤态当前归元层(无局局内续存通道未落地)。无局·无尽任务落地局内整盘续存后,可把皮肤态从元层平移回局内段(DTO 字段语义不变,设计 50 §六已留前向注)。
@@ -93,5 +100,6 @@
 - 2026-06-21 · Tier 4 活动系统·客户端段第 2 子单（EVENT 解锁通路接通 — EVENT 解锁全栈收口）· PASS（full,round 0；62 分钟；BlockBlast.Tests 444/444 + E1 全栈真往返跑通 UnlockedAvatarIds=[1,3] 重启持久；plan 又一次矫正 boss 简报偏差：工程 ItemDef.UseEffect 是 int 无 EffectType 枚举/handler 体系）· client `37977dc7` · `archive/2026-06-21-event-unlock-client-tier4/`
 - 2026-06-22 · merge-order 候选块元素分配改「容量加权随机」· PASS（dev-test,round 0 一次过；BlockBlast.Tests 497/497 + 1 改写 + 3 新增用例全过；旁路发现 `CompletedOrders` 持久化 bug 进 Carry forward）· client `c86d7bbf` · `archive/2026-06-22-merge-order-trio-element-distribution/`
 - 2026-06-22 · block-skin-switch 方块皮肤切换（全清触发单色换皮 + 彩色态贴 default_skin 纹理）· PASS（full,dev 2 轮非返修；EditMode 535/535、BlockSkinStateTests 18/18、B1–B4 全过；并发无局任务隔离 + untangle 处置）· client `8b247c68`+`5bd112b9`+`25521408` · `archive/2026-06-22-block-skin-switch/`
+- 2026-06-22 · no-rounds 增量① 无尽核心（删通关/删软硬 GameOver/时基恢复含离线/消除道具清行列 gate 体力/47·48·26 善后）· PASS（dev-test,round 0 一次过；EditMode 550/550、设计49 B1–B11+B13 单测覆盖、Code Review 三硬约束绿；Play 手验 BLOCKED=MCP 不支持拖拽+overlay 不升 FAIL）· 基线 `6c1978fe` · client `<checkpoint-pending>` · `archive/2026-06-22-no-rounds-core-increment1/`
 
 > 完整关单历史以 `archive/` 目录为准（boss.md 仅留最近指针）。

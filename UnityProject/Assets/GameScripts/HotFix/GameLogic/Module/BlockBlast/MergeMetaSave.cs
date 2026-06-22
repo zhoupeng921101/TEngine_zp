@@ -33,6 +33,13 @@ namespace GameLogic.BlockBlast
         public int wishUsedToday;            // 今日已用祈愿次数
         public string lastWishResetDate;     // 上次祈愿重置日期 yyyy-MM-dd（本地日期）
 
+        // ── 体力进盘 + 离线时基恢复（无尽模型，设计 14 §3.7 / 设计 49 §3.2；CurrentVersion 不升，旧档缺省 0）──
+        // 体力从「不进盘」改为「进盘」：无尽模型下「关掉游戏等体力恢复」是设计要的脱困路径（离线恢复 = 预期行为，非漏洞）。
+        // 旧档缺这两字段 → JsonUtility 给缺省 0：energy=0 由 ImportMeta 夹回起始体力；lastEnergyRegenTime=0 = 尚无记录，
+        // 加载后 ApplyTimeRegen(now) 以 now 初始化、本次不补（设计 49 §3.2 崩法三）。
+        public int energy;                   // 当前体力（无尽节流资源，进盘）
+        public long lastEnergyRegenTime;     // 上次时基恢复结算时刻（Unix 秒，本地时钟；0 = 尚无记录）
+
         // ── 方块皮肤态（设计 50 §六；做法同 18 §3.8 平铺，既有字段不动，CurrentVersion 不升）──
         // 皮肤态是「已达成全清」的只增成就标记（单色不退回彩色，设计 50 §三 规则 4），跨会话单调累积——
         // 语义与元层进度（goddessLevel/highScore 等只增字段）同类，故并入元层 DTO 落盘（与 goddessLevel 同时机加载/落盘）。

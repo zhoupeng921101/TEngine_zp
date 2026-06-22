@@ -25,9 +25,6 @@ namespace GameLogic.BlockBlast
         /// <summary>订单奖励分数系数：分数 = 等级 × 数量 × 此值。</summary>
         public const int OrderScoreFactor = 50;
 
-        /// <summary>demo 通关所需完成单数。</summary>
-        public const int DemoGoalOrders = 5;
-
         // ── 体力 ──────────────────────────────────────────────
         /// <summary>起始体力。核心不变量：≥ 完成首单所需落子数，否则首单前饿死。</summary>
         public const int EnergyStart = 20;
@@ -38,12 +35,21 @@ namespace GameLogic.BlockBlast
         /// <summary>每次落子消耗体力。</summary>
         public const int PlaceCost = 1;
 
-        // 自然恢复：demo 暂不实装（单局测试意义小，主补给走订单奖励）。
-        // 常量保留留口子：若实装，挂窗口计时按此回到软上限、不溢出。
-        /// <summary>自然恢复每 tick 回复量（暂不实装，留口子）。</summary>
+        // ── 时基恢复（无尽模型兜底，设计 49 §3.2）──────────────────
+        // 无条件、纯时间驱动、含离线累计：每 RegenIntervalSec 真实秒回 RegenPerTick 点，封顶软上限不溢出。
+        // 不依赖落子 / 消除 / 交付任何玩法动作（否则卡死时永不恢复，脱困死结，设计 49 §3.3 硬约束 3）。
+        /// <summary>时基恢复每 tick 回复量（设计 49 §3.2 默认每 120 秒 +1）。</summary>
         public const int RegenPerTick = 1;
-        /// <summary>自然恢复间隔秒数（暂不实装，留口子）。</summary>
+        /// <summary>时基恢复间隔秒数（设计 49 §3.2 默认 120 秒）。</summary>
         public const float RegenIntervalSec = 120f;
+
+        // ── 消除道具（无尽模型脱困兜底，设计 49 §3.1）──────────────
+        // 主动清「一整行 + 一整列」让卡死棋盘重新可落；代价体力、无限可用、只 gate 体力（绝不做有限消耗品）。
+        /// <summary>
+        /// 消除道具代价体力（设计 49 §3.1 默认 25）。硬约束 <c>ClearToolCost ≤ EnergyCap</c>（25 ≤ 30）：
+        /// 否则体力封顶后仍不够用一次消除道具，「卡死 + 0 体力」脱困死结重现（设计 49 §3.3 硬约束 1）。
+        /// </summary>
+        public const int ClearToolCost = 25;
 
         // ── 得分驱动元素生成 ──────────────────────────────────
         // 该次消除得分 → 元素数量 k：消得越狠、后续候选块携带的元素越多；无消除→候选块纯方块。

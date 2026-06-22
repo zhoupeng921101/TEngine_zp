@@ -89,15 +89,15 @@ namespace GameLogic.BlockBlast.Tests
                 "R1: GameWindow.cs 调用点应传 previousHigh（Classic 路径，不得改传参）");
         }
 
-        // ── R2：GameOverWindow 订单结束路径 — MergeOrderWindow.cs:731 传 0 未改 ────
+        // ── R2：无尽模型（设计 49）— MergeOrderWindow 不再路由 GameOverWindow（删软/硬 GameOver）────
+        // 原断言「MergeOrderWindow 订单结束路径传 0 给 GameOverWindow」随无尽模型翻转：MergeOrderWindow 不再有
+        // 任何 GameOver 路径（卡死/体力归零不结束）。GameOverWindow 本身保留（Classic GameWindow 仍用，R1/R4 另测）。
         [Test]
-        public void R2_MergeOrderWindow_CallSite731_PassesZero()
+        public void R2_MergeOrderWindow_NoGameOverWindowRoute()
         {
             var src = ReadSource(MergeOrderWindowPath);
-
-            // MergeOrderWindow.cs:731 ShowUIAsync<GameOverWindow>(0)
-            Assert.IsTrue(src.Contains("ShowUIAsync<GameOverWindow>(0)"),
-                "R2: MergeOrderWindow.cs:731 应传 0（订单结束路径，previousHigh=0）");
+            Assert.IsFalse(src.Contains("ShowUIAsync<GameOverWindow>"),
+                "R2: 无尽模型 — MergeOrderWindow 不再打开 GameOverWindow（无软/硬 GameOver）");
         }
 
         // ── R3：MergeOrderWinWindow 通关路径 — UserData 解析 + 渲染循环未改 ─────────
@@ -117,15 +117,15 @@ namespace GameLogic.BlockBlast.Tests
                 "R3: 结算行取值 lines[i] 必须保留");
         }
 
-        // ── R3b：调用点 MergeOrderWindow.cs:718 传 lines 未改 ───────────────────────
+        // ── R3b：无尽模型（设计 49）— MergeOrderWindow 不再路由 MergeOrderWinWindow（删通关）────────
+        // 原断言「MergeOrderWindow 通关路径传 lines 给 MergeOrderWinWindow」随无尽模型翻转：无通关终点，
+        // MergeOrderWindow 不再打开通关结算窗。MergeOrderWinWindow 本身保留（代码/prefab 不删，R3/R4 另测其结构）。
         [Test]
-        public void R3b_MergeOrderWindow_CallSite718_PassesLines()
+        public void R3b_MergeOrderWindow_NoWinWindowRoute()
         {
             var src = ReadSource(MergeOrderWindowPath);
-
-            // MergeOrderWindow.cs:718 ShowUIAsync<MergeOrderWinWindow>(lines)
-            Assert.IsTrue(src.Contains("ShowUIAsync<MergeOrderWinWindow>(lines)"),
-                "R3: MergeOrderWindow.cs:718 应传 lines（通关路径传结算行，不得改传参）");
+            Assert.IsFalse(src.Contains("ShowUIAsync<MergeOrderWinWindow>"),
+                "R3b: 无尽模型 — MergeOrderWindow 不再打开 MergeOrderWinWindow（无通关终点）");
         }
 
         // ── R4：回调目标核对（融合后重试改指融合窗口，设计 29 §3.1）─────────────────

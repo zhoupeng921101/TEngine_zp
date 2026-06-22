@@ -320,37 +320,26 @@ namespace GameLogic.BlockBlast.Tests
             Assert.Greater(idxHook, idxDedup, "hook 调用必须在防重标记之后(PV6 + PV15 ②)");
         }
 
+        // 无尽模型（设计 49）善后:MergeOrderWindow 删 TriggerWin / TriggerGameOver(无通关 / 无 GameOver),
+        // 「累计游戏 N 局」活动原挂这两个终点 hook 上,无「局」后失效——本窗不再触发该活动(善后 follow-up 交 boss/plan 重定)。
+        // 原 Source_MergeOrderWindow_TriggerGameOver / TriggerWin _HasActivityHookAfterDedup 翻转为「不再存在」断言。
         [Test]
-        public void Source_MergeOrderWindow_TriggerGameOver_HasActivityHookAfterDedup()
+        public void Source_MergeOrderWindow_NoWinOrGameOverTrigger()
         {
             var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs");
-            int idxGo = src.IndexOf("private void TriggerGameOver(string title)", StringComparison.Ordinal);
-            Assert.Greater(idxGo, 0, "TriggerGameOver(string) 定义存在");
-
-            string body = src.Substring(idxGo);
-            int idxDedup = body.IndexOf("_finished = true;", StringComparison.Ordinal);
-            int idxHook  = body.IndexOf("Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget()", StringComparison.Ordinal);
-            Assert.Greater(idxDedup, 0, "TriggerGameOver 保留既有 _finished 防重");
-            Assert.Greater(idxHook, 0, "TriggerGameOver 加入活动累加 hook");
-            Assert.Greater(idxHook, idxDedup, "TriggerGameOver hook 在 _finished 防重之后");
+            Assert.IsFalse(src.Contains("private void TriggerWin()"),
+                "无尽模型:MergeOrderWindow 不再有 TriggerWin(无通关终点)");
+            Assert.IsFalse(src.Contains("private void TriggerGameOver"),
+                "无尽模型:MergeOrderWindow 不再有 TriggerGameOver(无软/硬 GameOver)");
         }
 
         [Test]
-        public void Source_MergeOrderWindow_TriggerWin_HasActivityHookAfterDedup()
+        public void Source_MergeOrderWindow_NoAccumulatePlayCountHook()
         {
+            // 无尽模型善后:MergeOrderWindow 不再触发 AccumulatePlayCount 活动(原挂在 Win/GameOver 终点)。
             var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs");
-            int idxWin = src.IndexOf("private void TriggerWin()", StringComparison.Ordinal);
-            Assert.Greater(idxWin, 0, "TriggerWin() 定义存在");
-
-            // 截 TriggerWin 函数到下一个 private 方法之间的段
-            int idxNext = src.IndexOf("private void TriggerGameOver(string title)", idxWin, StringComparison.Ordinal);
-            string body = idxNext > idxWin ? src.Substring(idxWin, idxNext - idxWin) : src.Substring(idxWin);
-
-            int idxDedup = body.IndexOf("_finished = true;", StringComparison.Ordinal);
-            int idxHook  = body.IndexOf("Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget()", StringComparison.Ordinal);
-            Assert.Greater(idxDedup, 0, "TriggerWin 保留既有 _finished 防重");
-            Assert.Greater(idxHook, 0, "TriggerWin 加入活动累加 hook(通关也算「玩了一局」,PV5)");
-            Assert.Greater(idxHook, idxDedup, "TriggerWin hook 在 _finished 防重之后");
+            Assert.IsFalse(src.Contains("ActivityIds.AccumulatePlayCount"),
+                "无尽模型:MergeOrderWindow 不再触发 AccumulatePlayCount(无「局」概念)");
         }
 
         [Test]
@@ -369,9 +358,9 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void Source_MergeOrderWindow_HookAppearsTwice_GameOverPlusWin()
+        public void Source_MergeOrderWindow_NoActivityHookAtAll()
         {
-            // PV4 + PV5:MergeOrderWindow.cs 中 hook 字面共 2 次(TriggerGameOver 一处 + TriggerWin 一处)
+            // 无尽模型善后:MergeOrderWindow 删 Win/GameOver 终点后,活动 hook 字面 0 次(原 2 次 = TriggerGameOver + TriggerWin)。
             var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs");
             int count = 0; int pos = 0;
             while ((pos = src.IndexOf("Activity?.IncrementAndLogAsync(", pos, StringComparison.Ordinal)) >= 0)
@@ -379,7 +368,7 @@ namespace GameLogic.BlockBlast.Tests
                 count++;
                 pos += 1;
             }
-            Assert.AreEqual(2, count, "MergeOrderWindow.cs 中 hook 字面共 2 次(TriggerGameOver + TriggerWin)");
+            Assert.AreEqual(0, count, "无尽模型:MergeOrderWindow.cs 不再有任何活动 hook(Win/GameOver 终点已删)");
         }
 
         // ════════════ PV14 反证 业务层不直引 Fantasy.* 命名空间 ════════════

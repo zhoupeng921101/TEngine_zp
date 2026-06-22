@@ -2,6 +2,7 @@
 - [镜像既有窗口做新切片窗口](project-mirror-window-slice.md) — 镜像既有窗口(如 GameWindow)做新切片窗口:逻辑层单测可全覆盖,风险集中在拖拽手势交互层,交接时显式标注。
 - [改 UIWindow 类名必须同步改四处](project-uiwindow-rename-four-places.md) — 改 UIWindow 类名(按文件名寻址)必须同步改四处:.cs 类名+Window attr 字符串/同名 prefab 文件名/prefab 内 m_Name/prefab .meta,漏一处运行时找不到资源。
 - [状态机叠新系统须进 Snapshot](project-state-snapshot-capture-restore.md) — 在 merge-order 状态机叠新系统时,新字段必须同步进 Snapshot.Capture/Restore,否则悔棋只回滚旧字段;值类型浅拷贝,List 用 ToArray()+RestoreXxx。
+- [时基/离线恢复余秒留存](project-time-regen-carry-remainder.md) — 实时驱动资源恢复纯方法:注入 now/首次不补/负时差按0/记录时刻只推进整除秒数(余秒留存),否则短间隔反复进入吞零头永不恢复。
 - [BlockBlast 只有元层一条续存通道](project-blockblast-only-meta-layer-persists.md) — 现行只有元层 DTO 跨会话续存;局内态每局 Reset 不落盘;设计 49 局内续存未落地。要续存就并入元层 DTO,标「局内态」而行为只要保持的不报 designFlaw。
 - [棋盘格纯色渲染不走图集](project-board-cells-solid-color-not-atlas.md) — MergeOrderWindow.RenderBoard 用纯色 Image 渲染棋盘格,blocks_main 图集未接入;换皮接缝在 RenderBoard,单色走散 PNG 寻址,候选编号集从源文件导出别信 README。
 - [隔离铁律做独立纯函数模块](project-isolated-pure-function-module.md) — 把「连消倍率只乘显示分」类隔离铁律做成独立纯函数模块,倍率用整数千分比避免浮点,隔离点写成专门单测。

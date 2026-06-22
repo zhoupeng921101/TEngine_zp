@@ -635,17 +635,301 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsFalse(m.CanUndo, "交付为已提交动作，清空悔棋栈");
         }
 
-        // ───────────────────────── #14 demo 通关 ─────────────────────────
+        // ───────────────────────── #14 无尽:无通关终点 ─────────────────────────
+        // 无尽模型（设计 49）删通关:IsDemoComplete / DemoGoalOrders 已移除,订单无限刷新无胜利终点。
+        // 原 IsDemoComplete_AtGoalOrders 用例随之删除（断言的概念已不存在）。
 
+        // ═══════════════ 无尽模型 · 时基恢复（设计 49 §3.2 / B8/B9/B10）═══════════════
+
+        // B8：时基恢复纯时间驱动 + 封顶软上限不溢出。注入 now（Unix 秒），不触发任何落子/消除。
         [Test]
-        public void IsDemoComplete_AtGoalOrders()
+        public void TimeRegen_PureTimeDriven_CapsAtSoftLimit()
+        {
+            var m = new MergeOrderState();
+            m.Reset();                              // Energy=20, LastEnergyRegenTime=0
+            const long t0 = 1_700_000_000L;
+            m.ApplyTimeRegen(t0);                   // 首次:初始化记录时刻、本次不补
+            Assert.AreEqual(MergeOrderConfig.EnergyStart, m.Energy, "首次不补恢复");
+            Assert.AreEqual(t0, m.LastEnergyRegenTime, "首次以 now 初始化记录时刻");
+
+            int interval = (int)MergeOrderConfig.RegenIntervalSec;
+            // 推进 3 个 tick：体力 20 → 23（未达软上限 30，按速率恢复）。
+            m.ApplyTimeRegen(t0 + interval * 3L);
+            Assert.AreEqual(MergeOrderConfig.EnergyStart + 3 * MergeOrderConfig.RegenPerTick, m.Energy, "按速率恢复 3 tick");
+
+            // 推进巨量时间：封顶软上限不溢出。
+            m.ApplyTimeRegen(t0 + interval * 100000L);
+            Assert.AreEqual(MergeOrderConfig.EnergyCap, m.Energy, "恢复封顶软上限不溢出");
+        }
+
+        // B9：离线恢复 = floor(N/interval) × perTick，夹软上限。构造「上次记录=T0，当前=T0+N 秒」。
+        [Test]
+        public void TimeRegen_Offline_FloorTicksClampedToCap()
+        {
+            int interval = (int)MergeOrderConfig.RegenIntervalSec;
+            const long t0 = 1_700_000_000L;
+
+            var m = new MergeOrderState();
+            m.Reset();
+            m.Energy = 5;
+            m.LastEnergyRegenTime = t0;             // 已有记录（模拟存档读回）
+
+            // N = interval*4 + 余秒：应补 4 tick（余秒不算）。
+            long n = interval * 4L + (interval / 2);
+            m.ApplyTimeRegen(t0 + n);
+            int expected = System.Math.Min(MergeOrderConfig.EnergyCap, 5 + 4 * MergeOrderConfig.RegenPerTick);
+            Assert.AreEqual(expected, m.Energy, "离线补 floor(N/interval) tick");
+            // 余秒留到下次：记录时刻只推进整除掉的秒数。
+            Assert.AreEqual(t0 + interval * 4L, m.LastEnergyRegenTime, "记录时刻只推进整除掉的秒数，余秒留存");
+        }
+
+        // B9 余秒累计：两次短间隔进入，余秒不被吞，跨两次凑满一个 tick 仍恢复。
+        [Test]
+        public void TimeRegen_RemainderSeconds_AccumulateAcrossCalls()
+        {
+            int interval = (int)MergeOrderConfig.RegenIntervalSec;
+            const long t0 = 1_700_000_000L;
+
+            var m = new MergeOrderState();
+            m.Reset();
+            m.Energy = 5;
+            m.LastEnergyRegenTime = t0;
+
+            // 第一次：interval-1 秒（不满 1 tick）→ 不恢复、记录不动。
+            m.ApplyTimeRegen(t0 + interval - 1);
+            Assert.AreEqual(5, m.Energy, "不满 1 tick 不恢复");
+            Assert.AreEqual(t0, m.LastEnergyRegenTime, "不满 1 tick 记录不动（余秒留存）");
+
+            // 第二次：再加 1 秒（累计满 interval）→ 恢复 1 tick。
+            m.ApplyTimeRegen(t0 + interval);
+            Assert.AreEqual(5 + MergeOrderConfig.RegenPerTick, m.Energy, "余秒累计满 1 tick 后恢复");
+        }
+
+        // B10：负时差兜底——当前 < 上次记录 → 恢复 0、不倒扣、不抛、不更新记录。
+        [Test]
+        public void TimeRegen_NegativeDelta_NoCreditNoThrow()
+        {
+            const long t0 = 1_700_000_000L;
+            var m = new MergeOrderState();
+            m.Reset();
+            m.Energy = 5;
+            m.LastEnergyRegenTime = t0;
+
+            Assert.DoesNotThrow(() => m.ApplyTimeRegen(t0 - 100));
+            Assert.AreEqual(5, m.Energy, "负时差不倒扣、不补");
+            Assert.AreEqual(t0, m.LastEnergyRegenTime, "负时差不更新记录时刻（待时间走正再补）");
+        }
+
+        // 时基恢复不动「订单溢出软上限」的体力（体力本就 > 软上限则保持）。
+        [Test]
+        public void TimeRegen_AboveSoftLimit_LeftUntouched()
+        {
+            int interval = (int)MergeOrderConfig.RegenIntervalSec;
+            const long t0 = 1_700_000_000L;
+            var m = new MergeOrderState();
+            m.Reset();
+            m.Energy = MergeOrderConfig.EnergyCap + 8; // 订单奖励溢出
+            m.LastEnergyRegenTime = t0;
+
+            m.ApplyTimeRegen(t0 + interval * 5L);
+            Assert.AreEqual(MergeOrderConfig.EnergyCap + 8, m.Energy, "体力 > 软上限：时基恢复不动溢出部分");
+        }
+
+        // ═══════════════ 无尽模型 · 消除道具 gate（设计 49 §3.1 / B4/B5/B7）═══════════════
+
+        // B7：cost ≤ EnergyCap 配置层不变量（25 ≤ 30）。
+        [Test]
+        public void ClearTool_CostNotExceedEnergyCap()
+        {
+            Assert.LessOrEqual(MergeOrderConfig.ClearToolCost, MergeOrderConfig.EnergyCap,
+                "硬约束:消除道具 cost ≤ 体力软上限,否则封顶后仍用不起 → 脱困死结");
+        }
+
+        // B4：体力 ≥ cost 可用、< 置灰；用一次扣 cost。
+        [Test]
+        public void ClearTool_GateByEnergy_SpendCost()
         {
             var m = new MergeOrderState();
             m.Reset();
-            m.CompletedOrders = MergeOrderConfig.DemoGoalOrders - 1;
-            Assert.IsFalse(m.IsDemoComplete());
-            m.CompletedOrders = MergeOrderConfig.DemoGoalOrders;
-            Assert.IsTrue(m.IsDemoComplete());
+
+            m.Energy = MergeOrderConfig.ClearToolCost;
+            Assert.IsTrue(m.CanUseClearTool, "体力 = cost 可用");
+            Assert.IsTrue(m.SpendClearToolCost(), "扣 cost 成功");
+            Assert.AreEqual(0, m.Energy, "扣 cost 后体力归零（cost==Energy）");
+
+            m.Energy = MergeOrderConfig.ClearToolCost - 1;
+            Assert.IsFalse(m.CanUseClearTool, "体力 < cost 不可用（置灰）");
+            Assert.IsFalse(m.SpendClearToolCost(), "体力不足扣 cost 失败、不扣");
+            Assert.AreEqual(MergeOrderConfig.ClearToolCost - 1, m.Energy, "失败不改体力");
+        }
+
+        // B5：无限可用——只 gate 体力，不消耗任何持有计数、不限次数（连续多次只要体力够）。
+        [Test]
+        public void ClearTool_UnlimitedUse_OnlyGatedByEnergy()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            m.Energy = MergeOrderConfig.ClearToolCost * 3; // 够用 3 次
+
+            int uses = 0;
+            while (m.CanUseClearTool && m.SpendClearToolCost()) uses++;
+            Assert.AreEqual(3, uses, "只 gate 体力:体力够几次就能用几次,无持有计数 / 次数上限");
+            Assert.AreEqual(0, m.Energy, "三次扣完体力归零");
+        }
+
+        // ═══════════════ 无尽模型 · 消除道具清一行一列（设计 49 §3.1/§四 / B6/B13）═══════════════
+
+        // B6：在构造的卡死棋盘上用一次 → 清一行一列后必有合法落点（朝可落前进）。
+        [Test]
+        public void ClearTool_RowCol_OpensLandingSpot()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            // 构造满盘（8×8 全占）= 极端卡死：任何方块都放不下。
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                    s.SaveArr[r][c] = 0;
+            board.ConvertFromArr(s.SaveArr);
+            Assert.IsFalse(board.CanPut(1), "满盘:1×1 都放不下（卡死）");
+
+            int cleared = s.ClearToolRowCol(board, 3, 4); // 清第 3 行 + 第 4 列
+            Assert.AreEqual(8 + 8 - 1, cleared, "清一行(8)+一列(8)-交叉格(1)=15 格");
+            Assert.IsTrue(board.CanPut(1), "清后必有合法落点（朝可落前进）");
+        }
+
+        // B13：清一行一列不清空全盘 → 不触发全清判定（全清奖不被白嫖）。
+        [Test]
+        public void ClearTool_RowCol_DoesNotClearWholeBoard()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                    s.SaveArr[r][c] = 0;
+            board.ConvertFromArr(s.SaveArr);
+
+            s.ClearToolRowCol(board, 3, 4);
+            Assert.IsFalse(board.IsEmpty(), "清一行一列后棋盘非空 → 不触发全清判定（B13 不白嫖全清奖）");
+        }
+
+        // 清一行一列同步清元素 overlay（merge-order 模式）+ BinaryBoard 对齐 SaveArr。
+        [Test]
+        public void ClearTool_RowCol_SyncsElementAndBinary()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+
+            s.SaveArr[2][5] = 0;
+            s.ElementArr[2][5] = MergeElement.Diamond;
+            s.SaveArr[6][5] = 0; // 同列另一格
+            board.ConvertFromArr(s.SaveArr);
+
+            int cleared = s.ClearToolRowCol(board, 2, 5);
+            Assert.AreEqual(2, cleared, "清掉 (2,5) 与同列 (6,5) 共 2 占格");
+            Assert.AreEqual(-1, s.SaveArr[2][5], "SaveArr 清空");
+            Assert.AreEqual(MergeElement.None, s.ElementArr[2][5], "ElementArr overlay 同步清空");
+            Assert.IsTrue(board.EmptyAt(5, 2), "BinaryBoard 同步对齐 SaveArr");
+        }
+
+        // 越界格不动状态、返回 0。
+        [Test]
+        public void ClearTool_RowCol_OutOfBounds_NoOp()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            s.SaveArr[0][0] = 0;
+            board.ConvertFromArr(s.SaveArr);
+
+            Assert.AreEqual(0, s.ClearToolRowCol(board, -1, 0), "越界行返回 0");
+            Assert.AreEqual(0, s.ClearToolRowCol(board, 0, 8), "越界列返回 0");
+            Assert.AreEqual(0, s.SaveArr[0][0], "越界不动棋盘");
+        }
+
+        // ═══════════════ 无尽模型 · 体力进盘 + 离线补算往返（设计 14 §3.7 / B-持久化）═══════════════
+
+        // 真实无尽档（lastEnergyRegenTime>0）：体力随档续存 + 离线补算（导入时按 now 补）。
+        [Test]
+        public void EnergyPersist_RealSave_RestoresAndAppliesOfflineRegen()
+        {
+            int interval = (int)MergeOrderConfig.RegenIntervalSec;
+            const string today = "2026-06-22";
+            const long t0 = 1_700_000_000L;
+
+            var src = new MergeOrderState();
+            src.Reset();
+            src.Energy = 5;
+            src.LastEnergyRegenTime = t0;     // 真实档:已有记录
+            var dto = src.ExportMeta(today);
+            Assert.AreEqual(5, dto.energy, "体力进盘");
+            Assert.AreEqual(t0, dto.lastEnergyRegenTime, "记录时刻进盘");
+
+            // 往返 → 导入到新 state（ImportMeta 信真实档体力）。
+            string json = MergeMetaPersistence.Serialize(dto);
+            var back = MergeMetaPersistence.Deserialize(json);
+            var dst = new MergeOrderState();
+            dst.Reset();
+            dst.ImportMeta(back, today);
+            Assert.AreEqual(5, dst.Energy, "真实档:体力续存（lastEnergyRegenTime>0 信存档值）");
+            Assert.AreEqual(t0, dst.LastEnergyRegenTime, "记录时刻续存");
+
+            // 进窗补算离线（now = T0 + 4 tick）：体力 5 → 9。
+            dst.ApplyTimeRegen(t0 + interval * 4L);
+            Assert.AreEqual(5 + 4 * MergeOrderConfig.RegenPerTick, dst.Energy, "导入后按 now 补离线恢复");
+        }
+
+        // 无记录档（lastEnergyRegenTime==0，旧档 / 缺字段）：体力夹回起始值（不信缺省 0）。
+        [Test]
+        public void EnergyPersist_NoRecord_ClampsToStartEnergy()
+        {
+            const string today = "2026-06-22";
+            // 直接构造缺字段 DTO（energy=0, lastEnergyRegenTime=0）。
+            var dto = new MergeMetaSave { version = 1, goddessLevel = 1 };
+            var dst = new MergeOrderState();
+            dst.Reset();
+            dst.ImportMeta(dto, today);
+            Assert.AreEqual(MergeOrderConfig.EnergyStart, dst.Energy, "无记录档:体力夹回起始值（不信缺省 0）");
+            Assert.AreEqual(0, dst.LastEnergyRegenTime, "无记录档:记录时刻保持 0,进窗 ApplyTimeRegen 再初始化");
+        }
+
+        // 篡改负体力夹回 0（真实档）。
+        [Test]
+        public void EnergyPersist_NegativeTampered_ClampsToZero()
+        {
+            const string today = "2026-06-22";
+            var dto = new MergeMetaSave { version = 1, goddessLevel = 1, energy = -50, lastEnergyRegenTime = 1_700_000_000L };
+            var dst = new MergeOrderState();
+            dst.Reset();
+            dst.ImportMeta(dto, today);
+            Assert.AreEqual(0, dst.Energy, "篡改负体力夹回 0");
+        }
+
+        // 悔棋回滚体力 + 记录时刻（消除道具/落子打的快照都含这两字段）。
+        [Test]
+        public void Undo_RestoresEnergyAndRegenTime()
+        {
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            s.ResetForMergeOrder(board);
+            var m = s.MergeState;
+
+            m.Energy = 28;
+            m.LastEnergyRegenTime = 1_700_000_000L;
+            m.CaptureSnapshot(s, board);
+
+            // 模拟用消除道具后的变化。
+            m.SpendClearToolCost();          // 28 → 3
+            m.LastEnergyRegenTime = 1_700_009_999L;
+            Assert.AreEqual(3, m.Energy);
+
+            Assert.IsTrue(m.Undo(s, board));
+            Assert.AreEqual(28, m.Energy, "悔棋回滚体力");
+            Assert.AreEqual(1_700_000_000L, m.LastEnergyRegenTime, "悔棋回滚时基恢复记录时刻");
         }
 
     }

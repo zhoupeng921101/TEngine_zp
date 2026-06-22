@@ -71,6 +71,13 @@ namespace GameLogic.BlockBlast
         public int Energy;
 
         /// <summary>
+        /// 上次时基恢复结算时刻（Unix 秒，本地时钟）。时基恢复（含离线）按「此刻 → now」真实秒差补算（设计 49 §3.2）。
+        /// 跨会话随元层一同落盘（设计 14 §3.7）；入悔棋快照随体力一并回滚。0 = 尚无记录（首次 / 旧档），
+        /// 首次结算以 now 初始化、本次不补（设计 49 §3.2 崩法三）。
+        /// </summary>
+        public long LastEnergyRegenTime;
+
+        /// <summary>
         /// 合成区库存：键 (类型, 等级) → 数量。自动配对使每 (类型,等级) 数量恒 ≤1（满 2 即合），
         /// 故天然紧凑、无需硬上限。计数为 0 的键即时移除。
         /// </summary>
@@ -183,6 +190,7 @@ namespace GameLogic.BlockBlast
         public void Reset()
         {
             Energy = MergeOrderConfig.EnergyStart;
+            LastEnergyRegenTime = 0; // 尚无记录：首次 ApplyTimeRegen(now) 以 now 初始化、本次不补（设计 49 §3.2）
             Inventory.Clear();
             OrderCursor = 0;
             CompletedOrders = 0;
@@ -230,6 +238,65 @@ namespace GameLogic.BlockBlast
         {
             if (lines <= 0) return;
             Energy = Math.Min(MergeOrderConfig.EnergyCap, Energy + lines);
+        }
+
+        // ── 时基恢复（含离线，设计 49 §3.2 / 设计 14 §3.7）──────────────
+        // 无条件、纯时间驱动：按「LastEnergyRegenTime → now」真实秒差补算应恢复点数，封顶软上限不溢出。
+        // 纯方法、注入 now（Unix 秒）供单测，不依赖真实时钟。不接落子/消除/交付触发——卡死时也能恢复（脱困保险）。
+
+        /// <summary>
+        /// 按真实时差补算时基恢复（设计 49 §3.2）。<paramref name="nowUnixSec"/> = 当前 Unix 秒（生产传真实时刻，单测注入）。
+        /// 行为：① 首次无记录（<see cref="LastEnergyRegenTime"/>==0）→ 以 now 初始化、本次不补（不凭空给）；
+        /// ② 负时差（now &lt; 上次记录，玩家回调时钟）→ 不倒扣、不抛、不更新记录时刻（待时间走正再补）；
+        /// ③ 应恢复点数 = floor(Δ / RegenIntervalSec) × RegenPerTick，加到体力后夹到软上限（不溢出；
+        ///    体力本就 &gt; 软上限（订单奖励溢出）则不动）；④ 仅把「已整除掉的秒数」推进记录时刻，
+        ///    不满一个 tick 的余秒留到下次累计（避免短间隔反复进入吞掉零头永不恢复）。
+        /// </summary>
+        public void ApplyTimeRegen(long nowUnixSec)
+        {
+            if (LastEnergyRegenTime == 0)
+            {
+                LastEnergyRegenTime = nowUnixSec; // 首次：初始化记录时刻，本次不补（设计 49 §3.2 崩法三）
+                return;
+            }
+
+            long deltaSec = nowUnixSec - LastEnergyRegenTime;
+            if (deltaSec <= 0) return; // 负时差 / 同刻：不倒扣、不抛、不更新记录（设计 49 §3.2 崩法二）
+
+            int interval = (int)MergeOrderConfig.RegenIntervalSec;
+            if (interval <= 0) return; // 防御：间隔非法不恢复（配置错不崩）
+
+            long ticks = deltaSec / interval;
+            if (ticks <= 0) return; // 不满一个 tick：记录时刻不动，余秒留到下次累计
+
+            // 仅在低于软上限时补，封顶软上限不溢出；体力本就 > 软上限（订单溢出）则保持不动。
+            if (Energy < MergeOrderConfig.EnergyCap)
+            {
+                long restored = ticks * MergeOrderConfig.RegenPerTick;
+                long newEnergy = Energy + restored;
+                Energy = newEnergy > MergeOrderConfig.EnergyCap ? MergeOrderConfig.EnergyCap : (int)newEnergy;
+            }
+
+            // 只推进「已整除掉的秒数」，余秒（deltaSec % interval）留到下次，不被吞掉。
+            LastEnergyRegenTime += ticks * interval;
+        }
+
+        // ── 消除道具（脱困兜底，设计 49 §3.1）─────────────────────────
+        // 主动清「一行一列」让卡死棋盘重新可落；只 gate 体力、无限可用（不持有计数、不限次数）。
+        // 棋盘清除走 BlockGameState（持 SaveArr/ElementArr/BinaryBoard）；本类只管体力 gate + 扣 cost。
+
+        /// <summary>体力是否够用一次消除道具（设计 49 §3.1：≥ ClearToolCost 可用，&lt; 置灰）。</summary>
+        public bool CanUseClearTool => Energy >= MergeOrderConfig.ClearToolCost;
+
+        /// <summary>
+        /// 扣除一次消除道具代价体力（调用方已确认 <see cref="CanUseClearTool"/>）。返回 false = 体力不足、未扣。
+        /// 体力恒 ≥ 0（cost ≤ EnergyCap 不变量保证不会扣成负，且仅在 CanUseClearTool 时扣）。
+        /// </summary>
+        public bool SpendClearToolCost()
+        {
+            if (!CanUseClearTool) return false;
+            Energy -= MergeOrderConfig.ClearToolCost;
+            return true;
         }
 
         // ── 合成区（自动配对升级）─────────────────────────────
@@ -583,6 +650,8 @@ namespace GameLogic.BlockBlast
                 goddessLevel = GoddessLevel,
                 wishUsedToday = WishUsedToday,
                 lastWishResetDate = today ?? MergeMetaPersistence.Today(),
+                energy = Energy,                            // 体力进盘（设计 14 §3.7）
+                lastEnergyRegenTime = LastEnergyRegenTime,  // 上次时基恢复结算时刻（离线补算依据，设计 49 §3.2）
             };
             Skin.Export(dto); // 皮肤态随元层一同落盘（设计 50 §六）
             return dto;
@@ -630,6 +699,21 @@ namespace GameLogic.BlockBlast
             // 祈愿:DTO 已经 ApplyDailyReset 夹过(跨天则 0),直接用。
             WishUsedToday = dto.wishUsedToday;
 
+            // 体力 + 时基恢复记录时刻(设计 14 §3.7 / 设计 49 §3.2)：
+            // lastEnergyRegenTime==0 = 尚无记录(旧档无此字段 → 缺省 0 / 首次)：此时 energy 也是缺省 0,不可信,
+            //   夹回起始体力 + 记录时刻保持 0(进窗后 ApplyTimeRegen(now) 以 now 初始化、本次不补)。
+            // lastEnergyRegenTime>0 = 真实无尽档：信其 energy(夹 ≥0 防篡改负值),不强塞起始体力(否则离线归零的合法档被刷满)。
+            if (dto.lastEnergyRegenTime <= 0)
+            {
+                Energy = MergeOrderConfig.EnergyStart;
+                LastEnergyRegenTime = 0;
+            }
+            else
+            {
+                Energy = dto.energy < 0 ? 0 : dto.energy;
+                LastEnergyRegenTime = dto.lastEnergyRegenTime;
+            }
+
             // 皮肤态(设计 50 §六):逐字段保底 + 加载校验(缺字段 → 彩色态;单色态非法标识 → 重随机)。
             // 候选池传真实存在标识集 BlockSkinCatalog.MonoIds(设计 50 §四硬约束:非连续区间)。
             Skin.Import(dto, BlockSkinCatalog.MonoIds);
@@ -642,11 +726,6 @@ namespace GameLogic.BlockBlast
                 return new bool[TempleConfig.HallCount];
             return (bool[])src.Clone();
         }
-
-        // ── demo 终点 ──────────────────────────────────────────
-
-        /// <summary>完成单数达标即通关。</summary>
-        public bool IsDemoComplete() => CompletedOrders >= MergeOrderConfig.DemoGoalOrders;
 
         // ── 悔棋（全量单步快照回滚）────────────────────────────
 
@@ -685,6 +764,7 @@ namespace GameLogic.BlockBlast
             private PendingPiece[] _opera;
             private int _combo;
             private int _energy;
+            private long _lastEnergyRegenTime;
             private Dictionary<(MergeElement, int), int> _inventory;
             private Order[] _orders;
             private int _orderCursor;
@@ -723,6 +803,7 @@ namespace GameLogic.BlockBlast
                     _opera = (PendingPiece[])s.OperaArr.Clone(), // piece 对象落子时不被改写，浅拷贝引用即可退回槽位
                     _combo = s.Combo,
                     _energy = m.Energy,
+                    _lastEnergyRegenTime = m.LastEnergyRegenTime,
                     _inventory = new Dictionary<(MergeElement, int), int>(m.Inventory),
                     _orders = (Order[])m.ActiveOrders.Clone(),
                     _orderCursor = m.OrderCursor,
@@ -760,6 +841,7 @@ namespace GameLogic.BlockBlast
                 s.Combo = _combo;
 
                 m.Energy = _energy;
+                m.LastEnergyRegenTime = _lastEnergyRegenTime;
                 m.Inventory.Clear();
                 foreach (var kv in _inventory) m.Inventory[kv.Key] = kv.Value;
                 m.ActiveOrders = (Order[])_orders.Clone();

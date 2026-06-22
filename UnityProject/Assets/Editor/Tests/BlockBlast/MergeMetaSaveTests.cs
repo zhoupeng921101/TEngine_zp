@@ -380,8 +380,10 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(src.Piety, m.Piety, "进入 merge-order:元层 Piety 来自存档");
             Assert.AreEqual(src.GoddessLevel, m.GoddessLevel, "女神等级来自存档");
             Assert.AreEqual(src.NextRepairIndex, m.NextRepairIndex, "修复进度来自存档");
-            // 局内瞬态仍每局重建:体力回起始值、合成区空、订单已发。
-            Assert.AreEqual(MergeOrderConfig.EnergyStart, m.Energy, "体力仍每局重置(局内瞬态不存,O3)");
+            // 无尽模型(设计 14 §3.7):体力进盘。此存档(NonDefaultState)lastEnergyRegenTime=0(未显式设),
+            // ImportMeta 判为「尚无记录」→ 体力夹回起始值(不信缺省 0)。真实无尽档(lastEnergyRegenTime>0)
+            // 的体力续存 + 离线补算另由 A17/A18 专测。
+            Assert.AreEqual(MergeOrderConfig.EnergyStart, m.Energy, "无记录档(lastEnergyRegenTime=0):体力夹回起始值");
             s.Release();
         }
 
@@ -404,19 +406,18 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(42, m2.Piety, "纯同步往返成立(不依赖 UniTask 运行)");
         }
 
-        // 完成单数 / 本局得分是单局瞬态,不进盘:上一局达标态经 ExportMeta/ImportMeta 不得污染下一局,
-        // 否则放下第一块即满足 IsDemoComplete → 秒结算(设计 14 O2 降级、设计 29 L139)。
+        // 完成单数 / 本局得分本刀(无尽增量①)仍不进盘:上一会话的 CompletedOrders/TotalScore 经 ExportMeta/ImportMeta
+        // 不得带到下一会话(整盘续存属增量②,本刀不碰;无尽模型删通关,故不再有「秒结算」风险,但分层不变)。
         [Test]
         public void CompletedOrdersAndTotalScore_DoNotCarryAcrossSessions()
         {
-            // 第一局达标态:完成单数达到通关阈值、本局得分非 0。
+            // 上一会话:完成单数 / 本局得分非 0。
             var prev = FreshState();
-            prev.CompletedOrders = MergeOrderConfig.DemoGoalOrders;   // 已通关
+            prev.CompletedOrders = 5;
             prev.TotalScore = 12345;
             prev.Piety = 99;                                          // 真元层字段,须随档保留作对照
-            Assert.IsTrue(prev.IsDemoComplete(), "前置:第一局达标态本身判通关");
 
-            // 导出 → 序列化往返 → 第二局 Reset 后 ImportMeta(模拟 ResetForMergeOrder 链)。
+            // 导出 → 序列化往返 → 下一会话 Reset 后 ImportMeta(模拟 ResetForMergeOrder 链)。
             var dto = prev.ExportMeta(Today);
             string json = MergeMetaPersistence.Serialize(dto);
             var back = MergeMetaPersistence.Deserialize(json);
@@ -424,9 +425,8 @@ namespace GameLogic.BlockBlast.Tests
             var next = FreshState();          // Reset 已置 CompletedOrders=0/TotalScore=0
             next.ImportMeta(back, Today);
 
-            Assert.AreEqual(0, next.CompletedOrders, "完成单数不随会话累计,新局须为 0");
-            Assert.AreEqual(0, next.TotalScore, "本局得分不随会话累计,新局须为 0");
-            Assert.IsFalse(next.IsDemoComplete(), "新局开局不判通关(放第一块不应秒结算)");
+            Assert.AreEqual(0, next.CompletedOrders, "完成单数本刀不进盘,新会话须为 0");
+            Assert.AreEqual(0, next.TotalScore, "本局得分本刀不进盘,新会话须为 0");
             Assert.AreEqual(99, next.Piety, "真元层字段仍随档保留(虔诚币)");
         }
 

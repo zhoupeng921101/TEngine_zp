@@ -87,6 +87,12 @@ namespace GameLogic.BlockBlast
         /// <summary>当前本地日期字符串（生产用；测试用构造日期绕开真实时钟，见 §3.6）。</summary>
         public static string Today() => DateTime.Now.ToString(DateFormat);
 
+        /// <summary>
+        /// 当前 Unix 秒（本地时钟，生产用；时基离线恢复的 now 源，设计 49 §3.2 / 设计 14 §3.7）。
+        /// 测试用注入构造时刻绕开真实时钟（<c>ApplyTimeRegen</c> 接 now 参数）。
+        /// </summary>
+        public static long NowUnixSec() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
         // ── 异步 IO 外壳（生产侧落盘，满足红线）────────────────────
 
         /// <summary>

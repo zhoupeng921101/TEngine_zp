@@ -3,17 +3,20 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
-using GameLogic.Activity;            // GameContext.Activity.IncrementAndLogAsync(GameOver / Win hook,设计 48 §3.5)
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
     
 namespace GameLogic.BlockBlastUI
 {
     /// <summary>
-    /// 玩法融合主玩法窗口（设计 29）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
+    /// 玩法融合主玩法窗口（设计 29 + 无尽模型 设计 49）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
     /// 棋盘/拖拽/ghost/落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 双订单卡（手动交付）/
-    /// 合成区面板 / 悔棋按钮。全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭）。
+    /// 合成区面板 / 悔棋按钮 / 消除道具按钮。全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭）。
     /// 融合后这是唯一主玩法入口（经典纯无尽 GameWindow 入口下线，代码保留不删，设计 29 §4.2）。
+    ///
+    /// 无尽模型（设计 49）：无「局」、订单无限、无任何 GameOver（卡死与体力归零都不结束、不弹面板，窗口保持可交互）。
+    /// 两条兜底保证「真·无尽」：体力时基恢复（含离线，进盘后由 <see cref="BlockGameState.ResetForMergeOrder"/> 补算）+
+    /// 消除道具（主动清一行一列、代价体力、无限可用只 gate 体力）。
     /// </summary>
     [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
     public sealed class MergeOrderWindow : UIWindow
@@ -59,8 +62,19 @@ namespace GameLogic.BlockBlastUI
         // 长期主线（设计 13 §五）：顶部虔诚币计数 ✦ ×N + 「神庙」按钮（开 TempleWindow 叠层）。
         private Text _pietyText;
 
+        // 消除道具（设计 49 §3.1）：无尽脱困兜底。点按钮进「指定格」模式，再点棋盘任一格清该格所在一行一列。
+        // 体力 ≥ ClearToolCost 可用、< 置灰；无限可用、只 gate 体力（无持有计数、不限次数）。
+        private Button _clearToolBtn;
+        private Image _clearToolBtnBg;
+        private Text _clearToolBtnLabel;
+        private Image _clearToolHintBg;
+        private Text _clearToolHintText;
+        /// <summary>铺满棋盘区域的透明 overlay，仅 arming 时启用，捕获棋盘格点击（指定格）。</summary>
+        private Image _clearToolOverlay;
+        /// <summary>消除道具「等待玩家指定棋盘格」模式（点过按钮、未点格前为 true）。</summary>
+        private bool _clearToolArming;
+
         private int _draggingShapeId = -1;
-        private bool _finished;   // 通关或 GameOver 后锁输入
 
         protected override void OnCreate()
         {
@@ -84,7 +98,7 @@ namespace GameLogic.BlockBlastUI
             // 元层进度（灵力/虔诚币/女神/神庙/盲盒/HighScore 等）经存档加载覆盖，与局内瞬态分层不重叠。
             _state.ResetForMergeOrder(_board);
             _merge = _state.MergeState;
-            _finished = false;
+            _clearToolArming = false;
 
             BuildStaticUI();
             InitGhostPool();
@@ -96,6 +110,7 @@ namespace GameLogic.BlockBlastUI
             RefreshUndo();
             RefreshBlindBox();
             RefreshPiety();
+            RefreshClearTool();
 
             // 跨会话存档兜底（设计 14 §3.4 ③）：移动端切后台/杀进程不经 OnDestroy,会丢末次元变更。
             // UIWindow 非 MonoBehaviour,Unity 的 OnApplicationPause/Quit 魔法方法不会在本类触发;
@@ -190,6 +205,30 @@ namespace GameLogic.BlockBlastUI
                 new Color32(0x55, 0x55, 0x88, 0xFF), Color.white, out _undoBtnBg, out _undoBtnLabel);
             _undoBtn.onClick.AddListener(OnUndoClicked);
 
+            // 消除道具按钮（设计 49 §3.1）：脱困兜底。点后进「指定格」模式 → 点棋盘任一格清该格所在一行一列，代价体力。
+            // 体力 ≥ ClearToolCost 可用、< 置灰；放在第三信息行左侧（board 上方留白处，y=245）。
+            _clearToolBtn = UGuiFactory.CreateButton(_content, "ClearTool", 150, 245, 240, 60,
+                $"消除道具 ⚡{MergeOrderConfig.ClearToolCost}", 26,
+                new Color32(0xc0, 0x6a, 0x3a, 0xFF), Color.white, out _clearToolBtnBg, out _clearToolBtnLabel);
+            _clearToolBtn.onClick.AddListener(OnClearToolClicked);
+
+            // 消除道具提示条（指定格模式时显示「点棋盘任一格，清整行整列」/ 体力不足时显示「等体力恢复」）。
+            _clearToolHintBg = UGuiFactory.CreateImage(_content, "ClearHintBg", BlockLayout.DesignWidth / 2f, 245, 360, 52,
+                new Color(0, 0, 0, 0.30f));
+            _clearToolHintText = UGuiFactory.CreateText(_content, "ClearHint", BlockLayout.DesignWidth / 2f, 245, 360, 52,
+                "", 26, new Color32(0xff, 0xcf, 0x5c, 0xFF));
+            _clearToolHintBg.gameObject.SetActive(false);
+            _clearToolHintText.gameObject.SetActive(false);
+
+            // 指定格 overlay：铺满设计全屏(中心锚点、与 AnchoredToDesign 同基)，几乎全透明、raycastTarget=on，
+            // 仅 arming 时启用拦截棋盘点击。SetAsLastSibling 置顶 → arming 时盖住棋盘/槽，点哪都进 OnBoardTap。
+            _clearToolOverlay = UGuiFactory.CreateImage(_content, "ClearOverlay",
+                BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
+                BlockLayout.DesignWidth, BlockLayout.DesignHeight, new Color(0, 0, 0, 0.001f));
+            var tapper = _clearToolOverlay.gameObject.AddComponent<BlockBoardTapper>();
+            tapper.OnTapCell = OnBoardTapForClearTool;
+            _clearToolOverlay.gameObject.SetActive(false);
+
             // 退出按钮（右上）
             var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 55, 55, 70, 60, "×", 44,
                 new Color(0, 0, 0, 0), Color.white, out _, out _);
@@ -214,13 +253,14 @@ namespace GameLogic.BlockBlastUI
         }
 
         // ── 体力条 / 完成单数 ──
+        // 无尽模型（设计 49）：完成单数无终点、不再「/目标」，作累计计数展示（订单持续刷新，无通关）。
         private void RefreshEnergy()
         {
             _energyText.text = $"⚡ {_merge.Energy}/{MergeOrderConfig.EnergyCap}";
             _energyText.color = _merge.CanAffordPlace
                 ? new Color32(0x66, 0xff, 0xaa, 0xFF)
                 : new Color32(0xff, 0x66, 0x66, 0xFF);
-            _goalText.text = $"单 {_merge.CompletedOrders}/{MergeOrderConfig.DemoGoalOrders}";
+            _goalText.text = $"完成 {_merge.CompletedOrders} 单";
         }
 
         // ── 双订单卡（每次刷新重建，含交付按钮点亮/置灰） ──
@@ -259,7 +299,7 @@ namespace GameLogic.BlockBlastUI
                     "交付", 28,
                     can ? new Color32(0x33, 0xaa, 0x55, 0xFF) : new Color32(0x44, 0x44, 0x4c, 0xFF),
                     can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF), out _, out _);
-                deliver.interactable = can && !_finished;
+                deliver.interactable = can;
                 deliver.onClick.AddListener(() => OnDeliverClicked(captured));
             }
         }
@@ -308,7 +348,7 @@ namespace GameLogic.BlockBlastUI
         // ── 悔棋按钮态 ──
         private void RefreshUndo()
         {
-            bool can = _merge.CanUndo && !_finished;
+            bool can = _merge.CanUndo;
             _undoBtn.interactable = can;
             _undoBtnLabel.text = $"悔棋 {_merge.UndoCharges}";
             _undoBtnBg.color = can ? new Color32(0x55, 0x55, 0x88, 0xFF) : new Color32(0x3a, 0x3a, 0x44, 0xFF);
@@ -316,7 +356,7 @@ namespace GameLogic.BlockBlastUI
 
         private void OnUndoClicked()
         {
-            if (_finished) return;
+            CancelClearToolArming(); // 悔棋打断指定格模式
             if (!_merge.Undo(_state, _board)) return;
             ClearGhost();
             RenderBoard();
@@ -327,6 +367,7 @@ namespace GameLogic.BlockBlastUI
             RefreshUndo();
             RefreshBlindBox();
             RefreshPiety(); // 悔棋回滚虔诚币（设计 13 §六 T11）
+            RefreshClearTool(); // 悔棋回滚体力，gate 态须刷新
         }
 
         // ── 盲盒计数 + 开盒按钮态（设计 12 §五） ──
@@ -334,7 +375,7 @@ namespace GameLogic.BlockBlastUI
         {
             // 用 ◈（BMP，LegacyRuntime 字体可渲染）代 🔮（设计 §五写 🔮 或 ◈，盲盒补充平面 emoji 在该字体下渲不出）
             _blindBoxText.text = $"◈ ×{_merge.BlindBoxCount}";
-            bool can = _merge.CanOpenBlindBox && !_finished;
+            bool can = _merge.CanOpenBlindBox;
             _openBoxBtn.interactable = can;
             _openBoxBtnBg.color = can ? new Color32(0x7a, 0x4a, 0xb8, 0xFF) : new Color32(0x3a, 0x33, 0x44, 0xFF);
             _openBoxBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
@@ -349,14 +390,13 @@ namespace GameLogic.BlockBlastUI
         // ── 「神庙」按钮：叠层打开 TempleWindow（不关本窗、不丢局），关闭后刷新虔诚币 ──
         private void OnTempleClicked()
         {
-            if (_finished) return;
+            CancelClearToolArming(); // 开神庙叠层打断指定格模式
             GameModule.UI.ShowUIAsync<TempleWindow>((System.Action)RefreshPiety);
         }
 
         // ── 开盒（设计 12 §五）：扣 1 → 掷奖 → 发放 → 内联弹字 + 刷新计数/合成区/体力 ──
         private void OnOpenBoxClicked()
         {
-            if (_finished) return;
             if (!_merge.OpenBlindBox(out var reward)) return;
 
             BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 530, OpenResultLabel(reward), 48,
@@ -365,8 +405,104 @@ namespace GameLogic.BlockBlastUI
             RefreshSynthesis(); // 图案进了合成区
             RefreshEnergy();    // 可能加了体力
             RefreshBlindBox();  // 计数与按钮态
+            RefreshClearTool(); // 体力可能变化，gate 态须刷新
 
             MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：开盒改盲盒计数/灵力/体力元层 → 标脏 + 落盘
+        }
+
+        // ── 消除道具（设计 49 §3.1）：脱困兜底，主动清一行一列、代价体力、无限可用只 gate 体力 ──
+
+        /// <summary>消除道具按钮态：体力 ≥ ClearToolCost 可用、&lt; 置灰；arming 时高亮。</summary>
+        private void RefreshClearTool()
+        {
+            if (_clearToolBtn == null) return;
+            bool can = _merge.CanUseClearTool;
+            _clearToolBtn.interactable = can;
+            _clearToolBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
+            // arming 高亮(亮橙) / 可用(橙) / 置灰(暗)。
+            _clearToolBtnBg.color = _clearToolArming
+                ? new Color32(0xff, 0x99, 0x33, 0xFF)
+                : (can ? new Color32(0xc0, 0x6a, 0x3a, 0xFF) : new Color32(0x44, 0x3a, 0x33, 0xFF));
+        }
+
+        /// <summary>
+        /// 点消除道具按钮：体力够则进「指定格」模式（亮按钮 + 提示 + 启用 overlay 等玩家点棋盘格）；
+        /// 体力不足则提示「等体力恢复」不进 arming（设计 49 §3.1 置灰 gate）。再点一次按钮取消 arming（开关式）。
+        /// </summary>
+        private void OnClearToolClicked()
+        {
+            if (_clearToolArming) { CancelClearToolArming(); return; } // 开关：再点取消
+            if (!_merge.CanUseClearTool)
+            {
+                // 体力不足：提示等恢复，不进 arming（按钮本已置灰，双保险）。
+                ShowClearToolHint("体力不足，等恢复");
+                return;
+            }
+            _clearToolArming = true;
+            if (_clearToolOverlay != null)
+            {
+                _clearToolOverlay.gameObject.SetActive(true);
+                _clearToolOverlay.transform.SetAsLastSibling(); // 置顶拦截棋盘/槽点击
+            }
+            ShowClearToolHint("点棋盘任一格，清整行整列");
+            RefreshClearTool();
+        }
+
+        /// <summary>玩家在 arming 模式下点棋盘格 (col,row)：清该格所在一行一列、扣体力、刷新；越界则取消 arming。</summary>
+        private void OnBoardTapForClearTool(int col, int row)
+        {
+            if (!_clearToolArming) return;
+            // 越界点击(点到棋盘外)：取消 arming，不扣体力(玩家可重新点按钮)。
+            if (col < 0 || col >= N || row < 0 || row >= N) { CancelClearToolArming(); return; }
+
+            // 二次 gate(防 arming 期间体力被其它路径耗低)：不够则取消、提示。
+            if (!_merge.CanUseClearTool) { CancelClearToolArming(); ShowClearToolHint("体力不足，等恢复"); return; }
+
+            // 落子前打快照：消除道具是可悔棋的玩法动作(与落子同体例,回滚体力 + 棋盘)。
+            _merge.CaptureSnapshot(_state, _board);
+
+            _merge.SpendClearToolCost();                  // 扣体力(已确认 CanUseClearTool)
+            _state.ClearToolRowCol(_board, row, col);     // 清一行一列(同步 SaveArr/ElementArr/BinaryBoard)
+            // 设计 49 §四 / §3.1：清一行一列不清空全盘、不触发全清判定——此处不调 ClearSettlement,
+            // 全清奖仍只由正常消除清空棋盘触发(B13 全清奖不被白嫖)。
+
+            CancelClearToolArming();                      // 退出 arming
+            ClearGhost();
+            RenderBoard();
+            RefreshEnergy();
+            RefreshUndo();                                // 打了快照，悔棋按钮态变
+            RefreshClearTool();                           // 体力变，gate 态刷新
+
+            MarkAndFlushSave();                           // 体力进盘(设计 14 §3.7)：用消除道具后标脏 + 落盘
+        }
+
+        /// <summary>退出指定格模式：清 arming 标志 + 隐 overlay/提示 + 刷新按钮态。可重复安全调用。</summary>
+        private void CancelClearToolArming()
+        {
+            if (!_clearToolArming && (_clearToolOverlay == null || !_clearToolOverlay.gameObject.activeSelf))
+            {
+                HideClearToolHint();
+                return;
+            }
+            _clearToolArming = false;
+            if (_clearToolOverlay != null) _clearToolOverlay.gameObject.SetActive(false);
+            HideClearToolHint();
+            RefreshClearTool();
+        }
+
+        private void ShowClearToolHint(string msg)
+        {
+            if (_clearToolHintBg == null) return;
+            _clearToolHintText.text = msg;
+            _clearToolHintBg.gameObject.SetActive(true);
+            _clearToolHintText.gameObject.SetActive(true);
+        }
+
+        private void HideClearToolHint()
+        {
+            if (_clearToolHintBg == null) return;
+            _clearToolHintBg.gameObject.SetActive(false);
+            _clearToolHintText.gameObject.SetActive(false);
         }
 
         /// <summary>开盒结果弹字文案（图案：「开出：◆ Lv3 ×1」；体力：「开出：⚡ +10」）。</summary>
@@ -380,7 +516,7 @@ namespace GameLogic.BlockBlastUI
 
         private void OnDeliverClicked(int slot)
         {
-            if (_finished) return;
+            CancelClearToolArming(); // 交付打断指定格模式
             if (!_merge.Deliver(slot)) return;
             RefreshEnergy();
             RefreshOrders();
@@ -388,10 +524,10 @@ namespace GameLogic.BlockBlastUI
             RefreshUndo(); // 交付清空悔棋栈，按钮须刷新
             RefreshBlindBox();
             RefreshPiety(); // 交付发虔诚币（设计 13 §3.1）
+            RefreshClearTool(); // 体力随交付变化，按钮 gate 态须刷新
 
-            MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：交付改元层 → 标脏 + 落盘
-
-            if (_merge.IsDemoComplete()) { TriggerWin(); return; }
+            MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：交付改元层(含体力) → 标脏 + 落盘
+            // 无尽模型（设计 49）：订单交付后照常刷新下一单（Deliver 内已 NextOrder），无通关终点、不触发任何结算面板。
         }
 
         /// <summary>
@@ -583,14 +719,13 @@ namespace GameLogic.BlockBlastUI
         // ── 拖拽回调（与 GameWindow 同构） ──
         private void OnPieceBegin(int slotIdx)
         {
-            if (_finished) { _draggingShapeId = -1; return; }
+            CancelClearToolArming(); // 拖拽落子打断指定格模式（玩家改主意去落子）
             var piece = _state.OperaArr[slotIdx];
             _draggingShapeId = piece?.ShapeId ?? -1;
         }
 
         private void OnPieceDrag(int slotIdx, Vector2 containerAnchored)
         {
-            if (_finished) return;
             UpdateGhost(containerAnchored);
         }
 
@@ -599,12 +734,6 @@ namespace GameLogic.BlockBlastUI
             ClearGhost();
             int shapeId = _draggingShapeId;
             _draggingShapeId = -1;
-
-            if (_finished)
-            {
-                _slotContainers[slotIdx]?.GetComponent<BlockPieceDragger>()?.ResetToOrigin();
-                return;
-            }
 
             var piece = _state.OperaArr[slotIdx];
             var shape = shapeId > 0 ? BlockShapeMap.Get(shapeId) : null;
@@ -625,7 +754,11 @@ namespace GameLogic.BlockBlastUI
             container?.GetComponent<BlockPieceDragger>()?.ResetToOrigin();
         }
 
-        /// <summary>落子 → 扣体力 → 消除返体力 + 元素入合成区（自动升级）→ 刷新 → 交付/通关/软死亡判定。</summary>
+        /// <summary>
+        /// 落子 → 扣体力 → 消除返体力 + 元素入合成区（自动升级）→ 结算（连消/多消/全清/女神/盲盒/皮肤）→ 刷新 → 落盘。
+        /// 无尽模型（设计 49）：无通关、无软/硬 GameOver——卡死与体力归零都不结束、不弹面板，窗口保持可交互
+        /// （卡死靠消除道具脱困、体力归零靠时基恢复 + 订单补，两条兜底见设计 49 §三）。
+        /// </summary>
         private void PlaceAndResolve(int slotIdx, BlockShape shape, int col, int row)
         {
             // 落子前打全量快照（供悔棋整体回滚）
@@ -699,15 +832,13 @@ namespace GameLogic.BlockBlastUI
             RefreshUndo();
             RefreshBlindBox();
             RefreshPiety(); // 女神升档可能改长期主线展示态(保险刷新)
+            RefreshClearTool(); // 落子扣体力 → gate 态须刷新
 
-            // 跨会话存档（设计 14 §3.4）：本手结算改了元层(女神升档 / 盲盒)且无后续交付/开盒/修复接力落盘时,
-            // 在此标脏 + 落盘,使该次女神/盲盒进度可靠落盘。TriggerWin/GameOver 退出前的 FlushSaveIfDirty 在此之后即为无操作。
-            if (metaChangedBySettle) MarkAndFlushSave();
+            // 跨会话存档（设计 14 §3.4）：落子必扣体力(体力已进盘,设计 14 §3.7),且本手可能改其它元层
+            // (女神升档 / 盲盒 / 皮肤),故每次落子结算后标脏 + 落盘,保证体力 + 元层进度可靠落盘。
+            MarkAndFlushSave();
 
-            // 通关判定（完成单数达标）
-            if (_merge.IsDemoComplete()) { TriggerWin(); return; }
-
-            // 补充
+            // 补充候选块（全空才补）
             bool allEmpty = true;
             for (int i = 0; i < 3; i++) if (_state.OperaArr[i] != null) { allEmpty = false; break; }
             if (allEmpty)
@@ -716,30 +847,10 @@ namespace GameLogic.BlockBlastUI
                 RenderSlots();
             }
 
-            // 手持块清单（两个失败条件共用）
-            var remaining = new List<int>();
-            for (int i = 0; i < 3; i++) if (_state.OperaArr[i] != null) remaining.Add(_state.OperaArr[i].ShapeId);
-
-            // 软死亡（#5）：体力付不起落子且仍有手持块，且当前无单可交付（交付能回体力则不算死）
-            if (remaining.Count > 0 && !_merge.CanAffordPlace && !AnyDeliverable())
-            {
-                TriggerGameOver("精力耗尽");
-                return;
-            }
-
-            // 硬死亡（#15）：手持块无处可放
-            if (remaining.Count > 0 && !_board.CanPutAnyOf(remaining.ToArray()))
-            {
-                TriggerGameOver("GAME OVER");
-            }
-        }
-
-        private bool AnyDeliverable()
-        {
-            var orders = _merge.ActiveOrders;
-            if (orders == null) return false;
-            for (int i = 0; i < orders.Length; i++) if (_merge.CanDeliver(i)) return true;
-            return false;
+            // 无尽模型（设计 49 §一/§二）：删通关 + 删软/硬 GameOver。
+            // 卡死（手持块无处可放）：不弹 GameOver，玩法窗保持可交互——玩家用消除道具清一行一列脱困（设计 49 §3.1）。
+            // 体力归零（付不起落子）：不弹「精力耗尽」，等时基恢复 / 订单补 / 用消除道具（设计 49 §3.2）。
+            // 两条兜底保证任何状态有限时间内可脱困（设计 49 §3.3），故此处不再有任何结束判定。
         }
 
         /// <summary>
@@ -752,40 +863,11 @@ namespace GameLogic.BlockBlastUI
             return needed.Count > 0 ? needed[0] : MergeElement.None;
         }
 
-        private void TriggerWin()
-        {
-            if (_finished) return;
-            _finished = true;
-            ClearGhost();
-            var lines = new List<string>
-            {
-                $"完成订单  {_merge.CompletedOrders} 单",
-                $"累计得分  {_merge.TotalScore}",
-            };
-            FlushSaveIfDirty(); // 通关前兜底落盘（设计 14 §3.4 ③）：须在 ExitMergeOrder 丢弃 MergeState 前
-            // 累计游戏 N 局活动 +1(设计 48 §3.5;通关也算「玩了一局」,与 GameOver 等价计数,
-            // 否则「玩得越好越没奖」反直觉;fire-and-forget 不阻塞 MergeOrderWinWindow 弹窗)。
-            GameLogic.GameContext.Instance.Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget();
-            _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<MergeOrderWindow>();
-            GameModule.UI.ShowUIAsync<MergeOrderWinWindow>(lines);
-        }
-
-        private void TriggerGameOver(string title)
-        {
-            if (_finished) return;
-            _finished = true;
-            ClearGhost();
-            // 把 demo 累计得分映射给结算窗显示；不写 HighScore（不污染 Classic 最高分）
-            _state.Score = _merge.TotalScore;
-            FlushSaveIfDirty(); // GameOver 前兜底落盘（设计 14 §3.4 ③）：须在 ExitMergeOrder 丢弃 MergeState 前
-            // 累计游戏 N 局活动 +1(设计 48 §3.5;精力耗尽 + GAME OVER 两路共用此函数,
-            // hook 在 _finished 防重之后调,一局只 +1;fire-and-forget 不阻塞 GameOverWindow 弹窗)。
-            GameLogic.GameContext.Instance.Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget();
-            _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<MergeOrderWindow>();
-            GameModule.UI.ShowUIAsync<GameOverWindow>(0);
-        }
+        // 无尽模型（设计 49）：删 TriggerWin（通关结算窗 MergeOrderWinWindow）+ TriggerGameOver（GameOverWindow）。
+        // 卡死 / 体力归零都不结束游戏、不弹任何结算或 GameOver 面板，玩法窗持续可交互。
+        // 「累计游戏 N 局」活动（设计 47/48 AccumulatePlayCount）原挂在这两个终点 hook 上，无「局」后失效——
+        // 本窗不再触发该活动（善后见 dev 交接区 follow-up）。MergeOrderWinWindow / GameOverWindow 不再被本窗引用
+        // （代码 / prefab 保留，Classic GameWindow 仍用 GameOverWindow，故不删窗）。
 
         // ── ghost 落点高亮（与 GameWindow 同构） ──
         private void UpdateGhost(Vector2 containerAnchored)

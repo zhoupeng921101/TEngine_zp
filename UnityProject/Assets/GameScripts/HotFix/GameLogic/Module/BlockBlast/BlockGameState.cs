@@ -336,6 +336,39 @@ namespace GameLogic.BlockBlast
             return cleared;
         }
 
+        /// <summary>
+        /// 消除道具（设计 49 §3.1）：清掉指定格 (row,col) 所在的「一整行 + 一整列」全部已占格——
+        /// 同步清 SaveArr（方块色）、ElementArr（元素 overlay，merge-order 模式）、BinaryBoard（位掩码）。
+        /// 用于卡死脱困，让棋盘重新可落（清一行一列后必有贯通空行/空列，设计 49 §3.1「朝可落前进」）。
+        /// 返回清掉的格数。清「一行一列」不清空全盘，故不触发全清判定（设计 49 §四：全清奖不被白嫖）。
+        /// 越界 row/col 直接返回 0、不动状态。<paramref name="board"/> 为 null 时只清 SaveArr/ElementArr。
+        /// </summary>
+        public int ClearToolRowCol(BinaryBoard board, int row, int col)
+        {
+            if (SaveArr == null) return 0;
+            if (row < 0 || row >= 8 || col < 0 || col >= 8) return 0;
+
+            int cleared = 0;
+            for (int c = 0; c < 8; c++) cleared += ClearToolCellAt(row, c);
+            for (int r = 0; r < 8; r++)
+            {
+                if (r == row) continue; // 交叉格 (row,col) 已在行 pass 清过，跳过避免重复计数
+                cleared += ClearToolCellAt(r, col);
+            }
+
+            if (board != null) board.ConvertFromArr(SaveArr); // 位掩码与 SaveArr 重新对齐
+            return cleared;
+        }
+
+        /// <summary>清单格的方块色 + 元素 overlay（消除道具用）；该格已空返 0、不重复计数。</summary>
+        private int ClearToolCellAt(int r, int c)
+        {
+            if (SaveArr[r][c] == -1) return 0;
+            SaveArr[r][c] = -1;
+            if (MergeOrderMode && ElementArr != null) ElementArr[r][c] = MergeElement.None;
+            return 1;
+        }
+
         // ─── merge-order 模式专用方法（全部由 MergeOrderMode 门控）────────────
 
         /// <summary>
@@ -391,6 +424,9 @@ namespace GameLogic.BlockBlast
             // Reset 缺省,等价首次游玩(旧路径零回归)。加载走同步 Provider 读(非阻塞,不触红线,见 MergeMetaPersistence.Load)。
             var meta = MergeMetaPersistence.Load();
             if (meta != null) MergeState.ImportMeta(meta);
+            // 进入即按真实时差补算时基恢复(含离线,设计 49 §3.2 / 设计 14 §3.7):
+            // 有存档则按「上次记录时刻 → now」补离线恢复;无存档(Reset 后 LastEnergyRegenTime==0)则以 now 初始化、本次不补。
+            MergeState.ApplyTimeRegen(MergeMetaPersistence.NowUnixSec());
             if (board != null) board.ConvertFromArr(SaveArr);
             RefillPieces(board);
         }
