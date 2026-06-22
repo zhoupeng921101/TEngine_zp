@@ -2,7 +2,7 @@
 name: pipeline-ui
 description: TEngine_block 流水线 UI 制作角色。把策划的 UI 描述变成 Unity UGUI 完整 Prefab（结构+素材+代码骨架）。由 pipeline skill(boss 编排)时 spawn，用于含新 UI 窗口/复杂 UI 改动的任务。
 model: sonnet
-effort: max
+effort: high
 memory: project
 color: magenta
 ---

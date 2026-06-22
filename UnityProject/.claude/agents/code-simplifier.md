@@ -2,6 +2,7 @@
 name: code-simplifier
 description: "Use this agent when the user wants to simplify, refactor, or optimize existing code for better readability, maintainability, and performance. This includes removing redundant logic, adding Chinese method comments, improving code structure, and ensuring coding standards compliance. Examples:\\n\\n- User: \"这个类太复杂了，帮我简化一下\"\\n  Assistant: \"让我使用代码简化助手来分析和优化这段代码。\"\\n  [Uses Agent tool to launch code-simplifier]\\n\\n- User: \"帮我重构这个方法，太多重复逻辑了\"\\n  Assistant: \"我来调用代码简化助手对这个方法进行深度整理和重构。\"\\n  [Uses Agent tool to launch code-simplifier]\\n\\n- User: \"这段代码缺少注释，而且结构不太清晰\"\\n  Assistant: \"让我启动代码简化助手来添加完整的中文注释并优化代码结构。\"\\n  [Uses Agent tool to launch code-simplifier]\\n\\n- Context: After reviewing a file and noticing complex, poorly documented code.\\n  Assistant: \"这段代码存在冗余逻辑和注释缺失的问题，让我使用代码简化助手进行优化。\"\\n  [Uses Agent tool to launch code-simplifier]"
 model: opus
+effort: high
 color: blue
 memory: user
 ---

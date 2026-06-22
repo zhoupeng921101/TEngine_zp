@@ -2,7 +2,7 @@
 name: pipeline-test
 description: TEngine_block 流水线测试角色。对开发交付物做四类验证(编译/单测/Play手验/Code Review),出 PASS/FAIL 报告。由 pipeline skill(boss 编排)时 spawn,不用于其他场景。
 model: sonnet
-effort: max
+effort: high
 memory: project
 color: green
 ---
