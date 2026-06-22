@@ -393,7 +393,7 @@ namespace GameLogic.BlockBlast.Tests
             var oldDto = new MergeMetaSave
             {
                 version = MergeMetaPersistence.CurrentVersion,
-                soul = 10, piety = 20, exp = 30, completedOrders = 4,
+                soul = 10, piety = 20, exp = 30, unlockedChapter = 4,
             };
             string json = MergeMetaPersistence.Serialize(oldDto);
             var back = MergeMetaPersistence.Deserialize(json);
@@ -402,7 +402,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(10, back.soul);
             Assert.AreEqual(20, back.piety);
             Assert.AreEqual(30, back.exp);
-            Assert.AreEqual(4, back.completedOrders);
+            Assert.AreEqual(4, back.unlockedChapter);
 
             // 玩家字段走缺省，不抛
             PlayerInfo p = null;

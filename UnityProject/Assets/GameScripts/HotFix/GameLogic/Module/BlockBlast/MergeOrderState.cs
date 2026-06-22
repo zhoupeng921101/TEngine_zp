@@ -551,7 +551,7 @@ namespace GameLogic.BlockBlast
         public void ClearSaveDirty() => _saveDirty = false;
 
         /// <summary>
-        /// 导出元层进度到 DTO(设计 14 §3.1 进盘 13 项 + version + 当前祈愿重置日期)。纯方法、无 IO。
+        /// 导出元层进度到 DTO(设计 14 §3.1 进盘 11 项 + version + 当前祈愿重置日期)。纯方法、无 IO。
         /// version 置 <see cref="MergeMetaPersistence.CurrentVersion"/>;lastWishResetDate 取 <paramref name="today"/>
         /// (默认本地日期),保证落盘的日期与「今日祈愿」语义一致(§3.6)。
         /// </summary>
@@ -570,8 +570,6 @@ namespace GameLogic.BlockBlast
                 blindBoxCount = BlindBoxCount,
                 goddessRating = GoddessRating,
                 goddessLevel = GoddessLevel,
-                completedOrders = CompletedOrders,
-                totalScore = TotalScore,                            // O2:进盘当累计总分
                 wishUsedToday = WishUsedToday,
                 lastWishResetDate = today ?? MergeMetaPersistence.Today(),
             };
@@ -579,7 +577,7 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 用 DTO 覆盖元层进度(设计 14 §3.5 逐字段保底 + §3.6 跨天重置)。纯方法、无 IO、不触 _undoStack。
-        /// 仅覆盖元字段(§3.1 进盘 13 项),不动局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)——调用前须先 <see cref="Reset"/>
+        /// 仅覆盖元字段(§3.1 进盘 11 项),不动局内瞬态(棋盘/手牌/订单/合成区/悔棋栈)——调用前须先 <see cref="Reset"/>
         /// 建好局内瞬态(两者字段不重叠,§3.4)。<paramref name="dto"/> 为 null 直接返回(保持 Reset 缺省,等价首次)。
         ///
         /// 逐字段保底:即使 version 匹配,本地文件仍可能被篡改/截断,故对任意输入夹值到合法不变量
@@ -600,8 +598,6 @@ namespace GameLogic.BlockBlast
             Piety = dto.piety;
             Exp = dto.exp;
             UnlockedChapter = dto.unlockedChapter;
-            CompletedOrders = dto.completedOrders;
-            TotalScore = dto.totalScore;
             BlindBoxCount = dto.blindBoxCount;
             GoddessRating = dto.goddessRating;
 

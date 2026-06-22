@@ -49,8 +49,6 @@ namespace GameLogic.BlockBlast.Tests
             m.BlindBoxCount = 5;
             m.GoddessRating = 2;
             m.GoddessLevel = 3;
-            m.CompletedOrders = 11;
-            m.TotalScore = 9876;
             m.WishUsedToday = 1;
             return m;
         }
@@ -71,7 +69,7 @@ namespace GameLogic.BlockBlast.Tests
             var dst = FreshState();
             dst.ImportMeta(back, Today);
 
-            // §3.1「是」的 13 项逐一相等。
+            // §3.1「是」的 11 项逐一相等。
             Assert.AreEqual(src.Soul, dst.Soul, "Soul");
             Assert.AreEqual(src.Piety, dst.Piety, "Piety");
             Assert.AreEqual(src.Exp, dst.Exp, "Exp");
@@ -80,8 +78,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(src.BlindBoxCount, dst.BlindBoxCount, "BlindBoxCount");
             Assert.AreEqual(src.GoddessRating, dst.GoddessRating, "GoddessRating");
             Assert.AreEqual(src.GoddessLevel, dst.GoddessLevel, "GoddessLevel");
-            Assert.AreEqual(src.CompletedOrders, dst.CompletedOrders, "CompletedOrders");
-            Assert.AreEqual(src.TotalScore, dst.TotalScore, "TotalScore");
             Assert.AreEqual(src.WishUsedToday, dst.WishUsedToday, "WishUsedToday(同日不重置)");
             // 神庙两数组逐位相等（A2 另测，这里一并核对）。
             CollectionAssert.AreEqual(src.TempleRepaired, dst.TempleRepaired, "TempleRepaired");
@@ -406,6 +402,51 @@ namespace GameLogic.BlockBlast.Tests
             m2.Reset();
             m2.ImportMeta(dto, Today);              // 同步覆盖
             Assert.AreEqual(42, m2.Piety, "纯同步往返成立(不依赖 UniTask 运行)");
+        }
+
+        // 完成单数 / 本局得分是单局瞬态,不进盘:上一局达标态经 ExportMeta/ImportMeta 不得污染下一局,
+        // 否则放下第一块即满足 IsDemoComplete → 秒结算(设计 14 O2 降级、设计 29 L139)。
+        [Test]
+        public void CompletedOrdersAndTotalScore_DoNotCarryAcrossSessions()
+        {
+            // 第一局达标态:完成单数达到通关阈值、本局得分非 0。
+            var prev = FreshState();
+            prev.CompletedOrders = MergeOrderConfig.DemoGoalOrders;   // 已通关
+            prev.TotalScore = 12345;
+            prev.Piety = 99;                                          // 真元层字段,须随档保留作对照
+            Assert.IsTrue(prev.IsDemoComplete(), "前置:第一局达标态本身判通关");
+
+            // 导出 → 序列化往返 → 第二局 Reset 后 ImportMeta(模拟 ResetForMergeOrder 链)。
+            var dto = prev.ExportMeta(Today);
+            string json = MergeMetaPersistence.Serialize(dto);
+            var back = MergeMetaPersistence.Deserialize(json);
+
+            var next = FreshState();          // Reset 已置 CompletedOrders=0/TotalScore=0
+            next.ImportMeta(back, Today);
+
+            Assert.AreEqual(0, next.CompletedOrders, "完成单数不随会话累计,新局须为 0");
+            Assert.AreEqual(0, next.TotalScore, "本局得分不随会话累计,新局须为 0");
+            Assert.IsFalse(next.IsDemoComplete(), "新局开局不判通关(放第一块不应秒结算)");
+            Assert.AreEqual(99, next.Piety, "真元层字段仍随档保留(虔诚币)");
+        }
+
+        // 旧档兼容:JSON 含已移除的 completedOrders/totalScore 字段,JsonUtility 忽略多余字段,加载不抛、不串味。
+        [Test]
+        public void LegacyJson_WithRemovedFields_LoadsWithoutError()
+        {
+            // 手工拼旧档 JSON:含已删字段 + 一个真元层字段。
+            const string legacyJson =
+                "{\"version\":1,\"piety\":77,\"completedOrders\":8,\"totalScore\":55555}";
+
+            MergeMetaSave back = null;
+            Assert.DoesNotThrow(() => back = MergeMetaPersistence.Deserialize(legacyJson), "旧档反序列化不应抛");
+            Assert.IsNotNull(back, "旧档应正常反序列化");
+
+            var m = FreshState();
+            Assert.DoesNotThrow(() => m.ImportMeta(back, Today), "旧档 ImportMeta 不应抛");
+            Assert.AreEqual(77, m.Piety, "真元层字段从旧档读出");
+            Assert.AreEqual(0, m.CompletedOrders, "旧档里的 completedOrders 被忽略,新局为 0");
+            Assert.AreEqual(0, m.TotalScore, "旧档里的 totalScore 被忽略,新局为 0");
         }
 
         [Test]

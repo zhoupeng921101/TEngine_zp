@@ -363,7 +363,7 @@ namespace GameLogic.BlockBlast.Tests
             var needed = m.NeededTypes();
             foreach (var e in m.PendingElements) Assert.Contains(e, needed, "类型 ⊆ NeededTypes");
 
-            // 新行为(trio 级容量加权随机):BuildPiece 单独调用不再吃队列(不再 FIFO 抽干)
+            // trio 级容量加权随机下:BuildPiece 单独调用不消费 PendingElements 队列(元素分配在 trio 补牌时统一进行)。
             int beforeCount = m.PendingElements.Count;
             var p = s.BuildPiece(13);
             Assert.IsNull(p.Elements, "BuildPiece 单独调用不再分配元素");

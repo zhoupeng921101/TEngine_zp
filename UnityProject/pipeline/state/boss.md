@@ -2,7 +2,17 @@
 
 ## 当前状态(2026-06-22)
 
-**在跑:无。** mongod 27017 在,Main 进程已停。
+**在跑:`merge-order-completedorders-pergame` bug 修复(dev-test,client)。**
+
+**任务定义**:修 MergeOrderWindow「第二次及以后进入,放第一块即秒通关」bug。根因 = `CompletedOrders`(及同构的 `TotalScore`)被一物两用——`Reset()=0` + `IsDemoComplete()`/HUD 当单局计数,却又经 `ExportMeta`/`ImportMeta` 当跨会话累计进盘;第二局 Reset 清 0 后被 ImportMeta 盖回上一局值,累计满 5 即每局秒触发 TriggerWin。
+**用户拍板**:通关目标按单局算(非跨会话累计)。
+**Boss 决策(对齐权威设计,非新拍板)**:`CompletedOrders` + `TotalScore` 均回归纯单局瞬态,从存档移除(MergeMetaSave 字段 + ExportMeta + ImportMeta)。依据:① 设计 29 L139「融合后取定」已把「分数」列单局态、元层 list 不含「完成单数」——是设计 14 §3.1 错列进盘,实现跟错;② 设计 14 O2 明文「累计交付得分若与本局分显示冲突可降级不进盘」。进盘项 13→11。`TotalScore` 无任何生涯统计 UI 消费(仅结算窗显示 + 往返测试),删除无功能损失。可逆:全部本地改动,关单 checkpoint commit 可 reset。
+**设计基线 + 反向引用同步清单**(跳 plan,boss 已 grep design-docs):
+- 代码:`MergeMetaSave.cs`(completedOrders/totalScore 字段)、`MergeOrderState.cs`(ExportMeta L573-574 / ImportMeta L603-604;Reset/Deliver/Snapshot 不动)。
+- 设计 14:§3.1 进盘表 L112-113、§3.2 字段表 L142-143、O2 旁注 L125、待拍板表 L250、A1 验收 L261「13 项」→「11 项」。
+- 设计 29:L138「...完成单数 / 今日祈愿等 13 项」一并改(对齐 L139 取定)。
+- 测试:`MergeMetaSaveTests.cs`(往返断言去 completedOrders/totalScore)+ 新增两局连玩回归(第一局达标存档 → 第二局 Reset+ImportMeta 后 CompletedOrders==0 且 IsDemoComplete()==false)。
+mongod 27017 在,Main 进程已停。
 
 **自治批关单进度**(2026-06-18 起):
 

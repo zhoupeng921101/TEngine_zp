@@ -15,7 +15,8 @@ namespace GameLogic.BlockBlast
         /// <summary>存档结构版本，当前 = <see cref="MergeMetaPersistence.CurrentVersion"/>。</summary>
         public int version;
 
-        // ── 元层进度（设计 14 §3.1 表「是」的 13 项）──────────────
+        // ── 元层进度（设计 14 §3.1 表「是」的 11 项）──────────────
+        // 完成单数与本局得分不进盘：二者是单局瞬态，由 MergeOrderState.Reset 每局清零，跨会话累计会污染本局通关判定与结算显示（设计 14 O2 降级、设计 29 L139）。
         public int soul;             // 灵力（软货币）
         public int piety;            // 虔诚币（长期主线货币）
         public int exp;              // 累积经验（守护者等级是其纯函数）
@@ -26,8 +27,6 @@ namespace GameLogic.BlockBlast
         public int blindBoxCount;    // 盲盒持有计数
         public int goddessRating;    // 当前档好评条计数
         public int goddessLevel;     // 女神好感等级（从 1 起）
-        public int completedOrders;  // 累计完成单数
-        public int totalScore;       // O2：默认进盘当累计总分
         public int highScore;        // 经典遗产「最高分」（设计 29 §5.4）：跨会话长期指标，与元层进度同时机落盘/加载。旧档缺此字段 JsonUtility 给缺省 0
 
         // ── 每日字段（配跨天重置 §3.6）──────────────────────────
