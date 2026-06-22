@@ -42,7 +42,7 @@ namespace GameLogic.BlockBlastUI
         private RectTransform _synthLayer;
 
         private readonly Image[,] _cellImages = new Image[N, N];
-        private readonly Text[,] _elemCells = new Text[N, N];
+        private readonly Image[,] _elemCells = new Image[N, N];
         private readonly RectTransform[] _slotContainers = new RectTransform[3];
         private readonly Image[] _ghostPool = new Image[N * N];
         private int _ghostUsed;
@@ -756,6 +756,14 @@ namespace GameLogic.BlockBlastUI
                     PlaceAndResolve(slotIdx, shape, col, row);
                     return;
                 }
+
+                // 落子失败：按门槛给出原因。体力优先（付不起则无论位置都落不了，先说体力），
+                // 其次越界（块没落在棋盘内），再次占用/形状冲突（位置被占或形状放不下）。
+                string reason = !_merge.CanAffordPlace ? "体力不足，等恢复"
+                              : !inBounds ? "超出棋盘"
+                              : "这里放不下";
+                BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 660, reason, 44,
+                    new Color32(0xff, 0x99, 0x66, 0xFF));
             }
 
             container?.GetComponent<BlockPieceDragger>()?.ResetToOrigin();

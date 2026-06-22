@@ -43,3 +43,4 @@
 - [属性推送订阅+解绑四件套](project-attr-push-subscribe-four-piece.md) — code-built UIWindow 叠订阅服务端属性推送+销毁解绑四件套:Attr getter 双 null-safe/Build 末尾订阅/OnDestroy 解绑/Dispatch switch on type;FormatAttr 共用防漂移。
 - [整窗代码生成 UIWindow 范式](project-code-gen-uiwindow-pattern.md) — 整窗 UI 代码生成范式:最小壳 prefab(沿 MainMenuWindow 80 行模板)+ OnCreate 全代码生成 UI;避 unityMCP 多坑,_disposed+token 双保险防响应到达时已 dispose。
 - [unityMCP 建 prefab 八坑](project-unitymcp-prefab-pitfalls.md) — 用 unityMCP 建 UIWindow prefab 八坑:target 用 by_path 而非负 instanceID/Color 用对象/m_Content 用整数 ID/容器需补 RectTransform/根不挂窗口脚本/z 序=建序/字体不便赋/必删场景临时实例。
+- [拖拽落点 gain/offset 破坏瞄准](project-drag-gain-offset-breaks-aim.md) — BlockBlast「空位也弹回」根因=DragGain≠1 放大位移 + DragFingerOffsetY 抬升让落点远离手指(越靠上越狠飞出棋盘);play mode 经 execute_code 模拟 PointerDown/Drag/Up 实测定位(读码定不出 off-by),gain=1.0 根治 + ShowInvalidGhost=true 红 footprint + BurstText 分因提示。

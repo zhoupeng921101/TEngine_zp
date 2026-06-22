@@ -36,8 +36,8 @@ namespace GameLogic.BlockBlastUI
 
         // 拖拽
         public static float DragScale => CellSize / SlotCell;   // 拖起放大倍数 ≈1.79
-        public const float DragFingerOffsetY = 184f;            // 方块在手指上方（110*1.667）
-        public const float DragGain = 1.2f;                     // 方块位移 = 触控位移 × 1.2
+        public const float DragFingerOffsetY = 184f;            // 方块在手指上方（110*1.667），避免被指尖遮挡
+        public const float DragGain = 1.0f;                     // 方块位移 = 触控位移 × 1.0（1:1 跟手，所见即所落）
 
         // 候选槽命中区（整块区域可点选，不必点到方块本身）。3 个槽水平平铺。
         public const float SlotZoneWidth = SlotSpacing - 10f;   // ≈207

@@ -14,9 +14,9 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 是否显示「不可放置」的红色 ghost 预览。
-        /// 默认关闭：落点非法时不显示任何 ghost（仅在可放置时显示绿色预览）。
+        /// 开启：拖拽全程显示落点 footprint——可放置绿色、不可放置红色，使玩家所见即所落、失败可见。
         /// </summary>
-        public static bool ShowInvalidGhost = false;
+        public static bool ShowInvalidGhost = true;
 
         /// <summary>每种算法的调权因子（首次/换向 vs 同向连续）。</summary>
         public static readonly IReadOnlyDictionary<AlgorithmKind, WeightFactor> FactorList = new Dictionary<AlgorithmKind, WeightFactor>
