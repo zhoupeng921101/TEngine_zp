@@ -215,9 +215,12 @@ namespace GameLogic.BlockBlast.Tests
                 "R4c: GameOver 调用点应传 previousHigh（Classic 路径不得改传参）");
         }
 
-        // ── R5：融合主体 MergeOrderWindow 承载塔罗皮 + 坐标常量零回归（设计 29 §5.2）────────
+        // ── R5：融合主体 MergeOrderWindow 承载 game_main 紫金皮（静态视觉烤进 prefab）+ 坐标常量与经济逻辑零回归 ────
+        // 静态视觉壳（棋盘框/待选区/HUD 条/订单宝箱卡/货币 icon）的 sprite + tint 已烤进 prefab 绑定节点的 m_Sprite/m_Color，
+        // prefab 为静态视觉唯一来源、编辑器内所见即所得；代码不再运行时 SetSprite 这些静态节点（避免覆盖美术在 prefab 的调整）。
+        // 仍随状态换图的动态内容（棋盘格/候选块/元素图标）保持运行时 SetSprite。坐标/经济零回归断言保留。
         [Test]
-        public void R5_MergeOrderWindow_CarriesTarotSkin_CoordsUnchanged()
+        public void R5_MergeOrderWindow_CarriesReskin_CoordsUnchanged()
         {
             var src = ReadSource(MergeOrderWindowPath);
 
@@ -225,17 +228,28 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsTrue(src.Contains("[Window(UILayer.UI, location: \"MergeOrderWindow\", fullScreen: true)]"),
                 "R5: MergeOrderWindow location 属性不得改（改则运行时找不到窗口）");
 
-            // 融合后（设计 29 §5.2）：塔罗皮移植到融合主体——背景 chessboard + 棋盘外框 chess 贴 Sheet_tarot_mode。
-            Assert.IsTrue(src.Contains("Sheet_tarot_mode"),
-                "R5: 融合主体 MergeOrderWindow 应承载塔罗皮（设计 29 §5.2 换皮归属）");
-            Assert.IsTrue(src.Contains("\"chessboard\""), "R5: 背景应贴 chessboard 子图");
-            Assert.IsTrue(src.Contains("\"chess\""), "R5: 棋盘外框应贴 chess 子图");
+            // 静态视觉烤进 prefab：代码不再对静态壳节点运行时 SetSprite（这些是 prefab 烤的，再 SetSprite 会覆盖美术调整）。
+            Assert.IsFalse(src.Contains("SetSprite(\"方块背景\")"),
+                "R5: 棋盘外框 sprite 已烤进 prefab（m_img_BoardOuter），代码不应再运行时 SetSprite(\"方块背景\")");
+            Assert.IsFalse(src.Contains("SetSprite(\"待选区背景\")"),
+                "R5: 待选区 sprite 已烤进 prefab（m_img_SlotBg），代码不应再运行时 SetSprite(\"待选区背景\")");
+            Assert.IsFalse(src.Contains("SetSprite(\"消除道具\")"),
+                "R5: 消除道具图标 sprite 已烤进 prefab（m_img_ClearToolIcon），代码不应再运行时 SetSprite(\"消除道具\")");
+            // 静态壳复用 prefab 绑定节点（避免与动态创建同名节点双份）。
+            Assert.IsTrue(src.Contains("transform.Find(\"Content\")"),
+                "R5: _content 应复用 prefab 既有 Content 节点（不再 UGuiFactory 动态创建）");
+            Assert.IsTrue(src.Contains("_boardLayer = (RectTransform)_content.Find(\"BoardLayer\")"),
+                "R5: 空层节点应从 prefab Content 下 Find 获取");
+            // ClearTool gate 动态染色仍运行时执行（_clearToolBtnBg 指向图标 Image，按体力门控染色）。
+            Assert.IsTrue(src.Contains("_clearToolBtnBg = m_img_ClearToolIcon"),
+                "R5: 消除道具 gate 染色目标仍指向图标 Image（动态门控染色保留）");
+            // 动态换皮（棋盘格/候选块/元素图标）仍走运行时 SetSprite。
+            Assert.IsTrue(src.Contains("img.SetSprite(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName(colorIdx))"),
+                "R5: 棋盘格动态换皮必须保留运行时 SetSprite（随皮肤态换图）");
 
-            // 零回归红线：换皮节点沿用 BlockLayout 既有坐标，不硬编码棋盘位置（动了落子对位偏）。
-            Assert.IsTrue(src.Contains("float boardCx = BlockLayout.BoardOriginX + BlockLayout.BoardPixels / 2f;"),
-                "R5: 棋盘外框 cx 仍由 BlockLayout 既有常量算（换皮不动坐标）");
-            Assert.IsTrue(src.Contains("BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16"),
-                "R5: 棋盘外框尺寸沿用既有 BoardPixels+16");
+            // 零回归红线：棋盘坐标仍由 BlockLayout 既有常量决定（prefab 已按同口径摆放，代码不硬编码、不动落子对位）。
+            Assert.IsFalse(src.Contains("BlockLayout.BoardOriginX = ") || src.Contains("BlockLayout.BoardOriginY = "),
+                "R5: 不得改写 BlockLayout 棋盘原点常量（动了落子对位偏）");
             // 经济逻辑零回归：落子结算链关键行仍在。
             Assert.IsTrue(src.Contains("_state.PlacePiece(slotIdx, _board, col, row)"),
                 "R5: 落子 PlacePiece 调用必须保留（换皮不碰经济逻辑）");

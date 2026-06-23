@@ -19,14 +19,15 @@ namespace GameLogic.BlockBlastUI
     /// 消除道具（主动清一行一列、代价体力、无限可用只 gate 体力）。
     /// </summary>
     [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
-    public sealed class MergeOrderWindow : UIWindow
+    public sealed partial class MergeOrderWindow : UIWindow
     {
-        // ── 塔罗木质换皮（设计 27 → 29 §5.2 移植到融合主体）。仅核心区静态视觉壳贴 Sheet_tarot_mode 子图：
-        //    背景 chessboard（木纹大图）+ 棋盘外框 chess（九宫格框）。经济 HUD（体力/订单/合成区/盲盒/虔诚币/神庙）
-        //    在塔罗精灵表无对应子图，维持现状纯色 + glyph（与 GameWindow 里资源条/动作按钮占位同理）。
-        //    玩法逻辑（落子/消除/合成/订单/结算/存档/悔棋）一律不动——换皮只改静态视觉，不碰经济与坐标常量。
-        private const string Atlas = "Sheet_tarot_mode";
-
+        // ── game_main 紫金换皮：静态视觉壳的 sprite + tint 直接烤进 prefab 绑定节点（_Gen.g.cs 的 m_*）的 m_Sprite/m_Color，
+        //    编辑器内所见即所得，prefab 为静态视觉唯一来源（代码不再运行时 SetSprite 这些节点，避免覆盖美术在 prefab 的调整）。
+        //    棋盘框/待选区/HUD 条/订单宝箱卡/消除道具锤子贴带色图（tint 白显本色）；体力/虔诚币/盲盒/神庙图标白剪影染色。
+        //    整体背景无 game_main 素材，深紫纯色占位（m_img_Bg 仅烤 m_Color、无 sprite）。
+        //    动态内容（棋盘格/ghost/候选块/元素图标/订单卡/合成 token）仍代码生成、运行时 SetSprite 填进空层节点；
+        //    消除道具 gate 染色仍由 RefreshClearTool 运行时按体力门控写入。
+        //    玩法逻辑（落子/消除/合成/订单/结算/存档/悔棋）一律不动——换皮只改静态视觉与定位，不碰经济与坐标常量。
         private const int N = BlockLayout.BoardSize;
 
         private BlockGameState _state;
@@ -129,110 +130,76 @@ namespace GameLogic.BlockBlastUI
         }
 
         // ─────────────────────────────────────────────────────────────
+        // 静态壳复用 prefab 绑定节点（_Gen.g.cs 的 m_*），不再 UGuiFactory 动态创建同名节点（避免双份）。
+        // 静态视觉（sprite + tint）已烤进 prefab 绑定节点，prefab 为唯一来源，本方法只取引用、接事件、初始化隐藏态，不再运行时 SetSprite/染色这些静态节点。
+        // 动态内容（棋盘格 / ghost / 候选块 / 元素图标 / 订单卡 / 合成 token）仍由代码生成 + 运行时 SetSprite，parent 到 prefab 的空层节点；
+        // 其寻址走 UIRaw/Atlas 收集器（AddressByFileName + Single 精灵）按文件名 SetSprite。
         private void BuildStaticUI()
         {
-            _content = UGuiFactory.CreateContentPanel(rectTransform);
+            // Content 复用 prefab 既有节点（prefab 已设 750×1334 / localScale=1.44 / center 锚点）。
+            _content = (RectTransform)transform.Find("Content");
 
-            // 背景：塔罗木纹底图（color 设白让木纹原色透出，设计 29 §5.2 换皮归属移植自 GameWindow）。
-            // 位置/尺寸铺设计全屏，坐标常量不动。
-            var bg = UGuiFactory.CreateImage(_content, "Bg", BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
-                BlockLayout.DesignWidth, BlockLayout.DesignHeight, Color.white);
-            bg.SetSubSprite(Atlas, "chessboard");
+            // 空层节点：prefab 内 center 锚点、anchoredPosition(0,0)，与 DesignToAnchored 同基——动态内容直接填进去。
+            _boardLayer = (RectTransform)_content.Find("BoardLayer");
+            _elemLayer = (RectTransform)_content.Find("ElemLayer");
+            _ghostLayer = (RectTransform)_content.Find("GhostLayer");
+            _slotLayer = (RectTransform)_content.Find("SlotLayer");
+            _orderLayer = (RectTransform)_content.Find("OrderLayer");
+            _synthLayer = (RectTransform)_content.Find("SynthLayer");
 
-            // 棋盘外框（木质九宫格框，贴图 color 设白）：位置/尺寸沿用 BlockLayout 既有值，绝不动（动了落子对位偏）。
-            float boardCx = BlockLayout.BoardOriginX + BlockLayout.BoardPixels / 2f;
-            float boardCy = BlockLayout.BoardOriginY + BlockLayout.BoardPixels / 2f;
-            var boardOuter = UGuiFactory.CreateImage(_content, "BoardOuter", boardCx, boardCy,
-                BlockLayout.BoardPixels + 16, BlockLayout.BoardPixels + 16, Color.white);
-            boardOuter.SetSubSprite(Atlas, "chess");
+            // ── 静态视觉壳（背景占位色 / 背景条 / 棋盘外框 / 待选区背景 / 订单宝箱卡 / 顶部货币 icon）
+            // 已烤进 prefab 绑定节点的 m_Sprite + m_Color（编辑器内所见即所得，prefab 为静态视觉唯一来源）。
+            // 此处不再运行时 SetSprite/染色——以免覆盖美术在 prefab 上的可视化调整。
+            // 仍随状态变化的视觉（棋盘格 / 候选块 / 元素图标 / ClearTool gate 染色）保持运行时，见下文与各 Render*/Refresh*。
 
-            // 格子背景：方案 A（设计 27 §5.2）——格底偏暖半透深棕，叠在木纹背景上更贴效果图浅格观感。
-            // 位置/尺寸沿用既有 BlockLayout 值，绝不动。
-            var cellBg = new Color32(0x3a, 0x24, 0x14, 0x55);
-            for (int r = 0; r < N; r++)
-            {
-                for (int c = 0; c < N; c++)
-                {
-                    var center = BlockLayout.CellCenterDesign(c, r);
-                    UGuiFactory.CreateImage(_content, $"cellbg_{r}_{c}", center.x, center.y,
-                        BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, cellBg);
-                }
-            }
+            // ── 静态文字壳：复用绑定文字节点（真实数值由 Refresh* 写入，下方各 Refresh 改赋值目标即可）。
+            _energyText = m_text_Energy;     // 体力（⚡ x/x）
+            _goalText = m_text_Goal;         // 完成单数（完成 N 单）
+            _blindBoxText = m_text_BlindBox; // 盲盒（◈ ×N）
+            _pietyText = m_text_Piety;       // 虔诚币（✦ N）
+            // 顶部槽数值文字与上面 3 个 icon 并排：CoinNum=虔诚币 / GemNum=盲盒 / EnergyNum=体力。
+            // 直接复用顶部 3 个数字节点显示真实值（避免 12345 占位与不存在货币）。
 
-            _boardLayer = UGuiFactory.CreateNode(_content, "BoardLayer");
-            UGuiFactory.PlaceByDesignCenter(_boardLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
-            _elemLayer = UGuiFactory.CreateNode(_content, "ElemLayer");
-            UGuiFactory.PlaceByDesignCenter(_elemLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
-            _ghostLayer = UGuiFactory.CreateNode(_content, "GhostLayer");
-            UGuiFactory.PlaceByDesignCenter(_ghostLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
-            _slotLayer = UGuiFactory.CreateNode(_content, "SlotLayer");
-            UGuiFactory.PlaceByDesignCenter(_slotLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
-            _orderLayer = UGuiFactory.CreateNode(_content, "OrderLayer");
-            UGuiFactory.PlaceByDesignCenter(_orderLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
-            _synthLayer = UGuiFactory.CreateNode(_content, "SynthLayer");
-            UGuiFactory.PlaceByDesignCenter(_synthLayer, BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f, 0, 0);
-
-            // 标题
-            UGuiFactory.CreateText(_content, "Title", BlockLayout.DesignWidth / 2f, 55, 600, 50, "合成订单 DEMO", 36,
-                new Color32(0xff, 0xe0, 0x66, 0xFF));
-
-            // 体力条 + 完成单数（顶部信息行）
-            UGuiFactory.CreateImage(_content, "EnergyBg", 220, 120, 280, 56, new Color(0, 0, 0, 0.25f));
-            _energyText = UGuiFactory.CreateText(_content, "Energy", 220, 120, 280, 56, "", 36,
-                new Color32(0x66, 0xff, 0xaa, 0xFF));
-            UGuiFactory.CreateImage(_content, "GoalBg", 520, 120, 240, 56, new Color(0, 0, 0, 0.25f));
-            _goalText = UGuiFactory.CreateText(_content, "Goal", 520, 120, 240, 56, "", 34,
-                new Color32(0xff, 0xdd, 0x88, 0xFF));
-
-            // 盲盒计数 + 开盒按钮（第二信息行，y=170；设计 12 §五）
-            UGuiFactory.CreateImage(_content, "BoxBg", 175, 170, 190, 52, new Color(0, 0, 0, 0.25f));
-            _blindBoxText = UGuiFactory.CreateText(_content, "BlindBox", 175, 170, 190, 52, "", 32,
-                new Color32(0xc8, 0x9a, 0xff, 0xFF)); // 紫
-            _openBoxBtn = UGuiFactory.CreateButton(_content, "OpenBox", 350, 170, 150, 56, "开盒", 28,
-                new Color32(0x7a, 0x4a, 0xb8, 0xFF), Color.white, out _openBoxBtnBg, out _openBoxBtnLabel);
-            _openBoxBtn.onClick.AddListener(OnOpenBoxClicked);
-
-            // 长期主线（设计 13 §五）：虔诚币计数 + 「神庙」按钮（第二信息行右侧，y=170）
-            UGuiFactory.CreateImage(_content, "PietyBg", 520, 170, 150, 52, new Color(0, 0, 0, 0.25f));
-            _pietyText = UGuiFactory.CreateText(_content, "Piety", 520, 170, 150, 52, "", 32,
-                new Color32(0xff, 0xcf, 0x5c, 0xFF)); // 金
-            var templeBtn = UGuiFactory.CreateButton(_content, "Temple", 660, 170, 140, 56, "神庙", 28,
-                new Color32(0xb8, 0x8a, 0x3a, 0xFF), Color.white, out _, out _);
-            templeBtn.onClick.AddListener(OnTempleClicked);
-
-            // 悔棋按钮（左上）
-            _undoBtn = UGuiFactory.CreateButton(_content, "Undo", 90, 55, 130, 60, "悔棋", 30,
-                new Color32(0x55, 0x55, 0x88, 0xFF), Color.white, out _undoBtnBg, out _undoBtnLabel);
+            // ── 悔棋按钮（左上）：复用绑定按钮 + 其 Image/Label。
+            _undoBtn = m_btn_Undo;
+            _undoBtnBg = m_btn_Undo.GetComponent<Image>();
+            _undoBtnLabel = m_text_UndoLabel;
             _undoBtn.onClick.AddListener(OnUndoClicked);
 
-            // 消除道具按钮（设计 49 §3.1）：脱困兜底。点后进「指定格」模式 → 点棋盘任一格清该格所在一行一列，代价体力。
-            // 体力 ≥ ClearToolCost 可用、< 置灰；放在第三信息行左侧（board 上方留白处，y=245）。
-            _clearToolBtn = UGuiFactory.CreateButton(_content, "ClearTool", 150, 245, 240, 60,
-                $"消除道具 ⚡{MergeOrderConfig.ClearToolCost}", 26,
-                new Color32(0xc0, 0x6a, 0x3a, 0xFF), Color.white, out _clearToolBtnBg, out _clearToolBtnLabel);
+            // ── 开盒按钮：复用绑定按钮 + 其 Image/Label。
+            _openBoxBtn = m_btn_OpenBox;
+            _openBoxBtnBg = m_btn_OpenBox.GetComponent<Image>();
+            _openBoxBtnLabel = m_btn_OpenBox.GetComponentInChildren<Text>();
+            _openBoxBtn.onClick.AddListener(OnOpenBoxClicked);
+
+            // ── 神庙按钮（右下角）：图标 icon_temple 染金已烤进 prefab；此处只接按钮事件。
+            m_btn_Temple.onClick.AddListener(OnTempleClicked);
+
+            // ── 消除道具按钮（左下角，设计 49 §3.1）：图标 消除道具（锤子）已烤进 prefab。
+            // gate 视觉为动态染图标（可用=白本色、置灰=暗、arming 高亮），故 _clearToolBtnBg 指向图标 Image；本按钮无 Label。
+            // gate 染色由 RefreshClearTool 运行时按体力门控写入，prefab 烤的白本色仅作进窗首帧前的预览底色。
+            _clearToolBtn = m_btn_ClearTool;
+            _clearToolBtnBg = m_img_ClearToolIcon;
+            _clearToolBtnLabel = null; // 图标按钮无文字 label，RefreshClearTool 内已 null-guard
             _clearToolBtn.onClick.AddListener(OnClearToolClicked);
 
-            // 消除道具提示条（指定格模式时显示「点棋盘任一格，清整行整列」/ 体力不足时显示「等体力恢复」）。
-            _clearToolHintBg = UGuiFactory.CreateImage(_content, "ClearHintBg", BlockLayout.DesignWidth / 2f, 245, 360, 52,
-                new Color(0, 0, 0, 0.30f));
-            _clearToolHintText = UGuiFactory.CreateText(_content, "ClearHint", BlockLayout.DesignWidth / 2f, 245, 360, 52,
-                "", 26, new Color32(0xff, 0xcf, 0x5c, 0xFF));
+            // ── 消除道具提示条：复用绑定隐藏节点（prefab 已初始隐藏）。
+            _clearToolHintBg = m_img_ClearHintBg;
+            _clearToolHintText = m_text_ClearHint;
             _clearToolHintBg.gameObject.SetActive(false);
             _clearToolHintText.gameObject.SetActive(false);
 
-            // 指定格 overlay：铺满设计全屏(中心锚点、与 AnchoredToDesign 同基)，几乎全透明、raycastTarget=on，
-            // 仅 arming 时启用拦截棋盘点击。SetAsLastSibling 置顶 → arming 时盖住棋盘/槽，点哪都进 OnBoardTap。
-            _clearToolOverlay = UGuiFactory.CreateImage(_content, "ClearOverlay",
-                BlockLayout.DesignWidth / 2f, BlockLayout.DesignHeight / 2f,
-                BlockLayout.DesignWidth, BlockLayout.DesignHeight, new Color(0, 0, 0, 0.001f));
+            // ── 指定格 overlay：复用绑定 m_img_ClearOverlay（prefab 铺满设计全屏、初始隐藏）。
+            // 运行时挂 BlockBoardTapper 捕获棋盘点击（指定格清行列）。
+            _clearToolOverlay = m_img_ClearOverlay;
+            _clearToolOverlay.color = new Color(0, 0, 0, 0.001f);
+            _clearToolOverlay.raycastTarget = true;
             var tapper = _clearToolOverlay.gameObject.AddComponent<BlockBoardTapper>();
             tapper.OnTapCell = OnBoardTapForClearTool;
             _clearToolOverlay.gameObject.SetActive(false);
 
-            // 退出按钮（右上）
-            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 55, 55, 70, 60, "×", 44,
-                new Color(0, 0, 0, 0), Color.white, out _, out _);
-            exit.onClick.AddListener(() =>
+            // ── 退出按钮（右上 ×）：复用绑定按钮。
+            m_btn_Exit.onClick.AddListener(() =>
             {
                 _state.ExitMergeOrder();
                 GameModule.UI.CloseUI<MergeOrderWindow>();
@@ -261,6 +228,8 @@ namespace GameLogic.BlockBlastUI
                 ? new Color32(0x66, 0xff, 0xaa, 0xFF)
                 : new Color32(0xff, 0x66, 0x66, 0xFF);
             _goalText.text = $"完成 {_merge.CompletedOrders} 单";
+            // 顶部体力槽数字（EnergyIcon 对应）。
+            if (m_text_EnergyNum != null) m_text_EnergyNum.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
         }
 
         // ── 双订单卡（每次刷新重建，含交付按钮点亮/置灰） ──
@@ -272,10 +241,13 @@ namespace GameLogic.BlockBlastUI
             var orders = _merge.ActiveOrders;
             if (orders == null) return;
 
-            const float cardW = 350f;
-            const float cardH = 120f;
-            const float cardY = 215f;
-            float[] centers = { BlockLayout.DesignWidth / 2f - 185f, BlockLayout.DesignWidth / 2f + 185f };
+            // 重定位（效果图顶部右侧订单区，对齐 prefab m_img_OrderCard design(550,155)）：
+            // 2 张订单卡紧凑并排到顶部右侧，缩小尺寸适配新布局。坐标系仍走 DesignToAnchored，玩法数据/刷新时机不变。
+            const float cardW = 175f;
+            const float cardH = 100f;
+            const float cardY = 150f;
+            // 两卡中心：左卡 design x≈465、右卡 design x≈645（落在 OrderCard/BoxCard 框附近的右上区）。
+            float[] centers = { 470f, 650f };
 
             for (int slot = 0; slot < orders.Length && slot < centers.Length; slot++)
             {
@@ -283,20 +255,22 @@ namespace GameLogic.BlockBlastUI
                 float cx = centers[slot];
 
                 UGuiFactory.CreateImage(_orderLayer, $"orderCard_{slot}", cx, cardY, cardW, cardH,
-                    new Color32(0x22, 0x2c, 0x3e, 0xFF));
+                    new Color32(0x22, 0x2c, 0x3e, 0xCC));
 
-                // 元素 glyph
-                UGuiFactory.CreateText(_orderLayer, $"orderGlyph_{slot}", cx - 120, cardY - 12, 80, 80,
-                    MergeElementVisual.Glyph(o.Type), 54, MergeElementVisual.ColorOf(o.Type));
+                // 元素图标（clip 图标 sprite，白 tint 显本色）
+                var orderIcon = UGuiFactory.CreateImage(_orderLayer, $"orderGlyph_{slot}", cx - 55, cardY - 16, 56, 56,
+                    Color.white);
+                orderIcon.raycastTarget = false;
+                orderIcon.SetSprite(MergeElementVisual.SpriteName(o.Type));
                 // 等级 + 数量
-                UGuiFactory.CreateText(_orderLayer, $"orderReq_{slot}", cx - 30, cardY - 12, 160, 60,
-                    $"Lv{o.Level} ×{o.Count}", 32, Color.white, TextAnchor.MiddleLeft);
+                UGuiFactory.CreateText(_orderLayer, $"orderReq_{slot}", cx + 18, cardY - 16, 120, 50,
+                    $"Lv{o.Level}\n×{o.Count}", 24, Color.white, TextAnchor.MiddleLeft);
 
                 // 交付按钮
                 bool can = _merge.CanDeliver(slot);
                 int captured = slot;
-                var deliver = UGuiFactory.CreateButton(_orderLayer, $"orderDeliver_{slot}", cx, cardY + 38, cardW - 30, 44,
-                    "交付", 28,
+                var deliver = UGuiFactory.CreateButton(_orderLayer, $"orderDeliver_{slot}", cx, cardY + 30, cardW - 20, 36,
+                    "交付", 24,
                     can ? new Color32(0x33, 0xaa, 0x55, 0xFF) : new Color32(0x44, 0x44, 0x4c, 0xFF),
                     can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF), out _, out _);
                 deliver.interactable = can;
@@ -310,9 +284,9 @@ namespace GameLogic.BlockBlastUI
             for (int i = _synthLayer.childCount - 1; i >= 0; i--)
                 Object.Destroy(_synthLayer.GetChild(i).gameObject);
 
-            const float rowY = 1285f;
-            UGuiFactory.CreateImage(_synthLayer, "synthBg", BlockLayout.DesignWidth / 2f, rowY, 720, 84,
-                new Color(0, 0, 0, 0.22f));
+            // 重定位（效果图元素行，对齐 prefab m_img_ElemBar design(375,215)）：
+            // 合成 token 行从底部 y=1285 上移到元素行 y≈215。底条由静态 m_img_ElemBar 提供，不再自建 synthBg。
+            const float rowY = 215f;
 
             // 稳定排序：按类型枚举值、再按等级
             var keys = new List<(MergeElement type, int level)>(_merge.Inventory.Keys);
@@ -338,8 +312,10 @@ namespace GameLogic.BlockBlastUI
                 var key = keys[i];
                 int count = _merge.Inventory[key];
                 float cx = startX + i * tokenW;
-                UGuiFactory.CreateText(_synthLayer, $"synthGlyph_{i}", cx - 22, rowY, 60, 70,
-                    MergeElementVisual.Glyph(key.type), 40, MergeElementVisual.ColorOf(key.type));
+                var synthIcon = UGuiFactory.CreateImage(_synthLayer, $"synthGlyph_{i}", cx - 22, rowY, 60, 60,
+                    Color.white);
+                synthIcon.raycastTarget = false;
+                synthIcon.SetSprite(MergeElementVisual.SpriteName(key.type));
                 UGuiFactory.CreateText(_synthLayer, $"synthInfo_{i}", cx + 30, rowY, 90, 70,
                     $"L{key.level}\n×{count}", 24, Color.white);
             }
@@ -375,6 +351,8 @@ namespace GameLogic.BlockBlastUI
         {
             // 用 ◈（BMP，LegacyRuntime 字体可渲染）代 🔮（设计 §五写 🔮 或 ◈，盲盒补充平面 emoji 在该字体下渲不出）
             _blindBoxText.text = $"◈ ×{_merge.BlindBoxCount}";
+            // 顶部盲盒槽数字（GemIcon 对应）。
+            if (m_text_GemNum != null) m_text_GemNum.text = $"{_merge.BlindBoxCount}";
             bool can = _merge.CanOpenBlindBox;
             _openBoxBtn.interactable = can;
             _openBoxBtnBg.color = can ? new Color32(0x7a, 0x4a, 0xb8, 0xFF) : new Color32(0x3a, 0x33, 0x44, 0xFF);
@@ -385,6 +363,8 @@ namespace GameLogic.BlockBlastUI
         private void RefreshPiety()
         {
             _pietyText.text = $"✦ {NumericDisplay.Format(_merge.Piety)}";
+            // 顶部虔诚币槽数字（CoinIcon 对应）。
+            if (m_text_CoinNum != null) m_text_CoinNum.text = NumericDisplay.Format(_merge.Piety);
         }
 
         // ── 「神庙」按钮：叠层打开 TempleWindow（不关本窗、不丢局），关闭后刷新虔诚币 ──
@@ -418,11 +398,12 @@ namespace GameLogic.BlockBlastUI
             if (_clearToolBtn == null) return;
             bool can = _merge.CanUseClearTool;
             _clearToolBtn.interactable = can;
-            _clearToolBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
-            // arming 高亮(亮橙) / 可用(橙) / 置灰(暗)。
+            if (_clearToolBtnLabel != null)
+                _clearToolBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
+            // gate 视觉染图标（消除道具锤子）：arming 高亮(亮橙叠白) / 可用(白本色) / 置灰(暗灰)。
             _clearToolBtnBg.color = _clearToolArming
-                ? new Color32(0xff, 0x99, 0x33, 0xFF)
-                : (can ? new Color32(0xc0, 0x6a, 0x3a, 0xFF) : new Color32(0x44, 0x3a, 0x33, 0xFF));
+                ? new Color32(0xff, 0xcc, 0x88, 0xFF)
+                : (can ? Color.white : new Color32(0x66, 0x66, 0x66, 0xFF));
         }
 
         /// <summary>
@@ -603,9 +584,12 @@ namespace GameLogic.BlockBlastUI
             img.SetSprite(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName(colorIdx));
         }
 
-        // ── 渲染元素 overlay（glyph） ──
+        // ── 渲染元素 overlay（clip 图标 sprite） ──
+        // 元素图标 Image：白 tint 显本色（不再用 ColorOf）、raycastTarget=false（不挡棋盘点击）。
+        // 尺寸比格略小留边（CellSize*0.7）。None 不建 Image / 已建则销毁置 null。
         private void RenderElements()
         {
+            float iconSize = BlockLayout.CellSize * 0.7f;
             var arr = _state.ElementArr;
             for (int r = 0; r < N; r++)
             {
@@ -621,16 +605,16 @@ namespace GameLogic.BlockBlastUI
                     {
                         if (existing != null)
                         {
-                            existing.text = MergeElementVisual.Glyph(el);
-                            existing.color = MergeElementVisual.ColorOf(el);
+                            existing.SetSprite(MergeElementVisual.SpriteName(el));
                         }
                         else
                         {
                             var center = BlockLayout.CellCenterDesign(c, r);
-                            var txt = UGuiFactory.CreateText(_elemLayer, $"elem_{r}_{c}", center.x, center.y,
-                                BlockLayout.CellSize, BlockLayout.CellSize, MergeElementVisual.Glyph(el),
-                                (int)(BlockLayout.CellSize * 0.66f), MergeElementVisual.ColorOf(el));
-                            _elemCells[r, c] = txt;
+                            var icon = UGuiFactory.CreateImage(_elemLayer, $"elem_{r}_{c}", center.x, center.y,
+                                iconSize, iconSize, Color.white);
+                            icon.raycastTarget = false;
+                            icon.SetSprite(MergeElementVisual.SpriteName(el));
+                            _elemCells[r, c] = icon;
                         }
                     }
                 }
@@ -694,20 +678,16 @@ namespace GameLogic.BlockBlastUI
                             && piece.Elements[cellIdx] != MergeElement.None)
                         {
                             var el = piece.Elements[cellIdx];
-                            var gt = new GameObject($"sg_{r}_{c}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                            // 候选块上的元素标记：clip 图标 sprite（白 tint 显本色），铺满格子、不挡拖拽。
+                            var gt = new GameObject($"sg_{r}_{c}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                             var grt = gt.GetComponent<RectTransform>();
                             grt.SetParent(crt, false);
                             grt.anchorMin = Vector2.zero; grt.anchorMax = Vector2.one;
                             grt.offsetMin = Vector2.zero; grt.offsetMax = Vector2.zero;
-                            var gtx = gt.GetComponent<Text>();
-                            gtx.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                            gtx.text = MergeElementVisual.Glyph(el);
-                            gtx.fontSize = (int)(BlockLayout.SlotCell * 0.7f);
-                            gtx.color = MergeElementVisual.ColorOf(el);
-                            gtx.alignment = TextAnchor.MiddleCenter;
-                            gtx.horizontalOverflow = HorizontalWrapMode.Overflow;
-                            gtx.verticalOverflow = VerticalWrapMode.Overflow;
-                            gtx.raycastTarget = false;
+                            var gimg = gt.GetComponent<Image>();
+                            gimg.color = Color.white;
+                            gimg.raycastTarget = false;
+                            gimg.SetSprite(MergeElementVisual.SpriteName(el));
                         }
                         cellIdx++;
                     }

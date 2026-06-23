@@ -42,6 +42,27 @@ namespace GameLogic.BlockBlast
             }
         }
 
+        /// <summary>
+        /// 元素图标的寻址名：clip 图标库（Assets/AssetRaw/UIRaw/Atlas/blocks/clip/）中对应 PNG 的文件名（去扩展名）。
+        /// 经 SetSprite 按文件名直接定位 Sprite（与棋盘方块 BlockSkinCatalog 同寻址口径）。None 返回空串（无图）。
+        /// </summary>
+        public static string SpriteName(MergeElement e)
+        {
+            switch (e)
+            {
+                case MergeElement.Diamond: return "gem_drop_blue";
+                case MergeElement.Pentagon: return "scroll_purple_gold";
+                case MergeElement.Star: return "star_gold";
+                case MergeElement.Heart: return "star_pink_gem";
+                case MergeElement.Sun: return "lightning";
+                case MergeElement.Moon: return "chalice_greek";
+                case MergeElement.Leaf: return "stone_green";
+                case MergeElement.Crown: return "book_magic";
+                case MergeElement.Stone: return "stone_gray";
+                default: return string.Empty;
+            }
+        }
+
         /// <summary>元素的展示纯色（glyph 渲染失败时仍可区分）。</summary>
         public static Color ColorOf(MergeElement e)
         {
