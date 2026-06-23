@@ -72,6 +72,12 @@ namespace GameLogic
         private bool _clearToolArming;
 
         private int _draggingShapeId = -1;
+        /// <summary>当前拖拽块的方块色（消除预览按此着色，使可消除行列与拖拽块同色，设计 50 §二 一致性）。</summary>
+        private BlockColor _draggingColor;
+
+        /// <summary>体力时基恢复轮询累加器（秒）：每满 EnergyTickInterval 调一次 ApplyTimeRegen + 刷新（设计 49 §3.2 在窗期间也恢复）。</summary>
+        private float _energyTickAccum;
+        private const float EnergyTickInterval = 1f;
 
         // ── 自适应棋盘几何（单一事实源，设计常量已不参与本窗棋盘定位）──────────────────────
         // 棋盘格尺寸与位置全部由 m_rect_BoardLayer.rect 现算：8×8 填满 BoardLayer（取短边均分、长边居中），
@@ -166,6 +172,28 @@ namespace GameLogic
             if (pause) FlushSaveIfDirty();
         }
 
+        /// <summary>
+        /// 体力时基恢复轮询（设计 49 §3.2）：进窗时 ResetForMergeOrder 只补算一次离线恢复，窗口开着期间
+        /// 还需周期补算，否则体力条不随时间刷新（要关窗重开才更新）。每秒一次 ApplyTimeRegen，体力真变了
+        /// 才刷 UI + 落盘（避免每秒空转写盘）。ApplyTimeRegen 不满一个 tick 时不动状态，调用幂等无害。
+        /// </summary>
+        protected override void OnUpdate()
+        {
+            if (_merge == null || _state == null || !_state.MergeOrderMode) return;
+            _energyTickAccum += Time.deltaTime;
+            if (_energyTickAccum < EnergyTickInterval) return;
+            _energyTickAccum = 0f;
+
+            int before = _merge.Energy;
+            _merge.ApplyTimeRegen(MergeMetaPersistence.NowUnixSec());
+            if (_merge.Energy != before)
+            {
+                RefreshEnergy();
+                RefreshClearTool(); // 体力变 → 消除道具 gate 态须刷新
+                MarkAndFlushSave(); // 体力 + lastEnergyRegenTime 进盘（设计 14 §3.7）
+            }
+        }
+
         // 静态壳复用 prefab 绑定节点（_Gen.g.cs 的 m_*）：本方法只取引用、接事件、初始化隐藏态。
         // 静态文字壳：Refresh* 直接写入绑定文字节点 m_text_*（Energy / Goal / BlindBox / Piety，
         // 顶部数字槽 CoinNum=虔诚币 / GemNum=盲盒 / EnergyNum=体力）。
@@ -184,6 +212,10 @@ namespace GameLogic
                 Log.Error("[MergeOrderWindow] m_img_ElemBar 上缺少 ScrollRect 或其 Content 未设置，合成区无法渲染，请检查 prefab。");
 
             // 消除道具按钮（左下角，设计 49 §3.1）：图标 gate 染色由 RefreshClearTool 运行时按体力门控写入 m_btn_ClearTool.image。
+            // 关掉 Button 自带 ColorTint 过渡：prefab 上该按钮 Transition=ColorTint 且 TargetGraphic=图标自身，
+            // interactable 切换时的 ColorTint 会覆盖 RefreshClearTool 写入的 gate 染色（置灰/arming 高亮失效）。
+            // 设为 None 让手动染色成为唯一权威；interactable 仍负责拦截点击。
+            if (m_btn_ClearTool != null) m_btn_ClearTool.transition = Selectable.Transition.None;
 
             // 消除道具提示条：绑定隐藏节点（prefab 已初始隐藏）。
             m_img_ClearHintBg.gameObject.SetActive(false);
@@ -560,6 +592,15 @@ namespace GameLogic
             var dto = _merge.ExportMeta();
             _merge.ClearSaveDirty();
             MergeMetaPersistence.SaveAsync(dto).Forget();
+
+            // 局内态续存（2026-06-22 决定）：与元层同时机落盘，记录上次中断的对局现场（盘面/手牌/合成区/订单/连消）。
+            // 仅在 merge-order 现场有效时写（退出按钮已先 ExitMergeOrder 则跳过，避免空盘覆盖有效快照）。
+            if (_state != null && _state.MergeOrderMode && _state.MergeState != null)
+            {
+                var ingame = new MergeIngameSave { version = MergeIngamePersistence.CurrentVersion };
+                _state.ExportIngame(ingame);
+                MergeIngamePersistence.SaveAsync(ingame).Forget();
+            }
         }
 
         // ── 渲染棋盘（方块色 / 皮肤，设计 50 §二）──
@@ -747,7 +788,10 @@ namespace GameLogic
                             var gimg = gt.GetComponent<Image>();
                             gimg.color = Color.white;
                             gimg.raycastTarget = false;
-                            gimg.SetSprite(MergeElementVisual.SpriteName(el, 1), setNativeSize:true); // 候选块元素 = Lv1 原料，取 Lv1 图
+                            // 不可用 setNativeSize：Image.SetNativeSize 会把 anchorMax 收回到 anchorMin（左下角）并改写 sizeDelta 为
+                            // sprite 原生像素尺寸，覆盖上面的拉伸充填，导致元素跑到格子左下角且尺寸过大（待选区位置/大小错位的根因）。
+                            // 保持拉伸充填（offsets 全 0）= 元素正好铺满候选格、居中，与设计「铺满格子」一致。
+                            gimg.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 候选块元素 = Lv1 原料，取 Lv1 图
                         }
                         cellIdx++;
                     }
@@ -772,6 +816,7 @@ namespace GameLogic
             CancelClearToolArming(); // 拖拽落子打断指定格模式（玩家改主意去落子）
             var piece = _state.OperaArr[slotIdx];
             _draggingShapeId = piece?.ShapeId ?? -1;
+            _draggingColor = piece?.Color ?? default; // 消除预览按拖拽块色着色（可消除行列与拖拽块同色）
         }
 
         private void OnPieceDrag(int slotIdx, Vector2 containerAnchored)
@@ -1170,6 +1215,12 @@ namespace GameLogic
             float boardCenterX = (BoardCellLocalPos(0, 0).x + BoardCellLocalPos(N - 1, 0).x) * 0.5f;
             float boardCenterY = (BoardCellLocalPos(0, 0).y + BoardCellLocalPos(0, N - 1).y) * 0.5f;
 
+            // 可消除行列与拖拽块同色（用户反馈）：取拖拽块方块色为预览基色（RGB），沿用原填充/辉光各自 alpha。
+            // 拖拽块色 = _draggingColor（OnPieceBegin 捕获）。彩色态显本色，使「可消除方块」视觉上与「拖动方块」一致。
+            Color pieceRgb = BlockLayout.ColorOf(_draggingColor);
+            Color fillColor = new Color(pieceRgb.r, pieceRgb.g, pieceRgb.b, BlockLayout.ClearPreviewFillColor.a);
+            Color glowColor = new Color(pieceRgb.r, pieceRgb.g, pieceRgb.b, BlockLayout.ClearPreviewGlowColor.a);
+
             // 取一条池线条，赋材质 + 定位（长条横贯整行或纵贯整列），激活并置顶。
             void ShowBand(Material mat, Vector2 size, Vector2 pos)
             {
@@ -1181,8 +1232,8 @@ namespace GameLogic
                 img.rectTransform.sizeDelta = size;
                 img.rectTransform.anchoredPosition = pos;
                 img.transform.SetAsLastSibling();                     // 盖在方块格 / ghost / 填充之上
-                if (pulse != null) pulse.Restart(_glowUsed * 0.06f);  // 错开相位，呼吸不齐刷
-                else img.color = BlockLayout.ClearPreviewGlowColor;
+                if (pulse != null) { pulse.BaseColor = glowColor; pulse.Restart(_glowUsed * 0.06f); } // 呼吸基色 = 拖拽块色，错相位
+                else img.color = glowColor;
                 img.gameObject.SetActive(true);
             }
 
@@ -1195,7 +1246,7 @@ namespace GameLogic
                 _fillUsed++;
                 img.rectTransform.sizeDelta = size;
                 img.rectTransform.anchoredPosition = pos;
-                img.color = BlockLayout.ClearPreviewFillColor;
+                img.color = fillColor;                                // 覆盖在可消除行列上 → 这些方块呈拖拽块色
                 img.transform.SetAsLastSibling();                     // 盖在方块格 / ghost 之上（边缘辉光后续再置顶到其上）
                 img.gameObject.SetActive(true);
             }
@@ -1283,6 +1334,8 @@ namespace GameLogic
         // ── 退出按钮（m_btn_Exit，生成代码接线）：关门控 + 关本窗 + 回主菜单 ──
         private partial void OnClick_ExitBtn()
         {
+            // 局内态续存：先落盘对局现场，再 ExitMergeOrder 丢弃 MergeState/ElementArr（顺序不可换，否则写空盘覆盖有效快照）。
+            FlushSaveIfDirty();
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
             GameModule.UI.ShowUIAsync<MainMenuWindow>();

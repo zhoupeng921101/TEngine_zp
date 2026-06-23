@@ -708,5 +708,113 @@ namespace GameLogic.BlockBlast
             return (bool[])src.Clone();
         }
 
+        // ── 局内态续存:导出/导入对局现场(2026-06-22 决定:真无尽局内态续存)──────────────
+        // 与元层(ExportMeta/ImportMeta)分层:此处只承载「上次中断瞬间」的对局现场——合成区/订单/连消/游标。
+        // 体力不在此处(已属元层 energy);盘面/元素层/手牌住 BlockGameState,由其 ExportIngame/ImportIngame 处理。
+        // 纯方法、无 IO,可单测。Dictionary/Queue 拍平为平行 1D 数组写进 DTO。
+
+        /// <summary>把合成区 / 订单 / 连消 / 游标导出到局内态 DTO（纯方法、无 IO）。</summary>
+        public void ExportIngame(MergeIngameSave dto)
+        {
+            if (dto == null) return;
+
+            dto.orderCursor = OrderCursor;
+            dto.completedOrders = CompletedOrders;
+            dto.totalScore = TotalScore;
+            dto.comboChain = ComboChain;
+            dto.allClearArmed = AllClearArmed;
+            dto.needRotor = _needRotor;
+
+            int n = Inventory.Count;
+            dto.invType = new int[n];
+            dto.invLevel = new int[n];
+            dto.invCount = new int[n];
+            int i = 0;
+            foreach (var kv in Inventory)
+            {
+                dto.invType[i] = (int)kv.Key.type;
+                dto.invLevel[i] = kv.Key.level;
+                dto.invCount[i] = kv.Value;
+                i++;
+            }
+
+            int m = ActiveOrders?.Length ?? 0;
+            dto.ordType = new int[m];
+            dto.ordLevel = new int[m];
+            dto.ordCount = new int[m];
+            for (int k = 0; k < m; k++)
+            {
+                var o = ActiveOrders[k];
+                dto.ordType[k] = (int)o.Type;
+                dto.ordLevel[k] = o.Level;
+                dto.ordCount[k] = o.Count;
+            }
+
+            dto.pending = new int[PendingElements.Count];
+            int p = 0;
+            foreach (var el in PendingElements) dto.pending[p++] = (int)el;
+        }
+
+        /// <summary>
+        /// 从局内态 DTO 覆盖合成区 / 订单 / 连消 / 游标（设计 14 §3.5 同口径逐字段保底）。纯方法、无 IO。
+        /// 调用前须先 <see cref="Reset"/>（建好缺省）+ <see cref="ImportMeta"/>（覆盖元层），本方法只覆盖局内字段、不重叠元层。
+        /// 库存逐项夹合法（None/非正夹弃）；订单数组长度不符则保持 Reset 建好的订单（不强塞脏数据）。
+        /// </summary>
+        public void ImportIngame(MergeIngameSave dto)
+        {
+            if (dto == null) return;
+
+            OrderCursor = dto.orderCursor;
+            CompletedOrders = dto.completedOrders > 0 ? dto.completedOrders : 0;
+            TotalScore = dto.totalScore > 0 ? dto.totalScore : 0;
+            ComboChain = dto.comboChain >= 1 ? dto.comboChain : 1;
+            AllClearArmed = dto.allClearArmed;
+            _needRotor = dto.needRotor > 0 ? dto.needRotor : 0;
+
+            Inventory.Clear();
+            if (dto.invType != null && dto.invLevel != null && dto.invCount != null)
+            {
+                int n = dto.invType.Length;
+                if (dto.invLevel.Length < n) n = dto.invLevel.Length;
+                if (dto.invCount.Length < n) n = dto.invCount.Length;
+                for (int i = 0; i < n; i++)
+                {
+                    var type = (MergeElement)dto.invType[i];
+                    int level = dto.invLevel[i];
+                    int count = dto.invCount[i];
+                    if (type == MergeElement.None || level < 1 || count <= 0) continue;
+                    Inventory[(type, level)] = count;
+                }
+            }
+
+            if (dto.ordType != null && dto.ordLevel != null && dto.ordCount != null
+                && dto.ordType.Length == MergeOrderConfig.ActiveOrders
+                && dto.ordLevel.Length == MergeOrderConfig.ActiveOrders
+                && dto.ordCount.Length == MergeOrderConfig.ActiveOrders)
+            {
+                ActiveOrders = new Order[MergeOrderConfig.ActiveOrders];
+                for (int k = 0; k < ActiveOrders.Length; k++)
+                {
+                    var type = (MergeElement)dto.ordType[k];
+                    int level = dto.ordLevel[k];
+                    int count = dto.ordCount[k];
+                    ActiveOrders[k] = (type != MergeElement.None && level >= 1 && count > 0)
+                        ? new Order(type, level, count)
+                        : NextOrder(); // 脏单 → 取池中下一张兜底
+                }
+            }
+            // 数组长度不符（旧档 / 配置变更）→ 保持 Reset 建好的订单。
+
+            PendingElements.Clear();
+            if (dto.pending != null)
+            {
+                foreach (var v in dto.pending)
+                {
+                    var el = (MergeElement)v;
+                    if (el != MergeElement.None) PendingElements.Enqueue(el);
+                }
+            }
+        }
+
     }
 }

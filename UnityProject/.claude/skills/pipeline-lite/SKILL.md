@@ -1,6 +1,6 @@
 ---
 name: pipeline-lite
-description: 轻型 AI 流水线(boss + dev),用于小/低风险开发任务且用户自测的场景,支持客户端(Unity)与服务端(Fantasy)两端。触发:/pipeline-lite <任务>,以及用户提出"走轻型管线/简易开单/快速派活"类请求。boss=主会话:理解需求、形成需求级方案、spawn 角色(客户端 dev=pipeline-lite-dev,含新 UI 窗口先经 pipeline-lite-ui 搭 prefab;服务端=pipeline-lite-server-dev)实现,转述用户手测清单。需设计稿沉淀/独立验证/高风险走重型 /pipeline。
+description: 轻型 AI 流水线(boss + dev),用于小/低风险开发任务且用户自测的场景,支持客户端(Unity)与服务端(Fantasy)两端。触发:/pipeline-lite <任务>,以及用户提出"走轻型管线/简易开单/快速派活"类请求。boss=主会话:理解需求、形成需求级方案、spawn 角色(客户端 dev=pipeline-lite-dev,含新 UI 窗口先经 pipeline-lite-ui 搭 prefab;服务端=pipeline-lite-server-dev)实现,转述用户手测清单。
 ---
 
 # 轻型流水线(boss)

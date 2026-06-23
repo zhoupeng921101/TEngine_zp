@@ -427,8 +427,16 @@ namespace GameLogic.BlockBlast
             // 进入即按真实时差补算时基恢复(含离线,设计 49 §3.2 / 设计 14 §3.7):
             // 有存档则按「上次记录时刻 → now」补离线恢复;无存档(Reset 后 LastEnergyRegenTime==0)则以 now 初始化、本次不补。
             MergeState.ApplyTimeRegen(MergeMetaPersistence.NowUnixSec());
-            if (board != null) board.ConvertFromArr(SaveArr);
-            RefillPieces(board);
+
+            // 局内态续存(2026-06-22 决定:真无尽局内态续存):有快照则恢复盘面/元素层/手牌/合成区/订单/连消,
+            // 等价从上次落子处继续;无快照(首次/清档)走原缺省路径(空盘 + 补满 3 块)。
+            // 须在 Reset + ImportMeta 之后:局内字段不与元层重叠,本步只覆盖局内现场。
+            var ingame = MergeIngamePersistence.Load();
+            if (ingame == null || !ImportIngame(ingame, board))
+            {
+                if (board != null) board.ConvertFromArr(SaveArr);
+            }
+            RefillPieces(board); // 全空才补:恢复后手牌非空则 no-op;恢复后恰好全空(上次落子未补)则补满
         }
 
         /// <summary>退出 merge-order Demo：关闭门控 + 释放元素层 + 丢弃 MergeState，回到 Classic 零残留。</summary>
@@ -555,6 +563,105 @@ namespace GameLogic.BlockBlast
                 return true;
             }
             catch { return false; }
+        }
+
+        // ─── 局内态续存:导出/导入对局现场(2026-06-22 决定:真无尽局内态续存)──────────
+        // 与 block_blast_save_v1(Classic 局内键)分开:merge-order 局内现场含 ElementArr + 候选块元素 + MergeState
+        // 经济现场,信息量更大,走独立 DTO/键(MergeIngameSave / MergeIngamePersistence)。本类只管盘面/元素层/手牌/
+        // 得分/连击,合成区/订单/连消委托 MergeState.ExportIngame/ImportIngame。
+
+        /// <summary>导出 merge-order 局内现场到 DTO（盘面 + 元素层 + 手牌 + 得分/连击 + 合成区/订单/连消）。纯方法、无 IO。</summary>
+        public void ExportIngame(MergeIngameSave dto)
+        {
+            if (dto == null) return;
+
+            dto.flatBoard = new int[64];
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                    dto.flatBoard[r * 8 + c] = SaveArr[r][c];
+
+            dto.flatElements = new int[64];
+            if (ElementArr != null)
+                for (int r = 0; r < 8; r++)
+                    for (int c = 0; c < 8; c++)
+                        dto.flatElements[r * 8 + c] = (int)ElementArr[r][c];
+
+            dto.hand = new IngamePieceData[3];
+            for (int i = 0; i < 3; i++)
+            {
+                var p = OperaArr[i];
+                var pd = new IngamePieceData();
+                if (p == null) pd.isNull = true;
+                else
+                {
+                    pd.isNull = false;
+                    pd.shapeId = p.ShapeId;
+                    pd.color = (int)p.Color;
+                    pd.hasAlgo = p.HasAlgo;
+                    pd.algo = (int)p.Algo;
+                    if (p.Elements != null)
+                    {
+                        pd.elements = new int[p.Elements.Length];
+                        for (int e = 0; e < p.Elements.Length; e++) pd.elements[e] = (int)p.Elements[e];
+                    }
+                }
+                dto.hand[i] = pd;
+            }
+
+            dto.score = Score;
+            dto.combo = Combo;
+
+            MergeState?.ExportIngame(dto);
+        }
+
+        /// <summary>
+        /// 从 DTO 恢复 merge-order 局内现场（设计 14 §3.5 同口径逐字段保底）。纯方法、无 IO（board 仅做位掩码重算）。
+        /// flatBoard 非法（null / 长度≠64）直接返回 false（调用方走缺省空盘）。手牌/元素层逐项夹合法，
+        /// 合成区/订单/连消委托 <see cref="MergeOrderState.ImportIngame"/>。成功返回 true 并已重算 BinaryBoard。
+        /// </summary>
+        public bool ImportIngame(MergeIngameSave dto, BinaryBoard board)
+        {
+            if (dto == null) return false;
+            if (dto.flatBoard == null || dto.flatBoard.Length != 64) return false;
+
+            SaveArr = MakeEmptyBoard();
+            for (int r = 0; r < 8; r++)
+                for (int c = 0; c < 8; c++)
+                    SaveArr[r][c] = dto.flatBoard[r * 8 + c];
+
+            ElementArr = MakeEmptyElementArr();
+            if (dto.flatElements != null && dto.flatElements.Length == 64)
+                for (int r = 0; r < 8; r++)
+                    for (int c = 0; c < 8; c++)
+                        ElementArr[r][c] = (MergeElement)dto.flatElements[r * 8 + c];
+
+            OperaArr = new PendingPiece[3];
+            if (dto.hand != null)
+            {
+                for (int i = 0; i < 3 && i < dto.hand.Length; i++)
+                {
+                    var pd = dto.hand[i];
+                    if (pd == null || pd.isNull) { OperaArr[i] = null; continue; }
+                    var p = new PendingPiece(pd.shapeId, (BlockColor)pd.color);
+                    if (pd.hasAlgo) p.SetAlgo((AlgorithmKind)pd.algo);
+                    if (pd.elements != null && pd.elements.Length > 0)
+                    {
+                        var els = new MergeElement[pd.elements.Length];
+                        for (int e = 0; e < pd.elements.Length; e++) els[e] = (MergeElement)pd.elements[e];
+                        p.Elements = els;
+                    }
+                    OperaArr[i] = p;
+                }
+            }
+
+            Score = dto.score > 0 ? dto.score : 0;
+            Combo = dto.combo > 0 ? dto.combo : 0;
+            if (Score > HighScore) HighScore = Score;
+
+            MergeState?.ImportIngame(dto);
+
+            if (board != null) board.ConvertFromArr(SaveArr);
+            return true;
         }
     }
 }
