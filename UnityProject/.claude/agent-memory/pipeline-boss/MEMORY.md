@@ -1,6 +1,0 @@
-- [项目 CLAUDE.md 子 agent 注入是主会话启动时快照](project-claudemd-snapshot-on-spawn.md) — 改 CLAUDE.md 后须重启会话才对子 agent 生效;短任务可手动塞简报
-- [SendMessage 续接子 agent 不可用](project-sendmessage-not-usable.md) — 打回一律 spawn 新 agent,靠 state 可复现清单交接;新 agent 是零上下文全新会话
-- [Workflow 机制可用](project-workflow-mechanism-works.md) — 后台启动/内部 spawn/返回值/完成通知唤醒四环节全通,不占主会话回合;/pipeline-auto 走此路
-- [transcript 抢救备用手段](project-transcript-rescue-fallback.md) — 多轮打回怀疑新 dev 重蹈覆辙时,读上轮 dev 的 transcript 提炼前任纪要塞简报(小概率,不进固定流程)
-- [Unity Editor 不可达时用 batchmode 跑 EditMode 单测](project-unity-batchmode-editmode-tests.md) — `Unity.exe -batchmode -runTests -testPlatform EditMode` 兜底,前提编辑器未占用工程
-- [batchmode 不跑 Play 交互手验](feedback-batchmode-no-play-handoff.md) — UI 表现类验收要么交带 Unity MCP/人工的环节,要么验收标准里把逻辑与表现拆开(逻辑进单测,表现列遗留)

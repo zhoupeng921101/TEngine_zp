@@ -1,2 +1,0 @@
-- [MergeOrderWindow 静态 prefab 手写经验](project-mergeorderwindow-static-prefab.md) — MCP 不可用时直接写 YAML prefab 的关键约束：m_Children 精确对应、Button 组件引用不能漏、层节点只需 RT、sprite fileID 来源
-- [MergeOrderWindow BindComponent 编辑器构建经验](project-mergeorderwindow-bind-component.md) — MCP execute_code 搭 UGUI prefab + BindComponent 绑定生成：sealed partial class 约束、includeListener=false 的行为陷阱、UIRaw 散图运行时 SetSprite 模式、Content 坐标系不变量
