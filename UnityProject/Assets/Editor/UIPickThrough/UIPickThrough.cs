@@ -10,7 +10,8 @@ namespace EditorTools.UIPickThrough
     ///  - 第一次点：选中点击位置最上层那张
     ///  - 同一位置再点：往下钻一层，到底循环回顶层
     /// 性能：只在 MouseDown 那一帧做一次命中查询，平时（移动/重绘）零分配零查询。
-    /// 通过菜单 Tools/UI Pick-Through 开关，关掉即恢复 Scene 默认点选行为。
+    /// 通过菜单 Configs/UI Pick-Through 穿透选择 开关，关掉即恢复 Scene 默认点选行为。
+    /// 普通 Scene 与 Prefab Mode（隔离编辑 UI prefab）下均可工作。
     /// </summary>
     [InitializeOnLoad]
     public static class UIPickThrough
@@ -36,6 +37,8 @@ namespace EditorTools.UIPickThrough
         // 复用容器，避免每次点击产生 GC
         static readonly List<Hit> s_hits = new List<Hit>(32);
         static readonly Vector3[] s_corners = new Vector3[4];
+        static readonly List<Graphic> s_graphics = new List<Graphic>(64);
+        static readonly List<Graphic> s_graphicsPerRoot = new List<Graphic>(64);
 
         struct Hit
         {
@@ -171,12 +174,11 @@ namespace EditorTools.UIPickThrough
             Ray ray = HandleUtility.GUIPointToWorldRay(guiPoint);
 
             // 只在点击这一帧查询一次
-            var graphics = Object.FindObjectsByType<Graphic>(
-                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            CollectGraphics(s_graphics);
 
-            for (int i = 0; i < graphics.Length; i++)
+            for (int i = 0; i < s_graphics.Count; i++)
             {
-                Graphic g = graphics[i];
+                Graphic g = s_graphics[i];
                 if (g == null || !g.isActiveAndEnabled) continue;
 
                 Canvas c = g.canvas;
@@ -187,6 +189,31 @@ namespace EditorTools.UIPickThrough
 
                 s_hits.Add(new Hit { graphic = g, order = DrawOrder(g, c), picture = IsPicture(g) });
             }
+        }
+
+        // 图形来源「场景感知」：Prefab Mode 下 prefab 内容住在 prefab stage 的预览场景里，
+        // FindObjectsByType 按设计不返回预览场景对象，故须改从该场景的根对象逐个枚举。
+        // 普通 Scene 下保持原 FindObjectsByType 路径不变。
+        static void CollectGraphics(List<Graphic> result)
+        {
+            result.Clear();
+
+            var stage = UnityEditor.SceneManagement.PrefabStageUtility.GetCurrentPrefabStage();
+            if (stage != null)
+            {
+                // GetComponentsInChildren(bool, List) 每次调用会清空传入的 List，
+                // 故用临时缓冲逐根收集再累加，兼容多根场景。
+                var roots = stage.scene.GetRootGameObjects();
+                for (int i = 0; i < roots.Length; i++)
+                {
+                    roots[i].GetComponentsInChildren(false, s_graphicsPerRoot);
+                    result.AddRange(s_graphicsPerRoot);
+                }
+                return;
+            }
+
+            result.AddRange(Object.FindObjectsByType<Graphic>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None));
         }
 
         // 用 Graphic 基类的 raycastTarget 判断：可命中的才算“图片”，
