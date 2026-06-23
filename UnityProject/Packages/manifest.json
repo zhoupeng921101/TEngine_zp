@@ -2,6 +2,7 @@
   "dependencies": {
     "com.fantasy.unity": "file:../../Fantasy/Fantasy.Packages/Fantasy.Unity",
     "com.code-philosophy.hybridclr": "https://gitee.com/focus-creative-games/hybridclr_unity.git",
+    "com.coffee.ui-particle": "https://github.com/mob-sakai/ParticleEffectForUGUI.git#4.12.2",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.unity.ai.assistant": "2.9.0-pre.2",
     "com.unity.ai.inference": "2.6.1",
