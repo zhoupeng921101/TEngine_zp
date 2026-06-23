@@ -125,14 +125,5 @@ namespace GameLogic.BlockBlast
             Occupied = _waiting[best];
             _waiting.RemoveAt(best);
         }
-
-        // ── 悔棋快照支持（浅拷贝即可：SpecialOrder/Order 均为不可变值类型）──
-        public SpecialOrder[] SnapshotWaiting() => _waiting.ToArray();
-
-        public void RestoreWaiting(SpecialOrder[] saved)
-        {
-            _waiting.Clear();
-            if (saved != null) _waiting.AddRange(saved);
-        }
     }
 }

@@ -3500,7 +3500,7 @@ namespace Fantasy
         [ProtoMember(1)]
         public PropertyChangeResultCode ResultCode { get; set; }
         /// <summary>
-        /// 回声请求的类型(便于客户端段下一刀路由更新到对应字段)
+        /// 回声请求的类型(便于客户端段下一项路由更新到对应字段)
         /// </summary>
         [ProtoMember(2)]
         public PropertyType Type { get; set; }
@@ -3512,7 +3512,7 @@ namespace Fantasy
     }
     /// <summary>
     /// 服务端登录后下发属性初始快照(服务端主动 push,本子单选独立 push message 而非登录响应捎带,
-    /// 形态与 G2C_PropertyDeltaPush 对齐,客户端段下一刀同一处订阅)(§3.3.1 + plan D3 + O4)
+    /// 形态与 G2C_PropertyDeltaPush 对齐,客户端段下一项同一处订阅)(§3.3.1 + plan D3 + O4)
     /// </summary>
     [Serializable]
     [ProtoContract]
@@ -3555,7 +3555,7 @@ namespace Fantasy
         }
         public uint OpCode() { return OuterOpcode.G2C_PropertyInitSnapshot; } 
         /// <summary>
-        /// 三属性当前余额(每登录一次完整下发,客户端段下一刀作初视图)
+        /// 三属性当前余额(每登录一次完整下发,客户端段下一项作初视图)
         /// </summary>
         [ProtoMember(1)]
         public List<PropertyAmount> Properties { get; set; } = new List<PropertyAmount>();
@@ -3615,12 +3615,12 @@ namespace Fantasy
         [ProtoMember(1)]
         public PropertyType Type { get; set; }
         /// <summary>
-        /// 变更后该属性新余额(绝对值,客户端段下一刀直接覆盖本地视图)
+        /// 变更后该属性新余额(绝对值,客户端段下一项直接覆盖本地视图)
         /// </summary>
         [ProtoMember(2)]
         public long NewAmount { get; set; }
         /// <summary>
-        /// 变更来源标识(回声触发方传入的 reason,供客户端段下一刀做 toast / 弹奖动画的来源识别)
+        /// 变更来源标识(回声触发方传入的 reason,供客户端段下一项做 toast / 弹奖动画的来源识别)
         /// </summary>
         [ProtoMember(3)]
         public string Reason { get; set; }
@@ -3697,7 +3697,7 @@ namespace Fantasy
         [ProtoMember(5)]
         public long Delta { get; set; }
         /// <summary>
-        /// 变更来源枚举码(= 服务端 AttrChangeSource 整数;客户端段下一刀映射为人类可读文本)
+        /// 变更来源枚举码(= 服务端 AttrChangeSource 整数;客户端段下一项映射为人类可读文本)
         /// </summary>
         [ProtoMember(6)]
         public int Source { get; set; }

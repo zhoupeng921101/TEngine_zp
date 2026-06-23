@@ -40,8 +40,6 @@ namespace GameLogic.BlockBlastUI
         private Image m_img_ClearToolIcon;
         private Button m_btn_Temple;
         private Image m_img_TempleIcon;
-        private Button m_btn_Undo;
-        private Text m_text_UndoLabel;
         private Button m_btn_Exit;
         private Image m_img_ClearOverlay;
 
@@ -77,10 +75,8 @@ namespace GameLogic.BlockBlastUI
             m_img_ClearToolIcon= m_bindComponent.GetComponent<Image>(21);
             m_btn_Temple       = m_bindComponent.GetComponent<Button>(22);
             m_img_TempleIcon   = m_bindComponent.GetComponent<Image>(23);
-            m_btn_Undo         = m_bindComponent.GetComponent<Button>(24);
-            m_text_UndoLabel   = m_bindComponent.GetComponent<Text>(25);
-            m_btn_Exit         = m_bindComponent.GetComponent<Button>(26);
-            m_img_ClearOverlay = m_bindComponent.GetComponent<Image>(27);
+            m_btn_Exit         = m_bindComponent.GetComponent<Button>(24);
+            m_img_ClearOverlay = m_bindComponent.GetComponent<Image>(25);
         }
 
         #endregion

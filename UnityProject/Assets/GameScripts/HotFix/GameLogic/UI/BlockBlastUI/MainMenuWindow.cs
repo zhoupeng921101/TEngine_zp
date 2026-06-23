@@ -29,15 +29,15 @@ namespace GameLogic.BlockBlastUI
                 BlockLayout.DesignWidth, BlockLayout.DesignHeight, BlockLayout.BgColor);
 
             // 标题
-            UGuiFactory.CreateText(content, "Title", cx, 320, 700, 110, "BLOCK BLAST", 72,
+            UGuiFactory.CreateText(content, "Title", cx, 461, 1008, 158, "BLOCK BLAST", 104,
                 new Color32(0xff, 0xe0, 0x66, 0xFF));
-            UGuiFactory.CreateText(content, "Sub", cx, 410, 700, 50, "合成订单 · 经典无尽融合", 26,
+            UGuiFactory.CreateText(content, "Sub", cx, 590, 1008, 72, "合成订单 · 经典无尽融合", 37,
                 new Color32(0x88, 0xaa, 0xcc, 0xFF));
 
             // 「开始游戏」单入口 → 融合玩法（MergeOrderWindow 承载完整经济，设计 29 §3.1）
-            var btn = UGuiFactory.CreateButton(content, "BtnStart", cx, 720, 470, 150, "开始游戏", 52,
+            var btn = UGuiFactory.CreateButton(content, "BtnStart", cx, 1037, 677, 216, "开始游戏", 75,
                 new Color32(0x44, 0x77, 0xff, 0xFF), Color.white, out _, out _);
-            UGuiFactory.CreateText(content, "StartSub", cx, 790, 470, 40, "落子·消除·合成·订单 · 完成 5 单通关", 22,
+            UGuiFactory.CreateText(content, "StartSub", cx, 1138, 677, 58, "落子·消除·合成·订单 · 完成 5 单通关", 32,
                 new Color32(0xdd, 0xee, 0xff, 0xFF));
             btn.onClick.AddListener(() =>
             {
@@ -46,11 +46,11 @@ namespace GameLogic.BlockBlastUI
             });
 
             // BEST
-            UGuiFactory.CreateText(content, "Best", cx, 1020, 470, 50, $"BEST  {state.HighScore}", 32,
+            UGuiFactory.CreateText(content, "Best", cx, 1469, 677, 72, $"BEST  {state.HighScore}", 46,
                 new Color32(0xaa, 0xbb, 0xdd, 0xFF));
 
             // 设置入口（设计 23 §八 B5：本轮入口落主菜单；玩法 HUD 齿轮入口后续轮次）
-            var btnSettings = UGuiFactory.CreateButton(content, "BtnSettings", cx, 1140, 360, 96, "设置", 36,
+            var btnSettings = UGuiFactory.CreateButton(content, "BtnSettings", cx, 1642, 518, 138, "设置", 52,
                 new Color32(0x77, 0x88, 0x99, 0xFF), Color.white, out _, out _);
             btnSettings.onClick.AddListener(() =>
             {
@@ -58,7 +58,7 @@ namespace GameLogic.BlockBlastUI
             });
 
             // 个人信息入口（设计 25 §八 D6：本轮入口落主菜单，照 BtnSettings 做法；玩法 HUD 顶栏头像入口后续轮）
-            var btnPlayerInfo = UGuiFactory.CreateButton(content, "BtnPlayerInfo", cx, 1250, 360, 96, "个人信息", 36,
+            var btnPlayerInfo = UGuiFactory.CreateButton(content, "BtnPlayerInfo", cx, 1800, 518, 138, "个人信息", 52,
                 new Color32(0x99, 0x77, 0x88, 0xFF), Color.white, out _, out _);
             btnPlayerInfo.onClick.AddListener(() =>
             {
@@ -66,7 +66,7 @@ namespace GameLogic.BlockBlastUI
             });
 
             // 排行榜入口（设计 28 §八：本轮入口落主菜单，照 BtnPlayerInfo 做法；玩法 HUD / 结算窗入口后续轮）
-            var btnRank = UGuiFactory.CreateButton(content, "BtnRank", cx, 1360, 360, 96, "排行榜", 36,
+            var btnRank = UGuiFactory.CreateButton(content, "BtnRank", cx, 1958, 518, 138, "排行榜", 52,
                 new Color32(0x88, 0x99, 0x77, 0xFF), Color.white, out _, out _);
             btnRank.onClick.AddListener(() =>
             {

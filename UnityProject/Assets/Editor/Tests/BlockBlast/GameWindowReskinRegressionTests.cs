@@ -96,20 +96,20 @@ namespace GameLogic.BlockBlast.Tests
         {
             var src = ReadSource(BlockLayoutPath);
 
-            // 棋盘原点/格尺寸/棋盘像素（动了落子对位偏移 = 玩法回归）
+            // 棋盘原点/格尺寸/棋盘像素（原生 1080 空间；动了落子对位偏移 = 玩法回归）
             Assert.IsTrue(src.Contains("public const int BoardSize = 8;"), "R2: BoardSize=8 不得改");
-            Assert.IsTrue(src.Contains("public const float CellSize = 84f;"), "R2: CellSize=84 不得改");
+            Assert.IsTrue(src.Contains("public const float CellSize = 121f;"), "R2: CellSize=121 不得改");
             Assert.IsTrue(src.Contains("public const float BoardPixels = CellSize * BoardSize;"), "R2: BoardPixels 公式不得改");
             Assert.IsTrue(src.Contains("public const float BoardOriginX = (DesignWidth - BoardPixels) / 2f;"), "R2: BoardOriginX 公式不得改");
-            Assert.IsTrue(src.Contains("public const float BoardOriginY = 300f;"), "R2: BoardOriginY=300 不得改");
+            Assert.IsTrue(src.Contains("public const float BoardOriginY = 432f;"), "R2: BoardOriginY=432 不得改");
             // 候选槽常量
-            Assert.IsTrue(src.Contains("public const float SlotCell = 47f;"), "R2: SlotCell=47 不得改");
-            Assert.IsTrue(src.Contains("public const float SlotY = 1100f;"), "R2: SlotY=1100 不得改");
-            Assert.IsTrue(src.Contains("public const float SlotSpacing = 217f;"), "R2: SlotSpacing=217 不得改");
+            Assert.IsTrue(src.Contains("public const float SlotCell = 68f;"), "R2: SlotCell=68 不得改");
+            Assert.IsTrue(src.Contains("public const float SlotY = 1584f;"), "R2: SlotY=1584 不得改");
+            Assert.IsTrue(src.Contains("public const float SlotSpacing = 312f;"), "R2: SlotSpacing=312 不得改");
             Assert.IsTrue(src.Contains("public const float SlotCenterX = DesignWidth / 2f;"), "R2: SlotCenterX 不得改");
-            // 设计分辨率坐标系
-            Assert.IsTrue(src.Contains("public const float DesignWidth = 750f;"), "R2: DesignWidth=750 不得改");
-            Assert.IsTrue(src.Contains("public const float DesignHeight = 1334f;"), "R2: DesignHeight=1334 不得改");
+            // 设计分辨率坐标系（原生 1080×1920，Content 不缩放）
+            Assert.IsTrue(src.Contains("public const float DesignWidth = 1080f;"), "R2: DesignWidth=1080 不得改");
+            Assert.IsTrue(src.Contains("public const float DesignHeight = 1920f;"), "R2: DesignHeight=1920 不得改");
         }
 
         // ── R2b：GameWindow 换皮节点沿用 BlockLayout 既有坐标（不硬编码棋盘/槽位坐标）──────
@@ -162,7 +162,7 @@ namespace GameLogic.BlockBlast.Tests
 
             // 资源条加号 → Log 待建(去变现红线,不接购买;设计 42 §一 不守加号变购买入口)
             Assert.IsTrue(src.Contains("资源条加号：待建"), "R3b: 资源条加号点击应 Log 待建(去变现红线 D1)");
-            // 动作按钮 → Log 待建(不实现机制;Tier 2+ 业务玩法刀,设计 27 §六)
+            // 动作按钮 → Log 待建(不实现机制;Tier 2+ 业务玩法阶段,设计 27 §六)
             Assert.IsTrue(src.Contains("动作按钮"), "R3b: 动作按钮点击应 Log 待建(stub D5)");
             Assert.IsTrue(src.Contains("待建（新玩法机制"), "R3b: 动作按钮应标注新玩法机制待建(不实现)");
 

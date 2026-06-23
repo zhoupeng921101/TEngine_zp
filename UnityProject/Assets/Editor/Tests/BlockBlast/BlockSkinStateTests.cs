@@ -23,7 +23,7 @@ namespace GameLogic.BlockBlast.Tests
         [SetUp]
         public void SetUp()
         {
-            // InMemory Provider 隔离真实 PlayerPrefs（整合 / 悔棋用例触达 ResetForMergeOrder → Load）。
+            // InMemory Provider 隔离真实 PlayerPrefs（整合用例触达 ResetForMergeOrder → Load）。
             Persistence.Provider = new InMemoryPersistenceProvider();
             RandomSource.SetSeed(20260622);
             if (BlockGameState.IsValid) BlockGameState.Instance.Release();
@@ -290,30 +290,6 @@ namespace GameLogic.BlockBlast.Tests
 
             Assert.AreEqual(SkinMode.Mono, dst.Skin.Mode, "整合: ExportMeta/ImportMeta 续存皮肤模式");
             Assert.AreEqual(srcId, dst.Skin.MonoId, "整合: 续存当前单色标识保真");
-        }
-
-        // ───────────── 悔棋:皮肤切换随快照回滚（与全清 reward 系列同口径）─────────────
-        // 同一手全清的皮肤切换须能被悔棋回滚,否则悔棋后皮肤与女神/盲盒等其余全清产物不一致。
-        [Test]
-        public void Undo_RollsBackSkinSwitch_WithSnapshot()
-        {
-            var s = BlockGameState.Instance;
-            var board = new GameLogic.BlockBlast.Core.BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            // 落子前打快照(皮肤=彩色),随后模拟该手全清切皮肤。
-            m.CaptureSnapshot(s, board);
-            var before = m.Skin.Mode;
-            int beforeId = m.Skin.MonoId;
-            m.Skin.OnAllClear(BlockSkinCatalog.MonoIds); // 切到单色
-
-            Assert.AreEqual(SkinMode.Mono, m.Skin.Mode, "前置: 全清后已切单色");
-
-            bool undone = m.Undo(s, board);
-            Assert.IsTrue(undone, "悔棋成功");
-            Assert.AreEqual(before, m.Skin.Mode, "悔棋回滚皮肤模式到落子前");
-            Assert.AreEqual(beforeId, m.Skin.MonoId, "悔棋回滚当前单色标识到落子前");
         }
 
         // ───────────── 彩色态贴图映射（设计 50 §二：彩色态按类型贴 default_skin 纹理）─────────────

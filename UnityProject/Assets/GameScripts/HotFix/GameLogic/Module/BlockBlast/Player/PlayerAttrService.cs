@@ -69,7 +69,7 @@ namespace GameLogic.BlockBlast.Player
         }
 
         /// <summary>
-        /// 发起属性变更请求(改名扣钻 / 后续业务玩法刀的统一入口)。
+        /// 发起属性变更请求(改名扣钻 / 后续业务玩法阶段的统一入口)。
         /// 同步等响应(沿 D3,非 fire-and-forget):成功时先 <see cref="ApplyChangeResponse"/> 再返结果;
         /// 失败时(余额不足 / 上界溢出)按服务端返的 NewBalance 刷视图(保两端一致);其它失败(网络 / 服务不可用)不动视图。
         /// </summary>

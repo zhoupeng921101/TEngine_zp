@@ -7,7 +7,7 @@ namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
     /// 神秘塔罗盲盒（设计 12）单测：奖池加权抽样确定性、双重保底、开盒扣计数+发放、
-    /// 连消/全清解锁阈值、无消除不发、特殊订单附赠、悔棋快照回滚。验收点对应设计 12 §六 A1–A10。
+    /// 连消/全清解锁阈值、无消除不发、特殊订单附赠。验收点对应设计 12 §六 A1–A10。
     /// SetUp 仿 CoreLoopCompletionTests：InMemory Provider + RandomSource.SetSeed。
     /// </summary>
     [TestFixture]
@@ -351,27 +351,6 @@ namespace GameLogic.BlockBlast.Tests
             int boxBefore = m.BlindBoxCount;
             Assert.IsFalse(m.DeliverSpecial());
             Assert.AreEqual(boxBefore, m.BlindBoxCount, "不可交付时计数不变");
-        }
-
-        // ───────────── A9 悔棋快照回滚计数 ─────────────
-
-        [Test]
-        public void A9_Undo_RollsBackBlindBoxCount()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            int c = m.BlindBoxCount; // 通常 0
-            m.CaptureSnapshot(s, board);
-            // 模拟落子触发全清解锁盲盒（计数 c → c+1）
-            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond);
-            Assert.AreEqual(c + 1, m.BlindBoxCount, "全清后计数 +1");
-
-            Assert.IsTrue(m.Undo(s, board));
-            Assert.AreEqual(c, m.BlindBoxCount, "悔棋回滚盲盒计数");
-            s.Release();
         }
 
         // ───────────── A10 旧路径零回归 ─────────────

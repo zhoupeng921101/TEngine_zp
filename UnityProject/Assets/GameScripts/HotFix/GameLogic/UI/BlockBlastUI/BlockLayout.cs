@@ -4,44 +4,38 @@ using GameLogic.BlockBlast;
 namespace GameLogic.BlockBlastUI
 {
     /// <summary>
-    /// Block Blast UI 布局常量。坐标系基于 750×1334 设计分辨率（竖屏，match width）。
-    /// 源项目是 450×800；这里按 ≈1.667 倍放大到 750 宽。
+    /// Block Blast UI 布局常量。坐标系即原生 1080×1920 设计分辨率（竖屏，match width），无整体缩放。
     /// 所有坐标以"左上角为原点、Y 向下为正"的设计坐标描述，
     /// 由 UGuiFactory 在锚点 (0,1) 下转成 anchoredPosition（X 右正、Y 下负）。
+    /// 像素常量是 1080 原生空间的绝对值（Content localScale=1）。
     /// </summary>
     public static class BlockLayout
     {
-        // 设计分辨率（内部坐标系，保持 750×1334 不变，便于所有布局常量稳定）
-        public const float DesignWidth = 750f;
-        public const float DesignHeight = 1334f;
-
-        // UIRoot CanvasScaler 实际参考分辨率（用户设为 1080×1920）。
-        // Content 面板按 ContentScale 整体放大，使 750 设计宽填满 1080 参考宽（同为 9:16）。
-        public const float ReferenceWidth = 1080f;
-        public const float ReferenceHeight = 1920f;
-        public const float ContentScale = ReferenceWidth / DesignWidth;  // 1.44
+        // 设计分辨率（内部坐标系 = 原生 1080×1920，与 UIRoot CanvasScaler 参考分辨率一致，Content 不缩放）
+        public const float DesignWidth = 1080f;
+        public const float DesignHeight = 1920f;
 
         // 棋盘
         public const int BoardSize = 8;                 // 8×8
-        public const float CellSize = 84f;              // 每格像素（450→750 缩放后 50*1.667≈84）
-        public const float BoardPixels = CellSize * BoardSize;  // 672
-        public const float BoardOriginX = (DesignWidth - BoardPixels) / 2f;  // 居中 ≈39
-        public const float BoardOriginY = 300f;         // 棋盘左上 Y（设计坐标，向下）
+        public const float CellSize = 121f;             // 每格像素（1080 原生空间绝对值）
+        public const float BoardPixels = CellSize * BoardSize;  // 968
+        public const float BoardOriginX = (DesignWidth - BoardPixels) / 2f;  // 居中 ≈56
+        public const float BoardOriginY = 432f;         // 棋盘左上 Y（设计坐标，向下）
 
         // 候选槽
-        public const float SlotCell = 47f;              // 槽内格尺寸（28*1.667）
-        public const float SlotY = 1100f;               // 3 个槽中心 Y
-        public const float SlotSpacing = 217f;          // 槽水平间距（130*1.667）
+        public const float SlotCell = 68f;              // 槽内格尺寸
+        public const float SlotY = 1584f;               // 3 个槽中心 Y
+        public const float SlotSpacing = 312f;          // 槽水平间距
         public const float SlotCenterX = DesignWidth / 2f;
 
         // 拖拽
-        public static float DragScale => CellSize / SlotCell;   // 拖起放大倍数 ≈1.79
-        public const float DragFingerOffsetY = 184f;            // 方块在手指上方（110*1.667），避免被指尖遮挡
+        public static float DragScale => CellSize / SlotCell;   // 拖起放大倍数 ≈1.78
+        public const float DragFingerOffsetY = 265f;            // 方块在手指上方，避免被指尖遮挡
         public const float DragGain = 1.0f;                     // 方块位移 = 触控位移 × 1.0（1:1 跟手，所见即所落）
 
         // 候选槽命中区（整块区域可点选，不必点到方块本身）。3 个槽水平平铺。
-        public const float SlotZoneWidth = SlotSpacing - 10f;   // ≈207
-        public const float SlotZoneHeight = 250f;
+        public const float SlotZoneWidth = SlotSpacing - 14f;   // ≈298
+        public const float SlotZoneHeight = 360f;
 
         // 颜色
         public static readonly Color BoardOuterColor = new Color32(0x2a, 0x2a, 0x55, 0xFF);

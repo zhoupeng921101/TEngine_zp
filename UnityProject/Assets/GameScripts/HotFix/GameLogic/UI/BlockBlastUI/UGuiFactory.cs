@@ -5,7 +5,7 @@ namespace GameLogic.BlockBlastUI
 {
     /// <summary>
     /// 纯几何 UGUI 构建工厂。所有元素用纯色 Image / 内置字体 Text 代码创建，无 atlas 依赖。
-    /// 统一坐标系：固定尺寸 750×1334 面板（居中、pivot 中心）下，
+    /// 统一坐标系：固定尺寸 1080×1920 原生面板（居中、pivot 中心、localScale=1）下，
     /// 元素一律 center 锚点 + center pivot，按"元素中心的设计坐标"（左上原点、Y 下正）定位。
     /// </summary>
     public static class UGuiFactory
@@ -25,7 +25,7 @@ namespace GameLogic.BlockBlastUI
         }
 
         /// <summary>
-        /// 固定尺寸内容面板：750×1334，锚点&amp;pivot 居中。
+        /// 固定尺寸内容面板：1080×1920 原生，锚点&amp;pivot 居中、localScale=1。
         /// 不随屏幕高度拉伸，保证 ScreenPointToLocalPoint 与 anchoredPosition 同坐标系。
         /// </summary>
         public static RectTransform CreateContentPanel(Transform parent, string name = "Content")
@@ -36,8 +36,8 @@ namespace GameLogic.BlockBlastUI
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(BlockLayout.DesignWidth, BlockLayout.DesignHeight);
             rt.anchoredPosition = Vector2.zero;
-            // 750 设计坐标系整体放大到 1080 参考分辨率（9:16 同比例），填满画布
-            rt.localScale = new Vector3(BlockLayout.ContentScale, BlockLayout.ContentScale, 1f);
+            // 原生 1080×1920 设计坐标系，与参考分辨率一致，不缩放
+            rt.localScale = Vector3.one;
             return rt;
         }
 

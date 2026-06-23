@@ -5,9 +5,8 @@ namespace GameLogic.BlockBlast
     /// <summary>
     /// 跨会话磁盘存档数据传输对象（设计 14 §3.2）。
     /// 扁平 [Serializable]，JsonUtility 友好：bool[] 直接可序列化、Dictionary 不进盘故无需拍平。
-    /// 只承载 <see cref="MergeOrderState"/> 的元层进度（跨局累积、长期语义），不含局内瞬态（棋盘/手牌/订单/合成区/悔棋栈）。
+    /// 只承载 <see cref="MergeOrderState"/> 的元层进度（跨局累积、长期语义），不含局内瞬态（棋盘/手牌/订单/合成区）。
     /// 版本字段随档落盘，加载时按 <see cref="MergeMetaPersistence.CurrentVersion"/> 决策迁移/重置（§3.5）。
-    /// 与悔棋快照 <see cref="MergeOrderState"/>.Snapshot 是两条独立轨，互不调用。
     /// </summary>
     [Serializable]
     public sealed class MergeMetaSave

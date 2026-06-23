@@ -54,8 +54,6 @@ namespace GameLogic.BlockBlast.Reward
                 case ChestRewardKind.Pattern:
                     // 盲盒只带等级不带具体图案，展示用代表图案 Diamond + 等级文案降级（设计 17 §3.2 注 / §七 O7）。
                     return FromPattern(MergeElement.Diamond, r.PatternLevel, r.Amount);
-                case ChestRewardKind.UndoCharge:
-                    return FunctionView("UndoCharge", r.Amount);
                 case ChestRewardKind.WishCharge:
                     return FunctionView("WishCharge", r.Amount);
                 default:
@@ -102,7 +100,7 @@ namespace GameLogic.BlockBlast.Reward
             return new RewardView(icon, 0, CountText(times), QualityColor(1), RewardBadge.Gift, times);
         }
 
-        /// <summary>功能性次数占位展示（悔棋 / 祈愿等非实物，无品质语义，品质退化白，§3.2）。</summary>
+        /// <summary>功能性次数占位展示（祈愿等非实物，无品质语义，品质退化白，§3.2）。</summary>
         public static RewardView FunctionView(string iconName, long amount)
         {
             return new RewardView(iconName, 0, CountText(amount), QualityColor(1), RewardBadge.Function, amount);

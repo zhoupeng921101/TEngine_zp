@@ -7,7 +7,7 @@ namespace GameLogic.BlockBlast.Tests
     /// <summary>
     /// 长期主线（虔诚币 + 神庙修复 + 经验·守护者等级，设计 13）单测：
     /// 订单发币、修复三前置门控、扣币标记推进、发经验+体力、经验→等级曲线、跨级升级、
-    /// 全厅修完、累积只增、悔棋快照回滚、旧路径零回归。验收点对应设计 13 §六 T1–T12。
+    /// 全厅修完、累积只增、旧路径零回归。验收点对应设计 13 §六 T1–T12。
     /// 系统无随机，主要构造确定性状态后断言。SetUp 仿 TarotBlindBoxTests（InMemory Provider）。
     /// </summary>
     [TestFixture]
@@ -325,83 +325,6 @@ namespace GameLogic.BlockBlast.Tests
             StockFor(m, MergeElement.Star, 2, 1);
             Assert.IsTrue(m.Deliver(0));
             Assert.AreEqual(after1 + 2 * TempleConfig.PietyPerDifficulty, m.Piety, "多次交付累加");
-        }
-
-        // ───────────── T11 悔棋快照回滚主线字段 ─────────────
-
-        [Test]
-        public void T11_Undo_RollsBackMainlineFields()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            // 备一单可交付（落子后交付使虔诚币变）。
-            m.ActiveOrders[0] = new Order(MergeElement.Diamond, 1, 1);
-            StockFor(m, MergeElement.Diamond, 1, 1);
-
-            int pietyBefore = m.Piety;
-            int expBefore = m.Exp;
-            int nextBefore = m.NextRepairIndex;
-
-            // 落子前打快照
-            m.CaptureSnapshot(s, board);
-            // 模拟落子(直接改部分状态,再交付使虔诚币/Exp 等可能变)
-            m.AddPiety(999); // 模拟交付前的状态变更进入快照后的现场
-            Assert.AreNotEqual(pietyBefore, m.Piety);
-
-            // Undo 回滚到快照(快照在 AddPiety 之前)
-            Assert.IsTrue(m.Undo(s, board));
-            Assert.AreEqual(pietyBefore, m.Piety, "悔棋回滚虔诚币");
-            Assert.AreEqual(expBefore, m.Exp, "悔棋回滚经验");
-            Assert.AreEqual(nextBefore, m.NextRepairIndex, "悔棋回滚修复进度");
-            s.Release();
-        }
-
-        [Test]
-        public void T11_Undo_RollsBackTempleRepairBits()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-            SetPiety(m, 100000);
-
-            // 落子前打快照(第 0 厅未修)
-            m.CaptureSnapshot(s, board);
-            Assert.IsFalse(m.TempleRepaired[0]);
-
-            // 这里仅验证快照机制对修复位的回滚能力:手动改修复位后 Undo 应复原。
-            // (实际 RepairTemple 会清栈,该路径单独由下一测覆盖。)
-            m.TempleRepaired[0] = true;
-            m.NextRepairIndex = 1;
-            Assert.IsTrue(m.Undo(s, board));
-            Assert.IsFalse(m.TempleRepaired[0], "悔棋回滚修复位");
-            Assert.AreEqual(0, m.NextRepairIndex, "悔棋回滚 NextRepairIndex");
-            s.Release();
-        }
-
-        [Test]
-        public void T11_RepairClearsUndoStack_NoRollbackOfRepairedHall()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-            SetPiety(m, 100000);
-
-            // 先打一个落子快照
-            m.CaptureSnapshot(s, board);
-            Assert.IsTrue(m.CanUndo, "有快照可悔棋");
-
-            // 修复第 0 厅 → 应清空悔棋栈
-            Assert.IsTrue(m.RepairTemple(0, out _));
-            Assert.IsFalse(m.CanUndo, "修复后清空悔棋栈");
-            Assert.IsFalse(m.Undo(s, board), "修复后无可悔棋(不倒回已修厅)");
-            Assert.IsTrue(m.TempleRepaired[0], "已修厅保持已修");
-            Assert.AreEqual(1, m.NextRepairIndex, "进度保持");
-            s.Release();
         }
 
         // ───────────── T12 旧路径零回归 ─────────────

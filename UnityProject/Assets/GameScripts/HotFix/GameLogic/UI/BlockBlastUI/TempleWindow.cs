@@ -57,25 +57,25 @@ namespace GameLogic.BlockBlastUI
                 BlockLayout.DesignWidth, BlockLayout.DesignHeight, BlockLayout.BgColor);
 
             // 标题
-            UGuiFactory.CreateText(_content, "Title", cx, 60, 600, 60, "神庙修复", 40,
+            UGuiFactory.CreateText(_content, "Title", cx, 86, 864, 86, "神庙修复", 58,
                 new Color32(0xff, 0xcf, 0x5c, 0xFF));
 
             // 退出（返回 MergeOrderWindow，不丢局：只关本窗）
-            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 55, 60, 70, 60, "×", 44,
+            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 79, 86, 101, 86, "×", 63,
                 new Color(0, 0, 0, 0), Color.white, out _, out _);
             exit.onClick.AddListener(() => GameModule.UI.CloseUI<TempleWindow>());
 
             // 顶部主线信息行（两行）
-            UGuiFactory.CreateImage(_content, "HeaderBg", cx, 165, 700, 130, new Color(0, 0, 0, 0.25f));
+            UGuiFactory.CreateImage(_content, "HeaderBg", cx, 238, 1008, 187, new Color(0, 0, 0, 0.25f));
             // 第一行：虔诚币 + 守护者等级
-            _pietyText = UGuiFactory.CreateText(_content, "Piety", cx - 175, 135, 340, 56, "", 36,
+            _pietyText = UGuiFactory.CreateText(_content, "Piety", cx - 252, 194, 490, 81, "", 52,
                 new Color32(0xff, 0xcf, 0x5c, 0xFF), TextAnchor.MiddleLeft);   // 金
-            _levelText = UGuiFactory.CreateText(_content, "Level", cx + 175, 135, 340, 56, "", 36,
+            _levelText = UGuiFactory.CreateText(_content, "Level", cx + 252, 194, 490, 81, "", 52,
                 new Color32(0xae, 0xf0, 0xcf, 0xFF), TextAnchor.MiddleRight);  // 绿
             // 第二行：本级经验进度 + 已解锁章节
-            _expText = UGuiFactory.CreateText(_content, "Exp", cx - 175, 195, 340, 50, "", 28,
+            _expText = UGuiFactory.CreateText(_content, "Exp", cx - 252, 281, 490, 72, "", 40,
                 new Color32(0x7f, 0xca, 0xa0, 0xFF), TextAnchor.MiddleLeft);
-            _chapterText = UGuiFactory.CreateText(_content, "Chapter", cx + 175, 195, 340, 50, "", 28,
+            _chapterText = UGuiFactory.CreateText(_content, "Chapter", cx + 252, 281, 490, 72, "", 40,
                 new Color32(0x8a, 0xa0, 0xd0, 0xFF), TextAnchor.MiddleRight);
 
             _cardLayer = UGuiFactory.CreateNode(_content, "CardLayer");
@@ -112,11 +112,11 @@ namespace GameLogic.BlockBlastUI
             for (int i = _cardLayer.childCount - 1; i >= 0; i--)
                 Object.Destroy(_cardLayer.GetChild(i).gameObject);
 
-            const float cardW = 220f;
-            const float cardH = 200f;
-            const float gapX = 18f;
-            const float gapY = 18f;
-            const float gridTop = 290f;
+            const float cardW = 317f;
+            const float cardH = 288f;
+            const float gapX = 26f;
+            const float gapY = 26f;
+            const float gridTop = 418f;
             float gridW = Cols * cardW + (Cols - 1) * gapX;
             float startX = (BlockLayout.DesignWidth - gridW) / 2f + cardW / 2f;
 
@@ -155,37 +155,37 @@ namespace GameLogic.BlockBlastUI
             UGuiFactory.CreateImage(_cardLayer, $"card_{index}", cx, cy, w, h, cardColor);
 
             // 厅名
-            UGuiFactory.CreateText(_cardLayer, $"name_{index}", cx, cy - h / 2f + 32, w - 16, 44,
-                TempleConfig.HallName(index), 26,
+            UGuiFactory.CreateText(_cardLayer, $"name_{index}", cx, cy - h / 2f + 46, w - 23, 63,
+                TempleConfig.HallName(index), 37,
                 st == HallState.Locked ? new Color32(0x66, 0x6c, 0x7a, 0xFF) : Color.white);
 
             // 装饰 glyph（已修才显示）
             if (st == HallState.Repaired)
-                UGuiFactory.CreateText(_cardLayer, $"deco_{index}", cx, cy - 6, w, 64, "◈", 48,
+                UGuiFactory.CreateText(_cardLayer, $"deco_{index}", cx, cy - 9, w, 92, "◈", 69,
                     new Color32(0x5b, 0xd6, 0xa0, 0xFF));
 
             // 状态行 / 造价
             switch (st)
             {
                 case HallState.Repaired:
-                    UGuiFactory.CreateText(_cardLayer, $"stat_{index}", cx, cy + h / 2f - 60, w, 40,
-                        "✓ 已修复", 26, new Color32(0x5b, 0xd6, 0xa0, 0xFF));
+                    UGuiFactory.CreateText(_cardLayer, $"stat_{index}", cx, cy + h / 2f - 86, w, 58,
+                        "✓ 已修复", 37, new Color32(0x5b, 0xd6, 0xa0, 0xFF));
                     break;
                 case HallState.Repairable:
-                    UGuiFactory.CreateText(_cardLayer, $"cost_{index}", cx, cy + h / 2f - 60, w, 40,
-                        $"✦ {cost}", 28, new Color32(0xff, 0xcf, 0x5c, 0xFF));
+                    UGuiFactory.CreateText(_cardLayer, $"cost_{index}", cx, cy + h / 2f - 86, w, 58,
+                        $"✦ {cost}", 40, new Color32(0xff, 0xcf, 0x5c, 0xFF));
                     break;
                 case HallState.Insufficient:
-                    UGuiFactory.CreateText(_cardLayer, $"cost_{index}", cx, cy + h / 2f - 78, w, 36,
-                        $"✦ {cost}", 26, new Color32(0xff, 0x77, 0x66, 0xFF));
-                    UGuiFactory.CreateText(_cardLayer, $"need_{index}", cx, cy + h / 2f - 48, w, 32,
-                        $"还差 {cost - _merge.Piety}", 22, new Color32(0xcc, 0x88, 0x66, 0xFF));
+                    UGuiFactory.CreateText(_cardLayer, $"cost_{index}", cx, cy + h / 2f - 112, w, 52,
+                        $"✦ {cost}", 37, new Color32(0xff, 0x77, 0x66, 0xFF));
+                    UGuiFactory.CreateText(_cardLayer, $"need_{index}", cx, cy + h / 2f - 69, w, 46,
+                        $"还差 {cost - _merge.Piety}", 32, new Color32(0xcc, 0x88, 0x66, 0xFF));
                     break;
                 default: // Locked
-                    UGuiFactory.CreateText(_cardLayer, $"lock_{index}", cx, cy, w, 60,
-                        "🔒", 40, new Color32(0x55, 0x5a, 0x68, 0xFF));
-                    UGuiFactory.CreateText(_cardLayer, $"locktip_{index}", cx, cy + h / 2f - 40, w, 32,
-                        "需先修前序", 22, new Color32(0x55, 0x5a, 0x68, 0xFF));
+                    UGuiFactory.CreateText(_cardLayer, $"lock_{index}", cx, cy, w, 86,
+                        "🔒", 58, new Color32(0x55, 0x5a, 0x68, 0xFF));
+                    UGuiFactory.CreateText(_cardLayer, $"locktip_{index}", cx, cy + h / 2f - 58, w, 46,
+                        "需先修前序", 32, new Color32(0x55, 0x5a, 0x68, 0xFF));
                     break;
             }
 
@@ -194,8 +194,8 @@ namespace GameLogic.BlockBlastUI
             {
                 bool can = st == HallState.Repairable;
                 int captured = index;
-                var btn = UGuiFactory.CreateButton(_cardLayer, $"repair_{index}", cx, cy + h / 2f - 22, w - 24, 40,
-                    "修复", 26,
+                var btn = UGuiFactory.CreateButton(_cardLayer, $"repair_{index}", cx, cy + h / 2f - 32, w - 35, 58,
+                    "修复", 37,
                     can ? new Color32(0x33, 0xaa, 0x55, 0xFF) : new Color32(0x44, 0x44, 0x4c, 0xFF),
                     can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF), out _, out _);
                 btn.interactable = can;
@@ -208,13 +208,13 @@ namespace GameLogic.BlockBlastUI
         {
             if (!_merge.RepairTemple(index, out var r)) return;
 
-            BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 540,
-                $"修复{TempleConfig.HallName(index)}！+经验{r.ExpGained} +体力{r.EnergyGained}", 40,
+            BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 778,
+                $"修复{TempleConfig.HallName(index)}！+经验{r.ExpGained} +体力{r.EnergyGained}", 58,
                 new Color32(0xff, 0xcf, 0x5c, 0xFF));
 
             if (r.LevelsGained > 0)
-                BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 620,
-                    $"守护者 Lv↑ 解锁第{_merge.UnlockedChapter}章", 38,
+                BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 893,
+                    $"守护者 Lv↑ 解锁第{_merge.UnlockedChapter}章", 55,
                     new Color32(0xae, 0xf0, 0xcf, 0xFF));
 
             RefreshHeader();

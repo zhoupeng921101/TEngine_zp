@@ -16,7 +16,6 @@ namespace GameLogic.BlockBlast
         Soul = 0,       // 灵力
         Energy = 1,     // 体力
         Pattern = 2,    // 图案（按箱级给 Lv1~Lv3）
-        UndoCharge = 3, // 悔棋次数
         WishCharge = 4, // 祈愿补体力次数
     }
 
@@ -148,7 +147,6 @@ namespace GameLogic.BlockBlast
                         new ChestReward(ChestRewardKind.Soul, 200),
                         new ChestReward(ChestRewardKind.Pattern, 1, 3),
                         new ChestReward(ChestRewardKind.Energy, 20),
-                        new ChestReward(ChestRewardKind.UndoCharge, 2),
                         new ChestReward(ChestRewardKind.WishCharge, 2),
                     };
                 case ChestTier.Rare:
@@ -157,7 +155,6 @@ namespace GameLogic.BlockBlast
                         new ChestReward(ChestRewardKind.Soul, 80),
                         new ChestReward(ChestRewardKind.Pattern, 1, 2),
                         new ChestReward(ChestRewardKind.Energy, 12),
-                        new ChestReward(ChestRewardKind.UndoCharge, 1),
                         new ChestReward(ChestRewardKind.WishCharge, 1),
                     };
                 default: // Common
@@ -166,7 +163,6 @@ namespace GameLogic.BlockBlast
                         new ChestReward(ChestRewardKind.Soul, 20),
                         new ChestReward(ChestRewardKind.Pattern, 1, 1),
                         new ChestReward(ChestRewardKind.Energy, 6),
-                        new ChestReward(ChestRewardKind.UndoCharge, 1),
                     };
             }
         }

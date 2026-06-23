@@ -200,12 +200,12 @@ namespace GameLogic.BlockBlastUI
             BuildTopBar();
 
             // 大分数（沿用 Text，对位效果图大白字；位置下移到顶栏下方）。OnUpdate 滚动逻辑不动。
-            _scoreText = UGuiFactory.CreateText(_content, "Score", BlockLayout.DesignWidth / 2f, 215, 500, 110, "0", 96,
+            _scoreText = UGuiFactory.CreateText(_content, "Score", BlockLayout.DesignWidth / 2f, 310, 720, 158, "0", 138,
                 Color.white, TextAnchor.MiddleCenter);
 
             // 最高分（文本逻辑不动：读 _initialHigh，UpdateBest 滚动变色）。挪到分数下方小字，不占顶栏。
-            _bestText = UGuiFactory.CreateText(_content, "Best", BlockLayout.DesignWidth / 2f, 280, 300, 36,
-                "BEST " + _initialHigh, 26, new Color32(0xf0, 0xe0, 0xc0, 0xFF), TextAnchor.MiddleCenter);
+            _bestText = UGuiFactory.CreateText(_content, "Best", BlockLayout.DesignWidth / 2f, 403, 432, 52,
+                "BEST " + _initialHigh, 37, new Color32(0xf0, 0xe0, 0xc0, 0xFF), TextAnchor.MiddleCenter);
 
             BuildActionButtons();
         }
@@ -218,7 +218,7 @@ namespace GameLogic.BlockBlastUI
         private void BuildTopBar()
         {
             // ① 头像（占位图，无数据源 D2）
-            var avatar = UGuiFactory.CreateImage(_content, "Avatar", 64, 64, 84, 84, Color.white);
+            var avatar = UGuiFactory.CreateImage(_content, "Avatar", 92, 92, 121, 121, Color.white);
             avatar.SetSubSprite(Atlas, "mask");
 
             // ② 3 资源条(设计 42):条底 + 图标 + 数字(绑 PlayerAttrService 三属性) + 加号(去变现 Log)。
@@ -227,16 +227,16 @@ namespace GameLogic.BlockBlastUI
             AttrType[] resTypes = { AttrType.Coin, AttrType.Diamond, AttrType.Stamina };
             for (int i = 0; i < 3; i++)
             {
-                float cx = 230 + i * 150;
-                var bar = UGuiFactory.CreateImage(_content, $"ResBar_{i}", cx, 64, 140, 52, Color.white);
+                float cx = 331 + i * 216;
+                var bar = UGuiFactory.CreateImage(_content, $"ResBar_{i}", cx, 92, 202, 75, Color.white);
                 bar.SetSubSprite(Atlas, "resourcebar2");
 
-                var ic = UGuiFactory.CreateImage(_content, $"ResIcon_{i}", cx - 48, 64, 40, 40, Color.white);
+                var ic = UGuiFactory.CreateImage(_content, $"ResIcon_{i}", cx - 69, 92, 58, 58, Color.white);
                 ic.SetSubSprite(Atlas, resIcons[i]);
 
                 // 数字:绑 PlayerAttrService 三属性,IsReady=false 显「—」非 0(0 是合法余额值,占位用「—」不误导)。
                 string num = FormatAttr(resTypes[i]);
-                var numText = UGuiFactory.CreateText(_content, $"ResNum_{i}", cx + 6, 64, 80, 36, num, 26,
+                var numText = UGuiFactory.CreateText(_content, $"ResNum_{i}", cx + 9, 92, 115, 52, num, 37,
                     new Color32(0x5a, 0x2e, 0x10, 0xFF), TextAnchor.MiddleLeft);
                 switch (resTypes[i])
                 {
@@ -246,8 +246,8 @@ namespace GameLogic.BlockBlastUI
                 }
 
                 // 加号 → 占位（去变现，不接购买；点击仅 Log 待建,沿设计 27 §十 D1 / 设计 42 §一 去变现红线）
-                var plus = UGuiFactory.CreateButton(_content, $"ResPlus_{i}", cx + 56, 64, 30, 30,
-                    "+", 26, new Color(0, 0, 0, 0), new Color32(0x3a, 0x8a, 0x3a, 0xFF), out _, out _);
+                var plus = UGuiFactory.CreateButton(_content, $"ResPlus_{i}", cx + 81, 92, 43, 43,
+                    "+", 37, new Color(0, 0, 0, 0), new Color32(0x3a, 0x8a, 0x3a, 0xFF), out _, out _);
                 plus.onClick.AddListener(() =>
                     Log.Info("[GameWindow] 资源条加号：待建（去变现红线不接购买,设计 27 §十 D1 / 设计 42 §一）"));
             }
@@ -257,13 +257,13 @@ namespace GameLogic.BlockBlastUI
             if (Attr != null) Attr.OnAttrChanged += OnAttrChangedDispatch;
 
             // ③ 齿轮 → 真接设置窗（设计 23 已建）：叠层弹出，不关本窗、不丢局（R4）
-            var gear = UGuiFactory.CreateButton(_content, "Gear", BlockLayout.DesignWidth - 64, 64, 72, 72,
+            var gear = UGuiFactory.CreateButton(_content, "Gear", BlockLayout.DesignWidth - 92, 92, 104, 104,
                 "", 0, Color.white, Color.white, out var gearBg, out _);
             gearBg.SetSubSprite(Atlas, "icon_setting");
             gear.onClick.AddListener(() => GameModule.UI.ShowUIAsync<SettingsWindow>());
 
             // ④ 退出钮（保留，回调一字不改 — R4：CloseUI<GameWindow> + ShowUIAsync<MainMenuWindow>）。挪到齿轮左侧。
-            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 150, 64, 64, 64, "×", 44,
+            var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 216, 92, 92, 92, "×", 63,
                 new Color(0, 0, 0, 0), new Color32(0x6a, 0x40, 0x20, 0xFF), out _, out _);
             exit.onClick.AddListener(() =>
             {
@@ -278,19 +278,19 @@ namespace GameLogic.BlockBlastUI
         /// </summary>
         private void BuildActionButtons()
         {
-            // Y=1288：候选槽 hit 区（SlotY 1100 + SlotZoneHeight 250 → 底 1225）下方留 ~18px 间隙，不挡拖拽落子区。
+            // Y=1855：候选槽 hit 区（SlotY 1584 + SlotZoneHeight 360/2 → 底 1764）下方留 ~26px 间隙，不挡拖拽落子区。
             string[] actions = { "更换", "删除", "提示" };
             string[] actionIcons = { null, "hammer", null };   // 删除有锤子图标；更换/提示无精准图标 → 纯文本
             for (int i = 0; i < 3; i++)
             {
-                float cx = 145 + i * 230;
-                var btn = UGuiFactory.CreateButton(_content, $"Action_{i}", cx, 1288, 200, 86,
-                    actions[i], 32, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var btnBg, out _);
+                float cx = 209 + i * 331;
+                var btn = UGuiFactory.CreateButton(_content, $"Action_{i}", cx, 1855, 288, 124,
+                    actions[i], 46, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var btnBg, out _);
                 btnBg.SetSubSprite(Atlas, "Rectangle");
 
                 if (actionIcons[i] != null)
                 {
-                    var ic = UGuiFactory.CreateImage(_content, $"ActionIcon_{i}", cx, 1268, 42, 42, Color.white);
+                    var ic = UGuiFactory.CreateImage(_content, $"ActionIcon_{i}", cx, 1826, 60, 60, Color.white);
                     ic.SetSubSprite(Atlas, actionIcons[i]);
                 }
 
@@ -384,7 +384,7 @@ namespace GameLogic.BlockBlastUI
                         crt.SetParent(container, false);
                         crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
                         crt.pivot = new Vector2(0.5f, 0.5f);
-                        crt.sizeDelta = new Vector2(BlockLayout.SlotCell - 3, BlockLayout.SlotCell - 3);
+                        crt.sizeDelta = new Vector2(BlockLayout.SlotCell - 4, BlockLayout.SlotCell - 4);
                         crt.anchoredPosition = new Vector2(offX + c * BlockLayout.SlotCell, offY - r * BlockLayout.SlotCell);
                         var ci = cell.GetComponent<Image>();
                         ci.color = color;
@@ -466,9 +466,9 @@ namespace GameLogic.BlockBlastUI
 
                 // 反馈弹字：PERFECT（清空）> COMBO×N（连击≥2）
                 if (_board.IsEmpty())
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, "PERFECT!", 64, new Color32(0xff, 0xe4, 0x4a, 0xFF));
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 677, "PERFECT!", 92, new Color32(0xff, 0xe4, 0x4a, 0xFF));
                 else if (_state.Combo >= 2)
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, $"COMBO x{_state.Combo}", 56, new Color32(0xff, 0x77, 0xbb, 0xFF));
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 677, $"COMBO x{_state.Combo}", 81, new Color32(0xff, 0x77, 0xbb, 0xFF));
             }
             else
             {
@@ -587,7 +587,7 @@ namespace GameLogic.BlockBlastUI
                 if (!_newBestTriggered && _initialHigh > 0)
                 {
                     _newBestTriggered = true;
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 300, "NEW BEST!", 56, new Color32(0xff, 0xe4, 0x4a, 0xFF));
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 432, "NEW BEST!", 81, new Color32(0xff, 0xe4, 0x4a, 0xFF));
                 }
             }
         }

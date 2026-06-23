@@ -86,7 +86,7 @@ namespace Fantasy
 		/// </summary>
 		Success = 0,
 		/// <summary>
-		/// 会话未挂账号身份(35 登录失败 / 链路异常)→ 客户端段下一刀重登
+		/// 会话未挂账号身份(35 登录失败 / 链路异常)→ 客户端段下一项重登
 		/// </summary>
 		NotLoggedIn = 1,
 		/// <summary>
@@ -106,7 +106,7 @@ namespace Fantasy
 		/// </summary>
 		OverLimit = 5,
 		/// <summary>
-		/// 服务不可用(MongoDB 不可达 / 写入异常)→ 客户端段下一刀提示重试,变更未生效
+		/// 服务不可用(MongoDB 不可达 / 写入异常)→ 客户端段下一项提示重试,变更未生效
 		/// </summary>
 		ServiceUnavailable = 6
 	}

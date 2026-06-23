@@ -7,7 +7,7 @@ namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
     /// 跨会话磁盘存档（设计 14）单测：序列化往返保真、bool[12] 往返、无存档缺省、缺字段补缺、
-    /// 版本迁移 / 未来版降级重置、非法截断兜底、跨天 / 同日 / 缺日期祈愿重置、悔棋快照不受影响、
+    /// 版本迁移 / 未来版降级重置、非法截断兜底、跨天 / 同日 / 缺日期祈愿重置、
     /// 旧路径零回归、MergeOrderState 仍纯逻辑。验收点对应设计 14 §六 A1–A13。
     /// 全部锚在同步纯方法（ExportMeta/ImportMeta/Serialize/Deserialize/Migrate/ApplyDailyReset）+ InMemory Provider，
     /// 不依赖真实磁盘 / 不依赖 UniTask 运行。SetUp 仿 TempleRepairTests（InMemory Provider）。
@@ -301,34 +301,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(Today, dto.lastWishResetDate, "日期设为今天");
         }
 
-        // ───────────── A11 悔棋快照不受影响 ─────────────
-
-        [Test]
-        public void A11_ImportMeta_DoesNotTouchUndoStack()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            // 落子前打一个快照 → 有可悔棋。
-            m.CaptureSnapshot(s, board);
-            Assert.IsTrue(m.CanUndo, "ImportMeta 前有可悔棋");
-
-            // ImportMeta 覆盖元层,不应触碰 _undoStack。
-            var dto = new MergeMetaSave
-            {
-                version = MergeMetaPersistence.CurrentVersion,
-                piety = 777,
-                goddessLevel = 1,
-                lastWishResetDate = Today,
-            };
-            m.ImportMeta(dto, Today);
-            Assert.IsTrue(m.CanUndo, "ImportMeta 后悔棋栈不变(仍可悔棋)");
-            Assert.AreEqual(777, m.Piety, "元层已被覆盖");
-            s.Release();
-        }
-
         // ───────────── A12 旧路径零回归（含存储层往返）─────────────
 
         [Test]
@@ -406,8 +378,8 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(42, m2.Piety, "纯同步往返成立(不依赖 UniTask 运行)");
         }
 
-        // 完成单数 / 本局得分本刀(无尽增量①)仍不进盘:上一会话的 CompletedOrders/TotalScore 经 ExportMeta/ImportMeta
-        // 不得带到下一会话(整盘续存属增量②,本刀不碰;无尽模型删通关,故不再有「秒结算」风险,但分层不变)。
+        // 完成单数 / 本局得分本阶段(无尽增量①)仍不进盘:上一会话的 CompletedOrders/TotalScore 经 ExportMeta/ImportMeta
+        // 不得带到下一会话(整盘续存属增量②,本阶段不碰;无尽模型删通关,故不再有「秒结算」风险,但分层不变)。
         [Test]
         public void CompletedOrdersAndTotalScore_DoNotCarryAcrossSessions()
         {
@@ -425,8 +397,8 @@ namespace GameLogic.BlockBlast.Tests
             var next = FreshState();          // Reset 已置 CompletedOrders=0/TotalScore=0
             next.ImportMeta(back, Today);
 
-            Assert.AreEqual(0, next.CompletedOrders, "完成单数本刀不进盘,新会话须为 0");
-            Assert.AreEqual(0, next.TotalScore, "本局得分本刀不进盘,新会话须为 0");
+            Assert.AreEqual(0, next.CompletedOrders, "完成单数本阶段不进盘,新会话须为 0");
+            Assert.AreEqual(0, next.TotalScore, "本局得分本阶段不进盘,新会话须为 0");
             Assert.AreEqual(99, next.Piety, "真元层字段仍随档保留(虔诚币)");
         }
 

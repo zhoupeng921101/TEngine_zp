@@ -33,28 +33,28 @@ namespace GameLogic.BlockBlastUI
                 BlockLayout.DesignWidth, BlockLayout.DesignHeight, new Color(0, 0, 0, 0.6f));
 
             // 主面板：box1（大木板）；Color.white 让木纹原色透出
-            var card = UGuiFactory.CreateImage(content, "Card", cx, cardCy, 560, 640, Color.white);
+            var card = UGuiFactory.CreateImage(content, "Card", cx, cardCy, 806, 922, Color.white);
             card.SetSubSprite(Atlas, "box1");
 
             // 标题木牌底：box2（小木牌），叠在面板上沿
-            var titleBg = UGuiFactory.CreateImage(content, "TitleBg", cx, cardCy - 270, 480, 100, Color.white);
+            var titleBg = UGuiFactory.CreateImage(content, "TitleBg", cx, cardCy - 389, 691, 144, Color.white);
             titleBg.SetSubSprite(Atlas, "box2");
 
             // 标题文字「恭喜通关」（深棕，对位效果图木质风格）
-            UGuiFactory.CreateText(content, "Title", cx, cardCy - 270, 440, 80, "恭喜通关", 48,
+            UGuiFactory.CreateText(content, "Title", cx, cardCy - 389, 634, 115, "恭喜通关", 69,
                 new Color32(0x5a, 0x2e, 0x10, 0xFF));
 
             // 结算行列表（UserData as List<string> 解析 + 逐行渲染，逻辑不动 — 零回归 R3）
-            float listY = cardCy - 140;
+            float listY = cardCy - 202;
             for (int i = 0; i < lines.Count; i++)
             {
-                UGuiFactory.CreateText(content, $"Line_{i}", cx, listY + i * 72, 500, 60, lines[i], 40,
+                UGuiFactory.CreateText(content, $"Line_{i}", cx, listY + i * 104, 720, 86, lines[i], 58,
                     new Color32(0x3a, 0x1a, 0x00, 0xFF));
             }
 
             // 再来一局按钮（button 子图；onClick 回调不动 — 零回归 R4：再来一局→MergeOrderWindow，重入即 ResetForMergeOrder）
-            var again = UGuiFactory.CreateButton(content, "BtnAgain", cx, cardCy + 210, 400, 90,
-                "再来一局", 38, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var againBg, out _);
+            var again = UGuiFactory.CreateButton(content, "BtnAgain", cx, cardCy + 302, 576, 130,
+                "再来一局", 55, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var againBg, out _);
             againBg.SetSubSprite(Atlas, "button");
             again.onClick.AddListener(() =>
             {
@@ -63,8 +63,8 @@ namespace GameLogic.BlockBlastUI
             });
 
             // 返回按钮（button 子图；onClick 回调不动 — 零回归 R4：返回→MainMenuWindow）
-            var menu = UGuiFactory.CreateButton(content, "BtnMenu", cx, cardCy + 315, 400, 80,
-                "返回", 32, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var menuBg, out _);
+            var menu = UGuiFactory.CreateButton(content, "BtnMenu", cx, cardCy + 454, 576, 115,
+                "返回", 46, Color.white, new Color32(0x5a, 0x2e, 0x10, 0xFF), out var menuBg, out _);
             menuBg.SetSubSprite(Atlas, "button");
             menu.onClick.AddListener(() =>
             {

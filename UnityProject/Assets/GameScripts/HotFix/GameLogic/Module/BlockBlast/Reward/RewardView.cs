@@ -50,7 +50,7 @@ namespace GameLogic.BlockBlast.Reward
         Material,
         /// <summary>礼包（自选 / 随机）。</summary>
         Gift,
-        /// <summary>功能性次数（悔棋 / 祈愿等无图标实物的）。</summary>
+        /// <summary>功能性次数（祈愿等无图标实物的）。</summary>
         Function,
     }
 }

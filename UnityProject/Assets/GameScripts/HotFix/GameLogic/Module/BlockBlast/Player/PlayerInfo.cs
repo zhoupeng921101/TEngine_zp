@@ -66,7 +66,7 @@ namespace GameLogic.BlockBlast.Player
 
         // ── 跨会话持久化:并入既有 MergeMetaSave(设计 18 §3.8 做法 a 平铺)─────
         // 纯方法:无 IO、无 ConfigSystem。与 MergeOrderState.ExportMeta/ImportMeta 独立——玩家信息是独立第三
-        // 进度线,不挂进玩法状态机/悔棋快照(§3.4)。落盘外壳仍是既有 MergeMetaPersistence.SaveAsync/Load,
+        // 进度线,不挂进玩法状态机(§3.4)。落盘外壳仍是既有 MergeMetaPersistence.SaveAsync/Load,
         // 玩家字段随同一份 DTO 一并落盘/迁移/夹值,不另造存储栈。
 
         /// <summary>把玩家信息写进 DTO 的玩家字段(增量,不动既有玩法字段)。纯方法、无 IO。</summary>

@@ -41,16 +41,6 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>
-        /// 整体置位皮肤态（供悔棋快照 Restore 用，设计 50）。绕过状态机规则直接覆盖——
-        /// 仅用于「回滚到落子前的真实历史态」，不经此做正常玩法推进（正常推进走 <see cref="OnAllClear"/>）。
-        /// </summary>
-        public void RestoreState(SkinMode mode, int monoId)
-        {
-            Mode = mode;
-            MonoId = monoId;
-        }
-
-        /// <summary>
         /// 发生一次全清事件时调用（设计 50 §三）。状态机推进：
         /// - 彩色态 → 转单色，从候选池等概率随机选 1 张（首次全池可选）。
         /// - 单色态 → 排除「当前在用那张」后等概率随机选 1 张（防相邻重复，设计 50 §四）。

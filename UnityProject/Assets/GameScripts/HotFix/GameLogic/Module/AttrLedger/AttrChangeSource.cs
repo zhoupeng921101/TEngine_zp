@@ -22,13 +22,13 @@ namespace GameLogic.AttrLedger
         RankSettleReward = 4,
         /// <summary>活动奖励(39/40/43 Activity → 37 ChangeProperty)。</summary>
         ActivityReward = 5,
-        /// <summary>玩法消费(Tier 2+ 玩法刀占位)。</summary>
+        /// <summary>玩法消费(Tier 2+ 玩法阶段占位)。</summary>
         GameplayConsume = 6,
-        /// <summary>商店购买(Tier 2+ 商店刀占位)。</summary>
+        /// <summary>商店购买(Tier 2+ 商店阶段占位)。</summary>
         ShopPurchase = 7,
-        /// <summary>管理员发放(Tier 2+ GM 刀占位)。</summary>
+        /// <summary>管理员发放(Tier 2+ GM 阶段占位)。</summary>
         AdminGrant = 8,
-        /// <summary>退款(Tier 2+ 退款刀占位)。</summary>
+        /// <summary>退款(Tier 2+ 退款阶段占位)。</summary>
         Refund = 9,
     }
 }

@@ -7,7 +7,7 @@ namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
     /// 合成+订单+体力 切片核心逻辑测试：体力 / 合成自动配对 / 订单交付刷新 /
-    /// 需求拉动 + 得分驱动元素生成（映射·入队·轮转·封顶·抽干）/ 悔棋回滚 / 通关 / off 回归。
+    /// 需求拉动 + 得分驱动元素生成（映射·入队·轮转·封顶·抽干）/ off 回归。
     /// 验收点编号对应 state/plan.md 交接区。
     /// </summary>
     [TestFixture]
@@ -59,7 +59,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(MergeOrderConfig.EnergyStart, m.Energy);
             Assert.AreEqual(0, m.CompletedOrders);
             Assert.AreEqual(0, m.Inventory.Count);
-            Assert.AreEqual(MergeOrderConfig.UndoCharges, m.UndoCharges);
             for (int r = 0; r < 8; r++)
                 for (int c = 0; c < 8; c++)
                 {
@@ -538,103 +537,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(MergeOrderConfig.MaxPendingElements, m.PendingElements.Count);
         }
 
-        // ───────────────────────── #13 悔棋（全量单步回滚） ─────────────────────────
-
-        [Test]
-        public void Undo_RestoresPendingElementsQueue()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            m.CaptureSnapshot(s, board);
-            int before = m.PendingElements.Count; // 0
-            m.EnqueueScoreElements(3);            // 模拟落子引发消除后的入队
-            Assert.AreEqual(before + 3, m.PendingElements.Count);
-            Assert.IsTrue(m.Undo(s, board));
-            Assert.AreEqual(before, m.PendingElements.Count, "悔棋回滚预算队列");
-        }
-
-        [Test]
-        public void Undo_RollsBackAllState_ReturnsPiece_RefundsEnergy()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            // 构造确定性手牌（2x2 实心，4 格全 Diamond）
-            var piece = new PendingPiece(9, BlockColor.Blue)
-            {
-                Elements = new[]
-                {
-                    MergeElement.Diamond, MergeElement.Diamond,
-                    MergeElement.Diamond, MergeElement.Diamond,
-                }
-            };
-            s.OperaArr[0] = piece;
-            int energyBefore = m.Energy;
-            int chargesBefore = m.UndoCharges;
-
-            // 落子前快照
-            m.CaptureSnapshot(s, board);
-
-            // 模拟窗口落子流程的全套副作用
-            s.PlacePiece(0, board, 0, 0);
-            m.SpendPlaceCost();
-            m.IngestElement(MergeElement.Diamond);
-            m.CompletedOrders = 2;
-            m.TotalScore = 999;
-
-            Assert.IsFalse(board.IsEmpty());
-            Assert.IsNull(s.OperaArr[0]);
-            Assert.AreEqual(energyBefore - 1, m.Energy);
-
-            // 悔棋
-            Assert.IsTrue(m.CanUndo);
-            Assert.IsTrue(m.Undo(s, board));
-
-            Assert.IsTrue(board.IsEmpty(), "棋盘回滚");
-            Assert.AreEqual(MergeElement.None, s.ElementArr[0][0], "元素层回滚");
-            Assert.AreEqual(-1, s.SaveArr[0][0], "SaveArr 回滚");
-            Assert.IsNotNull(s.OperaArr[0], "方块退回待选槽");
-            Assert.AreEqual(energyBefore, m.Energy, "退回该次扣的体力");
-            Assert.AreEqual(0, m.InventoryCount(MergeElement.Diamond, 1), "合成区回滚");
-            Assert.AreEqual(0, m.CompletedOrders, "订单进度回滚");
-            Assert.AreEqual(0, m.TotalScore, "得分回滚");
-            Assert.AreEqual(chargesBefore - 1, m.UndoCharges, "消耗一次悔棋次数");
-        }
-
-        [Test]
-        public void Undo_ChargesExhausted_CannotUndo()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-            m.UndoCharges = 0;
-
-            m.CaptureSnapshot(s, board); // 次数 0 → 不压栈
-            Assert.IsFalse(m.CanUndo);
-            Assert.IsFalse(m.Undo(s, board));
-        }
-
-        [Test]
-        public void Deliver_ClearsUndoStack()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            m.CaptureSnapshot(s, board);
-            m.IngestElement(MergeElement.Diamond); // 满足初始订单0
-            Assert.IsTrue(m.CanUndo);
-            m.Deliver(0);
-            Assert.IsFalse(m.CanUndo, "交付为已提交动作，清空悔棋栈");
-        }
-
         // ───────────────────────── #14 无尽:无通关终点 ─────────────────────────
         // 无尽模型（设计 49）删通关:IsDemoComplete / DemoGoalOrders 已移除,订单无限刷新无胜利终点。
         // 原 IsDemoComplete_AtGoalOrders 用例随之删除（断言的概念已不存在）。
@@ -907,29 +809,6 @@ namespace GameLogic.BlockBlast.Tests
             dst.Reset();
             dst.ImportMeta(dto, today);
             Assert.AreEqual(0, dst.Energy, "篡改负体力夹回 0");
-        }
-
-        // 悔棋回滚体力 + 记录时刻（消除道具/落子打的快照都含这两字段）。
-        [Test]
-        public void Undo_RestoresEnergyAndRegenTime()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            m.Energy = 28;
-            m.LastEnergyRegenTime = 1_700_000_000L;
-            m.CaptureSnapshot(s, board);
-
-            // 模拟用消除道具后的变化。
-            m.SpendClearToolCost();          // 28 → 3
-            m.LastEnergyRegenTime = 1_700_009_999L;
-            Assert.AreEqual(3, m.Energy);
-
-            Assert.IsTrue(m.Undo(s, board));
-            Assert.AreEqual(28, m.Energy, "悔棋回滚体力");
-            Assert.AreEqual(1_700_000_000L, m.LastEnergyRegenTime, "悔棋回滚时基恢复记录时刻");
         }
 
     }

@@ -11,7 +11,7 @@ namespace GameLogic.BlockBlastUI
     /// <summary>
     /// 玩法融合主玩法窗口（设计 29 + 无尽模型 设计 49）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
     /// 棋盘/拖拽/ghost/落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 双订单卡（手动交付）/
-    /// 合成区面板 / 悔棋按钮 / 消除道具按钮。全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭）。
+    /// 合成区面板 / 消除道具按钮。全程 MergeOrderMode=on（OnCreate 重置时开启，OnDestroy/离开时关闭）。
     /// 融合后这是唯一主玩法入口（经典纯无尽 GameWindow 入口下线，代码保留不删，设计 29 §4.2）。
     ///
     /// 无尽模型（设计 49）：无「局」、订单无限、无任何 GameOver（卡死与体力归零都不结束、不弹面板，窗口保持可交互）。
@@ -27,7 +27,7 @@ namespace GameLogic.BlockBlastUI
         //    整体背景无 game_main 素材，深紫纯色占位（m_img_Bg 仅烤 m_Color、无 sprite）。
         //    动态内容（棋盘格/ghost/候选块/元素图标/订单卡/合成 token）仍代码生成、运行时 SetSprite 填进空层节点；
         //    消除道具 gate 染色仍由 RefreshClearTool 运行时按体力门控写入。
-        //    玩法逻辑（落子/消除/合成/订单/结算/存档/悔棋）一律不动——换皮只改静态视觉与定位，不碰经济与坐标常量。
+        //    玩法逻辑（落子/消除/合成/订单/结算/存档）一律不动——换皮只改静态视觉与定位，不碰经济与坐标常量。
         private const int N = BlockLayout.BoardSize;
 
         private BlockGameState _state;
@@ -50,9 +50,6 @@ namespace GameLogic.BlockBlastUI
 
         private Text _energyText;
         private Text _goalText;
-        private Button _undoBtn;
-        private Image _undoBtnBg;
-        private Text _undoBtnLabel;
 
         // 盲盒（设计 12 §五）：顶部计数 🔮 ×N + 开盒按钮（Count=0 置灰）。
         private Text _blindBoxText;
@@ -108,7 +105,6 @@ namespace GameLogic.BlockBlastUI
             RefreshEnergy();
             RefreshOrders();
             RefreshSynthesis();
-            RefreshUndo();
             RefreshBlindBox();
             RefreshPiety();
             RefreshClearTool();
@@ -136,7 +132,7 @@ namespace GameLogic.BlockBlastUI
         // 其寻址走 UIRaw/Atlas 收集器（AddressByFileName + Single 精灵）按文件名 SetSprite。
         private void BuildStaticUI()
         {
-            // Content 复用 prefab 既有节点（prefab 已设 750×1334 / localScale=1.44 / center 锚点）。
+            // Content 复用 prefab 既有节点（prefab 已设 1080×1920 / localScale=1 / center 锚点）。
             _content = (RectTransform)transform.Find("Content");
 
             // 空层节点：prefab 内 center 锚点、anchoredPosition(0,0)，与 DesignToAnchored 同基——动态内容直接填进去。
@@ -159,12 +155,6 @@ namespace GameLogic.BlockBlastUI
             _pietyText = m_text_Piety;       // 虔诚币（✦ N）
             // 顶部槽数值文字与上面 3 个 icon 并排：CoinNum=虔诚币 / GemNum=盲盒 / EnergyNum=体力。
             // 直接复用顶部 3 个数字节点显示真实值（避免 12345 占位与不存在货币）。
-
-            // ── 悔棋按钮（左上）：复用绑定按钮 + 其 Image/Label。
-            _undoBtn = m_btn_Undo;
-            _undoBtnBg = m_btn_Undo.GetComponent<Image>();
-            _undoBtnLabel = m_text_UndoLabel;
-            _undoBtn.onClick.AddListener(OnUndoClicked);
 
             // ── 开盒按钮：复用绑定按钮 + 其 Image/Label。
             _openBoxBtn = m_btn_OpenBox;
@@ -241,13 +231,13 @@ namespace GameLogic.BlockBlastUI
             var orders = _merge.ActiveOrders;
             if (orders == null) return;
 
-            // 重定位（效果图顶部右侧订单区，对齐 prefab m_img_OrderCard design(550,155)）：
-            // 2 张订单卡紧凑并排到顶部右侧，缩小尺寸适配新布局。坐标系仍走 DesignToAnchored，玩法数据/刷新时机不变。
-            const float cardW = 175f;
-            const float cardH = 100f;
-            const float cardY = 150f;
-            // 两卡中心：左卡 design x≈465、右卡 design x≈645（落在 OrderCard/BoxCard 框附近的右上区）。
-            float[] centers = { 470f, 650f };
+            // 重定位（效果图顶部右侧订单区，对齐 prefab m_img_OrderCard）：
+            // 2 张订单卡紧凑并排到顶部右侧，缩小尺寸适配新布局。坐标系走 DesignToAnchored（原生 1080 空间），玩法数据/刷新时机不变。
+            const float cardW = 252f;
+            const float cardH = 144f;
+            const float cardY = 216f;
+            // 两卡中心：左卡 design x≈677、右卡 design x≈936（落在 OrderCard/BoxCard 框附近的右上区）。
+            float[] centers = { 677f, 936f };
 
             for (int slot = 0; slot < orders.Length && slot < centers.Length; slot++)
             {
@@ -258,19 +248,19 @@ namespace GameLogic.BlockBlastUI
                     new Color32(0x22, 0x2c, 0x3e, 0xCC));
 
                 // 元素图标（clip 图标 sprite，白 tint 显本色）
-                var orderIcon = UGuiFactory.CreateImage(_orderLayer, $"orderGlyph_{slot}", cx - 55, cardY - 16, 56, 56,
+                var orderIcon = UGuiFactory.CreateImage(_orderLayer, $"orderGlyph_{slot}", cx - 79, cardY - 23, 81, 81,
                     Color.white);
                 orderIcon.raycastTarget = false;
                 orderIcon.SetSprite(MergeElementVisual.SpriteName(o.Type));
                 // 等级 + 数量
-                UGuiFactory.CreateText(_orderLayer, $"orderReq_{slot}", cx + 18, cardY - 16, 120, 50,
-                    $"Lv{o.Level}\n×{o.Count}", 24, Color.white, TextAnchor.MiddleLeft);
+                UGuiFactory.CreateText(_orderLayer, $"orderReq_{slot}", cx + 26, cardY - 23, 173, 72,
+                    $"Lv{o.Level}\n×{o.Count}", 35, Color.white, TextAnchor.MiddleLeft);
 
                 // 交付按钮
                 bool can = _merge.CanDeliver(slot);
                 int captured = slot;
-                var deliver = UGuiFactory.CreateButton(_orderLayer, $"orderDeliver_{slot}", cx, cardY + 30, cardW - 20, 36,
-                    "交付", 24,
+                var deliver = UGuiFactory.CreateButton(_orderLayer, $"orderDeliver_{slot}", cx, cardY + 43, cardW - 29, 52,
+                    "交付", 35,
                     can ? new Color32(0x33, 0xaa, 0x55, 0xFF) : new Color32(0x44, 0x44, 0x4c, 0xFF),
                     can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF), out _, out _);
                 deliver.interactable = can;
@@ -284,9 +274,9 @@ namespace GameLogic.BlockBlastUI
             for (int i = _synthLayer.childCount - 1; i >= 0; i--)
                 Object.Destroy(_synthLayer.GetChild(i).gameObject);
 
-            // 重定位（效果图元素行，对齐 prefab m_img_ElemBar design(375,215)）：
-            // 合成 token 行从底部 y=1285 上移到元素行 y≈215。底条由静态 m_img_ElemBar 提供，不再自建 synthBg。
-            const float rowY = 215f;
+            // 重定位（效果图元素行，对齐 prefab m_img_ElemBar）：
+            // 合成 token 行落在元素行 y≈310（原生 1080 空间）。底条由静态 m_img_ElemBar 提供，不再自建 synthBg。
+            const float rowY = 310f;
 
             // 稳定排序：按类型枚举值、再按等级
             var keys = new List<(MergeElement type, int level)>(_merge.Inventory.Keys);
@@ -298,12 +288,12 @@ namespace GameLogic.BlockBlastUI
 
             if (keys.Count == 0)
             {
-                UGuiFactory.CreateText(_synthLayer, "synthEmpty", BlockLayout.DesignWidth / 2f, rowY, 720, 60,
-                    "合成区：空（消除元素入区，自动两两升级）", 24, new Color32(0x88, 0x99, 0xaa, 0xFF));
+                UGuiFactory.CreateText(_synthLayer, "synthEmpty", BlockLayout.DesignWidth / 2f, rowY, 1037, 86,
+                    "合成区：空（消除元素入区，自动两两升级）", 35, new Color32(0x88, 0x99, 0xaa, 0xFF));
                 return;
             }
 
-            const float tokenW = 130f;
+            const float tokenW = 187f;
             int n = keys.Count;
             float totalW = n * tokenW;
             float startX = BlockLayout.DesignWidth / 2f - totalW / 2f + tokenW / 2f;
@@ -312,38 +302,13 @@ namespace GameLogic.BlockBlastUI
                 var key = keys[i];
                 int count = _merge.Inventory[key];
                 float cx = startX + i * tokenW;
-                var synthIcon = UGuiFactory.CreateImage(_synthLayer, $"synthGlyph_{i}", cx - 22, rowY, 60, 60,
+                var synthIcon = UGuiFactory.CreateImage(_synthLayer, $"synthGlyph_{i}", cx - 32, rowY, 86, 86,
                     Color.white);
                 synthIcon.raycastTarget = false;
                 synthIcon.SetSprite(MergeElementVisual.SpriteName(key.type));
-                UGuiFactory.CreateText(_synthLayer, $"synthInfo_{i}", cx + 30, rowY, 90, 70,
-                    $"L{key.level}\n×{count}", 24, Color.white);
+                UGuiFactory.CreateText(_synthLayer, $"synthInfo_{i}", cx + 43, rowY, 130, 101,
+                    $"L{key.level}\n×{count}", 35, Color.white);
             }
-        }
-
-        // ── 悔棋按钮态 ──
-        private void RefreshUndo()
-        {
-            bool can = _merge.CanUndo;
-            _undoBtn.interactable = can;
-            _undoBtnLabel.text = $"悔棋 {_merge.UndoCharges}";
-            _undoBtnBg.color = can ? new Color32(0x55, 0x55, 0x88, 0xFF) : new Color32(0x3a, 0x3a, 0x44, 0xFF);
-        }
-
-        private void OnUndoClicked()
-        {
-            CancelClearToolArming(); // 悔棋打断指定格模式
-            if (!_merge.Undo(_state, _board)) return;
-            ClearGhost();
-            RenderBoard();
-            RenderSlots();
-            RefreshEnergy();
-            RefreshOrders();
-            RefreshSynthesis();
-            RefreshUndo();
-            RefreshBlindBox();
-            RefreshPiety(); // 悔棋回滚虔诚币（设计 13 §六 T11）
-            RefreshClearTool(); // 悔棋回滚体力，gate 态须刷新
         }
 
         // ── 盲盒计数 + 开盒按钮态（设计 12 §五） ──
@@ -379,7 +344,7 @@ namespace GameLogic.BlockBlastUI
         {
             if (!_merge.OpenBlindBox(out var reward)) return;
 
-            BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 530, OpenResultLabel(reward), 48,
+            BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 763, OpenResultLabel(reward), 69,
                 new Color32(0xc8, 0x9a, 0xff, 0xFF));
 
             RefreshSynthesis(); // 图案进了合成区
@@ -439,9 +404,6 @@ namespace GameLogic.BlockBlastUI
             // 二次 gate(防 arming 期间体力被其它路径耗低)：不够则取消、提示。
             if (!_merge.CanUseClearTool) { CancelClearToolArming(); ShowClearToolHint("体力不足，等恢复"); return; }
 
-            // 落子前打快照：消除道具是可悔棋的玩法动作(与落子同体例,回滚体力 + 棋盘)。
-            _merge.CaptureSnapshot(_state, _board);
-
             _merge.SpendClearToolCost();                  // 扣体力(已确认 CanUseClearTool)
             _state.ClearToolRowCol(_board, row, col);     // 清一行一列(同步 SaveArr/ElementArr/BinaryBoard)
             // 设计 49 §四 / §3.1：清一行一列不清空全盘、不触发全清判定——此处不调 ClearSettlement,
@@ -451,7 +413,6 @@ namespace GameLogic.BlockBlastUI
             ClearGhost();
             RenderBoard();
             RefreshEnergy();
-            RefreshUndo();                                // 打了快照，悔棋按钮态变
             RefreshClearTool();                           // 体力变，gate 态刷新
 
             MarkAndFlushSave();                           // 体力进盘(设计 14 §3.7)：用消除道具后标脏 + 落盘
@@ -502,7 +463,6 @@ namespace GameLogic.BlockBlastUI
             RefreshEnergy();
             RefreshOrders();
             RefreshSynthesis();
-            RefreshUndo(); // 交付清空悔棋栈，按钮须刷新
             RefreshBlindBox();
             RefreshPiety(); // 交付发虔诚币（设计 13 §3.1）
             RefreshClearTool(); // 体力随交付变化，按钮 gate 态须刷新
@@ -666,7 +626,7 @@ namespace GameLogic.BlockBlastUI
                         crt.SetParent(container, false);
                         crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
                         crt.pivot = new Vector2(0.5f, 0.5f);
-                        crt.sizeDelta = new Vector2(BlockLayout.SlotCell - 3, BlockLayout.SlotCell - 3);
+                        crt.sizeDelta = new Vector2(BlockLayout.SlotCell - 4, BlockLayout.SlotCell - 4);
                         crt.anchoredPosition = new Vector2(offX + c * BlockLayout.SlotCell, offY - r * BlockLayout.SlotCell);
                         var ci = cell.GetComponent<Image>();
                         // 候选块换皮:白 tint 让 sprite 显本色,彩色态按方块类型 (int)piece.Color 贴 default_skin,单色态全统一贴当前单色 sprite。
@@ -742,7 +702,7 @@ namespace GameLogic.BlockBlastUI
                 string reason = !_merge.CanAffordPlace ? "体力不足，等恢复"
                               : !inBounds ? "超出棋盘"
                               : "这里放不下";
-                BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 660, reason, 44,
+                BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 950, reason, 63,
                     new Color32(0xff, 0x99, 0x66, 0xFF));
             }
 
@@ -756,9 +716,6 @@ namespace GameLogic.BlockBlastUI
         /// </summary>
         private void PlaceAndResolve(int slotIdx, BlockShape shape, int col, int row)
         {
-            // 落子前打全量快照（供悔棋整体回滚）
-            _merge.CaptureSnapshot(_state, _board);
-
             _state.PlacePiece(slotIdx, _board, col, row);  // 含元素转移（门控）
             _merge.SpendPlaceCost();
 
@@ -779,6 +736,7 @@ namespace GameLogic.BlockBlastUI
             {
                 var cleared = new List<MergeElement>();
                 _state.HarvestClearedElements(clear.Rows, clear.Cols, cleared); // 清 overlay + 输出被清元素
+                SpawnClearBurstFx(clear.Rows, clear.Cols);                      // 在 SaveArr 被清前读色，逐被消格放爆破粒子
                 int clearedCells = _state.ClearRowsAndCols(clear.Rows, clear.Cols); // 清方块色，得被清格数
                 foreach (var el in cleared) _merge.IngestElement(el);           // 逐个 Lv1 入合成区（自动升级）
                 _merge.RefundEnergy(lines);                                     // 返还体力（受软上限）
@@ -808,15 +766,15 @@ namespace GameLogic.BlockBlastUI
                     RenderSlots();
 
                 if (settle.AllClearRewarded)
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, "PERFECT!", 64, new Color32(0xff, 0xe4, 0x4a, 0xFF));
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 677, "PERFECT!", 92, new Color32(0xff, 0xe4, 0x4a, 0xFF));
                 else if (lines >= MergeOrderConfig.MultiClearMilestoneMinLines)
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, settle.MultiLabel, 56, new Color32(0x55, 0xdd, 0xaa, 0xFF));
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 677, settle.MultiLabel, 81, new Color32(0x55, 0xdd, 0xaa, 0xFF));
                 else if (settle.ComboChain >= 2)
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 470, $"COMBO x{settle.ComboChain}", 56, new Color32(0xff, 0x77, 0xbb, 0xFF));
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 677, $"COMBO x{settle.ComboChain}", 81, new Color32(0xff, 0x77, 0xbb, 0xFF));
 
                 // 获得盲盒（连消阈值 / 全清解锁）弹「+N ◈」（设计 12 §五）
                 if (settle.BlindBoxGained > 0)
-                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 590, $"+{settle.BlindBoxGained} ◈", 50,
+                    BurstText.Spawn(_content, BlockLayout.DesignWidth / 2f, 850, $"+{settle.BlindBoxGained} ◈", 72,
                         new Color32(0xc8, 0x9a, 0xff, 0xFF));
             }
             else
@@ -828,7 +786,6 @@ namespace GameLogic.BlockBlastUI
             RefreshEnergy();
             RefreshOrders();
             RefreshSynthesis();
-            RefreshUndo();
             RefreshBlindBox();
             RefreshPiety(); // 女神升档可能改长期主线展示态(保险刷新)
             RefreshClearTool(); // 落子扣体力 → gate 态须刷新
@@ -850,6 +807,44 @@ namespace GameLogic.BlockBlastUI
             // 卡死（手持块无处可放）：不弹 GameOver，玩法窗保持可交互——玩家用消除道具清一行一列脱困（设计 49 §3.1）。
             // 体力归零（付不起落子）：不弹「精力耗尽」，等时基恢复 / 订单补 / 用消除道具（设计 49 §3.2）。
             // 两条兜底保证任何状态有限时间内可脱困（设计 49 §3.3），故此处不再有任何结束判定。
+        }
+
+        /// <summary>
+        /// 对被消的整行/整列里每个已占格放一发消除爆破粒子（设计配方 clear_burst）。
+        /// 必须在 <see cref="BlockGameState.ClearRowsAndCols"/> 清 SaveArr 之前调用——颜色从 SaveArr 读。
+        /// 碎块层染该格方块色（colorIdx → BlockLayout.ColorOf）；行列交叉格只放一发（去重）。
+        /// 粒子挂在棋盘格同层 <c>_boardLayer</c>、同坐标系（格中心设计坐标），与 cell Image 对位。
+        /// </summary>
+        private void SpawnClearBurstFx(IList<int> rows, IList<int> cols)
+        {
+            if (_boardLayer == null || _state?.SaveArr == null) return;
+
+            bool[,] done = new bool[N, N]; // 去重：行 pass 与列 pass 的交叉格只放一发
+
+            void SpawnAt(int r, int c)
+            {
+                if (r < 0 || r >= N || c < 0 || c >= N) return;
+                if (done[r, c]) return;
+                int colorIdx = _state.SaveArr[r][c];
+                if (colorIdx < 0) return;                 // 空格不放（与 ClearRowsAndCols 同口径：只清/放已占格）
+                done[r, c] = true;
+                var center = BlockLayout.CellCenterDesign(c, r); // 注意 (col,row) 顺序：col=c、row=r
+                var color = BlockLayout.ColorOf((BlockColor)colorIdx);
+                ClearBurstFx.Spawn(_boardLayer, center.x, center.y, color);
+            }
+
+            if (rows != null)
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    int r = rows[i];
+                    for (int c = 0; c < N; c++) SpawnAt(r, c);
+                }
+            if (cols != null)
+                for (int i = 0; i < cols.Count; i++)
+                {
+                    int c = cols[i];
+                    for (int r = 0; r < N; r++) SpawnAt(r, c);
+                }
         }
 
         /// <summary>

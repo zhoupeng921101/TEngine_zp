@@ -36,7 +36,7 @@ namespace GameLogic.BlockBlast
         /// <summary>合成+订单+体力模式开关。off 时所有 merge-order 分支短路，Classic 行为零变化。</summary>
         public bool MergeOrderMode;
 
-        /// <summary>该模式的新系统状态（合成区/订单/体力/保底/悔棋）。仅 MergeOrderMode 时非空。</summary>
+        /// <summary>该模式的新系统状态（合成区/订单/体力/保底）。仅 MergeOrderMode 时非空。</summary>
         public MergeOrderState MergeState;
 
         protected override void OnInit()
@@ -405,7 +405,7 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 重置进入合成+订单+体力 Demo：开启 MergeOrderMode + 空棋盘 + 清元素层 + 新建 MergeState
-        /// （起始体力/空合成区/初始订单/空元素预算队列/满悔棋次数）+ 补满 3 块。反复进入每次都从初始态开始。
+        /// （起始体力/空合成区/初始订单/空元素预算队列）+ 补满 3 块。反复进入每次都从初始态开始。
         /// 候选块元素由 PendingElements 队列驱动（开局队空→首手纯方块），DrainPendingElementsInto 读
         /// MergeState，故须在 RefillPieces 之前建好 MergeState。
         /// </summary>
@@ -420,7 +420,7 @@ namespace GameLogic.BlockBlast
             MergeState = new MergeOrderState();
             MergeState.Reset();
             // 跨会话磁盘存档(设计 14 §3.4):Reset 先跑建好局内瞬态 + 元层缺省,再用存档覆盖元层。
-            // 两者字段不重叠(§3.1),ImportMeta 只动元字段、不触局内瞬态与悔棋栈。无存档 / 加载失败 → 保持
+            // 两者字段不重叠(§3.1),ImportMeta 只动元字段、不触局内瞬态。无存档 / 加载失败 → 保持
             // Reset 缺省,等价首次游玩(旧路径零回归)。加载走同步 Provider 读(非阻塞,不触红线,见 MergeMetaPersistence.Load)。
             var meta = MergeMetaPersistence.Load();
             if (meta != null) MergeState.ImportMeta(meta);

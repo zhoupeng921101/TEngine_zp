@@ -439,30 +439,5 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(0, chests.OccupiedCount);
         }
 
-        // ───────────── 悔棋回滚新增结算字段 ─────────────
-
-        [Test]
-        public void Undo_RollsBackSettlementFields()
-        {
-            var s = BlockGameState.Instance;
-            var board = new BinaryBoard();
-            s.ResetForMergeOrder(board);
-            var m = s.MergeState;
-
-            m.CaptureSnapshot(s, board);
-            m.ComboChain = 5;
-            m.AllClearArmed = false;
-            m.AddSoul(120);
-            m.GoddessRating = 7;
-            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Crown, 3, 2)));
-
-            Assert.IsTrue(m.Undo(s, board));
-            Assert.AreEqual(1, m.ComboChain, "连消链回滚");
-            Assert.IsTrue(m.AllClearArmed, "全清武装位回滚");
-            Assert.AreEqual(0, m.Soul, "灵力回滚");
-            Assert.AreEqual(0, m.GoddessRating, "女神进度回滚");
-            Assert.IsFalse(m.SpecialTrack.HasOccupied, "特殊轨回滚");
-            s.Release();
-        }
     }
 }

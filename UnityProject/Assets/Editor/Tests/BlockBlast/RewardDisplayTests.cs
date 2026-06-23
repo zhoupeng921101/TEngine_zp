@@ -125,15 +125,12 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void V8_Chest_UndoWish_Function()
+        public void V8_Chest_Wish_Function()
         {
-            var v = RewardDisplay.From(new ChestReward(ChestRewardKind.UndoCharge, 2));
-            Assert.AreEqual(RewardBadge.Function, v.Badge);
-            Assert.AreEqual("x2", v.CountText);
-            Assert.AreEqual(RewardDisplay.QualityColor(1), v.QualityColor); // 品质退化白
-
             var w = RewardDisplay.From(new ChestReward(ChestRewardKind.WishCharge, 5));
             Assert.AreEqual(RewardBadge.Function, w.Badge);
+            Assert.AreEqual("x5", w.CountText);
+            Assert.AreEqual(RewardDisplay.QualityColor(1), w.QualityColor); // 品质退化白
         }
 
         [Test]

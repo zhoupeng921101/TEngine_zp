@@ -12,7 +12,7 @@ namespace GameLogic
     /// <summary>
     /// 运行期通用服务上下文（单例，设计 23 §五 方案 B）。
     /// 持有「数据层已建、需运行期持有者」的无主系统服务，提供统一初始化 + 统一接存档接缝。
-    /// 玩法态（棋盘 / 得分 / 悔棋）仍归 <see cref="BlockGameState"/>，二者分层：
+    /// 玩法态（棋盘 / 得分）仍归 <see cref="BlockGameState"/>，二者分层：
     /// 玩法态随开局 Reset，通用服务随会话长存。
     /// </summary>
     /// <remarks>
