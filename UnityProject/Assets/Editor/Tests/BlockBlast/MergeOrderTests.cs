@@ -287,7 +287,8 @@ namespace GameLogic.BlockBlast.Tests
 
             int scoreBefore = m.TotalScore;
             int energyBefore = m.Energy;
-            var nextExpected = MergeOrderConfig.OrderPool[2]; // 交付后该槽刷新为池下一项
+            // 交付后该槽刷新为池下一项：Reset 已取走前 ActiveOrders 张（游标 = ActiveOrders），下一张即 pool[ActiveOrders % len]。
+            var nextExpected = MergeOrderConfig.OrderPool[MergeOrderConfig.ActiveOrders % MergeOrderConfig.OrderPool.Length];
 
             Assert.IsTrue(m.Deliver(1));
             Assert.AreEqual(0, m.InventoryCount(MergeElement.Chalice, 2), "交付扣除合成物");
@@ -302,12 +303,14 @@ namespace GameLogic.BlockBlast.Tests
         public void NextOrder_CyclesPool()
         {
             var m = new MergeOrderState();
-            m.Reset(); // 取走 pool[0],[1]，游标=2
+            m.Reset(); // 取走前 ActiveOrders 张，游标 = ActiveOrders
             var pool = MergeOrderConfig.OrderPool;
-            for (int i = 2; i < pool.Length; i++)
+            // 从当前游标位继续取到池尾，逐项应等于 pool[游标..len-1]（按池长取模匹配）。
+            int cursor = MergeOrderConfig.ActiveOrders;
+            for (int i = cursor; i < pool.Length; i++)
             {
                 var o = m.NextOrder();
-                Assert.AreEqual(pool[i].Type, o.Type);
+                Assert.AreEqual(pool[i % pool.Length].Type, o.Type);
             }
             // 越过尾部应回到 pool[0]
             var wrapped = m.NextOrder();

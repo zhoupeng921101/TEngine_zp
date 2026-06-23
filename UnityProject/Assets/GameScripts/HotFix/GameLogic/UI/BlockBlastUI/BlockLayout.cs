@@ -52,6 +52,10 @@ namespace GameLogic
         // 形状由 UI/GlowCell shader 在 UV 空间沿带边缘画绿色描边光（横条上下边、竖条左右边），此色作为顶点 tint 注入（不依赖 sprite）。
         public static readonly Color ClearPreviewGlowColor = new Color32(0x55, 0xff, 0x55, 0xE0); // 亮绿发光基色 ~0.88a
 
+        // 消除预览「行内填充」：覆盖可消除整行整列方块的半透明绿，使各色方块统一偏绿但仍可见（与边缘辉光一起出现）。
+        // 普通 alpha 混合的纯色覆盖层（非 shader），alpha≈0.4。
+        public static readonly Color ClearPreviewFillColor = new Color32(0x55, 0xff, 0x55, 0x66); // 亮绿半透明 ~0.4a
+
         /// <summary>8 种方块颜色 → RGB（对应 BlockColor 0..7）。</summary>
         public static readonly Color[] BlockColors =
         {

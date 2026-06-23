@@ -921,7 +921,7 @@ MonoBehaviour:
   m_Content: {fileID: 3219564189726330732}
   m_Horizontal: 1
   m_Vertical: 0
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -1860,7 +1860,7 @@ GameObject:
   - component: {fileID: 1428533862361766198}
   - component: {fileID: 6303338525226251050}
   m_Layer: 5
-  m_Name: Content
+  m_Name: m_rect_OrderContent
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2363,11 +2363,11 @@ MonoBehaviour:
   - {fileID: 1078530802861184927}
   - {fileID: 243214094904019896}
   - {fileID: 234881425633417117}
+  - {fileID: 6660310527076309483}
+  - {fileID: 3219564189726330732}
   - {fileID: 4002291168417410060}
-  - {fileID: 0}
   - {fileID: 5575729181309958910}
   - {fileID: 5011923869171727981}
-  - {fileID: 6660310527076309483}
   - {fileID: 3182203395915721698}
   - {fileID: 3443501371165759924}
   - {fileID: 6180226810987042189}

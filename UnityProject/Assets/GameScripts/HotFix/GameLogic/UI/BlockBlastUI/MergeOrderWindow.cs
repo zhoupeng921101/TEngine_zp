@@ -10,7 +10,7 @@ namespace GameLogic
 {
     /// <summary>
     /// 融合主玩法窗口（设计 29 + 无尽模型 设计 49）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
-    /// 棋盘 / 拖拽 / ghost / 落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 双订单卡（手动交付）/
+    /// 棋盘 / 拖拽 / ghost / 落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 订单卡横滑列表（手动交付，可交付优先）/
     /// 合成区面板 / 消除道具按钮。全程 MergeOrderMode=on（OnCreate 开启，OnDestroy 关闭）。唯一主玩法入口（设计 29 §4.2）。
     ///
     /// 无尽模型（设计 49）：无「局」、订单无限、无 GameOver（卡死与体力归零都不结束、不弹面板，窗口保持可交互）。
@@ -49,12 +49,19 @@ namespace GameLogic
         private Material _glowMatCol;
         private int _glowUsed;
 
+        // 消除预览「行内填充」池（与边缘辉光长条池并列）：覆盖可消除行/列真实区域的半透明绿，使各色方块统一偏绿。
+        // 普通 UGUI Image（默认材质，不挂 shader、不挂 GlowPulse），保持稳定常亮；呼吸只在边缘辉光上。
+        // 容量同为 2*N（最多 N 行 + N 列）。层级：方块格 < 填充 < 边缘辉光（填充先置顶、边缘后置顶，故边缘在填充之上）。
+        private readonly Image[] _fillPool = new Image[GlowBandCap];
+        private int _fillUsed;
+
         // 开盒按钮的子组件缓存（背景 Image / 文字 Label），从绑定按钮 m_btn_OpenBox 派生，按钮态刷新时染色用。
         private Image _openBoxBtnBg;
         private Text _openBoxBtnLabel;
 
-        // 订单卡常驻实例（固定 2 张，OnCreate 创建一次注入 OnDeliver 回调，RefreshOrders 只 SetData + 显隐，不重建）。
-        private readonly OrderCardWidget[] _orderCards = new OrderCardWidget[2];
+        // 订单卡常驻实例（张数 = MergeOrderConfig.ActiveOrders 单一事实源，OnCreate 创建一次注入 OnDeliver 回调，
+        // RefreshOrders 只 SetData + 显隐 + 按可交付优先重排 sibling 顺序，不重建实例、不改 slot 映射）。
+        private readonly OrderCardWidget[] _orderCards = new OrderCardWidget[MergeOrderConfig.ActiveOrders];
         // 合成区 token 实例池（数量由 AdjustIconNum 按库存键数增减管理）。
         private readonly List<SynthTokenWidget> _synthTokens = new();
         // 横滑列表容器（BuildStaticUI 缓存）：订单 = OrderLayer 的 ScrollRect.content；合成 token = ElemBar 的 ScrollRect.content。
@@ -223,13 +230,24 @@ namespace GameLogic
             _glowMatCol.SetFloat("_CoreFrac", 1f / BandScale);
 
             float cell = BoardCellSize();
+            // 行内填充池：先建（在边缘辉光之前），默认材质纯色半透明绿、不挂 GlowPulse、初始隐藏。
+            // 激活时按行 / 列重写 sizeDelta / anchoredPosition；层级在激活时由 ShowClearPreviewGlow 维护（填充 < 边缘辉光）。
+            for (int i = 0; i < _fillPool.Length; i++)
+            {
+                var fill = UGuiFactory.CreateImage(m_rect_BoardLayer, $"clearFill_{i}", 0, 0,
+                    cell, cell, BlockLayout.ClearPreviewFillColor);
+                fill.raycastTarget = false;
+                fill.transform.SetAsLastSibling();     // 置于方块格 / ghost 之上
+                fill.gameObject.SetActive(false);
+                _fillPool[i] = fill;
+            }
             for (int i = 0; i < _glowPool.Length; i++)
             {
                 // 初始尺寸占位，激活时按行 / 列重写 sizeDelta / anchoredPosition；材质激活时按行 / 列赋。
                 var img = UGuiFactory.CreateImage(m_rect_BoardLayer, $"clearGlow_{i}", 0, 0,
                     cell, cell, BlockLayout.ClearPreviewGlowColor);
                 img.raycastTarget = false;
-                img.transform.SetAsLastSibling();      // 置于 ghost 之上
+                img.transform.SetAsLastSibling();      // 置于 ghost / 填充之上
                 img.gameObject.SetActive(false);
                 var pulse = img.gameObject.AddComponent<GlowPulse>();
                 pulse.BaseColor = BlockLayout.ClearPreviewGlowColor;
@@ -251,7 +269,7 @@ namespace GameLogic
             if (m_text_EnergyNum != null) m_text_EnergyNum.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
         }
 
-        // ── 订单卡常驻实例创建（OnCreate 一次性，固定 2 张） ──
+        // ── 订单卡常驻实例创建（OnCreate 一次性，张数 = MergeOrderConfig.ActiveOrders） ──
         // 卡建到 OrderLayer 横滑列表的 Content 下，由 HorizontalLayoutGroup 横向排布（卡尺寸取 OrderCardWidget 的 LayoutElement）；
         // 交付回调注入对应槽位闭包。卡结构 / 视觉由 OrderCardWidget.prefab 提供，本窗不再绑卡内部节点。
         private void CreateOrderCards()
@@ -279,10 +297,16 @@ namespace GameLogic
             }
         }
 
-        // ── 双订单卡刷新（常驻实例，只 SetData + 显隐，含交付按钮点亮/置灰） ──
+        // ── 订单卡刷新（常驻实例，只 SetData + 显隐 + 可交付优先重排，含交付按钮点亮/置灰） ──
+        // 卡面只显「元素图标 + ×数量」（等级由图标分级 {type}_{level} 表现，不再写 Lv 文字，与合成 token "×{count}" 同口径）。
+        // 显示排序：可交付（CanDeliver）的卡排在前、不可交付的在后，组内保持 slot 原序（稳定）。
+        // 卡是常驻实例、各自 OnDeliver 绑死真实 slot——排序只改 sibling 顺序（HLG 按子节点序排布），
+        // 不改 slot 映射，SetData 仍用该卡真实 slot 的 orders[slot]/CanDeliver(slot)。事件驱动刷新，每次重算、稳定无抖动。
         private void RefreshOrders()
         {
             var orders = _merge.ActiveOrders;
+
+            // 先按真实 slot 填数据 + 显隐，互不依赖排序。
             for (int slot = 0; slot < _orderCards.Length; slot++)
             {
                 var card = _orderCards[slot];
@@ -293,7 +317,24 @@ namespace GameLogic
                 if (!hasOrder) continue;
 
                 var o = orders[slot];
-                card.SetData(MergeElementVisual.SpriteName(o.Type, o.Level), $"Lv{o.Level}\n×{o.Count}", _merge.CanDeliver(slot));
+                card.SetData(MergeElementVisual.SpriteName(o.Type, o.Level), $"×{o.Count}", _merge.CanDeliver(slot));
+            }
+
+            // 可交付优先重排：按 slot 升序两趟扫描（先取可交付、再取不可交付），组内保持 slot 原序（稳定）。
+            // 逐张 SetSiblingIndex(展示位)，HLG 按子节点顺序横向排布，即把可交付的卡推到列表前端。
+            int siblingIndex = 0;
+            for (int pass = 0; pass < 2; pass++)
+            {
+                bool wantDeliverable = pass == 0;
+                for (int slot = 0; slot < _orderCards.Length; slot++)
+                {
+                    var card = _orderCards[slot];
+                    if (card == null || card.rectTransform == null) continue;
+                    bool hasOrder = orders != null && slot < orders.Length;
+                    if (!hasOrder) continue; // 无单卡已隐藏，不参与排序（留在尾部）
+                    if (_merge.CanDeliver(slot) != wantDeliverable) continue;
+                    card.rectTransform.SetSiblingIndex(siblingIndex++);
+                }
             }
         }
 
@@ -985,6 +1026,11 @@ namespace GameLogic
             if (sources == null || sources.Count == 0) return;
             if (m_rect_Content == null || m_rect_BoardLayer == null) return;
 
+            // 落点取自合成区 token 的世界坐标，而 token 池由 RefreshSynthesis 同帧新建/重排、HorizontalLayoutGroup
+            // 当帧尚未布局，新建 token（尤其全新类型首次出现）的 position 仍是默认值。先强制立即布局，确保落点准确。
+            if (m_rect_SynthLayer != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(m_rect_SynthLayer);
+
             // 类型 → token 映射：同类型取首个（最低等级）。token 池已由 RefreshSynthesis 按类型→等级排序填好。
             var typeToToken = new Dictionary<MergeElement, SynthTokenWidget>();
             foreach (var token in _synthTokens)
@@ -996,6 +1042,17 @@ namespace GameLogic
                 if (type == MergeElement.None) continue;
                 if (!typeToToken.ContainsKey(type)) typeToToken[type] = token;
             }
+
+            // 统计每个落点 token 将接收的飞行图标数，并在飞行前隐藏其可见内容；待飞向它的全部图标到达后再显示，
+            // 呈现「元素从棋盘汇入后，该统计格才点亮」的收集感。隐藏只改 enabled、保留布局占位（见 SetContentVisible）。
+            var pending = new Dictionary<SynthTokenWidget, int>();
+            foreach (var (type, _) in sources)
+            {
+                if (type == MergeElement.None) continue;
+                if (!typeToToken.TryGetValue(type, out var tk) || tk == null) continue;
+                pending[tk] = pending.TryGetValue(tk, out var n) ? n + 1 : 1;
+            }
+            foreach (var tk in pending.Keys) tk.SetContentVisible(false);
 
             float iconSize = BoardCellSize() * 0.7f; // 与棋盘元素图标同尺寸口径，飞行视觉连贯
             const float Stagger = 0.05f;             // 多图标错开起飞，增强层次
@@ -1014,11 +1071,20 @@ namespace GameLogic
                 // 终点：token 图标世界坐标 → Content 本地。
                 Vector2 endLocal = m_rect_Content.InverseTransformPoint(glyph.position);
 
-                // 到达回调按类型查当前 token punch（闭包捕获 type；token 实例在一次落子内不重建，直接捕获即可）。
                 var target = token;
                 FlyToTargetFx.Spawn(m_rect_Content, startLocal, endLocal,
                     MergeElementVisual.SpriteName(type, 1), iconSize, idx * Stagger, // 飞行的是 Lv1 原料，取 Lv1 图
-                    () => { if (target != null) target.PunchGlyph(); });
+                    () =>
+                    {
+                        if (target == null) return;
+                        // 该 token 接收的飞行图标逐个到达；最后一个到达时才显示内容 + punch（汇入点亮）。
+                        if (pending.TryGetValue(target, out var remain))
+                        {
+                            remain--;
+                            if (remain <= 0) { pending.Remove(target); target.SetContentVisible(true); target.PunchGlyph(); }
+                            else pending[target] = remain;
+                        }
+                    });
                 idx++;
             }
         }
@@ -1114,12 +1180,42 @@ namespace GameLogic
                 img.material = mat;
                 img.rectTransform.sizeDelta = size;
                 img.rectTransform.anchoredPosition = pos;
-                img.transform.SetAsLastSibling();                     // 盖在方块格 / ghost 之上
+                img.transform.SetAsLastSibling();                     // 盖在方块格 / ghost / 填充之上
                 if (pulse != null) pulse.Restart(_glowUsed * 0.06f);  // 错开相位，呼吸不齐刷
                 else img.color = BlockLayout.ClearPreviewGlowColor;
                 img.gameObject.SetActive(true);
             }
 
+            // 取一张填充图，定位为正好覆盖该行 / 列真实区域（不放大、不外溢到邻行），激活并置顶。
+            // 先于边缘辉光 SetAsLastSibling，使其落在方块格之上、边缘辉光之下（边缘辉光随后置顶）。
+            void ShowFill(Vector2 size, Vector2 pos)
+            {
+                if (_fillUsed >= _fillPool.Length) return;
+                var img = _fillPool[_fillUsed];
+                _fillUsed++;
+                img.rectTransform.sizeDelta = size;
+                img.rectTransform.anchoredPosition = pos;
+                img.color = BlockLayout.ClearPreviewFillColor;
+                img.transform.SetAsLastSibling();                     // 盖在方块格 / ghost 之上（边缘辉光后续再置顶到其上）
+                img.gameObject.SetActive(true);
+            }
+
+            // 先铺所有填充（盖在方块格之上）。填充用真实行 / 列尺寸（宽 N*cell × 高 cell，或宽 cell × 高 N*cell），
+            // 正好盖住方块、不外溢，与边缘长条同一行 / 列中心。
+            for (int i = 0; i < preview.Rows.Count; i++)
+            {
+                int r = preview.Rows[i];
+                float y = BoardCellLocalPos(0, r).y;
+                ShowFill(new Vector2(boardSpan, cell), new Vector2(boardCenterX, y));
+            }
+            for (int i = 0; i < preview.Cols.Count; i++)
+            {
+                int c = preview.Cols[i];
+                float x = BoardCellLocalPos(c, 0).x;
+                ShowFill(new Vector2(cell, boardSpan), new Vector2(x, boardCenterY));
+            }
+
+            // 再铺边缘辉光长条（每条 SetAsLastSibling 置顶 → 落在填充之上，维持「方块 < 填充 < 边缘辉光」）。
             // 满行：横条，宽 = 棋盘宽，高 = 厚度；位于该行中心（x 居中、y 取该行格中心）。
             for (int i = 0; i < preview.Rows.Count; i++)
             {
@@ -1143,11 +1239,13 @@ namespace GameLogic
             ClearGlow();
         }
 
-        /// <summary>隐藏全部消除预览发光（与 ghost 一起清理，避免拖动残留）。GameObject 隐藏后 GlowPulse 自停摆。</summary>
+        /// <summary>隐藏全部消除预览发光 + 行内填充（与 ghost 一起清理，避免拖动残留）。GameObject 隐藏后 GlowPulse 自停摆。</summary>
         private void ClearGlow()
         {
             for (int i = 0; i < _glowUsed; i++) _glowPool[i].gameObject.SetActive(false);
             _glowUsed = 0;
+            for (int i = 0; i < _fillUsed; i++) _fillPool[i].gameObject.SetActive(false);
+            _fillUsed = 0;
         }
 
         // 候选块容器落点 → 棋盘格 (col,row)。容器父层 m_rect_SlotLayer 与棋盘格父层 m_rect_BoardLayer

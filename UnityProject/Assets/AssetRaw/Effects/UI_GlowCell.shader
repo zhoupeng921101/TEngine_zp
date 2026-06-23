@@ -5,7 +5,7 @@ Shader "UI/GlowCell"
         [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
         _GlowSharpness ("Glow Sharpness", Range(0.5, 4)) = 1.2
-        _GlowIntensity ("Glow Intensity", Range(1, 4)) = 1.4
+        _GlowIntensity ("Glow Intensity", Range(1, 4)) = 1.1
         _CoreFrac ("Core Fraction", Range(0.2, 1)) = 0.62
         _Vertical ("Vertical", Float) = 0
 

@@ -34,68 +34,6 @@ namespace Fantasy
 			return (G2C_LoginGameResponse)await session.Call(C2G_LoginGameRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void C2M_InitComplete(this Session session, C2M_InitComplete C2M_InitComplete_message)
-		{
-			session.Send(C2M_InitComplete_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void C2M_InitComplete(this Session session)
-		{
-			using var message = Fantasy.C2M_InitComplete.Create();
-			session.Send(message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void M2C_UnitCreate(this Session session, M2C_UnitCreate M2C_UnitCreate_message)
-		{
-			session.Send(M2C_UnitCreate_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void M2C_UnitCreate(this Session session, UnitInfo unit, bool isSelf)
-		{
-			using var M2C_UnitCreate_message = Fantasy.M2C_UnitCreate.Create();
-			M2C_UnitCreate_message.Unit = unit;
-			M2C_UnitCreate_message.IsSelf = isSelf;
-			session.Send(M2C_UnitCreate_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void M2C_UnitLeave(this Session session, M2C_UnitLeave M2C_UnitLeave_message)
-		{
-			session.Send(M2C_UnitLeave_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void M2C_UnitLeave(this Session session, long unitId)
-		{
-			using var M2C_UnitLeave_message = Fantasy.M2C_UnitLeave.Create();
-			M2C_UnitLeave_message.UnitId = unitId;
-			session.Send(M2C_UnitLeave_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<M2C_MoveResponse> C2M_MoveRequest(this Session session, C2M_MoveRequest C2M_MoveRequest_request)
-		{
-			return (M2C_MoveResponse)await session.Call(C2M_MoveRequest_request);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<M2C_MoveResponse> C2M_MoveRequest(this Session session, Position targetPos)
-		{
-			using var C2M_MoveRequest_request = Fantasy.C2M_MoveRequest.Create();
-			C2M_MoveRequest_request.TargetPos = targetPos;
-			return (M2C_MoveResponse)await session.Call(C2M_MoveRequest_request);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void M2C_UnitMoveState(this Session session, M2C_UnitMoveState M2C_UnitMoveState_message)
-		{
-			session.Send(M2C_UnitMoveState_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void M2C_UnitMoveState(this Session session, int state, long unitId, Position pos)
-		{
-			using var M2C_UnitMoveState_message = Fantasy.M2C_UnitMoveState.Create();
-			M2C_UnitMoveState_message.State = state;
-			M2C_UnitMoveState_message.UnitId = unitId;
-			M2C_UnitMoveState_message.Pos = pos;
-			session.Send(M2C_UnitMoveState_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_MailListResponse> C2G_MailListRequest(this Session session, C2G_MailListRequest C2G_MailListRequest_request)
 		{
 			return (G2C_MailListResponse)await session.Call(C2G_MailListRequest_request);

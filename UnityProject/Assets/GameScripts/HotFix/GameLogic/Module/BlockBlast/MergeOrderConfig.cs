@@ -16,8 +16,8 @@ namespace GameLogic.BlockBlast
         public static readonly int[] LevelBaseCost = { 0, 1, 2, 4, 8, 16 };
 
         // ── 订单 ──────────────────────────────────────────────
-        /// <summary>同时激活的订单数（双订单）。</summary>
-        public const int ActiveOrders = 2;
+        /// <summary>同时激活的订单数（横滑订单列表，可交付的卡排在前）。</summary>
+        public const int ActiveOrders = 5;
 
         /// <summary>订单奖励体力（可溢出软上限）。</summary>
         public const int OrderRewardEnergy = 8;

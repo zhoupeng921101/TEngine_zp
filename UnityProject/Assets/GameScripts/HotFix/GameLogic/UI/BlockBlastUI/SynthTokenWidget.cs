@@ -28,6 +28,8 @@ namespace GameLogic
             if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName);
             // 仅显示数量；等级已由图标分级（{type}_{level}）表现，文字不再重复等级。
             m_text_Info.text = $"×{count}";
+            // 复用 token 实例时重置为可见，避免上一轮收集飞行的隐藏态残留（池化实例可能上次被隐藏未及恢复）。
+            SetContentVisible(true);
         }
 
         /// <summary>
@@ -40,6 +42,17 @@ namespace GameLogic
         public void PunchGlyph()
         {
             if (m_img_Glyph != null) m_img_Glyph.gameObject.AddComponent<ScalePunch>();
+        }
+
+        /// <summary>
+        /// 切换可见内容（图标 + 数量文字）的显隐，仅改 Image/Text 的 enabled、保留 RectTransform 布局占位。
+        /// 不 SetActive 整个 GameObject——那会令 HorizontalLayoutGroup 重排、其它 token 位移、飞行落点失准。
+        /// 收集飞行用：飞行前隐藏落点 token，待飞向它的全部图标到达后再显示，呈现「元素汇入后该格才点亮」。
+        /// </summary>
+        public void SetContentVisible(bool visible)
+        {
+            if (m_img_Glyph != null) m_img_Glyph.enabled = visible;
+            if (m_text_Info != null) m_text_Info.enabled = visible;
         }
     }
 }

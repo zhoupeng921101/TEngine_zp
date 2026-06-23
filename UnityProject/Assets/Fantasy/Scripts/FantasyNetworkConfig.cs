@@ -5,32 +5,94 @@ using UnityEngine;
 namespace FantasyClient
 {
     /// <summary>
-    /// Fantasy 网络配置（集中一处，便于后续接入正式配置或区分 dev / 线上环境）。
-    /// 目前为简单静态字段；如需多环境，可改为从 TEngine 配置表 / 环境变量 / 打包参数读取。
+    /// Fantasy 网络配置（运行时可改 + PlayerPrefs 持久化）。
+    /// 连接地址 = Host:Port，协议在 KCP / WebSocket 间切换；三者经本地存储跨启动保留。
+    /// 局域网联调时通过 <see cref="GameLogic.UI.ServerConfigWindow"/> 修改后重连即生效（连接前由
+    /// <see cref="FantasyNetwork.Boot"/> 现读 <see cref="ServerAddress"/> / <see cref="Protocol"/>）。
     /// </summary>
     public static class FantasyNetworkConfig
     {
 #if FANTASY_WEBGL
-        // WebGL（浏览器）只能用 WebSocket，连示例服务器的 WebSocket Gate(20001)。
-        /// <summary>服务器 Gate 地址，格式 IP:Port（WebSocket 会自动拼成 ws://IP:Port）。</summary>
-        public static string ServerAddress = "127.0.0.1:20001";
-        /// <summary>连接协议。WebGL 平台固定 WebSocket。</summary>
-        public static readonly NetworkProtocolType Protocol = NetworkProtocolType.WebSocket;
+        // WebGL（浏览器）只能用 WebSocket，默认连示例服务器的 WebSocket Gate(20001)。
+        public const string DefaultHost = "127.0.0.1";
+        public const int DefaultPort = 20001;
+        public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.WebSocket;
 #else
-        // 原生/编辑器默认走 KCP，连示例服务器的 KCP Gate(20000)。
-        /// <summary>服务器 Gate 地址，格式 IP:Port。示例服务器为 KCP 127.0.0.1:20000。</summary>
-        public static string ServerAddress = "127.0.0.1:20000";
-        /// <summary>连接协议。</summary>
-        public static readonly NetworkProtocolType Protocol = NetworkProtocolType.KCP;
+        // 原生 / 编辑器默认走 KCP，连示例服务器的 KCP Gate(20000)。
+        public const string DefaultHost = "127.0.0.1";
+        public const int DefaultPort = 20000;
+        public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.KCP;
 #endif
+
+        private const string PrefHost = "Fantasy.Net.Host";
+        private const string PrefPort = "Fantasy.Net.Port";
+        private const string PrefProtocol = "Fantasy.Net.Protocol";
+
+        private static bool _loaded;
+        private static string _host;
+        private static int _port;
+        private static NetworkProtocolType _protocol;
+
+        private static void EnsureLoaded()
+        {
+            if (_loaded) return;
+            _host = PlayerPrefs.GetString(PrefHost, DefaultHost);
+            _port = PlayerPrefs.GetInt(PrefPort, DefaultPort);
+            _protocol = (NetworkProtocolType)PlayerPrefs.GetInt(PrefProtocol, (int)DefaultProtocol);
+            _loaded = true;
+        }
+
+        /// <summary>服务器主机（局域网 IP，如 192.168.x.x）。set 改内存值，须调 <see cref="Save"/> 才落盘。</summary>
+        public static string Host
+        {
+            get { EnsureLoaded(); return _host; }
+            set { EnsureLoaded(); _host = value; }
+        }
+
+        /// <summary>服务器 Gate 端口（KCP 默认 20000 / WebSocket 默认 20001）。</summary>
+        public static int Port
+        {
+            get { EnsureLoaded(); return _port; }
+            set { EnsureLoaded(); _port = value; }
+        }
+
+        /// <summary>连接协议（KCP / WebSocket）。</summary>
+        public static NetworkProtocolType Protocol
+        {
+            get { EnsureLoaded(); return _protocol; }
+            set { EnsureLoaded(); _protocol = value; }
+        }
+
+        /// <summary>Fantasy 连接接口所需地址，格式 IP:Port（WebSocket 传输层自动拼成 ws://IP:Port）。</summary>
+        public static string ServerAddress
+        {
+            get { EnsureLoaded(); return $"{_host}:{_port}"; }
+        }
+
+        /// <summary>把当前 Host / Port / Protocol 写入本地存储，下次启动自动带出。</summary>
+        public static void Save()
+        {
+            EnsureLoaded();
+            PlayerPrefs.SetString(PrefHost, _host);
+            PlayerPrefs.SetInt(PrefPort, _port);
+            PlayerPrefs.SetInt(PrefProtocol, (int)_protocol);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>恢复为本机默认（127.0.0.1 + 平台默认端口 / 协议）并落盘，便于单机调试与联调来回切。</summary>
+        public static void ResetToDefault()
+        {
+            EnsureLoaded();
+            _host = DefaultHost;
+            _port = DefaultPort;
+            _protocol = DefaultProtocol;
+            Save();
+        }
 
         /// <summary>连接成功后是否自动登录。</summary>
         public static bool AutoLogin = true;
 
-        /// <summary>登录成功后是否自动进入游戏（发送 C2M_InitComplete，触发服务器推送单位）。</summary>
-        public static bool AutoEnterGame = true;
-
-        /// <summary>连接失败/断开后是否自动重连（成功后会自动重登并重进游戏）。</summary>
+        /// <summary>连接失败/断开后是否自动重连（成功后会自动重登）。</summary>
         public static bool AutoReconnect = true;
 
         /// <summary>最大重连次数；0 表示无限重连。</summary>
