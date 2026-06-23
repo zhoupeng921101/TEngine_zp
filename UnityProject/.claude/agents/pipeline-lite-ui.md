@@ -30,7 +30,9 @@ boss 的 self-contained 简报:UI 意图(窗口/控件清单、布局关系、�
 - 参照本地范式:`AssetRaw/UI/Prefabs/SettingsWindow.prefab` + `UI/SettingsWindow.cs`(已搭好的标准窗)。
 
 ## 工作流
-1. **规划节点树**:按 UI 意图定层级(面板/行/容器),区分「需绑定的控件」(给 `m_` 前缀)与「纯结构节点」(无 `m_`、不被绑定)。动态内容区搭**空容器节点**(像 frog-client `m_rect_hightRoot`),运行时由 dev 代码塞 item。
+1. **规划节点树**:按 UI 意图定层级(面板/行/容器),区分「需绑定的控件」(给 `m_` 前缀)与「纯结构/装饰节点」(无 `m_`、用中文名;绑定与命名判据见 `naming-rules.md`§UI 节点命名规范——只绑代码会引用的)。
+   - **层级即语义包含**:视觉上「A 在 B 里」就让 A 作 B 的子节点——按钮文字放按钮节点下、背景内的内容元素放背景节点下、卡片内图标/文字放卡片节点下。保绘制顺序 + 整体移动/显隐 + 按钮点击区与 Label 一致,不拍平成同级。
+   - 动态内容区搭**空容器节点**(像 frog-client `m_rect_hightRoot`),运行时由 dev 代码塞 item。
 2. **MCP 搭树**:建节点 + 组件。**窗口根只挂 Canvas + GraphicRaycaster(+ UIBindComponent),不挂 CanvasScaler**(缩放由 UIRoot 的 canvas + Content 节点 localScale 负责;CanvasScaler 误挂窗口根会让 root scale 塌成 0、整窗不可见)。根 RectTransform 必须 stretch:`anchorMin=(0,0)`/`anchorMax=(1,1)`/`localScale=(1,1,1)`/`pivot=(0.5,0.5)`/`sizeDelta=0`,对照 `GameWindow.prefab` 根约定。
 3. **命名**:控件节点按前缀表命名(见下),工具据此匹配组件类型。
 4. **布局**:锚点/pivot 适配分辨率;成排/列表用 LayoutGroup(`m_hlay`/`m_vlay`/`m_grid`),固定位用锚定。
@@ -39,7 +41,7 @@ boss 的 self-contained 简报:UI 意图(窗口/控件清单、布局关系、�
 
 ## 命名前缀表(契约,完整以 `Assets/Editor/UIScriptGenerator/ScriptGeneratorSetting.cs` 的 `scriptGenerateRule` 为准)
 `m_btn`→Button · `m_img`→Image · `m_tmp`→TextMeshProUGUI · `m_text`→Text · `m_toggle`→Toggle · `m_slider`→Slider · `m_scroll`→ScrollRect · `m_input`/`m_tmpInput`→InputField/TMP_InputField · `m_grid`→GridLayoutGroup · `m_hlay`/`m_vlay`→H/V LayoutGroup · `m_rect`→RectTransform · `m_go`→GameObject · `m_canvasGroup`→CanvasGroup · `m_item*`→UIWidget(**遍历到此停止递归**)。
-> 节点名一律用 `m_` 前缀;字段名风格(`m_`/`_`)由 `ScriptGeneratorSetting.CodeStyle` 决定,工具自动转换。纯结构节点不加 `m_`(不会被绑定、不进索引)。
+> 需绑定的控件节点用 `m_` 前缀;字段名风格(`m_`/`_`)由 `ScriptGeneratorSetting.CodeStyle` 决定,工具自动转换。纯结构/装饰节点不加 `m_`、用中文名(不会被绑定、不进索引)。
 
 ## 生成绑定(本角色核心 · BindComponent + `_Gen.g.cs`)
 选中 prefab 根(`Selection.activeGameObject`),`execute_code` 依次调:

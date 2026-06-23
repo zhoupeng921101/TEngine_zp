@@ -24,7 +24,6 @@ namespace GameLogic
 
         // 候选槽
         public const float SlotCell = 68f;              // 槽内格尺寸
-        public const float SlotY = 1584f;               // 3 个槽中心 Y
         public const float SlotSpacing = 312f;          // 槽水平间距
         public const float SlotCenterX = DesignWidth / 2f;
 

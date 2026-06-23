@@ -17,6 +17,7 @@ namespace GameLogic
 		#region 脚本工具生成的代码
 
 		private UIBindComponent m_bindComponent;
+		private RectTransform m_rect_Content = null!;
 		private Image m_img_Bg = null!;
 		private Image m_img_HudBar = null!;
 		private Image m_img_CoinIcon = null!;
@@ -28,19 +29,25 @@ namespace GameLogic
 		private Text m_text_Energy = null!;
 		private Text m_text_Goal = null!;
 		private Image m_img_OrderCard = null!;
+		private Image m_img_ElemBar = null!;
 		private Text m_text_BlindBox = null!;
 		private Text m_text_Piety = null!;
 		private Image m_img_BoxCard = null!;
 		private Button m_btn_OpenBox = null!;
 		private Image m_img_BoardOuter = null!;
-		private Image m_img_ElemBar = null!;
+		private RectTransform m_rect_BoardLayer = null!;
 		private Image m_img_SlotBg = null!;
+		private RectTransform m_rect_SlotLayer = null!;
 		private Image m_img_ClearHintBg = null!;
 		private Text m_text_ClearHint = null!;
 		private Button m_btn_ClearTool = null!;
 		private Button m_btn_Temple = null!;
 		private Button m_btn_Exit = null!;
 		private Image m_img_ClearOverlay = null!;
+		private RectTransform m_rect_ElemLayer = null!;
+		private RectTransform m_rect_GhostLayer = null!;
+		private RectTransform m_rect_OrderLayer = null!;
+		private RectTransform m_rect_SynthLayer = null!;
 
 		protected override void ScriptGenerator()
 		{
@@ -50,30 +57,37 @@ namespace GameLogic
 				Log.Error($"根物体: {gameObject.name} 缺少组件 UIBindComponent, 请检查！！！");
 				return;
 			}
-			m_img_Bg = m_bindComponent.GetComponent<Image>(0);
-			m_img_HudBar = m_bindComponent.GetComponent<Image>(1);
-			m_img_CoinIcon = m_bindComponent.GetComponent<Image>(2);
-			m_text_CoinNum = m_bindComponent.GetComponent<Text>(3);
-			m_img_GemIcon = m_bindComponent.GetComponent<Image>(4);
-			m_text_GemNum = m_bindComponent.GetComponent<Text>(5);
-			m_img_EnergyIcon = m_bindComponent.GetComponent<Image>(6);
-			m_text_EnergyNum = m_bindComponent.GetComponent<Text>(7);
-			m_text_Energy = m_bindComponent.GetComponent<Text>(8);
-			m_text_Goal = m_bindComponent.GetComponent<Text>(9);
-			m_img_OrderCard = m_bindComponent.GetComponent<Image>(10);
-			m_text_BlindBox = m_bindComponent.GetComponent<Text>(11);
-			m_text_Piety = m_bindComponent.GetComponent<Text>(12);
-			m_img_BoxCard = m_bindComponent.GetComponent<Image>(13);
-			m_btn_OpenBox = m_bindComponent.GetComponent<Button>(14);
-			m_img_BoardOuter = m_bindComponent.GetComponent<Image>(15);
-			m_img_ElemBar = m_bindComponent.GetComponent<Image>(16);
-			m_img_SlotBg = m_bindComponent.GetComponent<Image>(17);
-			m_img_ClearHintBg = m_bindComponent.GetComponent<Image>(18);
-			m_text_ClearHint = m_bindComponent.GetComponent<Text>(19);
-			m_btn_ClearTool = m_bindComponent.GetComponent<Button>(20);
-			m_btn_Temple = m_bindComponent.GetComponent<Button>(21);
-			m_btn_Exit = m_bindComponent.GetComponent<Button>(22);
-			m_img_ClearOverlay = m_bindComponent.GetComponent<Image>(23);
+			m_rect_Content = m_bindComponent.GetComponent<RectTransform>(0);
+			m_img_Bg = m_bindComponent.GetComponent<Image>(1);
+			m_img_HudBar = m_bindComponent.GetComponent<Image>(2);
+			m_img_CoinIcon = m_bindComponent.GetComponent<Image>(3);
+			m_text_CoinNum = m_bindComponent.GetComponent<Text>(4);
+			m_img_GemIcon = m_bindComponent.GetComponent<Image>(5);
+			m_text_GemNum = m_bindComponent.GetComponent<Text>(6);
+			m_img_EnergyIcon = m_bindComponent.GetComponent<Image>(7);
+			m_text_EnergyNum = m_bindComponent.GetComponent<Text>(8);
+			m_text_Energy = m_bindComponent.GetComponent<Text>(9);
+			m_text_Goal = m_bindComponent.GetComponent<Text>(10);
+			m_img_OrderCard = m_bindComponent.GetComponent<Image>(11);
+			m_img_ElemBar = m_bindComponent.GetComponent<Image>(12);
+			m_text_BlindBox = m_bindComponent.GetComponent<Text>(13);
+			m_text_Piety = m_bindComponent.GetComponent<Text>(14);
+			m_img_BoxCard = m_bindComponent.GetComponent<Image>(15);
+			m_btn_OpenBox = m_bindComponent.GetComponent<Button>(16);
+			m_img_BoardOuter = m_bindComponent.GetComponent<Image>(17);
+			m_rect_BoardLayer = m_bindComponent.GetComponent<RectTransform>(18);
+			m_img_SlotBg = m_bindComponent.GetComponent<Image>(19);
+			m_rect_SlotLayer = m_bindComponent.GetComponent<RectTransform>(20);
+			m_img_ClearHintBg = m_bindComponent.GetComponent<Image>(21);
+			m_text_ClearHint = m_bindComponent.GetComponent<Text>(22);
+			m_btn_ClearTool = m_bindComponent.GetComponent<Button>(23);
+			m_btn_Temple = m_bindComponent.GetComponent<Button>(24);
+			m_btn_Exit = m_bindComponent.GetComponent<Button>(25);
+			m_img_ClearOverlay = m_bindComponent.GetComponent<Image>(26);
+			m_rect_ElemLayer = m_bindComponent.GetComponent<RectTransform>(27);
+			m_rect_GhostLayer = m_bindComponent.GetComponent<RectTransform>(28);
+			m_rect_OrderLayer = m_bindComponent.GetComponent<RectTransform>(29);
+			m_rect_SynthLayer = m_bindComponent.GetComponent<RectTransform>(30);
 			m_btn_OpenBox.onClick.RemoveAllListeners();
 			m_btn_OpenBox.onClick.AddListener(OnClick_OpenBoxBtn);
 			m_btn_ClearTool.onClick.RemoveAllListeners();
