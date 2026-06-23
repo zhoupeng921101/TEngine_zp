@@ -34,7 +34,8 @@ namespace GameLogic
         /// <param name="canDeliver">是否满足交付条件。</param>
         public void SetData(string glyphSpriteName, string reqLabel, bool canDeliver)
         {
-            if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName);
+            if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName, setNativeSize:true);
+            
             m_text_Req.text = reqLabel;
 
             m_btn_Deliver.interactable = canDeliver;

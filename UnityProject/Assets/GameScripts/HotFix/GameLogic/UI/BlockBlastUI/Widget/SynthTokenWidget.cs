@@ -25,7 +25,8 @@ namespace GameLogic
         public void SetData(MergeElement type, string glyphSpriteName, int level, int count)
         {
             ElementType = type;
-            if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName);
+            if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName, setNativeSize:true);
+                
             // 仅显示数量；等级已由图标分级（{type}_{level}）表现，文字不再重复等级。
             m_text_Info.text = $"×{count}";
             // 复用 token 实例时重置为可见，避免上一轮收集飞行的隐藏态残留（池化实例可能上次被隐藏未及恢复）。

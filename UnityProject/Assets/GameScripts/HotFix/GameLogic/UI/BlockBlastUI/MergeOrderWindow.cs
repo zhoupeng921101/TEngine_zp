@@ -641,7 +641,7 @@ namespace GameLogic
                     {
                         if (existing != null)
                         {
-                            existing.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
+                            existing.SetSprite(MergeElementVisual.SpriteName(el, 1), setNativeSize:true); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
                             existing.transform.SetAsLastSibling(); // 元素图标与棋盘格同父，置顶避免被新建 cell 盖住
                         }
                         else
@@ -651,7 +651,7 @@ namespace GameLogic
                                 iconSize, iconSize, Color.white);
                             icon.rectTransform.anchoredPosition = BoardCellLocalPos(c, r);
                             icon.raycastTarget = false;
-                            icon.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 棋盘元素 = Lv1 原料，取 Lv1 图
+                            icon.SetSprite(MergeElementVisual.SpriteName(el, 1), setNativeSize:true); // 棋盘元素 = Lv1 原料，取 Lv1 图
                             icon.transform.SetAsLastSibling(); // 同上：置顶于棋盘格之上
                             _elemCells[r, c] = icon;
                         }
@@ -747,7 +747,7 @@ namespace GameLogic
                             var gimg = gt.GetComponent<Image>();
                             gimg.color = Color.white;
                             gimg.raycastTarget = false;
-                            gimg.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 候选块元素 = Lv1 原料，取 Lv1 图
+                            gimg.SetSprite(MergeElementVisual.SpriteName(el, 1), setNativeSize:true); // 候选块元素 = Lv1 原料，取 Lv1 图
                         }
                         cellIdx++;
                     }
