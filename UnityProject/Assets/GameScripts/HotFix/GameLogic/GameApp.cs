@@ -41,10 +41,15 @@ public partial class GameApp
         FantasyClient.FantasyNetwork.Boot();
 
         // 玩家元层属性接线(设计 38 §五):把 Fantasy 推送/快照分发到热更区 PlayerAttrService。
-        // 早挂(在 Boot 之后、登录前)保 InitSnapshot 不丢;事件已在网络主线程触发,可直安全刷视图。
-        FantasyClient.FantasyNetwork.OnPropertyInitSnapshot += (coin, diamond, stamina, _) =>
+        // 早挂(在 Boot 之后、登录前)保登录快照不丢;事件已在网络主线程触发,可直安全刷视图。
+        FantasyClient.FantasyNetwork.OnPlayerInfoSnapshot += view =>
         {
-            GameLogic.GameContext.Instance.PlayerAttr?.ApplySnapshot(coin, diamond, stamina);
+            var attr = GameLogic.GameContext.Instance.PlayerAttr;
+            if (attr == null) return;
+            // 先档案后三属性:ApplySnapshot 末尾置 IsReady=true 并触发 All 事件,
+            // 让订阅方在收到事件时档案字段已就绪。
+            attr.ApplyProfile(view.AccountId, view.Nickname, view.Level, view.Exp, view.SchemaVersion);
+            attr.ApplySnapshot(view.Coin, view.Diamond, view.Stamina);
         };
         FantasyClient.FantasyNetwork.OnPropertyDeltaPush += (type, newAmount, reason) =>
         {

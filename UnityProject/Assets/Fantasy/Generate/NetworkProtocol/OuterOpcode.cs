@@ -73,9 +73,9 @@ namespace Fantasy
         public const uint G2C_MapUnsubscribeSphereEventResponse = 402663199;
         public const uint C2G_TestMemoryPackRequest = 285222688;
         public const uint G2C_TestMemoryPackResponse = 419440416;
+        public const uint G2C_PlayerInfoSnapshot = 134227737;
         public const uint C2G_PropertyChangeRequest = 268445473;
         public const uint G2C_PropertyChangeResponse = 402663201;
-        public const uint G2C_PropertyInitSnapshot = 134227737;
         public const uint G2C_PropertyDeltaPush = 134227738;
         public const uint C2G_QueryAttrLedger = 268445474;
         public const uint G2C_QueryAttrLedgerResponse = 402663202;

@@ -3336,6 +3336,134 @@ namespace Fantasy
         public TestMemoryPackInfo Info { get; set; }
     }
     /// <summary>
+    /// 玩家信息(基础档案 + 三数值属性快照),登录后整份下发
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class PlayerInfo : AMessage, IDisposable
+    {
+        public static PlayerInfo Create(bool autoReturn = true)
+        {
+            var playerInfo = MessageObjectPool<PlayerInfo>.Rent();
+            playerInfo.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                playerInfo.SetIsPool(false);
+            }
+            
+            return playerInfo;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            AccountId = default;
+            Nickname = default;
+            Level = default;
+            Exp = default;
+            foreach (var __t in Properties) __t.Dispose();
+            Properties.Clear();
+            SchemaVersion = default;
+            MessageObjectPool<PlayerInfo>.Return(this);
+        }
+        /// <summary>
+        /// 账号 ID(UUID,= 登录账号名)
+        /// </summary>
+        [ProtoMember(1)]
+        public string AccountId { get; set; }
+        /// <summary>
+        /// 昵称(首登默认空串,后续改名功能再填)
+        /// </summary>
+        [ProtoMember(2)]
+        public string Nickname { get; set; }
+        /// <summary>
+        /// 等级(首登默认 1)
+        /// </summary>
+        [ProtoMember(3)]
+        public int Level { get; set; }
+        /// <summary>
+        /// 经验(首登默认 0)
+        /// </summary>
+        [ProtoMember(4)]
+        public long Exp { get; set; }
+        /// <summary>
+        /// 三数值属性当前余额(金币/钻石/体力,复用 PropertyAmount)
+        /// </summary>
+        [ProtoMember(5)]
+        public List<PropertyAmount> Properties { get; set; } = new List<PropertyAmount>();
+        /// <summary>
+        /// schema 版本(加字段时升,客户端据此识别)
+        /// </summary>
+        [ProtoMember(6)]
+        public int SchemaVersion { get; set; }
+    }
+    /// <summary>
+    /// 服务端登录后下发玩家信息整份快照(主动 push,取代 G2C_PropertyInitSnapshot)
+    /// </summary>
+    [Serializable]
+    [ProtoContract]
+    public partial class G2C_PlayerInfoSnapshot : AMessage, IMessage
+    {
+        public static G2C_PlayerInfoSnapshot Create(bool autoReturn = true)
+        {
+            var g2C_PlayerInfoSnapshot = MessageObjectPool<G2C_PlayerInfoSnapshot>.Rent();
+            g2C_PlayerInfoSnapshot.AutoReturn = autoReturn;
+            
+            if (!autoReturn)
+            {
+                g2C_PlayerInfoSnapshot.SetIsPool(false);
+            }
+            
+            return g2C_PlayerInfoSnapshot;
+        }
+        
+        public void Return()
+        {
+            if (!AutoReturn)
+            {
+                SetIsPool(true);
+                AutoReturn = true;
+            }
+            else if (!IsPool())
+            {
+                return;
+            }
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (!IsPool()) return; 
+            if (Info != null)
+            {
+                Info.Dispose();
+                Info = null;
+            }
+            MessageObjectPool<G2C_PlayerInfoSnapshot>.Return(this);
+        }
+        public uint OpCode() { return OuterOpcode.G2C_PlayerInfoSnapshot; } 
+        /// <summary>
+        /// 玩家完整信息(基础档案 + 三属性)
+        /// </summary>
+        [ProtoMember(1)]
+        public PlayerInfo Info { get; set; }
+    }
+    /// <summary>
     /// 单条属性余额项(初始快照下发用,可复用)
     /// </summary>
     [Serializable]
@@ -3500,7 +3628,7 @@ namespace Fantasy
         [ProtoMember(1)]
         public PropertyChangeResultCode ResultCode { get; set; }
         /// <summary>
-        /// 回声请求的类型(便于客户端段下一项路由更新到对应字段)
+        /// 回声请求的类型(便于客户端段下一刀路由更新到对应字段)
         /// </summary>
         [ProtoMember(2)]
         public PropertyType Type { get; set; }
@@ -3509,61 +3637,6 @@ namespace Fantasy
         /// </summary>
         [ProtoMember(3)]
         public long NewAmount { get; set; }
-    }
-    /// <summary>
-    /// 服务端登录后下发属性初始快照(服务端主动 push,本子单选独立 push message 而非登录响应捎带,
-    /// 形态与 G2C_PropertyDeltaPush 对齐,客户端段下一项同一处订阅)(§3.3.1 + plan D3 + O4)
-    /// </summary>
-    [Serializable]
-    [ProtoContract]
-    public partial class G2C_PropertyInitSnapshot : AMessage, IMessage
-    {
-        public static G2C_PropertyInitSnapshot Create(bool autoReturn = true)
-        {
-            var g2C_PropertyInitSnapshot = MessageObjectPool<G2C_PropertyInitSnapshot>.Rent();
-            g2C_PropertyInitSnapshot.AutoReturn = autoReturn;
-            
-            if (!autoReturn)
-            {
-                g2C_PropertyInitSnapshot.SetIsPool(false);
-            }
-            
-            return g2C_PropertyInitSnapshot;
-        }
-        
-        public void Return()
-        {
-            if (!AutoReturn)
-            {
-                SetIsPool(true);
-                AutoReturn = true;
-            }
-            else if (!IsPool())
-            {
-                return;
-            }
-            Dispose();
-        }
-
-        public void Dispose()
-        {
-            if (!IsPool()) return; 
-            foreach (var __t in Properties) __t.Dispose();
-            Properties.Clear();
-            SchemaVersion = default;
-            MessageObjectPool<G2C_PropertyInitSnapshot>.Return(this);
-        }
-        public uint OpCode() { return OuterOpcode.G2C_PropertyInitSnapshot; } 
-        /// <summary>
-        /// 三属性当前余额(每登录一次完整下发,客户端段下一项作初视图)
-        /// </summary>
-        [ProtoMember(1)]
-        public List<PropertyAmount> Properties { get; set; } = new List<PropertyAmount>();
-        /// <summary>
-        /// schema 版本(本子单 = 1;Tier 2+ 加字段时升版,客户端段据此识别)
-        /// </summary>
-        [ProtoMember(2)]
-        public int SchemaVersion { get; set; }
     }
     /// <summary>
     /// 服务端属性变更主动推送(每次写库成功后服务端起,推送目标 = 该 UUID 在线全部会话,§3.3.3 + §5.4)
@@ -3615,12 +3688,12 @@ namespace Fantasy
         [ProtoMember(1)]
         public PropertyType Type { get; set; }
         /// <summary>
-        /// 变更后该属性新余额(绝对值,客户端段下一项直接覆盖本地视图)
+        /// 变更后该属性新余额(绝对值,客户端段下一刀直接覆盖本地视图)
         /// </summary>
         [ProtoMember(2)]
         public long NewAmount { get; set; }
         /// <summary>
-        /// 变更来源标识(回声触发方传入的 reason,供客户端段下一项做 toast / 弹奖动画的来源识别)
+        /// 变更来源标识(回声触发方传入的 reason,供客户端段下一刀做 toast / 弹奖动画的来源识别)
         /// </summary>
         [ProtoMember(3)]
         public string Reason { get; set; }
@@ -3697,7 +3770,7 @@ namespace Fantasy
         [ProtoMember(5)]
         public long Delta { get; set; }
         /// <summary>
-        /// 变更来源枚举码(= 服务端 AttrChangeSource 整数;客户端段下一项映射为人类可读文本)
+        /// 变更来源枚举码(= 服务端 AttrChangeSource 整数;客户端段下一刀映射为人类可读文本)
         /// </summary>
         [ProtoMember(6)]
         public int Source { get; set; }

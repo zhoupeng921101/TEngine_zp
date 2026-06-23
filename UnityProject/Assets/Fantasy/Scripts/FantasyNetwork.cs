@@ -8,6 +8,37 @@ using Fantasy.Network;
 namespace FantasyClient
 {
     /// <summary>
+    /// 登录玩家信息快照视图(对应协议 G2C_PlayerInfoSnapshot.Info)。
+    /// 承载基础档案(账号/昵称/等级/经验) + 三属性余额(coin/diamond/stamina) + schema 版本,
+    /// 经 <see cref="FantasyNetwork.OnPlayerInfoSnapshot"/> 一次性下发到热更区订阅方。
+    /// 不可变值类型:Fantasy 协议对象用完即回池,跨边界须复制为独立快照避免引用悬空。
+    /// </summary>
+    public readonly struct PlayerInfoView
+    {
+        public readonly string AccountId;
+        public readonly string Nickname;
+        public readonly int Level;
+        public readonly long Exp;
+        public readonly long Coin;
+        public readonly long Diamond;
+        public readonly long Stamina;
+        public readonly int SchemaVersion;
+
+        public PlayerInfoView(string accountId, string nickname, int level, long exp,
+                              long coin, long diamond, long stamina, int schemaVersion)
+        {
+            AccountId = accountId;
+            Nickname = nickname;
+            Level = level;
+            Exp = exp;
+            Coin = coin;
+            Diamond = diamond;
+            Stamina = stamina;
+            SchemaVersion = schemaVersion;
+        }
+    }
+
+    /// <summary>
     /// Fantasy 客户端网络管理器（静态门面）。
     /// 职责：初始化 Fantasy 运行时 -> 创建客户端 Scene -> 连接服务器 Gate -> 维持心跳 -> 登录。
     /// 由 TEngine 热更入口 GameApp.StartGameLogic() 调用 <see cref="Boot"/> 启动。
@@ -42,10 +73,10 @@ namespace FantasyClient
         public static event Action OnDisconnected;
 
         /// <summary>
-        /// 服务端属性初始快照到达(设计 38 §五接线)。参数 = (coin, diamond, stamina, schemaVersion)。
-        /// 在主线程 Scene 内触发,业务侧可直接刷 UI;<see cref="G2C_PropertyInitSnapshotHandler"/> 内置薄壳分发。
+        /// 服务端登录玩家信息快照到达。参数 = 完整 <see cref="PlayerInfoView"/>(档案 + 三属性 + schema 版本)。
+        /// 在主线程 Scene 内触发,业务侧可直接刷 UI;<see cref="G2C_PlayerInfoSnapshotHandler"/> 内置薄壳分发。
         /// </summary>
-        public static event Action<long, long, long, int> OnPropertyInitSnapshot;
+        public static event Action<PlayerInfoView> OnPlayerInfoSnapshot;
 
         /// <summary>
         /// 服务端属性变更推送到达(设计 38 §五接线)。参数 = (type, newAmount, reason)。
@@ -53,9 +84,9 @@ namespace FantasyClient
         /// </summary>
         public static event Action<int, long, string> OnPropertyDeltaPush;
 
-        /// <summary>由 <see cref="G2C_PropertyInitSnapshotHandler"/> 调,把分发交给热更区订阅方(避免 FantasyClient 反向依赖 GameLogic)。</summary>
-        internal static void RaisePropertyInitSnapshot(long coin, long diamond, long stamina, int schemaVersion)
-            => OnPropertyInitSnapshot?.Invoke(coin, diamond, stamina, schemaVersion);
+        /// <summary>由 <see cref="G2C_PlayerInfoSnapshotHandler"/> 调,把分发交给热更区订阅方(避免 FantasyClient 反向依赖 GameLogic)。</summary>
+        internal static void RaisePlayerInfoSnapshot(PlayerInfoView view)
+            => OnPlayerInfoSnapshot?.Invoke(view);
 
         /// <summary>由 <see cref="G2C_PropertyDeltaPushHandler"/> 调,把分发交给热更区订阅方。</summary>
         internal static void RaisePropertyDeltaPush(int type, long newAmount, string reason)
