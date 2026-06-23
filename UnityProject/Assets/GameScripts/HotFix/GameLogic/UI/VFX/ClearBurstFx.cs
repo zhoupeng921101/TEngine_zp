@@ -32,6 +32,19 @@ namespace GameLogic
         /// <param name="debrisColor">碎块层主色（被消方块色）。</param>
         public static void Spawn(Transform parent, float designCx, float designCy, Color debrisColor)
         {
+            // 设计坐标重载：父层须为设计全屏 overlay（如 m_rect_Content）。自适应棋盘走 SpawnAtLocal 直接传本地坐标。
+            SpawnAtLocal(parent, BlockLayout.DesignToAnchored(designCx, designCy), debrisColor);
+        }
+
+        /// <summary>
+        /// 在指定父层、按父层本地 anchoredPosition 实例化一发消除爆破（碎块层染被消方块色）。
+        /// 自适应棋盘用：父层 = m_rect_BoardLayer，本地坐标由窗口的 BoardCellLocalPos 现算（不经设计坐标换算）。
+        /// </summary>
+        /// <param name="parent">父层 RectTransform。</param>
+        /// <param name="localAnchored">在 parent 本地的 anchoredPosition（parent anchor/pivot 居中时即中心相对偏移）。</param>
+        /// <param name="debrisColor">碎块层主色（被消方块色）。</param>
+        public static void SpawnAtLocal(Transform parent, Vector2 localAnchored, Color debrisColor)
+        {
             var go = GameModule.Resource.LoadGameObject(PrefabLocation, parent);
             if (go == null)
             {
@@ -46,7 +59,7 @@ namespace GameLogic
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
                 rt.pivot = new Vector2(0.5f, 0.5f);
                 rt.localScale = Vector3.one;
-                rt.anchoredPosition = BlockLayout.DesignToAnchored(designCx, designCy);
+                rt.anchoredPosition = localAnchored;
             }
 
             // 给碎块层染色：Debris 的 colorOverLifetime 保持白→白，故主色相完全由 main.startColor 注入。
