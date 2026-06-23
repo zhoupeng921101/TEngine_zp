@@ -98,9 +98,9 @@ namespace GameLogic.BlockBlast.Tests
                     $"A4: 采样标识 {s.MonoId} 不在真实存在集（疑似选到留空编号）");
             }
 
-            // 显式断言典型留空编号不在候选池（设计 50 §五：26/48/98/115/200 等留空）。
-            foreach (int gap in new[] { 26, 27, 28, 48, 49, 50, 98, 115, 137, 200, 225, 478, 0, 1, 6 })
-                Assert.IsFalse(BlockSkinCatalog.Contains(gap), $"A4: 留空编号 {gap} 不应在候选池");
+            // 显式断言越界编号不在候选池（有效区间 1..374，区间外均无对应文件）。
+            foreach (int gap in new[] { 0, -1, 375, 400, 478, 999 })
+                Assert.IsFalse(BlockSkinCatalog.Contains(gap), $"A4: 越界编号 {gap} 不应在候选池");
 
             // 真实候选池规模与真实文件集一致（374 张）。
             Assert.AreEqual(374, BlockSkinCatalog.MonoIds.Count, "A4: 候选池规模 = 真实文件集 374 张");

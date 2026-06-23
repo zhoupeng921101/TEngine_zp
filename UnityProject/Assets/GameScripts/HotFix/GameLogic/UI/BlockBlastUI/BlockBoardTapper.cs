@@ -15,6 +15,12 @@ namespace GameLogic
         /// <summary>点中棋盘格回调：参数 (col,row)，越界由窗口侧判（理论上 overlay 限定在棋盘区不会越界）。</summary>
         public Action<int, int> OnTapCell;
 
+        /// <summary>
+        /// 屏幕点 → 棋盘格 (col,row) 的换算覆写（自适应棋盘用）。为 null 时回退固定常量换算（BoardOrigin/CellSize）。
+        /// 自适应棋盘的格尺寸/原点由 BoardLayer.rect 现算，与棋盘格渲染同源，须由窗口注入此委托保证「点中格=可见格」。
+        /// </summary>
+        public Func<Vector2, (int col, int row)> ScreenToCell;
+
         private RectTransform _rt;
         private Canvas _canvas;
 
@@ -29,6 +35,15 @@ namespace GameLogic
 
         public void OnPointerClick(PointerEventData e)
         {
+            // 自适应棋盘：委托由窗口注入，用 BoardLayer 本地空间 + 自适应格尺寸换算（与棋盘格渲染同源）。
+            if (ScreenToCell != null)
+            {
+                var (c, r) = ScreenToCell(e.position);
+                OnTapCell?.Invoke(c, r);
+                return;
+            }
+
+            // 回退：固定常量棋盘（BoardOrigin/CellSize 设计空间换算）。
             if (_rt == null) _rt = GetComponent<RectTransform>();
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_rt, e.position, EventCam, out var local))
                 return;

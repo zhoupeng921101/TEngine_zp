@@ -110,7 +110,7 @@ namespace GameLogic.BlockBlast.Tests
             ClearAllOrders(m); // 无任何订单缺口
             Assert.AreEqual(0, m.NeededTypes().Count, "前置：无所需类型");
 
-            // 直接验证 Materialize 路径：扫所有 seed，凡掷出 NeededHigh 的应已降级为 PatternHigh(Lv3)。
+            // 直接验证 Materialize 路径：扫所有 seed，凡掷出 NeededHigh 的应已降级为 PatternHigh(封顶 Lv MaxLevel)。
             // 无缺口下不应出现 Kind==NeededHigh 的最终结果。
             for (int seed = 0; seed < 300; seed++)
             {
@@ -128,9 +128,9 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = FreshState();
             ClearAllOrders(m);
-            // 构造缺口：Star Lv3 ×1（最高等级缺口）+ Diamond Lv1 ×1。库存空 → 均为缺口。
+            // 构造缺口：Star Lv3 ×1（最高等级缺口）+ Butterfly Lv1 ×1。库存空 → 均为缺口。
             m.ActiveOrders[0] = new Order(MergeElement.Star, 3, 1);
-            m.ActiveOrders[1] = new Order(MergeElement.Diamond, 1, 1);
+            m.ActiveOrders[1] = new Order(MergeElement.Butterfly, 1, 1);
 
             // 找一个掷出 NeededHigh 的 seed，断言落到最高缺口 Star Lv3。
             bool sawNeededHigh = false;
@@ -227,7 +227,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(0, m.BlindBoxCount);
             Assert.IsTrue(m.AllClearArmed);
 
-            var r = ClearSettlement.Settle(m, 4, 32, true, MergeElement.Leaf);
+            var r = ClearSettlement.Settle(m, 4, 32, true, MergeElement.Chalice);
             Assert.IsTrue(r.AllClearRewarded);
             Assert.AreEqual(1, m.BlindBoxCount, "全清发 1 盲盒");
             Assert.AreEqual(1, r.BlindBoxGained, "结算结果暴露本手获得 1");
@@ -237,9 +237,9 @@ namespace GameLogic.BlockBlast.Tests
         public void A5_ConsecutiveAllClear_SecondGrantsNone()
         {
             var m = FreshState();
-            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond);   // 第 1 次全清 → +1
+            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Butterfly);   // 第 1 次全清 → +1
             Assert.AreEqual(1, m.BlindBoxCount);
-            var r2 = ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond); // 第 2 次连续全清（武装位已消）
+            var r2 = ClearSettlement.Settle(m, 1, 8, true, MergeElement.Butterfly); // 第 2 次连续全清（武装位已消）
             Assert.IsFalse(r2.AllClearRewarded, "连续第 2 次全清不发奖");
             Assert.AreEqual(0, r2.BlindBoxGained, "连续第 2 次不发盲盒");
             Assert.AreEqual(1, m.BlindBoxCount, "计数不再增");
@@ -256,7 +256,7 @@ namespace GameLogic.BlockBlast.Tests
             int totalGained = 0;
             for (int hand = 0; hand < expectedChain.Length; hand++)
             {
-                var r = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond);
+                var r = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly);
                 Assert.AreEqual(expectedChain[hand], m.ComboChain, $"第 {hand + 1} 手链值");
                 totalGained += r.BlindBoxGained;
                 // 仅链值 == 阈值 4 那手发盲盒
@@ -272,17 +272,17 @@ namespace GameLogic.BlockBlast.Tests
         {
             // 「3 连消后断链，再 4 连消」：2,3,4(发) | 断 | 2,3,4(发) → 共 +2。
             var m = FreshState();
-            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain 2
-            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain 3
-            var a = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain 4 → +1
+            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain 2
+            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain 3
+            var a = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain 4 → +1
             Assert.AreEqual(1, a.BlindBoxGained);
 
             ClearSettlement.Settle(m, 0, 0, false, MergeElement.None);    // 断链 → chain 回 1
             Assert.AreEqual(1, m.ComboChain);
 
-            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain 2
-            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain 3
-            var b = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain 4 → +1
+            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain 2
+            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain 3
+            var b = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain 4 → +1
             Assert.AreEqual(1, b.BlindBoxGained, "链断后再达阈值重新发");
 
             Assert.AreEqual(2, m.BlindBoxCount, "共 +2");
@@ -295,7 +295,7 @@ namespace GameLogic.BlockBlast.Tests
             var m = FreshState();
             for (int i = 0; i < 6; i++)
             {
-                var r = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond); // chain → 2
+                var r = ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly); // chain → 2
                 Assert.AreEqual(0, r.BlindBoxGained, "链长 2 不达阈值");
                 ClearSettlement.Settle(m, 0, 0, false, MergeElement.None);            // 断链回 1
             }
@@ -331,9 +331,10 @@ namespace GameLogic.BlockBlast.Tests
         private static void AssertSpecialGrant(SpecialOrderKind kind, int expectedBoxes)
         {
             var m = FreshState();
-            // 用 Star Lv3 ×2（封顶等级可堆积，N≥2 可达）；凑 8 个 Lv1 → 2 个 Lv3。
-            m.SpecialTrack.Request(new SpecialOrder(kind, new Order(MergeElement.Star, 3, 2), 300f));
-            for (int i = 0; i < 8; i++) m.IngestElement(MergeElement.Star);
+            // 用 Star 封顶等级 ×2（封顶等级可堆积，N≥2 可达）；凑 2 份封顶折算量 → 2 个封顶图案。
+            int perCap = 1 << (MergeOrderConfig.MaxLevel - 1);
+            m.SpecialTrack.Request(new SpecialOrder(kind, new Order(MergeElement.Star, MergeOrderConfig.MaxLevel, 2), 300f));
+            for (int i = 0; i < 2 * perCap; i++) m.IngestElement(MergeElement.Star);
             Assert.IsTrue(m.CanDeliverSpecial());
 
             int boxBefore = m.BlindBoxCount;
@@ -345,7 +346,7 @@ namespace GameLogic.BlockBlast.Tests
         public void A8_DeliverSpecial_NotDeliverable_ReturnsFalse_NoChange()
         {
             var m = FreshState();
-            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Crown, 3, 3), -1f));
+            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Chalice, 3, 3), -1f));
             // 库存不足 → 不可交付
             Assert.IsFalse(m.CanDeliverSpecial());
             int boxBefore = m.BlindBoxCount;

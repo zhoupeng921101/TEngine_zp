@@ -9,11 +9,11 @@ namespace GameLogic.BlockBlast
     public static class MergeOrderConfig
     {
         // ── 合成 ──────────────────────────────────────────────
-        /// <summary>封顶等级（Lv1→Lv2→Lv3）。到顶不再合并，堆积等待订单消耗。</summary>
-        public const int MaxLevel = 3;
+        /// <summary>封顶等级（Lv1→…→Lv5）。到顶不再合并，堆积等待订单消耗。</summary>
+        public const int MaxLevel = 5;
 
-        /// <summary>等级折算基础元素数（Lv1=1, Lv2=2, Lv3=4）。索引 = 等级，[0] 占位。</summary>
-        public static readonly int[] LevelBaseCost = { 0, 1, 2, 4 };
+        /// <summary>等级折算基础元素数 = 2^(等级-1)（Lv1=1, Lv2=2, Lv3=4, Lv4=8, Lv5=16）。索引 = 等级，[0] 占位。</summary>
+        public static readonly int[] LevelBaseCost = { 0, 1, 2, 4, 8, 16 };
 
         // ── 订单 ──────────────────────────────────────────────
         /// <summary>同时激活的订单数（双订单）。</summary>
@@ -171,19 +171,19 @@ namespace GameLogic.BlockBlast
         // 完整程序化锯齿波（依进度动态算 d 并约束相邻一高一低）见文档 §3.2，demo 不实装。
         //
         // 可满足性约束（源于 #7 自动配对）：每个 (类型,非封顶等级) 库存恒 ≤1（满 2 即升级），
-        // 故 Lv1/Lv2 订单数量只能为 1；唯有封顶 Lv3 可堆积，数量方可 ≥2。文档 §3.2 的
-        // 示例「Lv1 ×3」在自动配对下不可达，本池据此只取可满足组合（决策记 state/dev.md）。
+        // 故非封顶等级（Lv1..Lv4）订单数量只能为 1；唯有封顶 Lv5 可堆积，数量方可 ≥2。
+        // 文档 §3.2 的示例「Lv1 ×3」在自动配对下不可达，本池据此只取可满足组合。
         /// <summary>循环订单池。</summary>
         public static readonly Order[] OrderPool =
         {
-            new Order(MergeElement.Diamond, 1, 1), // d1 易   [初始槽0]
-            new Order(MergeElement.Star,    2, 1), // d2 易   [初始槽1]
-            new Order(MergeElement.Diamond, 3, 1), // d4 中
-            new Order(MergeElement.Leaf,    1, 1), // d1 易
-            new Order(MergeElement.Star,    3, 2), // d8 难
-            new Order(MergeElement.Diamond, 1, 1), // d1 易（难单后回落）
-            new Order(MergeElement.Heart,   2, 1), // d2 易-中
-            new Order(MergeElement.Leaf,    3, 1), // d4 中
+            new Order(MergeElement.Butterfly, 1, 1), // d1  易   [初始槽0]
+            new Order(MergeElement.Chalice,   2, 1), // d2  易   [初始槽1]
+            new Order(MergeElement.Scroll,    3, 1), // d4  中
+            new Order(MergeElement.Star,      1, 1), // d1  易
+            new Order(MergeElement.Butterfly, 5, 2), // d32 难（唯一封顶堆积单，数量≥2 只能落封顶 Lv5）
+            new Order(MergeElement.Chalice,   1, 1), // d1  易（难单后回落）
+            new Order(MergeElement.Scroll,    2, 1), // d2  易-中
+            new Order(MergeElement.Star,      3, 1), // d4  中
         };
     }
 }

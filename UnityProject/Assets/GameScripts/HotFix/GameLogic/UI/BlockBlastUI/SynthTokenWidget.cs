@@ -26,7 +26,8 @@ namespace GameLogic
         {
             ElementType = type;
             if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName);
-            m_text_Info.text = $"L{level}\n×{count}";
+            // 仅显示数量；等级已由图标分级（{type}_{level}）表现，文字不再重复等级。
+            m_text_Info.text = $"×{count}";
         }
 
         /// <summary>

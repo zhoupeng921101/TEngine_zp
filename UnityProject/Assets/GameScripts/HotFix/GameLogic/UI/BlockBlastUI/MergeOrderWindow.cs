@@ -35,14 +35,81 @@ namespace GameLogic
         private readonly Image[] _ghostPool = new Image[N * N];
         private int _ghostUsed;
 
+        // 消除预览发光池（落子后会满、将被消除的整行整列高亮，叠加在绿 ghost 之上）：
+        // 一条「线条」= 横贯整行或纵贯整列的长条 quad，由 UI/GlowCell shader 在带边缘画绿色描边辉光。
+        // 容量 2*N（最多同时 N 行 + N 列同时满）。行列交叉处两条线条加色叠加，自然，无需去重。
+        // 与 _ghostPool 同构：OnCreate 建好挂 m_rect_BoardLayer，ShowClearPreviewGlow 只取线条 SetActive + 定位 + 选材质，ClearGhost 里 SetActive(false)。
+        private const int GlowBandCap = 2 * N;
+        // 带 quad 厚度相对真实行/列厚度的放大倍率（留出向外发散柔光的余量）；shader 的 _CoreFrac 须与之对齐为 1/BandScale。
+        private const float BandScale = 1.6f;
+        private readonly Image[] _glowPool = new Image[GlowBandCap];
+        private readonly GlowPulse[] _glowPulses = new GlowPulse[GlowBandCap];
+        // 行 / 列两份材质：一份材质只有一个 _Vertical 值（UGUI Image 不便用 MaterialPropertyBlock），故横条 / 竖条各一份。
+        private Material _glowMatRow;
+        private Material _glowMatCol;
+        private int _glowUsed;
+
         // 开盒按钮的子组件缓存（背景 Image / 文字 Label），从绑定按钮 m_btn_OpenBox 派生，按钮态刷新时染色用。
         private Image _openBoxBtnBg;
         private Text _openBoxBtnLabel;
+
+        // 订单卡常驻实例（固定 2 张，OnCreate 创建一次注入 OnDeliver 回调，RefreshOrders 只 SetData + 显隐，不重建）。
+        private readonly OrderCardWidget[] _orderCards = new OrderCardWidget[2];
+        // 合成区 token 实例池（数量由 AdjustIconNum 按库存键数增减管理）。
+        private readonly List<SynthTokenWidget> _synthTokens = new();
+        // 横滑列表容器（BuildStaticUI 缓存）：订单 = OrderLayer 的 ScrollRect.content；合成 token = ElemBar 的 ScrollRect.content。
+        private RectTransform _orderContent;
+        private RectTransform _synthContent;
 
         /// <summary>消除道具「等待玩家指定棋盘格」模式（点过按钮、未点格前为 true）。</summary>
         private bool _clearToolArming;
 
         private int _draggingShapeId = -1;
+
+        // ── 自适应棋盘几何（单一事实源，设计常量已不参与本窗棋盘定位）──────────────────────
+        // 棋盘格尺寸与位置全部由 m_rect_BoardLayer.rect 现算：8×8 填满 BoardLayer（取短边均分、长边居中），
+        // 改 prefab 里 BoardLayer 的 sizeDelta 棋盘整体随之缩放。RenderBoard / RenderElements / UpdateGhost /
+        // SpawnClearBurstFx / ComputeGridPos / 消除道具点格 全部走下面三个方法，禁止再散用 BlockLayout.CellSize / BoardOrigin。
+        // BoardLayer 锚点为居中固定尺寸（非 stretch），OnCreate 时 .rect 即正确，无需 ForceRebuildLayout。
+
+        /// <summary>自适应格尺寸 = min(BoardLayer 宽,高) / 8（8×8 填满、短边均分）。</summary>
+        private float BoardCellSize()
+        {
+            var rect = m_rect_BoardLayer.rect;
+            return Mathf.Min(rect.width, rect.height) / N;
+        }
+
+        /// <summary>
+        /// 棋盘格 (col,row) 中心在 m_rect_BoardLayer 本地的 anchoredPosition（BoardLayer pivot/anchor 居中，X 右正 Y 上正）。
+        /// 格阵以 BoardLayer 中心为中心，col 右增、row 下增（与数据数组 row 自上而下一致）。
+        /// </summary>
+        private Vector2 BoardCellLocalPos(int col, int row)
+        {
+            float cell = BoardCellSize();
+            float grid = cell * N;
+            // 左上格 (0,0) 中心相对 BoardLayer 中心 = (-grid/2 + cell/2, +grid/2 - cell/2)，逐格右/下偏移。
+            float x = -grid / 2f + cell / 2f + col * cell;
+            float y = grid / 2f - cell / 2f - row * cell;
+            return new Vector2(x, y);
+        }
+
+        /// <summary>
+        /// 屏幕点 → 棋盘格 (col,row)（消除道具点格用）。换算到 BoardLayer 本地空间，用与渲染同一套自适应格尺寸/原点反算。
+        /// 越界返回的 col/row 可能 &lt;0 或 ≥N，由调用方判（OnBoardTapForClearTool 越界即取消 arming）。
+        /// </summary>
+        private (int col, int row) ScreenToBoardCell(Vector2 screen)
+        {
+            var canvas = m_rect_BoardLayer.GetComponentInParent<Canvas>();
+            Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(m_rect_BoardLayer, screen, cam, out var local))
+                return (-1, -1);
+            float cell = BoardCellSize();
+            float grid = cell * N;
+            // local 原点在 BoardLayer 中心；格阵左上角在 (-grid/2, +grid/2)。col 沿 +X、row 沿 -Y。
+            int col = Mathf.FloorToInt((local.x + grid / 2f) / cell);
+            int row = Mathf.FloorToInt((grid / 2f - local.y) / cell);
+            return (col, row);
+        }
 
         protected override void OnCreate()
         {
@@ -66,7 +133,9 @@ namespace GameLogic
             _clearToolArming = false;
 
             BuildStaticUI();
+            CreateOrderCards();
             InitGhostPool();
+            InitGlowPool();
             RenderBoard();
             RenderSlots();
             RefreshEnergy();
@@ -99,6 +168,14 @@ namespace GameLogic
             _openBoxBtnBg = m_btn_OpenBox.GetComponent<Image>();
             _openBoxBtnLabel = m_btn_OpenBox.GetComponentInChildren<Text>();
 
+            // 横滑列表容器：订单卡建到 OrderLayer 的 ScrollRect.content，合成 token 建到 ElemBar 的 ScrollRect.content。
+            _orderContent = m_rect_OrderLayer.GetComponent<ScrollRect>()?.content;
+            _synthContent = m_img_ElemBar.GetComponent<ScrollRect>()?.content;
+            if (_orderContent == null)
+                Log.Error("[MergeOrderWindow] m_rect_OrderLayer 上缺少 ScrollRect 或其 Content 未设置，订单区无法渲染，请检查 prefab。");
+            if (_synthContent == null)
+                Log.Error("[MergeOrderWindow] m_img_ElemBar 上缺少 ScrollRect 或其 Content 未设置，合成区无法渲染，请检查 prefab。");
+
             // 消除道具按钮（左下角，设计 49 §3.1）：图标 gate 染色由 RefreshClearTool 运行时按体力门控写入 m_btn_ClearTool.image。
 
             // 消除道具提示条：绑定隐藏节点（prefab 已初始隐藏）。
@@ -110,18 +187,54 @@ namespace GameLogic
             m_img_ClearOverlay.raycastTarget = true;
             var tapper = m_img_ClearOverlay.gameObject.AddComponent<BlockBoardTapper>();
             tapper.OnTapCell = OnBoardTapForClearTool;
+            // 自适应棋盘：注入 BoardLayer 本地空间换算，保证「点中格 = 棋盘可见格」（否则按旧固定常量错位）。
+            tapper.ScreenToCell = ScreenToBoardCell;
             m_img_ClearOverlay.gameObject.SetActive(false);
         }
 
+        // ghost 池挂在 m_rect_BoardLayer 下（不挂 m_rect_GhostLayer）：GhostLayer 与 BoardLayer 不同父、不同位，
+        // 挂 GhostLayer 会让 ghost 高亮格与棋盘格错位。挂 BoardLayer 并用 BoardCellLocalPos 定位，
+        // 保证「ghost 高亮格 = 棋盘格视觉位置」。尺寸用自适应格尺寸（略留边），UpdateGhost 每次按当前格尺寸刷新。
         private void InitGhostPool()
         {
+            float cell = BoardCellSize();
             for (int i = 0; i < _ghostPool.Length; i++)
             {
-                var img = UGuiFactory.CreateImage(m_rect_GhostLayer, $"ghost_{i}", 0, 0,
-                    BlockLayout.CellSize - 8, BlockLayout.CellSize - 8, BlockLayout.GhostOkColor);
+                var img = UGuiFactory.CreateImage(m_rect_BoardLayer, $"ghost_{i}", 0, 0,
+                    cell - 8, cell - 8, BlockLayout.GhostOkColor);
                 img.raycastTarget = false;
                 img.gameObject.SetActive(false);
                 _ghostPool[i] = img;
+            }
+        }
+
+        // 消除预览发光池：与 ghost 池同父（m_rect_BoardLayer）、同自适应几何，但叠在 ghost 之上（SetAsLastSibling）。
+        // 每条线条 = 横贯整行或纵贯整列的长条 quad，由 UI/GlowCell shader 在带边缘画绿色描边辉光（不依赖 sprite 形状）；
+        // 每条线条挂一个 GlowPulse 做呼吸（自门控、零分配，经顶点色 alpha 驱动 shader 的 IN.color.a）。
+        // ghost 在 InitGhostPool 已先建好（先挂的在层级靠下），故发光池后建并逐个置顶，保证发光显示在绿 ghost 之上。
+        // 行 / 列两份材质 _Vertical 分别为 0 / 1；_CoreFrac = 1/BandScale，使描边落在 quad 拉伸后真实行/列的边缘处。
+        private void InitGlowPool()
+        {
+            _glowMatRow = new Material(Shader.Find("UI/GlowCell"));
+            _glowMatRow.SetFloat("_Vertical", 0f);
+            _glowMatRow.SetFloat("_CoreFrac", 1f / BandScale);
+            _glowMatCol = new Material(Shader.Find("UI/GlowCell"));
+            _glowMatCol.SetFloat("_Vertical", 1f);
+            _glowMatCol.SetFloat("_CoreFrac", 1f / BandScale);
+
+            float cell = BoardCellSize();
+            for (int i = 0; i < _glowPool.Length; i++)
+            {
+                // 初始尺寸占位，激活时按行 / 列重写 sizeDelta / anchoredPosition；材质激活时按行 / 列赋。
+                var img = UGuiFactory.CreateImage(m_rect_BoardLayer, $"clearGlow_{i}", 0, 0,
+                    cell, cell, BlockLayout.ClearPreviewGlowColor);
+                img.raycastTarget = false;
+                img.transform.SetAsLastSibling();      // 置于 ghost 之上
+                img.gameObject.SetActive(false);
+                var pulse = img.gameObject.AddComponent<GlowPulse>();
+                pulse.BaseColor = BlockLayout.ClearPreviewGlowColor;
+                _glowPulses[i] = pulse;
+                _glowPool[i] = img;
             }
         }
 
@@ -138,60 +251,57 @@ namespace GameLogic
             if (m_text_EnergyNum != null) m_text_EnergyNum.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
         }
 
-        // ── 双订单卡（每次刷新重建，含交付按钮点亮/置灰） ──
-        private void RefreshOrders()
+        // ── 订单卡常驻实例创建（OnCreate 一次性，固定 2 张） ──
+        // 卡建到 OrderLayer 横滑列表的 Content 下，由 HorizontalLayoutGroup 横向排布（卡尺寸取 OrderCardWidget 的 LayoutElement）；
+        // 交付回调注入对应槽位闭包。卡结构 / 视觉由 OrderCardWidget.prefab 提供，本窗不再绑卡内部节点。
+        private void CreateOrderCards()
         {
-            for (int i = m_rect_OrderLayer.childCount - 1; i >= 0; i--)
-                Object.Destroy(m_rect_OrderLayer.GetChild(i).gameObject);
-
-            var orders = _merge.ActiveOrders;
-            if (orders == null) return;
-
-            // 2 张订单卡并排到顶部右侧（对齐 prefab m_img_OrderCard），坐标系为原生 1080 空间。
-            const float cardW = 252f;
-            const float cardH = 144f;
-            const float cardY = 216f;
-            // 两卡中心：左卡 design x≈677、右卡 design x≈936。
-            float[] centers = { 677f, 936f };
-
-            for (int slot = 0; slot < orders.Length && slot < centers.Length; slot++)
+            if (_orderContent == null)
             {
-                var o = orders[slot];
-                float cx = centers[slot];
+                Log.Error("[MergeOrderWindow] 订单滚动容器缺失（OrderLayer 的 ScrollRect.content），订单卡未创建。");
+                return;
+            }
+            for (int slot = 0; slot < _orderCards.Length; slot++)
+            {
+                // 资源定位名 == 类名 "OrderCardWidget"（AssetRaw/UI 走 AddressByFileName），CreateWidgetByType 可加载。
+                var card = CreateWidgetByType<OrderCardWidget>(_orderContent);
+                if (card == null)
+                {
+                    Log.Error($"[MergeOrderWindow] OrderCardWidget 加载失败（资源定位名 OrderCardWidget），订单卡 {slot} 未创建。");
+                    continue;
+                }
+                // 横向布局自行定位，卡保持 prefab 原始尺寸（LayoutElement 提供首选宽高），仅校正缩放。
+                if (card.rectTransform != null) card.rectTransform.localScale = Vector3.one;
 
-                UGuiFactory.CreateImage(m_rect_OrderLayer, $"orderCard_{slot}", cx, cardY, cardW, cardH,
-                    new Color32(0x22, 0x2c, 0x3e, 0xCC));
-
-                // 元素图标（clip 图标 sprite，白 tint 显本色）
-                var orderIcon = UGuiFactory.CreateImage(m_rect_OrderLayer, $"orderGlyph_{slot}", cx - 79, cardY - 23, 81, 81,
-                    Color.white);
-                orderIcon.raycastTarget = false;
-                orderIcon.SetSprite(MergeElementVisual.SpriteName(o.Type));
-                // 等级 + 数量
-                UGuiFactory.CreateText(m_rect_OrderLayer, $"orderReq_{slot}", cx + 26, cardY - 23, 173, 72,
-                    $"Lv{o.Level}\n×{o.Count}", 35, Color.white, TextAnchor.MiddleLeft);
-
-                // 交付按钮
-                bool can = _merge.CanDeliver(slot);
                 int captured = slot;
-                var deliver = UGuiFactory.CreateButton(m_rect_OrderLayer, $"orderDeliver_{slot}", cx, cardY + 43, cardW - 29, 52,
-                    "交付", 35,
-                    can ? new Color32(0x33, 0xaa, 0x55, 0xFF) : new Color32(0x44, 0x44, 0x4c, 0xFF),
-                    can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF), out _, out _);
-                deliver.interactable = can;
-                deliver.onClick.AddListener(() => OnDeliverClicked(captured));
+                card.OnDeliver = () => OnDeliverClicked(captured);
+                _orderCards[slot] = card;
             }
         }
 
-        // ── 合成区面板（底部 token 行，每次刷新重建） ──
+        // ── 双订单卡刷新（常驻实例，只 SetData + 显隐，含交付按钮点亮/置灰） ──
+        private void RefreshOrders()
+        {
+            var orders = _merge.ActiveOrders;
+            for (int slot = 0; slot < _orderCards.Length; slot++)
+            {
+                var card = _orderCards[slot];
+                if (card == null) continue;
+
+                bool hasOrder = orders != null && slot < orders.Length;
+                card.Visible = hasOrder;
+                if (!hasOrder) continue;
+
+                var o = orders[slot];
+                card.SetData(MergeElementVisual.SpriteName(o.Type, o.Level), $"Lv{o.Level}\n×{o.Count}", _merge.CanDeliver(slot));
+            }
+        }
+
+        // ── 合成区面板（SynthTokenWidget 池建于 ElemBar 的 ScrollRect Content，HorizontalLayoutGroup 横向排布、超出可横滑） ──
+        // 实例数由 AdjustIconNum 按库存键数增减（多则销毁尾部、少则追加），逐个 SetData；空态走 m_text_SynthEmpty。
+        // 条目上限 = 4 类型 × 5 等级 = 20，规模小故全量常驻（不做循环复用），收集飞行按类型取 live token 落点不受影响。
         private void RefreshSynthesis()
         {
-            for (int i = m_rect_SynthLayer.childCount - 1; i >= 0; i--)
-                Object.Destroy(m_rect_SynthLayer.GetChild(i).gameObject);
-
-            // 合成 token 行落在元素行 y≈310（原生 1080 空间），底条由静态 m_img_ElemBar 提供。
-            const float rowY = 310f;
-
             // 稳定排序：按类型枚举值、再按等级
             var keys = new List<(MergeElement type, int level)>(_merge.Inventory.Keys);
             keys.Sort((a, b) =>
@@ -202,26 +312,21 @@ namespace GameLogic
 
             if (keys.Count == 0)
             {
-                UGuiFactory.CreateText(m_rect_SynthLayer, "synthEmpty", BlockLayout.DesignWidth / 2f, rowY, 1037, 86,
-                    "合成区：空（消除元素入区，自动两两升级）", 35, new Color32(0x88, 0x99, 0xaa, 0xFF));
+                // 空态：清空 token（数量降到 0，AdjustIconNum 销毁多余实例），显示空态文字。
+                AdjustIconNum<SynthTokenWidget>(_synthTokens, 0, _synthContent);
+                if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(true);
                 return;
             }
 
-            const float tokenW = 187f;
-            int n = keys.Count;
-            float totalW = n * tokenW;
-            float startX = BlockLayout.DesignWidth / 2f - totalW / 2f + tokenW / 2f;
-            for (int i = 0; i < n; i++)
+            if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(false);
+
+            // 资源定位名 == 类名 "SynthTokenWidget"（无 prefab 入参走 CreateWidgetByType，AddressByFileName 可加载）。
+            AdjustIconNum<SynthTokenWidget>(_synthTokens, keys.Count, _synthContent);
+            for (int i = 0; i < keys.Count && i < _synthTokens.Count; i++)
             {
                 var key = keys[i];
                 int count = _merge.Inventory[key];
-                float cx = startX + i * tokenW;
-                var synthIcon = UGuiFactory.CreateImage(m_rect_SynthLayer, $"synthGlyph_{i}", cx - 32, rowY, 86, 86,
-                    Color.white);
-                synthIcon.raycastTarget = false;
-                synthIcon.SetSprite(MergeElementVisual.SpriteName(key.type));
-                UGuiFactory.CreateText(m_rect_SynthLayer, $"synthInfo_{i}", cx + 43, rowY, 130, 101,
-                    $"L{key.level}\n×{count}", 35, Color.white);
+                _synthTokens[i].SetData(key.type, MergeElementVisual.SpriteName(key.type, key.level), key.level, count);
             }
         }
 
@@ -374,18 +479,17 @@ namespace GameLogic
             if (!_merge.Deliver(slot)) return;
             RefreshEnergy();
             RefreshOrders();
-            // ③ 交付庆祝：在订单卡位置放金色爆破 + 对新建卡做 scale-punch
+            // ③ 交付庆祝：在订单卡位置放金色爆破 + 对常驻卡实例做 scale-punch
             {
-                float[] deliverCenters = { 677f, 936f };
-                const float deliverCardY = 216f;
-                float dcx = slot < deliverCenters.Length ? deliverCenters[slot] : deliverCenters[0];
-                // 金色爆破（父层用 m_rect_Content，避免被 RefreshOrders 下次重建时误删）
-                ClearBurstFx.Spawn(m_rect_Content, dcx, deliverCardY, new Color32(0xff, 0xe4, 0x44, 0xff));
-                // RefreshOrders 已 Destroy 旧卡并把新卡追加到末尾，从末尾倒找当前 slot 的新卡做 scale-punch
-                for (int ci = m_rect_OrderLayer.childCount - 1; ci >= 0; ci--)
+                var card = slot < _orderCards.Length ? _orderCards[slot] : null;
+                if (card != null && card.rectTransform != null)
                 {
-                    var child = m_rect_OrderLayer.GetChild(ci);
-                    if (child.name == $"orderCard_{slot}") { child.gameObject.AddComponent<ScalePunch>(); break; }
+                    // 卡世界坐标 → m_rect_Content 局部点 → 设计坐标（m_rect_Content 为 DesignWidth×DesignHeight 居中overlay，
+                    // 局部点即锚定位，与 BlockLayout.AnchoredToDesign 同坐标系）。金色爆破父层用 m_rect_Content（不随订单刷新销毁）。
+                    Vector2 local = m_rect_Content.InverseTransformPoint(card.rectTransform.position);
+                    Vector2 design = BlockLayout.AnchoredToDesign(local);
+                    ClearBurstFx.Spawn(m_rect_Content, design.x, design.y, new Color32(0xff, 0xe4, 0x44, 0xff));
+                    card.Punch();
                 }
             }
             RefreshSynthesis();
@@ -441,10 +545,15 @@ namespace GameLogic
                         if (img == null)
                         {
                             // 初始纯色作 sprite 异步加载到位前的占位，避免闪空（到位后 ApplyCellSkin 切白 tint + 贴图）。
+                            // 自适应：格尺寸与位置按 BoardLayer.rect 现算（BoardCellSize / BoardCellLocalPos），随 BoardLayer 缩放。
                             var placeholder = BlockLayout.ColorOf((BlockColor)colorIdx);
-                            var center = BlockLayout.CellCenterDesign(c, r);
-                            img = UGuiFactory.CreateImage(m_rect_BoardLayer, $"cell_{r}_{c}", center.x, center.y,
-                                BlockLayout.CellSize - 6, BlockLayout.CellSize - 6, placeholder);
+                            float cell = BoardCellSize();
+                            // CreateImage 内部按设计坐标摆位（anchor/pivot 已居中），随即用 BoardLayer 本地坐标覆写 anchoredPosition。
+                            // 单格视觉边长 = cell - BoardCellGap（内缩间隙走 BlockLayout.BoardCellGap 单一事实源，与候选块同口径）。
+                            float boardCellVisual = cell - BlockLayout.BoardCellGap;
+                            img = UGuiFactory.CreateImage(m_rect_BoardLayer, $"cell_{r}_{c}", 0, 0,
+                                boardCellVisual, boardCellVisual, placeholder);
+                            img.rectTransform.anchoredPosition = BoardCellLocalPos(c, r);
                             img.raycastTarget = false;
                             _cellImages[r, c] = img;
                         }
@@ -469,11 +578,13 @@ namespace GameLogic
         }
 
         // ── 渲染元素 overlay（clip 图标 sprite） ──
-        // 元素图标 Image：白 tint 显本色、raycastTarget=false（不挡棋盘点击），尺寸比格略小留边（CellSize*0.7）。
+        // 元素图标 Image：白 tint 显本色、raycastTarget=false（不挡棋盘点击），尺寸比格略小留边（自适应格尺寸*0.7）。
         // None 不建 Image / 已建则销毁置 null。
+        // 父层用 m_rect_BoardLayer（与棋盘格同父同坐标系），不用 m_rect_ElemLayer：ElemLayer 与 BoardLayer 不同父不同位，
+        // 挂 ElemLayer 会让元素图标与棋盘格错位。挂 BoardLayer + BoardCellLocalPos 保证「元素 = 所在格视觉位置」。
         private void RenderElements()
         {
-            float iconSize = BlockLayout.CellSize * 0.7f;
+            float iconSize = BoardCellSize() * 0.7f;
             var arr = _state.ElementArr;
             for (int r = 0; r < N; r++)
             {
@@ -489,15 +600,18 @@ namespace GameLogic
                     {
                         if (existing != null)
                         {
-                            existing.SetSprite(MergeElementVisual.SpriteName(el));
+                            existing.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
+                            existing.transform.SetAsLastSibling(); // 元素图标与棋盘格同父，置顶避免被新建 cell 盖住
                         }
                         else
                         {
-                            var center = BlockLayout.CellCenterDesign(c, r);
-                            var icon = UGuiFactory.CreateImage(m_rect_ElemLayer, $"elem_{r}_{c}", center.x, center.y,
+                            // 父层 m_rect_BoardLayer + BoardLayer 本地坐标（与棋盘格同源），覆写 CreateImage 的设计坐标摆位。
+                            var icon = UGuiFactory.CreateImage(m_rect_BoardLayer, $"elem_{r}_{c}", 0, 0,
                                 iconSize, iconSize, Color.white);
+                            icon.rectTransform.anchoredPosition = BoardCellLocalPos(c, r);
                             icon.raycastTarget = false;
-                            icon.SetSprite(MergeElementVisual.SpriteName(el));
+                            icon.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 棋盘元素 = Lv1 原料，取 Lv1 图
+                            icon.transform.SetAsLastSibling(); // 同上：置顶于棋盘格之上
                             _elemCells[r, c] = icon;
                         }
                     }
@@ -513,6 +627,23 @@ namespace GameLogic
             bool mono = _merge != null && _merge.Skin.IsMono;
             string monoLoc = mono ? BlockSkinCatalog.SpriteName(_merge.Skin.MonoId) : null;
 
+            // 自适应棋盘格尺寸取一次，供本帧所有候选块复用：拖起放大倍数与单格 base 尺寸同源，避免两处重算不一致。
+            float boardCell = BoardCellSize();
+            // 候选块单格 base 尺寸：本地空间下放大 boardCell/SlotCell 倍后正好 = boardCell - BoardCellGap（与棋盘格本地视觉边长相等）。
+            // base = (boardCell - BoardCellGap) / (boardCell/SlotCell) = (boardCell - BoardCellGap) * SlotCell / boardCell。
+            float slotCellBase = (boardCell - BlockLayout.BoardCellGap) * BlockLayout.SlotCell / boardCell;
+
+            // 拖起放大倍数需补偿两条分支的世界缩放差（设计基线：拖起块屏幕单格 == 棋盘屏幕单格）。
+            // 候选块挂 m_rect_SlotLayer 分支，棋盘格挂 m_rect_BoardLayer 分支；两分支父链 localScale 不同
+            // （BoardLayer 经父节点带额外缩放），故各自 lossyScale 不等。OverrideScale 只乘在 SlotLayer 局部缩放上，
+            // 补不了世界缩放差——拖起块屏幕尺寸 = 本地尺寸 × SlotLayer.lossyScale，棋盘格 = 本地尺寸 × BoardLayer.lossyScale。
+            // 故把两分支 lossyScale 比值乘进 OverrideScale，使「本地尺寸 × OverrideScale × SlotLossy = 棋盘格本地 × BoardLossy」成立。
+            // 取运行时 lossyScale（OnCreate 后布局已结算、固定尺寸锚点下稳定），prefab 缩放变化时自纠正。
+            float slotLossy = m_rect_SlotLayer.lossyScale.x;
+            float boardLossy = m_rect_BoardLayer.lossyScale.x;
+            float worldScaleRatio = Mathf.Approximately(slotLossy, 0f) ? 1f : boardLossy / slotLossy;
+            float overrideScale = (boardCell / BlockLayout.SlotCell) * worldScaleRatio;
+
             for (int i = 0; i < 3; i++)
             {
                 if (_slotContainers[i] != null) { Object.Destroy(_slotContainers[i].gameObject); _slotContainers[i] = null; }
@@ -525,14 +656,17 @@ namespace GameLogic
                 var shape = BlockShapeMap.Get(piece.ShapeId);
                 if (shape == null) continue;
 
-                float slotDx = BlockLayout.SlotCenterX + (i - 1) * BlockLayout.SlotSpacing;
                 var container = UGuiFactory.CreateNode(m_rect_SlotLayer, $"slot_{i}");
                 float totalW = shape.Width * BlockLayout.SlotCell;
                 float totalH = shape.Height * BlockLayout.SlotCell;
-                // 容器尺寸取 m_rect_SlotLayer 节点宽高（整层区域）
-                var slotLayerRect = m_rect_SlotLayer.rect;
-                UGuiFactory.PlaceByDesignCenter(container, slotDx, 0,
-                    slotLayerRect.width, slotLayerRect.height);
+                // 候选块容器相对父层 m_rect_SlotLayer（底部紫色待选区背景内）本地居中定位，不用绝对设计坐标。
+                // 父层中心不在屏幕中心，故旧 PlaceByDesignCenter（锚屏幕中心 + DesignToAnchored）会把容器甩出待选区。
+                // 横向按槽间距铺开（中槽 i=1 居中、左右槽 ±SlotSpacing），纵向居中于槽层；
+                // 容器尺寸取单槽命中区（SlotZoneWidth≈298 / SlotZoneHeight=360），避免 3 个容器占满整层相互重叠。
+                container.anchorMin = container.anchorMax = new Vector2(0.5f, 0.5f);
+                container.pivot = new Vector2(0.5f, 0.5f);
+                container.sizeDelta = new Vector2(BlockLayout.SlotZoneWidth, BlockLayout.SlotZoneHeight);
+                container.anchoredPosition = new Vector2((i - 1) * BlockLayout.SlotSpacing, 0f);
 
                 var hit = container.gameObject.AddComponent<Image>();
                 hit.color = new Color(1, 1, 1, 0);
@@ -551,7 +685,7 @@ namespace GameLogic
                         crt.SetParent(container, false);
                         crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
                         crt.pivot = new Vector2(0.5f, 0.5f);
-                        crt.sizeDelta = new Vector2(BlockLayout.SlotCell - 4, BlockLayout.SlotCell - 4);
+                        crt.sizeDelta = new Vector2(slotCellBase, slotCellBase);
                         crt.anchoredPosition = new Vector2(offX + c * BlockLayout.SlotCell, offY - r * BlockLayout.SlotCell);
                         var ci = cell.GetComponent<Image>();
                         // 候选块换皮：白 tint 显本色；彩色态按方块类型 (int)piece.Color 贴 default_skin，单色态统一贴当前单色 sprite。
@@ -572,7 +706,7 @@ namespace GameLogic
                             var gimg = gt.GetComponent<Image>();
                             gimg.color = Color.white;
                             gimg.raycastTarget = false;
-                            gimg.SetSprite(MergeElementVisual.SpriteName(el));
+                            gimg.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 候选块元素 = Lv1 原料，取 Lv1 图
                         }
                         cellIdx++;
                     }
@@ -580,6 +714,9 @@ namespace GameLogic
 
                 var dragger = container.gameObject.AddComponent<BlockPieceDragger>();
                 dragger.SlotIndex = i;
+                // 拖起放大倍数 = (boardCell/SlotCell) × 两分支世界缩放比，保证拖到棋盘上的块与棋盘格屏幕等大。
+                // 本帧统一取值（overrideScale 已含世界缩放补偿），三槽共用，避免逐槽重算不一致。
+                dragger.OverrideScale = overrideScale;
                 dragger.OnBegin = OnPieceBegin;
                 dragger.OnDragMove = OnPieceDrag;
                 dragger.OnEnd = OnPieceEnd;
@@ -598,7 +735,9 @@ namespace GameLogic
 
         private void OnPieceDrag(int slotIdx, Vector2 containerAnchored)
         {
-            UpdateGhost(containerAnchored);
+            // ghost 落点同样按容器世界坐标换算（见 ComputeGridPos），不用原始 anchoredPosition（父层偏移会错算）。
+            var container = slotIdx >= 0 && slotIdx < _slotContainers.Length ? _slotContainers[slotIdx] : null;
+            if (container != null) UpdateGhost(container);
         }
 
         private void OnPieceEnd(int slotIdx)
@@ -613,7 +752,7 @@ namespace GameLogic
 
             if (piece != null && shape != null && container != null)
             {
-                var (col, row) = ComputeGridPos(container.anchoredPosition, shape);
+                var (col, row) = ComputeGridPos(container, shape);
                 bool inBounds = col >= 0 && row >= 0 && col + shape.Width <= N && row + shape.Height <= N;
                 // 体力不足不可落子（#2：体力为 0 时不可再落子）
                 if (inBounds && _merge.CanAffordPlace && _board.CanPutBlock(shapeId, new Vec2Int(col, row)))
@@ -666,11 +805,19 @@ namespace GameLogic
             // 本手结算是否改了元层(全清推女神 / 全清或连消阈值发盲盒);为真则落子后须标脏落盘(设计 14 §3.4)。
             bool metaChangedBySettle = false;
 
+            // 收集飞行动画的起点列表（被消元素「类型 + 棋盘格本地坐标」）。在 if 块内捕获（须早于 HarvestClearedElements），
+            // 飞行在 RefreshSynthesis 之后才发（token 池稳定），故提到 if 外作用域。无消除时保持 null。
+            List<(MergeElement type, Vector2 boardLocal)> flySources = null;
+
             // 消除 + 返体力 + 元素入合成区
             var clear = _board.CanClearRowCols(true);
             int lines = clear.Rows.Count + clear.Cols.Count;
             if (lines > 0)
             {
+                // 收集飞行动画（纯表现层，设计无关）：HarvestClearedElements 会清空 ElementArr，故须在它之前
+                // 捕获每个被消元素的「类型 + 棋盘格本地坐标」作飞行起点（去重逻辑与 SpawnClearBurstFx 同，行列交叉格只算一次）。
+                flySources = CaptureClearedElementSources(clear.Rows, clear.Cols);
+
                 var cleared = new List<MergeElement>();
                 _state.HarvestClearedElements(clear.Rows, clear.Cols, cleared); // 清 overlay + 输出被清元素
                 SpawnClearBurstFx(clear.Rows, clear.Cols);                      // 在 SaveArr 被清前读色，逐被消格放爆破粒子
@@ -726,6 +873,9 @@ namespace GameLogic
             RefreshEnergy();
             RefreshOrders();
             RefreshSynthesis();
+            // 收集飞行动画（纯表现层）：须在 RefreshSynthesis 之后发——新类型会新建 token、升级会改等级，
+            // token 池此刻才稳定，飞行落点（按类型匹配）才能正确定位。数字已在 RefreshSynthesis 立即更新，飞行只叠加视觉。
+            SpawnCollectFly(flySources);
             RefreshBlindBox();
             RefreshPiety(); // 女神升档可能改长期主线展示态(保险刷新)
             RefreshClearTool(); // 落子扣体力 → gate 态须刷新
@@ -753,7 +903,7 @@ namespace GameLogic
         /// 对被消的整行/整列里每个已占格放一发消除爆破粒子（设计配方 clear_burst）。
         /// 必须在 <see cref="BlockGameState.ClearRowsAndCols"/> 清 SaveArr 之前调用——颜色从 SaveArr 读。
         /// 碎块层染该格方块色（colorIdx → BlockLayout.ColorOf）；行列交叉格只放一发（去重）。
-        /// 粒子挂在棋盘格同层 <c>m_rect_BoardLayer</c>、同坐标系（格中心设计坐标），与 cell Image 对位。
+        /// 粒子挂在棋盘格同层 <c>m_rect_BoardLayer</c>、同坐标系（自适应格中心 BoardCellLocalPos），与 cell Image 对位。
         /// </summary>
         private void SpawnClearBurstFx(IList<int> rows, IList<int> cols)
         {
@@ -768,9 +918,10 @@ namespace GameLogic
                 int colorIdx = _state.SaveArr[r][c];
                 if (colorIdx < 0) return;                 // 空格不放（与 ClearRowsAndCols 同口径：只清/放已占格）
                 done[r, c] = true;
-                var center = BlockLayout.CellCenterDesign(c, r); // 注意 (col,row) 顺序：col=c、row=r
+                // 自适应格中心（BoardLayer 本地坐标），与棋盘格渲染同源，与 cell Image 精确对位。
+                var local = BoardCellLocalPos(c, r);      // 注意 (col,row) 顺序：col=c、row=r
                 var color = BlockLayout.ColorOf((BlockColor)colorIdx);
-                ClearBurstFx.Spawn(m_rect_BoardLayer, center.x, center.y, color);
+                ClearBurstFx.SpawnAtLocal(m_rect_BoardLayer, local, color);
             }
 
             if (rows != null)
@@ -787,9 +938,94 @@ namespace GameLogic
                 }
         }
 
+        // ── 收集飞行动画（纯表现层，fly-to-target）──────────────────────────────
+        // 被消元素从棋盘格弹起、飞向合成区对应类型的图标落点，到达让目标 punch。不改任何经济/数值。
+        // 与 SpawnClearBurstFx 同坐标系口径：起点用棋盘格 BoardLayer 本地坐标；飞行父层统一用 m_rect_Content。
+
+        /// <summary>
+        /// 在 HarvestClearedElements 清 ElementArr 之前，捕获被消行/列上每个已占元素格的「类型 + 棋盘格 BoardLayer 本地坐标」。
+        /// 去重与 SpawnClearBurstFx 一致：行列交叉格只算一次。无元素时返回 null。
+        /// </summary>
+        private List<(MergeElement type, Vector2 boardLocal)> CaptureClearedElementSources(IList<int> rows, IList<int> cols)
+        {
+            var arr = _state?.ElementArr;
+            if (arr == null) return null;
+
+            bool[,] done = new bool[N, N];
+            List<(MergeElement, Vector2)> list = null;
+
+            void CaptureAt(int r, int c)
+            {
+                if (r < 0 || r >= N || c < 0 || c >= N) return;
+                if (done[r, c]) return;
+                done[r, c] = true;
+                var el = arr[r][c];
+                if (el == MergeElement.None) return;
+                // 棋盘格中心在 BoardLayer 本地坐标（与渲染同源，注意 (col,row) 顺序：col=c、row=r）。
+                (list ??= new List<(MergeElement, Vector2)>()).Add((el, BoardCellLocalPos(c, r)));
+            }
+
+            if (rows != null)
+                for (int i = 0; i < rows.Count; i++)
+                    for (int c = 0; c < N; c++) CaptureAt(rows[i], c);
+            if (cols != null)
+                for (int i = 0; i < cols.Count; i++)
+                    for (int r = 0; r < N; r++) CaptureAt(r, cols[i]);
+            return list;
+        }
+
+        /// <summary>
+        /// 为每个被消元素生成一个飞行图标：起点=棋盘格、终点=合成区该类型 token 的图标，错开起飞时间。
+        /// 必须在 RefreshSynthesis 之后调用（token 池稳定）。落点按元素类型匹配（升级后等级变、类型不变），
+        /// 同类型多等级 token 取第一个（RefreshSynthesis 已按类型→等级排序，即该类型最低等级）。
+        /// 两端世界坐标都转到 m_rect_Content 本地空间再插值，避免父层偏移错算（同交付庆祝爆破的坐标换算）。
+        /// </summary>
+        private void SpawnCollectFly(List<(MergeElement type, Vector2 boardLocal)> sources)
+        {
+            if (sources == null || sources.Count == 0) return;
+            if (m_rect_Content == null || m_rect_BoardLayer == null) return;
+
+            // 类型 → token 映射：同类型取首个（最低等级）。token 池已由 RefreshSynthesis 按类型→等级排序填好。
+            var typeToToken = new Dictionary<MergeElement, SynthTokenWidget>();
+            foreach (var token in _synthTokens)
+            {
+                if (token == null) continue;
+                var glyph = token.GlyphRect;
+                if (glyph == null) continue;
+                var type = token.ElementType;
+                if (type == MergeElement.None) continue;
+                if (!typeToToken.ContainsKey(type)) typeToToken[type] = token;
+            }
+
+            float iconSize = BoardCellSize() * 0.7f; // 与棋盘元素图标同尺寸口径，飞行视觉连贯
+            const float Stagger = 0.05f;             // 多图标错开起飞，增强层次
+
+            int idx = 0;
+            foreach (var (type, boardLocal) in sources)
+            {
+                if (type == MergeElement.None) continue;
+                if (!typeToToken.TryGetValue(type, out var token) || token == null) continue;
+                var glyph = token.GlyphRect;
+                if (glyph == null) continue;
+
+                // 起点：BoardLayer 本地 → 世界 → Content 本地。
+                Vector3 startWorld = m_rect_BoardLayer.TransformPoint(boardLocal);
+                Vector2 startLocal = m_rect_Content.InverseTransformPoint(startWorld);
+                // 终点：token 图标世界坐标 → Content 本地。
+                Vector2 endLocal = m_rect_Content.InverseTransformPoint(glyph.position);
+
+                // 到达回调按类型查当前 token punch（闭包捕获 type；token 实例在一次落子内不重建，直接捕获即可）。
+                var target = token;
+                FlyToTargetFx.Spawn(m_rect_Content, startLocal, endLocal,
+                    MergeElementVisual.SpriteName(type, 1), iconSize, idx * Stagger, // 飞行的是 Lv1 原料，取 Lv1 图
+                    () => { if (target != null) target.PunchGlyph(); });
+                idx++;
+            }
+        }
+
         /// <summary>
         /// 多消里程碑/全清直发图案的归属类型：取当前订单所需类型之一（需求拉动，避免产无关图案）。
-        /// 无所需类型时回退 None（ClearSettlement 内再兜底 Diamond）。
+        /// 无所需类型时回退 None（ClearSettlement 内再兜底 Star）。
         /// </summary>
         private MergeElement PickMilestoneType()
         {
@@ -802,14 +1038,14 @@ namespace GameLogic
         // MergeOrderWinWindow / GameOverWindow 不被本窗引用（Classic GameWindow 仍用 GameOverWindow）。
 
         // ── ghost 落点高亮（与 GameWindow 同构） ──
-        private void UpdateGhost(Vector2 containerAnchored)
+        private void UpdateGhost(RectTransform container)
         {
             ClearGhost();
             if (_draggingShapeId < 0) return;
             var shape = BlockShapeMap.Get(_draggingShapeId);
             if (shape == null) return;
 
-            var (col, row) = ComputeGridPos(containerAnchored, shape);
+            var (col, row) = ComputeGridPos(container, shape);
             if (col + shape.Width <= 0 || row + shape.Height <= 0) return;
             if (col >= N || row >= N) return;
 
@@ -820,6 +1056,10 @@ namespace GameLogic
 
             var color = canPlace ? BlockLayout.GhostOkColor : BlockLayout.GhostBadColor;
 
+            // ghost 池挂在 m_rect_BoardLayer 下，用 BoardCellLocalPos 定位 + 自适应格尺寸，
+            // 与棋盘格渲染同源，保证「ghost 高亮格 = 棋盘格视觉位置」。
+            float cell = BoardCellSize();
+            var ghostSize = new Vector2(cell - 8, cell - 8);
             for (int r = 0; r < shape.Height; r++)
             {
                 for (int c = 0; c < shape.Width; c++)
@@ -829,11 +1069,70 @@ namespace GameLogic
                     if (gc < 0 || gc >= N || gr < 0 || gr >= N) continue;
                     if (_ghostUsed >= _ghostPool.Length) break;
                     var img = _ghostPool[_ghostUsed++];
-                    var center = BlockLayout.CellCenterDesign(gc, gr);
-                    img.rectTransform.anchoredPosition = BlockLayout.DesignToAnchored(center);
+                    img.rectTransform.sizeDelta = ghostSize;
+                    img.rectTransform.anchoredPosition = BoardCellLocalPos(gc, gr);
                     img.color = color;
                     img.gameObject.SetActive(true);
                 }
+            }
+
+            // 消除预览发光（仅可放时）：克隆棋盘模拟落子（绝不改真实 _board / _state），
+            // 判出落子后会满、将被消除的整行整列，对其整行整列全部格叠加暖金发光。
+            if (canPlace) ShowClearPreviewGlow(col, row);
+        }
+
+        /// <summary>
+        /// 落子消除预览：克隆当前棋盘 + 模拟落子（只读，绝不触碰真实 _board / _state / 存档），
+        /// 算出会满的整行整列，对每条满行铺一条横贯整行的长条、每条满列铺一条纵贯整列的长条，
+        /// 由 UI/GlowCell shader 在带边缘画绿色描边辉光。走 _glowPool 线条池，本方法只 SetActive + 定位 + 选材质，无每帧分配。
+        /// 行列交叉处两条线条加色叠加，自然，无需去重。
+        /// </summary>
+        private void ShowClearPreviewGlow(int col, int row)
+        {
+            if (_draggingShapeId < 0) return;
+
+            // 克隆模拟（只读预览）：sim 是 _board 的拷贝，PutBlock 只改 sim，CanClearRowCols(false) 不消除、不改任何状态。
+            var sim = _board.Clone();
+            sim.PutBlock(_draggingShapeId, new Vec2Int(col, row));
+            var preview = sim.CanClearRowCols(false);
+            if (preview.Rows.Count == 0 && preview.Cols.Count == 0) return; // 没有任何满行满列 → 不发光
+
+            float cell = BoardCellSize();
+            float boardSpan = N * cell;               // 整棋盘宽 / 高（线条长向铺满）
+            float bandThick = cell * BandScale;       // 线条短向（厚度），比真实行/列厚，留发散余量
+            // 棋盘中心（行/列长条的长向居中点）：col 0..N-1 / row 0..N-1 中点恒为 BoardLayer 中心 (0,0)。
+            float boardCenterX = (BoardCellLocalPos(0, 0).x + BoardCellLocalPos(N - 1, 0).x) * 0.5f;
+            float boardCenterY = (BoardCellLocalPos(0, 0).y + BoardCellLocalPos(0, N - 1).y) * 0.5f;
+
+            // 取一条池线条，赋材质 + 定位（长条横贯整行或纵贯整列），激活并置顶。
+            void ShowBand(Material mat, Vector2 size, Vector2 pos)
+            {
+                if (_glowUsed >= _glowPool.Length) return;
+                var img = _glowPool[_glowUsed];
+                var pulse = _glowPulses[_glowUsed];
+                _glowUsed++;
+                img.material = mat;
+                img.rectTransform.sizeDelta = size;
+                img.rectTransform.anchoredPosition = pos;
+                img.transform.SetAsLastSibling();                     // 盖在方块格 / ghost 之上
+                if (pulse != null) pulse.Restart(_glowUsed * 0.06f);  // 错开相位，呼吸不齐刷
+                else img.color = BlockLayout.ClearPreviewGlowColor;
+                img.gameObject.SetActive(true);
+            }
+
+            // 满行：横条，宽 = 棋盘宽，高 = 厚度；位于该行中心（x 居中、y 取该行格中心）。
+            for (int i = 0; i < preview.Rows.Count; i++)
+            {
+                int r = preview.Rows[i];
+                float y = BoardCellLocalPos(0, r).y;
+                ShowBand(_glowMatRow, new Vector2(boardSpan, bandThick), new Vector2(boardCenterX, y));
+            }
+            // 满列：竖条，高 = 棋盘高，宽 = 厚度；位于该列中心（y 居中、x 取该列格中心）。
+            for (int i = 0; i < preview.Cols.Count; i++)
+            {
+                int c = preview.Cols[i];
+                float x = BoardCellLocalPos(c, 0).x;
+                ShowBand(_glowMatCol, new Vector2(bandThick, boardSpan), new Vector2(x, boardCenterY));
             }
         }
 
@@ -841,22 +1140,40 @@ namespace GameLogic
         {
             for (int i = 0; i < _ghostUsed; i++) _ghostPool[i].gameObject.SetActive(false);
             _ghostUsed = 0;
+            ClearGlow();
         }
 
-        private (int col, int row) ComputeGridPos(Vector2 containerAnchored, BlockShape shape)
+        /// <summary>隐藏全部消除预览发光（与 ghost 一起清理，避免拖动残留）。GameObject 隐藏后 GlowPulse 自停摆。</summary>
+        private void ClearGlow()
         {
-            var designCenter = BlockLayout.AnchoredToDesign(containerAnchored);
-            float totalW = shape.Width * BlockLayout.CellSize;
-            float totalH = shape.Height * BlockLayout.CellSize;
-            float tlX = designCenter.x - totalW / 2f;
-            float tlY = designCenter.y - totalH / 2f;
-            int col = Mathf.RoundToInt((tlX - BlockLayout.BoardOriginX) / BlockLayout.CellSize);
-            int row = Mathf.RoundToInt((tlY - BlockLayout.BoardOriginY) / BlockLayout.CellSize);
+            for (int i = 0; i < _glowUsed; i++) _glowPool[i].gameObject.SetActive(false);
+            _glowUsed = 0;
+        }
+
+        // 候选块容器落点 → 棋盘格 (col,row)。容器父层 m_rect_SlotLayer 与棋盘格父层 m_rect_BoardLayer
+        // 在 Content 内有各自偏移，故必须把容器世界坐标换算到 m_rect_BoardLayer 本地空间，
+        // 再用与棋盘格渲染同一套自适应格尺寸/原点（BoardCellSize / BoardCellLocalPos 同源）反算 col/row，
+        // 保证「所见位置=落子位置」。直接对容器 anchoredPosition 反算会按 SlotLayer 偏移错算（Y 偏移约 5 格）。
+        private (int col, int row) ComputeGridPos(RectTransform container, BlockShape shape)
+        {
+            // 容器世界坐标 → BoardLayer 本地（原点在 BoardLayer 中心，与 BoardCellLocalPos 同坐标系）。
+            Vector2 boardLocal = m_rect_BoardLayer.InverseTransformPoint(container.position);
+            float cell = BoardCellSize();
+            float grid = cell * N;
+            // 容器中心对应块阵中心；块阵 shape.Width×shape.Height，左上格中心 = 容器中心 - ((W-1)/2, -(H-1)/2)*cell。
+            float tlCenterX = boardLocal.x - (shape.Width - 1) * cell / 2f;
+            float tlCenterY = boardLocal.y + (shape.Height - 1) * cell / 2f; // 本地 Y 上正，块阵向下展开故顶行在上方（+）
+            // 格 (0,0) 中心 = (-grid/2 + cell/2, +grid/2 - cell/2)；据此反解列/行索引。
+            int col = Mathf.RoundToInt((tlCenterX - (-grid / 2f + cell / 2f)) / cell);
+            int row = Mathf.RoundToInt(((grid / 2f - cell / 2f) - tlCenterY) / cell);
             return (col, row);
         }
 
         protected override void OnDestroy()
         {
+            // 发光池行 / 列两份材质为运行时 new，窗口销毁随之销毁，避免材质泄漏。
+            if (_glowMatRow != null) Object.Destroy(_glowMatRow);
+            if (_glowMatCol != null) Object.Destroy(_glowMatCol);
             // 解除应用暂停事件订阅，避免销毁后的窗口仍被回调（驱动器是常驻 MonoBehaviour，不解订阅会泄漏引用）。
             Utility.Unity.RemoveOnApplicationPauseListener(OnAppPause);
             // 跨会话存档兜底（设计 14 §3.4 ③）：离开前脏则强制落盘，须在 ExitMergeOrder 丢弃 MergeState 之前落盘。

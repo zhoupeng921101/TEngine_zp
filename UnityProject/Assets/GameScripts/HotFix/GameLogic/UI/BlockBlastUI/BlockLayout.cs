@@ -18,6 +18,11 @@ namespace GameLogic
         // 棋盘
         public const int BoardSize = 8;                 // 8×8
         public const float CellSize = 121f;             // 每格像素（1080 原生空间绝对值）
+
+        // 棋盘格视觉内缩间隙（单格视觉边长 = 格距 - 此值）：单一事实源。
+        // 自适应棋盘渲染（MergeOrderWindow）单格 = BoardCellSize() - BoardCellGap，格距 = BoardCellSize()；
+        // 候选块单格 base 反推此值除以拖起放大倍数，使放大后单格视觉与棋盘格精确相等。
+        public const float BoardCellGap = 6f;
         public const float BoardPixels = CellSize * BoardSize;  // 968
         public const float BoardOriginX = (DesignWidth - BoardPixels) / 2f;  // 居中 ≈56
         public const float BoardOriginY = 432f;         // 棋盘左上 Y（设计坐标，向下）
@@ -42,6 +47,10 @@ namespace GameLogic
         public static readonly Color BgColor = new Color32(0x1a, 0x1a, 0x2e, 0xFF);
         public static readonly Color GhostOkColor = new Color32(0x66, 0xff, 0x77, 0x73);   // 绿 ~0.45a
         public static readonly Color GhostBadColor = new Color32(0xff, 0x55, 0x66, 0x73);  // 红
+
+        // 消除预览发光（落子后会满、将被消除的整行整列高亮）：亮绿描边辉光，贴参考观感。
+        // 形状由 UI/GlowCell shader 在 UV 空间沿带边缘画绿色描边光（横条上下边、竖条左右边），此色作为顶点 tint 注入（不依赖 sprite）。
+        public static readonly Color ClearPreviewGlowColor = new Color32(0x55, 0xff, 0x55, 0xE0); // 亮绿发光基色 ~0.88a
 
         /// <summary>8 种方块颜色 → RGB（对应 BlockColor 0..7）。</summary>
         public static readonly Color[] BlockColors =

@@ -122,7 +122,7 @@ namespace GameLogic.BlockBlast.Tests
         { Id = 30003, Type = 2, UseEffect = 0, UseValue = 0, UseNum = 0, Stacking = 1, Quality = 2, Icon = "icon_item_mat" };
 
         private static ItemDef PatternItem() => new ItemDef
-        { Id = 30004, Type = 3, UseEffect = 2, UseValue = 100, UseNum = 2, UseLevel = 2, Stacking = 1, Quality = 3, Automatic = 1 };
+        { Id = 30004, Type = 3, UseEffect = 2, UseValue = 1, UseNum = 2, UseLevel = 2, Stacking = 1, Quality = 3, Automatic = 1 }; // UseValue=1 = Butterfly 枚举值
 
         private static ItemDef GiftSelectItem() => new ItemDef
         { Id = 30005, Type = 5, UseEffect = 3, UseValue = 5001, Param = 1, Stacking = 0, Quality = 4 };
@@ -308,7 +308,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             var p = ItemGrant.Resolve(PatternItem(), 2); // use_num=2 × count=2 = 4
             Assert.AreEqual(GrantKind.Pattern, p.Kind);
-            Assert.AreEqual(100, p.TargetId);   // Diamond key
+            Assert.AreEqual(1, p.TargetId);   // Butterfly key
             Assert.AreEqual(4, p.Amount);
             Assert.AreEqual(2, p.Level);
         }
@@ -338,19 +338,19 @@ namespace GameLogic.BlockBlast.Tests
         {
             var state = new MergeOrderState();
             state.Reset();
-            int before = state.InventoryCount(MergeElement.Diamond, 2)
-                       + state.InventoryCount(MergeElement.Diamond, 3);
+            int before = state.InventoryCount(MergeElement.Butterfly, 2)
+                       + state.InventoryCount(MergeElement.Butterfly, 3);
 
-            var p = ItemGrant.Resolve(PatternItem(), 2); // Diamond Lv2 ×4
+            var p = ItemGrant.Resolve(PatternItem(), 2); // Butterfly Lv2 ×4
             ItemGrant.ApplyPattern(state, p);
 
             // AddDirect 经既有 AddToInventory 单链级联：注入 4 个 Lv2 后，沿单链向上合一次
             // （4 个 Lv2 取 2 合成 1 个 Lv3，剩 2 个 Lv2 不再继续——级联只追单条向上链）。
             // 本测验「注入落到既有收集区」，不复刻级联算法细节：断言总持有量随注入增加即可。
-            Assert.AreEqual(2, state.InventoryCount(MergeElement.Diamond, 2), "注入后剩 2 个 Lv2");
-            Assert.AreEqual(1, state.InventoryCount(MergeElement.Diamond, 3), "单链向上合出 1 个 Lv3");
-            Assert.Greater(state.InventoryCount(MergeElement.Diamond, 2)
-                         + state.InventoryCount(MergeElement.Diamond, 3), before, "注入应反映到收集区");
+            Assert.AreEqual(2, state.InventoryCount(MergeElement.Butterfly, 2), "注入后剩 2 个 Lv2");
+            Assert.AreEqual(1, state.InventoryCount(MergeElement.Butterfly, 3), "单链向上合出 1 个 Lv3");
+            Assert.Greater(state.InventoryCount(MergeElement.Butterfly, 2)
+                         + state.InventoryCount(MergeElement.Butterfly, 3), before, "注入应反映到收集区");
         }
 
         [Test]

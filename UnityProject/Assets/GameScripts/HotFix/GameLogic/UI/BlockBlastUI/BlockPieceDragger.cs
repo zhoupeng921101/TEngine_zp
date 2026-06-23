@@ -19,6 +19,12 @@ namespace GameLogic
         public Action<int, Vector2> OnDragMove;
         public Action<int> OnEnd;
 
+        /// <summary>
+        /// 拾起放大倍数覆写（自适应棋盘用）。为 null 时回退 <see cref="BlockLayout.DragScale"/>（固定常量棋盘）。
+        /// MergeOrderWindow 棋盘格尺寸随 BoardLayer 自适应，须传「自适应格尺寸 / SlotCell」让拖起的块与棋盘格等大。
+        /// </summary>
+        public float? OverrideScale;
+
         private RectTransform _rt;
         private RectTransform _parentRt;
         private Canvas _canvas;
@@ -54,8 +60,8 @@ namespace GameLogic
         public void OnPointerDown(PointerEventData e)
         {
             RecordOrigin();
-            // 按下立即放大 + 提层（不依赖拖动阈值）
-            _rt.localScale = _originScale * BlockLayout.DragScale;
+            // 按下立即放大 + 提层（不依赖拖动阈值）。自适应棋盘传 OverrideScale，否则用固定常量。
+            _rt.localScale = _originScale * (OverrideScale ?? BlockLayout.DragScale);
             _rt.SetAsLastSibling();
             OnBegin?.Invoke(SlotIndex);
 

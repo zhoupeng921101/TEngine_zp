@@ -28,6 +28,17 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>是否已收到首次 InitSnapshot(true 后三属性视图才是服务端权威值)。UI 据此切「加载中...」与可点态。</summary>
         public bool IsReady { get; private set; }
 
+        /// <summary>账号 ID(= 登录账号名)。<see cref="IsReady"/>=false 前为缺省占位非真实值。</summary>
+        public string AccountId { get; private set; } = string.Empty;
+        /// <summary>昵称(首登默认空串)。服务端权威值,登录快照下发。</summary>
+        public string Nickname { get; private set; } = string.Empty;
+        /// <summary>等级(首登默认 1)。服务端权威值,登录快照下发。</summary>
+        public int Level { get; private set; }
+        /// <summary>经验。服务端权威值,登录快照下发。</summary>
+        public long Exp { get; private set; }
+        /// <summary>最近一次收到的 schema 版本(服务端加字段时升)。</summary>
+        public int SchemaVersion { get; private set; }
+
         /// <summary>属性变化事件。type=All 仅 <see cref="ApplySnapshot"/> 触发一次;type=Coin/Diamond/Stamina 各自变更触发。</summary>
         public event Action<AttrType, long, string> OnAttrChanged;
 
@@ -38,7 +49,21 @@ namespace GameLogic.BlockBlast.Player
         }
 
         /// <summary>
-        /// 应用初始快照(收到 G2C_PropertyInitSnapshot 时由分发钩子调)。覆盖三属性 + 置 IsReady=true + 触发一次 All 事件。
+        /// 应用登录档案(收到 G2C_PlayerInfoSnapshot 时由分发钩子调,与 <see cref="ApplySnapshot"/> 配对)。
+        /// 仅覆盖基础档案(账号/昵称/等级/经验/schema 版本),不动三属性、不触发 OnAttrChanged
+        /// (三属性的覆盖 + 事件由 <see cref="ApplySnapshot"/> 负责,职责分离避免重复触发)。
+        /// </summary>
+        public void ApplyProfile(string accountId, string nickname, int level, long exp, int schemaVersion)
+        {
+            AccountId = accountId ?? string.Empty;
+            Nickname = nickname ?? string.Empty;
+            Level = level;
+            Exp = exp;
+            SchemaVersion = schemaVersion;
+        }
+
+        /// <summary>
+        /// 应用初始快照(收到 G2C_PlayerInfoSnapshot 时由分发钩子调)。覆盖三属性 + 置 IsReady=true + 触发一次 All 事件。
         /// </summary>
         public void ApplySnapshot(long coin, long diamond, long stamina)
         {

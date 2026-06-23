@@ -52,8 +52,8 @@ namespace GameLogic.BlockBlast.Reward
                 case ChestRewardKind.Energy:
                     return FromNumeric(NumericConfigMgr.Energy, r.Amount);
                 case ChestRewardKind.Pattern:
-                    // 盲盒只带等级不带具体图案，展示用代表图案 Diamond + 等级文案降级（设计 17 §3.2 注 / §七 O7）。
-                    return FromPattern(MergeElement.Diamond, r.PatternLevel, r.Amount);
+                    // 盲盒只带等级不带具体图案，展示用代表图案 Star + 等级文案降级（设计 17 §3.2 注 / §七 O7）。
+                    return FromPattern(MergeElement.Star, r.PatternLevel, r.Amount);
                 case ChestRewardKind.WishCharge:
                     return FunctionView("WishCharge", r.Amount);
                 default:

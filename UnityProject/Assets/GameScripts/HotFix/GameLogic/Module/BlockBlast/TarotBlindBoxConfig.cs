@@ -10,7 +10,7 @@ namespace GameLogic.BlockBlast
         PatternLow = 0,  // Lv1 图案 ×1
         PatternMid = 1,  // Lv2 图案 ×1
         Energy = 2,      // 体力 +BoxEnergyGain
-        PatternHigh = 3, // Lv3 图案 ×1（封顶高阶物）
+        PatternHigh = 3, // 封顶等级（Lv MaxLevel）图案 ×1（高阶物）
         NeededHigh = 4,  // 当前订单缺口的最高等级图案 ×1（无缺口降级 PatternHigh）
     }
 
@@ -53,7 +53,7 @@ namespace GameLogic.BlockBlast
     ///
     /// 双重保底（§3.2）：
     /// · 下限保底——权重表无 0 价值项，任意 seed 必产有效奖（最低 1 个 Lv1 图案或体力）；
-    /// · NeededHigh 降级——抽中 NeededHigh 但当前无订单缺口 → 降级为通用 PatternHigh（Lv3），不浪费大奖。
+    /// · NeededHigh 降级——抽中 NeededHigh 但当前无订单缺口 → 降级为通用 PatternHigh（封顶 Lv MaxLevel），不浪费大奖。
     /// </summary>
     public static class TarotBlindBoxConfig
     {
@@ -106,7 +106,7 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 把抽中的 Kind 落成具体奖励（图案归属类型/等级、或体力增量）。
-        /// NeededHigh 在此查 state 缺口；无缺口降级 PatternHigh。图案归属类型取 NeededTypes 之一（轮转），空回退 Diamond。
+        /// NeededHigh 在此查 state 缺口；无缺口降级 PatternHigh。图案归属类型取 NeededTypes 之一（轮转），空回退 Star。
         /// </summary>
         private static BlindBoxReward Materialize(BlindBoxRewardKind kind, MergeOrderState state)
         {
@@ -117,10 +117,10 @@ namespace GameLogic.BlockBlast
 
                 case BlindBoxRewardKind.NeededHigh:
                 {
-                    // 缺口里「最高等级」那一项的(类型,等级)；无缺口 → 降级 PatternHigh（Lv3 通用）。
+                    // 缺口里「最高等级」那一项的(类型,等级)；无缺口 → 降级 PatternHigh（封顶 Lv MaxLevel 通用）。
                     if (TryPickNeededHigh(state, out var type, out var level))
                         return new BlindBoxReward(BlindBoxRewardKind.NeededHigh, type, level, 1, 0);
-                    // 降级保底：当作 PatternHigh 走通用 Lv3
+                    // 降级保底：当作 PatternHigh 走通用封顶等级
                     var fallbackType = PickPatternType(state);
                     return new BlindBoxReward(BlindBoxRewardKind.PatternHigh, fallbackType, MergeOrderConfig.MaxLevel, 1, 0);
                 }
@@ -180,12 +180,12 @@ namespace GameLogic.BlockBlast
             return false;
         }
 
-        /// <summary>图案归属类型：取当前所需类型之一（NeededTypes 轮转取首项），空则回退 Diamond。</summary>
+        /// <summary>图案归属类型：取当前所需类型之一（NeededTypes 轮转取首项），空则回退 Star。</summary>
         private static MergeElement PickPatternType(MergeOrderState state)
         {
             var needed = state != null ? state.NeededTypes() : null;
             if (needed != null && needed.Count > 0) return needed[0];
-            return MergeElement.Diamond;
+            return MergeElement.Star;
         }
     }
 }

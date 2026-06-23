@@ -76,7 +76,7 @@ namespace GameLogic.BlockBlast.Tests
             var m = FreshState();
             m.ComboChain = 4;
             m.AllClearArmed = false;
-            var r = ClearSettlement.Settle(m, 0, 0, false, MergeElement.Diamond);
+            var r = ClearSettlement.Settle(m, 0, 0, false, MergeElement.Butterfly);
             Assert.AreEqual(0, r.Lines);
             Assert.AreEqual(1, m.ComboChain, "链断回 1");
             Assert.IsTrue(m.AllClearArmed, "无消除落子重新武装全清");
@@ -93,7 +93,7 @@ namespace GameLogic.BlockBlast.Tests
             int baseScore = BlockScoring.ClearScore(clearedCells, lines);
             int kExpected = MergeOrderConfig.ElementsForScore(baseScore); // 用未乘连消的基础分
 
-            var r = ClearSettlement.Settle(m, lines, clearedCells, false, MergeElement.Diamond);
+            var r = ClearSettlement.Settle(m, lines, clearedCells, false, MergeElement.Butterfly);
 
             Assert.AreEqual(baseScore, r.BaseScore, "基础分不含连消");
             Assert.AreEqual(baseScore * 2000 / 1000, r.DisplayScore, "显示分 = 基础分 ×2.0");
@@ -116,10 +116,10 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = FreshState();
             Assert.IsTrue(m.AllClearArmed);
-            var r = ClearSettlement.Settle(m, 4, 32, true, MergeElement.Leaf);
+            var r = ClearSettlement.Settle(m, 4, 32, true, MergeElement.Chalice);
             Assert.IsTrue(r.AllClearRewarded);
             // 全清奖 1 Lv3（叠加 4 消里程碑 +1 Lv2+1 Lv1，互不影响 Lv3 计数）
-            Assert.AreEqual(1, m.InventoryCount(MergeElement.Leaf, 3), "全清发 1 Lv3");
+            Assert.AreEqual(1, m.InventoryCount(MergeElement.Chalice, 3), "全清发 1 Lv3");
             Assert.AreEqual(1, m.GoddessRating, "全清推进女神 +1");
             Assert.IsFalse(m.AllClearArmed, "发奖后武装位清空");
         }
@@ -128,12 +128,12 @@ namespace GameLogic.BlockBlast.Tests
         public void Settle_ConsecutiveAllClear_SecondNotRewarded()
         {
             var m = FreshState();
-            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond);  // 第 1 次全清发奖
-            int lv3After1 = m.InventoryCount(MergeElement.Diamond, 3);
+            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Butterfly);  // 第 1 次全清发奖
+            int lv3After1 = m.InventoryCount(MergeElement.Butterfly, 3);
             int goddessAfter1 = m.GoddessRating;
-            var r2 = ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond); // 第 2 次连续全清
+            var r2 = ClearSettlement.Settle(m, 1, 8, true, MergeElement.Butterfly); // 第 2 次连续全清
             Assert.IsFalse(r2.AllClearRewarded, "连续第 2 次全清不发奖");
-            Assert.AreEqual(lv3After1, m.InventoryCount(MergeElement.Diamond, 3), "Lv3 不再增");
+            Assert.AreEqual(lv3After1, m.InventoryCount(MergeElement.Butterfly, 3), "Lv3 不再增");
             Assert.AreEqual(goddessAfter1, m.GoddessRating, "女神不再推进");
         }
 
@@ -141,11 +141,11 @@ namespace GameLogic.BlockBlast.Tests
         public void Settle_AllClearRearmsAfterNonAllClearMove()
         {
             var m = FreshState();
-            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond);   // 全清，武装位清
+            ClearSettlement.Settle(m, 1, 8, true, MergeElement.Butterfly);   // 全清，武装位清
             Assert.IsFalse(m.AllClearArmed);
-            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Diamond);  // 非全清消除 → 重新武装
+            ClearSettlement.Settle(m, 1, 8, false, MergeElement.Butterfly);  // 非全清消除 → 重新武装
             Assert.IsTrue(m.AllClearArmed);
-            var r = ClearSettlement.Settle(m, 1, 8, true, MergeElement.Diamond); // 再全清 → 发奖
+            var r = ClearSettlement.Settle(m, 1, 8, true, MergeElement.Butterfly); // 再全清 → 发奖
             Assert.IsTrue(r.AllClearRewarded);
         }
 
@@ -176,7 +176,7 @@ namespace GameLogic.BlockBlast.Tests
             var track = new SpecialOrderTrack();
             track.Reset();
             var express = new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, 3, 2), 300f);
-            var story = new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Crown, 3, 3));
+            var story = new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Chalice, 3, 3));
             track.Request(express);
             // 剧情优先级更高，但加急已占槽 → 不踢出，剧情入等待队列
             Assert.IsFalse(track.Request(story));
@@ -191,8 +191,8 @@ namespace GameLogic.BlockBlast.Tests
             track.Reset();
             track.Request(new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, 3, 2), 300f));
             // 队列同时积压黄金时段 + 剧情，剧情优先级最高
-            track.Request(new SpecialOrder(SpecialOrderKind.GoldenHour, new Order(MergeElement.Diamond, 1, 1)));
-            track.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Crown, 3, 3)));
+            track.Request(new SpecialOrder(SpecialOrderKind.GoldenHour, new Order(MergeElement.Butterfly, 1, 1)));
+            track.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Chalice, 3, 3)));
             track.OnDelivered();
             Assert.AreEqual(SpecialOrderKind.Story, track.Occupied.Kind, "升起队列中优先级最高的剧情单");
             Assert.AreEqual(1, track.WaitingCount, "黄金时段仍在队列");
@@ -203,9 +203,9 @@ namespace GameLogic.BlockBlast.Tests
         {
             var track = new SpecialOrderTrack();
             track.Reset();
-            track.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Crown, 3, 2)));
+            track.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Chalice, 3, 2)));
             var storyA = new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, 3, 2), 100f);
-            var storyB = new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Diamond, 3, 2), 100f);
+            var storyB = new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Butterfly, 3, 2), 100f);
             track.Request(storyA);
             track.Request(storyB);
             track.OnDelivered();
@@ -218,7 +218,7 @@ namespace GameLogic.BlockBlast.Tests
             var track = new SpecialOrderTrack();
             track.Reset();
             track.Request(new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, 3, 2), 10f));
-            track.Request(new SpecialOrder(SpecialOrderKind.GoldenHour, new Order(MergeElement.Diamond, 1, 1)));
+            track.Request(new SpecialOrder(SpecialOrderKind.GoldenHour, new Order(MergeElement.Butterfly, 1, 1)));
             Assert.IsFalse(track.TickCountdown(5f), "未到点");
             Assert.IsTrue(track.TickCountdown(10f), "到点过期");
             Assert.AreEqual(SpecialOrderKind.GoldenHour, track.Occupied.Kind, "过期后升起队列");
@@ -228,16 +228,17 @@ namespace GameLogic.BlockBlast.Tests
         public void DeliverSpecial_ConsumesInventory_Rewards_Promotes()
         {
             var m = FreshState();
-            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, 3, 2), 300f));
-            // 凑 2 个 Star Lv3：8 个 Lv1 → 2 个 Lv3
-            for (int i = 0; i < 8; i++) m.IngestElement(MergeElement.Star);
-            Assert.AreEqual(2, m.InventoryCount(MergeElement.Star, 3));
+            int perCap = 1 << (MergeOrderConfig.MaxLevel - 1);
+            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, MergeOrderConfig.MaxLevel, 2), 300f));
+            // 凑 2 个 Star 封顶图案：2 份封顶折算量 Lv1 → 2 个封顶图案（封顶可堆积）
+            for (int i = 0; i < 2 * perCap; i++) m.IngestElement(MergeElement.Star);
+            Assert.AreEqual(2, m.InventoryCount(MergeElement.Star, MergeOrderConfig.MaxLevel));
             Assert.IsTrue(m.CanDeliverSpecial());
 
             int energyBefore = m.Energy;
             int completedBefore = m.CompletedOrders;
             Assert.IsTrue(m.DeliverSpecial());
-            Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, 3), "扣库存");
+            Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, MergeOrderConfig.MaxLevel), "扣库存");
             Assert.AreEqual(energyBefore + MergeOrderConfig.OrderRewardEnergy, m.Energy);
             Assert.AreEqual(completedBefore + 1, m.CompletedOrders);
             Assert.IsFalse(m.SpecialTrack.HasOccupied, "交付腾空特殊槽");

@@ -42,11 +42,12 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void T1_Deliver_GrantsPiety_ByDifficulty_OldRewardsIntact()
         {
-            // 逐档：Lv1×1=d1→30、Lv2×1=d2→60、Lv3×1=d4→120、Lv3×2=d8→240。
-            AssertDeliverPiety(MergeElement.Diamond, 1, 1, 1 * TempleConfig.PietyPerDifficulty);
+            // 逐档：Lv1×1=d1、Lv2×1=d2、Lv3×1=d4。封顶等级×2 才可堆积交付（非封顶等级满 2 即自动升级，无法堆积）。
+            int capUnit = 1 << (MergeOrderConfig.MaxLevel - 1); // 封顶折算基础元素数
+            AssertDeliverPiety(MergeElement.Butterfly, 1, 1, 1 * TempleConfig.PietyPerDifficulty);
             AssertDeliverPiety(MergeElement.Star, 2, 1, 2 * TempleConfig.PietyPerDifficulty);
-            AssertDeliverPiety(MergeElement.Diamond, 3, 1, 4 * TempleConfig.PietyPerDifficulty);
-            AssertDeliverPiety(MergeElement.Star, 3, 2, 8 * TempleConfig.PietyPerDifficulty);
+            AssertDeliverPiety(MergeElement.Butterfly, 3, 1, 4 * TempleConfig.PietyPerDifficulty);
+            AssertDeliverPiety(MergeElement.Star, MergeOrderConfig.MaxLevel, 2, 2 * capUnit * TempleConfig.PietyPerDifficulty);
         }
 
         private static void AssertDeliverPiety(MergeElement type, int level, int count, int expectedPiety)
@@ -76,10 +77,10 @@ namespace GameLogic.BlockBlast.Tests
         public void T2_DeliverSpecial_GrantsPiety_WithMult_BlindBoxIntact()
         {
             var m = FreshState();
-            // Star Lv3 ×2：d=8。特殊虔诚币 = 8 × PietyPerDifficulty × SpecialPietyMult。
-            var order = new Order(MergeElement.Star, 3, 2);
+            // Star 封顶等级 ×2（封顶可堆积）。特殊虔诚币 = 难度 × PietyPerDifficulty × SpecialPietyMult。
+            var order = new Order(MergeElement.Star, MergeOrderConfig.MaxLevel, 2);
             m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Express, order, 300f));
-            StockFor(m, MergeElement.Star, 3, 2);
+            StockFor(m, MergeElement.Star, MergeOrderConfig.MaxLevel, 2);
             Assert.IsTrue(m.CanDeliverSpecial());
 
             int pietyBefore = m.Piety;
@@ -98,13 +99,13 @@ namespace GameLogic.BlockBlast.Tests
         public void T3_NotDeliverable_NoPiety()
         {
             var m = FreshState();
-            m.ActiveOrders[0] = new Order(MergeElement.Diamond, 3, 1); // 需 Lv3，库存空
+            m.ActiveOrders[0] = new Order(MergeElement.Butterfly, 3, 1); // 需 Lv3，库存空
             int pietyBefore = m.Piety;
             Assert.IsFalse(m.Deliver(0), "库存不足不可交付");
             Assert.AreEqual(pietyBefore, m.Piety, "不可交付时虔诚币不变");
 
             // 特殊轨同理
-            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Crown, 3, 3), -1f));
+            m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Story, new Order(MergeElement.Chalice, 3, 3), -1f));
             Assert.IsFalse(m.DeliverSpecial());
             Assert.AreEqual(pietyBefore, m.Piety, "特殊订单不可交付时虔诚币不变");
         }
@@ -315,8 +316,8 @@ namespace GameLogic.BlockBlast.Tests
         public void T10_MultiDeliver_PietyAccumulates()
         {
             var m = FreshState();
-            m.ActiveOrders[0] = new Order(MergeElement.Diamond, 1, 1); // d1 → 30
-            StockFor(m, MergeElement.Diamond, 1, 1);
+            m.ActiveOrders[0] = new Order(MergeElement.Butterfly, 1, 1); // d1 → 30
+            StockFor(m, MergeElement.Butterfly, 1, 1);
             Assert.IsTrue(m.Deliver(0));
             int after1 = m.Piety;
             Assert.AreEqual(1 * TempleConfig.PietyPerDifficulty, after1);
@@ -353,8 +354,8 @@ namespace GameLogic.BlockBlast.Tests
         {
             // 不调任何神庙方法,只验交付的旧断言(体力/分数/完成数)与发币并存且独立。
             var m = FreshState();
-            m.ActiveOrders[0] = new Order(MergeElement.Diamond, 1, 1);
-            StockFor(m, MergeElement.Diamond, 1, 1);
+            m.ActiveOrders[0] = new Order(MergeElement.Butterfly, 1, 1);
+            StockFor(m, MergeElement.Butterfly, 1, 1);
 
             int energyBefore = m.Energy;
             int scoreBefore = m.TotalScore;

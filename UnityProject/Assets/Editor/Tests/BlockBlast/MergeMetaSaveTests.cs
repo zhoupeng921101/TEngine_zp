@@ -474,7 +474,7 @@ namespace GameLogic.BlockBlast.Tests
 
             // boardEmptyAfter=true + 已武装 → 走全清分支:AdvanceGoddess + AddBlindBox(均改进盘字段)。
             var settle = ClearSettlement.Settle(m, lines: 2, clearedCells: 18, boardEmptyAfter: true,
-                milestoneType: MergeElement.Diamond);
+                milestoneType: MergeElement.Butterfly);
 
             bool metaChangedBySettle = settle.AllClearRewarded || settle.GoddessLeveledUp || settle.BlindBoxGained > 0;
             Assert.IsTrue(metaChangedBySettle, "全清结算 → 谓词须为真(应触发标脏落盘)");

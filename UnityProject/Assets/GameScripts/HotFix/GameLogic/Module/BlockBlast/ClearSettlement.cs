@@ -61,7 +61,7 @@ namespace GameLogic.BlockBlast
         /// <paramref name="clearedCells"/>=被清格数（驱动 ClearScore），
         /// <paramref name="boardEmptyAfter"/>=消除后棋盘是否清空（全清判定）。
         /// 里程碑直发的图案类型用 <paramref name="milestoneType"/>（窗口取当前订单所需类型之一；
-        /// 传 None 时回退 Diamond，保证产物有归属）。
+        /// 传 None 时回退 Star，保证产物有归属）。
         /// </summary>
         public static SettlementResult Settle(
             MergeOrderState m, int lines, int clearedCells, bool boardEmptyAfter,
@@ -98,7 +98,7 @@ namespace GameLogic.BlockBlast
             m.EnqueueScoreElements(k); // 基础产出 k 个 Lv1 入预算队列（得分驱动，现状逻辑）
 
             // 多消里程碑加码：lines≥3 额外直发 Lv2/Lv3 进收集区（跳过合成）
-            if (milestoneType == MergeElement.None) milestoneType = MergeElement.Diamond;
+            if (milestoneType == MergeElement.None) milestoneType = MergeElement.Star;
             foreach (var (level, count) in MergeOrderConfig.MultiClearMilestoneBonus(lines))
                 m.AddDirect(milestoneType, level, count);
 
