@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using TEngine;
 using GameLogic.BlockBlast;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 主菜单（玩法融合单入口，设计 29 §3.1）：标题 + 「开始游戏」按钮 → 融合玩法窗口 + 历史最高分。

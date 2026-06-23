@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using GameLogic.Config;
 using GameLogic.BlockBlast.Numeric;
-using GameLogic.BlockBlastUI;
+using GameLogic;
 
 namespace GameLogic.BlockBlast.Tests
 {

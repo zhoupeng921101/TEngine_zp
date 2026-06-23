@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 轻量自动弹字：scale 弹入 → 停留 → 上移淡出 → 自毁。

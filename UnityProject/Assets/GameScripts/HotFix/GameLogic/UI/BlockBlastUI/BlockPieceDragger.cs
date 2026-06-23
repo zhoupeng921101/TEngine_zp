@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 候选方块拖拽器（运行时 AddComponent 到槽容器上）。

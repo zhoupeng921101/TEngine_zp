@@ -4,7 +4,7 @@
 using UnityEngine.UI;
 using GameLogic.BlockBlast.Reward;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 通用奖励列表项 Widget（设计 17 §3.6，UI 接法示范）。展示「拿到 <see cref="RewardView"/>

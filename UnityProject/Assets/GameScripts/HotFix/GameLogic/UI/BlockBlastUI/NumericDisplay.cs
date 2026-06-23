@@ -2,7 +2,7 @@ using UnityEngine;
 using GameLogic.Config;
 using GameLogic.BlockBlast.Numeric;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 可复用数值显示 helper（设计 15 §3.5）。站在注册表 + 格式化之上：

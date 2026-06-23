@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 纯几何 UGUI 构建工厂。所有元素用纯色 Image / 内置字体 Text 代码创建，无 atlas 依赖。

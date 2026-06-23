@@ -10,7 +10,7 @@ using GameLogic.BlockBlast.Player;   // PlayerAttrService / AttrType(设计 38 �
 using GameLogic.Config;
 using GameLogic.UI;   // SettingsWindow（齿轮入口，设计 23）所在命名空间
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// Block Blast 主玩法窗口（Classic 模式）。纯几何 UGUI 渲染 + 拖拽落子。

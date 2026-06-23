@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 棋盘格点击捕获器（运行时 AddComponent 到铺满棋盘区域的透明 overlay 上）。

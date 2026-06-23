@@ -1,7 +1,7 @@
 using UnityEngine;
 using GameLogic.BlockBlast;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// Block Blast UI 布局常量。坐标系即原生 1080×1920 设计分辨率（竖屏，match width），无整体缩放。

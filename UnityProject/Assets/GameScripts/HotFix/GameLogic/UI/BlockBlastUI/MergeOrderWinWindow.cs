@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using TEngine;
 using GameLogic.BlockBlast;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 合成订单通关面板：半透明遮罩 + 木质大面板 + 标题木牌 + 结算行列表 + 再来一局/返回按钮。

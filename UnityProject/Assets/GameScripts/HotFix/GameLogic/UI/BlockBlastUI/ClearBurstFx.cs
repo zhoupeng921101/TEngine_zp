@@ -1,7 +1,7 @@
 using UnityEngine;
 using TEngine;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 消除爆破粒子特效播放器（设计配方 clear_burst：白光闪核 + 糖果碎块放射，约 0.6s 消散）。

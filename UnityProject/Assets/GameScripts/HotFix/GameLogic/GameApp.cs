@@ -75,7 +75,7 @@ public partial class GameApp
         {
             Log.Warning($"[GameApp] 权重表初始化失败，动态难度退化为随机：{e.Message}");
         }
-        GameModule.UI.ShowUIAsync<GameLogic.BlockBlastUI.MainMenuWindow>();
+        GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
     }
     
     private static void Release()

@@ -6,7 +6,7 @@ using TEngine;
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
     
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 玩法融合主玩法窗口（设计 29 + 无尽模型 设计 49）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
@@ -169,7 +169,7 @@ namespace GameLogic.BlockBlastUI
             // gate 视觉为动态染图标（可用=白本色、置灰=暗、arming 高亮），故 _clearToolBtnBg 指向图标 Image；本按钮无 Label。
             // gate 染色由 RefreshClearTool 运行时按体力门控写入，prefab 烤的白本色仅作进窗首帧前的预览底色。
             _clearToolBtn = m_btn_ClearTool;
-            _clearToolBtnBg = m_img_ClearToolIcon;
+            // _clearToolBtnBg = m_img_ClearToolIcon;
             _clearToolBtnLabel = null; // 图标按钮无文字 label，RefreshClearTool 内已 null-guard
             _clearToolBtn.onClick.AddListener(OnClearToolClicked);
 
@@ -187,14 +187,6 @@ namespace GameLogic.BlockBlastUI
             var tapper = _clearToolOverlay.gameObject.AddComponent<BlockBoardTapper>();
             tapper.OnTapCell = OnBoardTapForClearTool;
             _clearToolOverlay.gameObject.SetActive(false);
-
-            // ── 退出按钮（右上 ×）：复用绑定按钮。
-            m_btn_Exit.onClick.AddListener(() =>
-            {
-                _state.ExitMergeOrder();
-                GameModule.UI.CloseUI<MergeOrderWindow>();
-                GameModule.UI.ShowUIAsync<MainMenuWindow>();
-            });
         }
 
         private void InitGhostPool()
@@ -926,6 +918,28 @@ namespace GameLogic.BlockBlastUI
             FlushSaveIfDirty();
             // 安全兜底：离开必定关闭门控，确保后续 Classic / 08 行为零残留。
             if (_state != null) _state.ExitMergeOrder();
+        }
+
+        private partial void OnClick_OpenBoxBtn()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private partial void OnClick_ClearToolBtn()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private partial void OnClick_TempleBtn()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        private partial void OnClick_ExitBtn()
+        {
+            _state.ExitMergeOrder();
+            GameModule.UI.CloseUI<MergeOrderWindow>();
+            GameModule.UI.ShowUIAsync<MainMenuWindow>();
         }
     }
 }

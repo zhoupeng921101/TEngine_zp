@@ -4,7 +4,7 @@ using UnityEngine.UI;
 using TEngine;
 using GameLogic.BlockBlast;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 神庙面板（长期主线，设计 13 §五）：顶部主线信息行（虔诚币 / 守护者等级 / 本级经验进度 / 已解锁章节）

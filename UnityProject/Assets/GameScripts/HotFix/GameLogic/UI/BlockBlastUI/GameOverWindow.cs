@@ -3,7 +3,7 @@ using UnityEngine.UI;
 using TEngine;
 using GameLogic.BlockBlast;
 
-namespace GameLogic.BlockBlastUI
+namespace GameLogic
 {
     /// <summary>
     /// 结算窗口（游戏结束）：半透明遮罩 + 木质大面板 + 标题木牌 + 分数 + 重试/返回按钮。
