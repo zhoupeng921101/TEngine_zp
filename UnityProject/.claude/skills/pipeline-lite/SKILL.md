@@ -10,10 +10,10 @@ description: 轻型 AI 流水线(boss + dev),用于小/低风险开发任务且�
 
 > 写或修订该角色卡的条款:见 `.claude/skills/pipeline/references/agent-card-authoring.md`——把判断编译成可执行条款(触发 + 动作 + 可核对产出物)的标尺。
 
-## 与 /pipeline 的分界
+## 适用范围
 
-- **走 /pipeline-lite**:小/低风险任务,无需设计稿沉淀,用户愿意自己手测验收。
-- **走 /pipeline(重型)**:需 design-docs 设计稿、需 test 独立验证、高风险或需方案取舍的任务。
+- **本管线(/pipeline-lite)**:小/低风险任务,无需设计稿沉淀,用户愿意自己手测验收——当前唯一在用的流水线入口。
+- **需 design-docs 设计稿 / test 独立验证 / 高风险方案取舍**的任务:重型 `/pipeline`(含 plan/ui/test 角色)已归档停用;确有此类需要时先恢复入口(`skills/pipeline/SKILL.md.archived` 改回 `SKILL.md`)再走。
 
 本管线全程在对话内推进:不建状态文件、不建 design-docs、不归档、不 auto-commit。上下文被压缩后状态不留存——用户在场,需要时重述任务即可。
 
