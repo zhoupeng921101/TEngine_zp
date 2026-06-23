@@ -63,7 +63,6 @@ namespace GameLogic
         // 消除道具（设计 49 §3.1）：无尽脱困兜底。点按钮进「指定格」模式，再点棋盘任一格清该格所在一行一列。
         // 体力 ≥ ClearToolCost 可用、< 置灰；无限可用、只 gate 体力（无持有计数、不限次数）。
         private Button _clearToolBtn;
-        private Image _clearToolBtnBg;
         private Text _clearToolBtnLabel;
         private Image _clearToolHintBg;
         private Text _clearToolHintText;
@@ -358,7 +357,7 @@ namespace GameLogic
             if (_clearToolBtnLabel != null)
                 _clearToolBtnLabel.color = can ? Color.white : new Color32(0x88, 0x88, 0x88, 0xFF);
             // gate 视觉染图标（消除道具锤子）：arming 高亮(亮橙叠白) / 可用(白本色) / 置灰(暗灰)。
-            _clearToolBtnBg.color = _clearToolArming
+            m_btn_ClearTool.image.color = _clearToolArming
                 ? new Color32(0xff, 0xcc, 0x88, 0xFF)
                 : (can ? Color.white : new Color32(0x66, 0x66, 0x66, 0xFF));
         }

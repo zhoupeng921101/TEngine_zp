@@ -8,6 +8,10 @@ description: TEngine Unity 游戏框架开发指导。触发词：TEngine, UIWin
 TEngine 是基于 HybridCLR + YooAsset + UniTask + Luban 的 Unity 游戏框架。
 本 skill 提供 AI 专用的精炼参考文档，确保生成的代码与框架 API 完全一致。
 
+## 强制工作流（任何开发任务先走）
+
+开工先按 [conventions-dev.md](conventions-dev.md)：判任务等级（L1–L4）→ 按级查规范 → 编码 → 自检，**禁止跳过**。下面的核心红线与文档路由是「查规范」一步的内容。
+
 ## 核心红线
 
 1. **异步优先**：IO 操作用 `UniTask`，禁止同步加载/Coroutine
