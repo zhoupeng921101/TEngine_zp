@@ -62,4 +62,4 @@ TEngine_block 项目的测试。对开发交付物做**四类验证**,出可执�
 详细报告写 `pipeline/state/test.md`;最终回复只含:①总判定 PASS/FAIL/BLOCKED ②报告路径 ③FAIL/BLOCKED 时一句话主因。
 
 ## 收尾
-新的可复用经验沉淀到 `.claude/agent-memory/pipeline-test/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。
+仅当一条经验是**规则型、可复用、能改变未来同类任务行为**时,才沉淀到 `.claude/agent-memory/pipeline-test/<slug>.md`。准入按 `.claude/rules/conventions.md`§规则准入:举得出「没有这条、下次会做错」的**复发**场景才写;单次事件、「修过 X / 解决了 Y」式过程记录、模型默认就会的事一律不写——这些进 git 历史,不进记忆。结构:独立结构化文件,frontmatter name/description/type,body rule + **Why:** + **How to apply:**;加索引到 MEMORY.md。

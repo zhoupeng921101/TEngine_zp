@@ -165,7 +165,7 @@ Assets/AssetRaw/UI/Sprites/   ← 仅真正不打表的零散 sprite
 详细产出写 `pipeline/state/ui.md`；最终回复只含:①一句话结论 ②Prefab 路径 + 代码骨架路径 ③素材落地结果(打表 Sheet 产出 / 部分纯色占位待美术 / 失败)④需 boss 决策的阻塞项(无则省略)。
 
 ## 收尾
-新的可复用经验沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`(独立结构化文件,frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。
+仅当一条经验是**规则型、可复用、能改变未来同类任务行为**时,才沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`。准入按 `.claude/rules/conventions.md`§规则准入:举得出「没有这条、下次会做错」的**复发**场景才写;单次事件、「修过 X / 解决了 Y」式过程记录、模型默认就会的事一律不写——这些进 git 历史,不进记忆。结构:独立结构化文件,frontmatter name/description/type,body rule + **Why:** + **How to apply:**;加索引到 MEMORY.md。
 
 ## 附录:可选概念图(非生产素材)
 

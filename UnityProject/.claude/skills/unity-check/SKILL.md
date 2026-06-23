@@ -17,13 +17,13 @@ description: UnityMCP 连接自检。碰 Unity 前确认 MCP 连到正确实例;
    - 读 `session_state.active_instance`,记下当前绑的是谁。
    - 此调用本身报错 = MCP server 进程没起 → 人工启动 server,止于此步。
 
-2. **绑的 Unity 活不活** — `manage_scene` action=`get_active`
+2. **绑定的 Unity 是否响应** — `manage_scene` action=`get_active`
    - 成功返回当前场景 = 绑定实例在响应、工程对得上,自检通过。
-   - 失败/超时 = 绑的实例死了或没响应 → 进第 3 步。
+   - 失败/超时 = 绑定实例已断开或无响应 → 进第 3 步。
 
 3. **修正绑定** — `set_active_instance` instance=`UnityProject`,再跑一次第 2 步
    - 重绑后第 2 步通过 = 之前绑错了实例,已修正。
-   - 重绑后仍失败 = 没有活着的 UnityProject 实例(Unity 没开/崩了/正在编译域重载)→ 人工确认 Unity 已打开并空闲。
+   - 重绑后仍失败 = 没有在运行的 UnityProject 实例(Unity 未启动/已崩溃/正在编译域重载)→ 人工确认 Unity 已打开并空闲。
 
 ## 边界
 

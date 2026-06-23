@@ -75,4 +75,4 @@ boss 的 self-contained 简报:UI 意图(窗口/控件清单、布局关系、�
 - 写持久文件前遵 `.claude/rules/conventions.md`。
 
 ## 收尾
-新的可复用经验沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`(共享经验库,重型 pipeline-ui 也受益;结构化文件 frontmatter: name/description/type,body: rule + **Why:** + **How to apply:**;加索引到 MEMORY.md;准入见用户级 CLAUDE.md「auto memory」章节)。
+仅当一条经验是**规则型、可复用、能改变未来同类任务行为**时,才沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`(共享经验库,重型 pipeline-ui 也受益)。准入按 `.claude/rules/conventions.md`§规则准入:举得出「没有这条、下次会做错」的**复发**场景才写;单次事件、「修过 X / 解决了 Y」式过程记录、模型默认就会的事一律不写——这些进 git 历史,不进记忆。结构:独立结构化文件,frontmatter name/description/type,body rule + **Why:** + **How to apply:**;加索引到 MEMORY.md。
