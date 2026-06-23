@@ -1609,6 +1609,7 @@ namespace TEngine
         /// 打印错误级别日志，建议在发生功能逻辑错误，但尚不会导致游戏崩溃或异常时使用。
         /// </summary>
         /// <param name="message">日志内容。</param>
+        [HideInCallstack]
         public static void Error(string message)
         {
             if (s_LogHelper == null)

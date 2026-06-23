@@ -1628,6 +1628,7 @@ namespace TEngine
         [Conditional("ENABLE_INFO_AND_ABOVE_LOG")]
         [Conditional("ENABLE_WARNING_AND_ABOVE_LOG")]
         [Conditional("ENABLE_ERROR_AND_ABOVE_LOG")]
+        [HideInCallstack]
         public static void Error(string message)
         {
             GameFrameworkLog.Error(message);
@@ -1646,6 +1647,7 @@ namespace TEngine
         [Conditional("ENABLE_INFO_AND_ABOVE_LOG")]
         [Conditional("ENABLE_WARNING_AND_ABOVE_LOG")]
         [Conditional("ENABLE_ERROR_AND_ABOVE_LOG")]
+        [HideInCallstack]
         public static void Error<T>(string format, T arg)
         {
             GameFrameworkLog.Error(format, arg);

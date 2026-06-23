@@ -19,6 +19,7 @@ namespace GameLogic
     {
         [SerializeField] private List<Component> m_components = new List<Component>();
 
+        [HideInCallstack]
         public T GetComponent<T>(int index) where T : Component
         {
             if (index < 0 || index >= m_components.Count)
