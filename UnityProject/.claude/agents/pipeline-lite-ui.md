@@ -18,7 +18,7 @@ TEngine_block 项目的 UI 制作。把 boss 的 UI 意图**直接在 Unity 里�
 > 不复制条文:副本必漂移。
 
 ## 开工前(碰 Unity 前)
-- 跑 `/unity-check` 确认 MCP 连到 UnityProject 实例。
+- 先跑 `/unity-check` 确认 MCP 连到正确实例(按名 UnityProject)。搭树全程依赖 Unity 响应,连不上时先解决连接再搭。
 - 读共享 UI 经验库 `.claude/agent-memory/pipeline-ui/`(与重型 pipeline-ui 同一库,本角色不被自动注入,手动 Read)。
 
 ## 输入
@@ -31,10 +31,10 @@ boss 的 self-contained 简报:UI 意图(窗口/控件清单、布局关系、�
 
 ## 工作流
 1. **规划节点树**:按 UI 意图定层级(面板/行/容器),区分「需绑定的控件」(给 `m_` 前缀)与「纯结构节点」(无 `m_`、不被绑定)。动态内容区搭**空容器节点**(像 frog-client `m_rect_hightRoot`),运行时由 dev 代码塞 item。
-2. **MCP 搭树**:建节点 + 组件;根挂 Canvas + CanvasScaler(Reference 1920×1080、Match 0.5)+ GraphicRaycaster。
+2. **MCP 搭树**:建节点 + 组件。**窗口根只挂 Canvas + GraphicRaycaster(+ UIBindComponent),不挂 CanvasScaler**(缩放由 UIRoot 的 canvas + Content 节点 localScale 负责;CanvasScaler 误挂窗口根会让 root scale 塌成 0、整窗不可见)。根 RectTransform 必须 stretch:`anchorMin=(0,0)`/`anchorMax=(1,1)`/`localScale=(1,1,1)`/`pivot=(0.5,0.5)`/`sizeDelta=0`,对照 `GameWindow.prefab` 根约定。
 3. **命名**:控件节点按前缀表命名(见下),工具据此匹配组件类型。
 4. **布局**:锚点/pivot 适配分辨率;成排/列表用 LayoutGroup(`m_hlay`/`m_vlay`/`m_grid`),固定位用锚定。
-5. **占位视觉**:`m_img_` 留裸 Image + 近似纯色;终稿 sprite 由 dev `SetSubSprite` 代码贴或后续重画同名图(不在本环节定终稿美术)。
+5. **静态视觉**:**素材已就绪的静态图(底框/图标/卡等永不变的)直接烤进 prefab 的 `m_Sprite`+`m_Color`**——编辑器所见即所得,prefab 为静态视觉唯一来源(烤法见 dev 经验库 `project-bake-static-sprite-into-prefab-wysiwyg`:`PrefabUtility.LoadPrefabContents`→设 `img.sprite`→`SaveAsPrefabAsset`;源 PNG 须 Single 模式);仅尚无终稿美术的才留裸 Image + 占位纯色交后续。**动态换皮(随游戏状态变的棋盘格/候选/元素等)始终运行时 SetSprite、不烤**——这部分本就在空容器里由 dev 代码填。
 6. **生成绑定**(见下)。
 
 ## 命名前缀表(契约,完整以 `Assets/Editor/UIScriptGenerator/ScriptGeneratorSetting.cs` 的 `scriptGenerateRule` 为准)
@@ -63,7 +63,8 @@ boss 的 self-contained 简报:UI 意图(窗口/控件清单、布局关系、�
 > 产出直接进返回值,**不写 `pipeline/state`**——本管线无 test 角色接手。
 
 ## 自检(交付前必做)
-- prefab 能 `LoadGameObject` 加载、根有 Canvas/CanvasScaler/GraphicRaycaster。
+- prefab 能 `LoadGameObject` 加载;根仅 Canvas + GraphicRaycaster(+ UIBindComponent)、**无 CanvasScaler**;根 RectTransform `localScale==1` 且 `anchorMax==(1,1)`(对照 `GameWindow.prefab`)。
+- **交付前 Play 开窗(或 `Instantiate` 进 UICanvas)目视渲染,不只信"控制台 0 错"**:root scale=0 / CanvasScaler 误挂这类故障在编译/控制台/节点核对里全部显示无错,只有 Play 截图或核 `root.GetWorldCorners` 才暴露。
 - 命名逐项对前缀表合规(命名错 = dev 接手最常见返工源)。
 - 绑定编译过:`read_console` 确认 `_Gen.g.cs` + impl 0 报错、`isCompiling=false`;`UIBindComponent` 索引数 = `_Gen.g.cs` 绑定条数。
 - 占位 / 动态容器在「节点清单」标注交 dev。
