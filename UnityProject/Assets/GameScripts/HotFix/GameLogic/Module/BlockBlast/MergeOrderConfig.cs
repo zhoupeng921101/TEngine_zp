@@ -1,9 +1,12 @@
+using GameLogic.Config;
+
 namespace GameLogic.BlockBlast
 {
     /// <summary>
-    /// 合成+订单+体力 Demo 切片的静态配置（仿 08 的 <see cref="MergeElementVisual"/>，不接 Luban）。
-    /// 合成 / 订单 / 体力 / 得分驱动元素生成 / 兜底全部硬编码可调常量 + 手编循环订单池。
-    /// 改数即调难度。默认值取自设计文档 §五配置表。
+    /// 合成+订单+体力 Demo 切片的静态配置（仿 08 的 <see cref="MergeElementVisual"/>）。
+    /// 合成 / 订单 / 体力 / 得分驱动元素生成 / 兜底多为硬编码可调常量 + 手编循环订单池。
+    /// 其中订单数 / 订单刷新间隔 / 体力恢复间隔 / 体力上限四项运行时读 Luban global 键值表（经 <see cref="GlobalConfigMgr"/>，缺键回退默认）。
+    /// 改数即调难度。常量默认值取自设计文档 §五配置表；走配置的四项默认值与 global 表初值一致。
     /// 表现（glyph / 纯色）直接复用 <see cref="MergeElementVisual.Glyph"/> / <see cref="MergeElementVisual.ColorOf"/>。
     /// </summary>
     public static class MergeOrderConfig
@@ -30,8 +33,15 @@ namespace GameLogic.BlockBlast
         public static readonly int[] LevelBaseCost = { 0, 1, 4, 16, 64, 256 };
 
         // ── 订单 ──────────────────────────────────────────────
-        /// <summary>同时激活的订单数（横滑订单列表，可交付的卡排在前）。</summary>
-        public const int ActiveOrders = 5;
+        /// <summary>
+        /// 同时激活的订单数（横滑订单列表，可交付的卡排在前）。运行时读 global 表（id=1），缺键回退默认。
+        /// 原为编译期 const，改运行时属性后：数组定长改为运行时分配；老存档按旧值（如 5）存的订单数组长度
+        /// 与本值不符时，<see cref="MergeOrderState.ImportIngame"/> 走「保持 Reset 建好的订单」兜底路径，不崩。
+        /// </summary>
+        public static int ActiveOrders => GlobalConfigMgr.OrderCountValue;
+
+        /// <summary>订单按时整批刷新间隔（真实秒，id=2）。每经过此秒数，激活订单整批替换为新一批。</summary>
+        public static int OrderRefreshIntervalSec => GlobalConfigMgr.OrderRefreshSecondsValue;
 
         /// <summary>订单奖励体力（可溢出软上限）。</summary>
         public const int OrderRewardEnergy = 8;
@@ -43,8 +53,12 @@ namespace GameLogic.BlockBlast
         /// <summary>起始体力。核心不变量：≥ 完成首单所需落子数，否则首单前饿死。</summary>
         public const int EnergyStart = 20;
 
-        /// <summary>体力软上限。自然恢复 / 落子返还封顶于此；订单奖励可溢出。</summary>
-        public const int EnergyCap = 30;
+        /// <summary>
+        /// 体力软上限。自然恢复 / 落子返还封顶于此；订单奖励可溢出。运行时读 global 表（id=4），缺键回退默认。
+        /// 不变量 <c>ClearToolCost ≤ EnergyCap</c> 由编译期成立转为运行时依赖：两项均读 global 表，当前表值满足，
+        /// 配置错时不崩（仅可能让脱困道具体力 gate 失衡），不在此处强校验。
+        /// </summary>
+        public static int EnergyCap => GlobalConfigMgr.EnergyRecoverCapValue;
 
         /// <summary>每次落子消耗体力。</summary>
         public const int PlaceCost = 1;
@@ -52,18 +66,18 @@ namespace GameLogic.BlockBlast
         // ── 时基恢复（无尽模型兜底，设计 49 §3.2）──────────────────
         // 无条件、纯时间驱动、含离线累计：每 RegenIntervalSec 真实秒回 RegenPerTick 点，封顶软上限不溢出。
         // 不依赖落子 / 消除 / 交付任何玩法动作（否则卡死时永不恢复，脱困死结，设计 49 §3.3 硬约束 3）。
-        /// <summary>时基恢复每 tick 回复量（设计 49 §3.2 默认每 120 秒 +1）。</summary>
+        /// <summary>时基恢复每 tick 回复量（每满间隔 +1 点）。</summary>
         public const int RegenPerTick = 1;
-        /// <summary>时基恢复间隔秒数（设计 49 §3.2 默认 120 秒）。</summary>
-        public const float RegenIntervalSec = 120f;
+        /// <summary>时基恢复间隔秒数（每点间隔）。运行时读 global 表（id=3），缺键回退默认。</summary>
+        public static float RegenIntervalSec => GlobalConfigMgr.EnergyRecoverSecondsValue;
 
         // ── 消除道具（无尽模型脱困兜底，设计 49 §3.1）──────────────
         // 主动清「一整行 + 一整列」让卡死棋盘重新可落；代价体力、无限可用、只 gate 体力（绝不做有限消耗品）。
         /// <summary>
-        /// 消除道具代价体力（设计 49 §3.1 默认 25）。硬约束 <c>ClearToolCost ≤ EnergyCap</c>（25 ≤ 30）：
+        /// 消除道具代价体力。运行时读 global 表（id=5），缺键回退默认 5。硬约束 <c>ClearToolCost ≤ EnergyCap</c>（5 ≤ 30）：
         /// 否则体力封顶后仍不够用一次消除道具，「卡死 + 0 体力」脱困死结重现（设计 49 §3.3 硬约束 1）。
         /// </summary>
-        public const int ClearToolCost = 25;
+        public static int ClearToolCost => GlobalConfigMgr.ClearToolEnergyCostValue;
 
         // ── 得分驱动元素生成 ──────────────────────────────────
         // 该次消除得分 → 元素数量 k：消得越狠、后续候选块携带的元素越多；无消除→候选块纯方块。

@@ -77,6 +77,13 @@ namespace GameLogic.BlockBlast
         public long LastEnergyRegenTime;
 
         /// <summary>
+        /// 上次订单整批刷新时刻（Unix 秒，本地时钟）。订单按时刷新（含离线）按「此刻 → now」真实秒差判定（仿时基恢复）。
+        /// 跨会话随局内态一同落盘（订单本身属局内层）。0 = 尚无记录（首次 / 旧档），
+        /// 首次结算以 now 初始化、本次不刷（同时基恢复崩法三：不凭空刷一批）。
+        /// </summary>
+        public long LastOrderRefreshTime;
+
+        /// <summary>
         /// 合成区库存：键 (类型, 等级) → 数量。自动配对使每 (类型,非封顶等级) 数量恒 ≤ MergeCount-1（满 MergeCount 即合），
         /// 故天然紧凑、无需硬上限。计数为 0 的键即时移除。
         /// </summary>
@@ -183,6 +190,7 @@ namespace GameLogic.BlockBlast
         {
             Energy = MergeOrderConfig.EnergyStart;
             LastEnergyRegenTime = 0; // 尚无记录：首次 ApplyTimeRegen(now) 以 now 初始化、本次不补（设计 49 §3.2）
+            LastOrderRefreshTime = 0; // 尚无记录：首次 ApplyOrderRefresh(now) 以 now 初始化、本次不刷
             Inventory.Clear();
             OrderCursor = 0;
             CompletedOrders = 0;
@@ -344,6 +352,69 @@ namespace GameLogic.BlockBlast
             return o;
         }
 
+        // ── 订单按时整批刷新（含离线，仿时基恢复）─────────────────────
+        // 纯时间驱动：按「LastOrderRefreshTime → now」真实秒差判定是否经过 ≥ 一个刷新间隔，到点就把
+        // 当前所有激活订单整批替换为新一批（每槽 NextOrder()）。订单是 (type,level,count) 原子目标、无逐单部分进度，
+        // 整批替换不丢进度。离线很久也只刷到「最新一批」——只刷一次、不重复刷 N 批（订单不堆叠）。
+        // 纯方法、注入 now（Unix 秒）供单测，不依赖真实时钟。
+
+        /// <summary>
+        /// 按真实时差判定并执行订单整批刷新（仿 <see cref="ApplyTimeRegen"/>）。
+        /// <paramref name="nowUnixSec"/> = 当前 Unix 秒（生产传真实时刻，单测注入）。返回 true 表示本次发生了整批刷新。
+        /// 行为：① 首次无记录（<see cref="LastOrderRefreshTime"/>==0）→ 以 now 初始化、本次不刷；
+        /// ② 负时差（玩家回调时钟）/ 同刻 → 不刷、不更新记录（待时间走正再判）；
+        /// ③ 经过 ≥ interval → 整批替换激活订单（每槽 NextOrder()），并把记录时刻推进到 now（只刷到最新一批、不堆叠）；
+        /// ④ interval 非法（≤0，配置错）→ 不刷、不更新记录（不崩）。
+        /// </summary>
+        public bool ApplyOrderRefresh(long nowUnixSec)
+        {
+            if (LastOrderRefreshTime == 0)
+            {
+                LastOrderRefreshTime = nowUnixSec; // 首次：初始化记录时刻，本次不刷（不凭空刷一批）
+                return false;
+            }
+
+            long deltaSec = nowUnixSec - LastOrderRefreshTime;
+            if (deltaSec <= 0) return false; // 负时差 / 同刻：不刷、不更新记录
+
+            int interval = MergeOrderConfig.OrderRefreshIntervalSec;
+            if (interval <= 0) return false; // 防御：间隔非法不刷（配置错不崩）
+
+            if (deltaSec < interval) return false; // 未到一个间隔：不刷、记录时刻不动
+
+            RefreshAllOrders();
+
+            // 离线累计：经过多个间隔也只刷一批（订单不堆叠），记录时刻直接对齐 now（基准重置）。
+            LastOrderRefreshTime = nowUnixSec;
+            return true;
+        }
+
+        /// <summary>
+        /// 「全部订单已交付」触发的立即整批刷新（与 <see cref="ApplyOrderRefresh"/> 对称，注入 now 可单测）。
+        /// 若当前激活订单全部无效（全空：每槽 !<see cref="Order.IsValid"/>）→ 调 <see cref="RefreshAllOrders"/> 补一批新订单、
+        /// 并把刷新记录时刻对齐 <paramref name="nowUnixSec"/>（让下一批到时倒计时从此刻重启，避免刚因全完成刷一批、
+        /// 下一秒又因到时再刷一批冲掉进度），返回 true。否则（仍有有效订单 / 空数组 / null）不动订单与计时，返回 false。
+        /// </summary>
+        public bool TryRefreshIfAllDelivered(long nowUnixSec)
+        {
+            if (ActiveOrders == null || ActiveOrders.Length == 0) return false; // 防御：无订单数组不刷、不崩
+            for (int i = 0; i < ActiveOrders.Length; i++)
+                if (ActiveOrders[i].IsValid) return false; // 仍有有效订单：未全部交付，不刷
+
+            RefreshAllOrders();
+            LastOrderRefreshTime = nowUnixSec; // 重置到时倒计时基准（下一批从 now 起算）
+            return true;
+        }
+
+        /// <summary>把当前所有激活订单整批替换为新一批（每槽 NextOrder()）。订单数组按当前配置长度重建（容老存档长度变更）。</summary>
+        public void RefreshAllOrders()
+        {
+            int count = MergeOrderConfig.ActiveOrders;
+            if (ActiveOrders == null || ActiveOrders.Length != count)
+                ActiveOrders = new Order[count];
+            for (int i = 0; i < ActiveOrders.Length; i++) ActiveOrders[i] = NextOrder();
+        }
+
         /// <summary>合成区库存是否满足该订单槽要求。</summary>
         public bool CanDeliver(int slot)
         {
@@ -354,7 +425,9 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>
-        /// 交付订单：扣除对应合成物 → 发奖（体力可溢出上限 + 分数）→ 完成单数+1 → 该槽刷新下一单。
+        /// 交付订单：扣除对应合成物 → 发奖（体力可溢出上限 + 分数）→ 完成单数+1 → 该槽置空（不补单）。
+        /// 交付后槽位留空（default(Order)，IsValid==false），不即时补新单；整批补回由「全部交付完」
+        /// （<see cref="TryRefreshIfAllDelivered"/>）或「到刷新时间」（<see cref="ApplyOrderRefresh"/>）触发。
         /// 返回 false 表示库存不足、未交付。
         /// </summary>
         public bool Deliver(int slot)
@@ -373,7 +446,7 @@ namespace GameLogic.BlockBlast
             // 长期主线（设计 13 §3.1）：虔诚币 = 订单难度 × 旋钮。纯追加，不动上方旧发奖。
             AddPiety(o.Difficulty * TempleConfig.PietyPerDifficulty);
 
-            ActiveOrders[slot] = NextOrder();
+            ActiveOrders[slot] = default; // 该槽置空，不补单；全空或到时整批刷新
             return true;
         }
 
@@ -719,6 +792,7 @@ namespace GameLogic.BlockBlast
             if (dto == null) return;
 
             dto.orderCursor = OrderCursor;
+            dto.lastOrderRefreshTime = LastOrderRefreshTime;
             dto.completedOrders = CompletedOrders;
             dto.totalScore = TotalScore;
             dto.comboChain = ComboChain;
@@ -765,6 +839,8 @@ namespace GameLogic.BlockBlast
             if (dto == null) return;
 
             OrderCursor = dto.orderCursor;
+            // 订单刷新记录时刻：负值（篡改）夹回 0（视为尚无记录，进窗 ApplyOrderRefresh(now) 重新初始化）。
+            LastOrderRefreshTime = dto.lastOrderRefreshTime > 0 ? dto.lastOrderRefreshTime : 0;
             CompletedOrders = dto.completedOrders > 0 ? dto.completedOrders : 0;
             TotalScore = dto.totalScore > 0 ? dto.totalScore : 0;
             ComboChain = dto.comboChain >= 1 ? dto.comboChain : 1;
@@ -800,7 +876,7 @@ namespace GameLogic.BlockBlast
                     int count = dto.ordCount[k];
                     ActiveOrders[k] = (type != MergeElement.None && level >= 1 && count > 0)
                         ? new Order(type, level, count)
-                        : NextOrder(); // 脏单 → 取池中下一张兜底
+                        : default; // 空槽 / 非法单 → 置空槽（新模型空槽合法，全空或到时刷新补回，不即时兜底补单）
                 }
             }
             // 数组长度不符（旧档 / 配置变更）→ 保持 Reset 建好的订单。

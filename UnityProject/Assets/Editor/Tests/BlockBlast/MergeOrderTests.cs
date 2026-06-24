@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using GameLogic.BlockBlast;
 using GameLogic.BlockBlast.Core;
+using GameLogic.Config;
 
 namespace GameLogic.BlockBlast.Tests
 {
@@ -288,7 +289,7 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void Deliver_ConsumesInventory_GivesReward_RefreshesSlot()
+        public void Deliver_ConsumesInventory_GivesReward_EmptiesSlot()
         {
             var m = new MergeOrderState();
             m.Reset();
@@ -299,16 +300,18 @@ namespace GameLogic.BlockBlast.Tests
 
             int scoreBefore = m.TotalScore;
             int energyBefore = m.Energy;
-            // 交付后该槽刷新为池下一项：Reset 已取走前 ActiveOrders 张（游标 = ActiveOrders），下一张即 pool[ActiveOrders % len]。
-            var nextExpected = MergeOrderConfig.OrderPool[MergeOrderConfig.ActiveOrders % MergeOrderConfig.OrderPool.Length];
+            // 新模型：交付后该槽置空（不补单），其余槽不变。
+            var slot0Before = m.ActiveOrders[0];
 
             Assert.IsTrue(m.Deliver(1));
             Assert.AreEqual(0, m.InventoryCount(MergeElement.Chalice, 2), "交付扣除合成物");
             Assert.AreEqual(energyBefore + MergeOrderConfig.OrderRewardEnergy, m.Energy);
             Assert.AreEqual(scoreBefore + 2 * 1 * MergeOrderConfig.OrderScoreFactor, m.TotalScore);
             Assert.AreEqual(1, m.CompletedOrders);
-            Assert.AreEqual(nextExpected.Type, m.ActiveOrders[1].Type, "槽刷新为下一单");
-            Assert.AreEqual(nextExpected.Level, m.ActiveOrders[1].Level);
+            Assert.IsFalse(m.ActiveOrders[1].IsValid, "交付后该槽置空（不补单）");
+            Assert.AreEqual(slot0Before.Type, m.ActiveOrders[0].Type, "未交付的其余槽不变");
+            Assert.AreEqual(slot0Before.Level, m.ActiveOrders[0].Level);
+            Assert.AreEqual(slot0Before.Count, m.ActiveOrders[0].Count);
         }
 
         [Test]
@@ -657,7 +660,7 @@ namespace GameLogic.BlockBlast.Tests
 
         // ═══════════════ 无尽模型 · 消除道具 gate（设计 49 §3.1 / B4/B5/B7）═══════════════
 
-        // B7：cost ≤ EnergyCap 配置层不变量（25 ≤ 30）。
+        // B7：cost ≤ EnergyCap 配置层不变量（默认表值 5 ≤ 30）。
         [Test]
         public void ClearTool_CostNotExceedEnergyCap()
         {
@@ -827,6 +830,407 @@ namespace GameLogic.BlockBlast.Tests
             dst.Reset();
             dst.ImportMeta(dto, today);
             Assert.AreEqual(0, dst.Energy, "篡改负体力夹回 0");
+        }
+
+        // ═══════════════ global 配置接入（id 1/2/3/4/5 运行时读表）═══════════════
+        // 用 GlobalConfigMgr.InitForTest 注入确定性表值，验证 MergeOrderConfig 各参数走配置而非硬编码；
+        // TearDown 在每个用例后调 ResetForTest 隔离（见下方 [TearDown] 同名清理）。
+
+        [Test]
+        public void GlobalConfig_FourParams_ReadFromTable()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.OrderCount, "4" },
+                { GlobalConfigMgr.OrderRefreshSeconds, "123" },
+                { GlobalConfigMgr.EnergyRecoverSeconds, "77" },
+                { GlobalConfigMgr.EnergyRecoverCap, "42" },
+            });
+            try
+            {
+                Assert.AreEqual(4, MergeOrderConfig.ActiveOrders, "订单数读 id=1");
+                Assert.AreEqual(123, MergeOrderConfig.OrderRefreshIntervalSec, "订单刷新间隔读 id=2");
+                Assert.AreEqual(77f, MergeOrderConfig.RegenIntervalSec, "体力恢复间隔读 id=3");
+                Assert.AreEqual(42, MergeOrderConfig.EnergyCap, "体力上限读 id=4");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        [Test]
+        public void GlobalConfig_MissingKeysOrEmptyTable_FallBackToDefaultsNoThrow()
+        {
+            // 空表：所有键缺失 → 各便捷属性回退默认（与 global.xlsx 初值一致），不抛。
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>());
+            try
+            {
+                Assert.AreEqual(3, MergeOrderConfig.ActiveOrders, "缺键回退订单数默认 3");
+                Assert.AreEqual(300, MergeOrderConfig.OrderRefreshIntervalSec, "缺键回退刷新间隔默认 300");
+                Assert.AreEqual(360f, MergeOrderConfig.RegenIntervalSec, "缺键回退体力间隔默认 360");
+                Assert.AreEqual(30, MergeOrderConfig.EnergyCap, "缺键回退体力上限默认 30");
+                Assert.AreEqual(5, MergeOrderConfig.ClearToolCost, "缺键回退消除道具体力默认 5");
+                Assert.DoesNotThrow(() =>
+                {
+                    var m = new MergeOrderState();
+                    m.Reset();
+                }, "空表下 Reset 不崩");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        [Test]
+        public void GlobalConfig_ActiveOrders_DrivesActiveOrderArrayLength()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string> { { GlobalConfigMgr.OrderCount, "3" } });
+            try
+            {
+                var m = new MergeOrderState();
+                m.Reset();
+                Assert.AreEqual(3, m.ActiveOrders.Length, "激活订单数组长度 = 配置订单数");
+                foreach (var o in m.ActiveOrders) Assert.IsTrue(o.IsValid, "每槽都有合法订单");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // id=5：消除道具体力消耗读表 → ClearToolCost 取注入值；gate/扣费按该值生效。
+        [Test]
+        public void GlobalConfig_ClearToolCost_ReadFromTable_DrivesGateAndSpend()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.ClearToolEnergyCost, "7" },
+            });
+            try
+            {
+                Assert.AreEqual(7, MergeOrderConfig.ClearToolCost, "消除道具体力消耗读 id=5");
+
+                var m = new MergeOrderState();
+                m.Reset();
+
+                m.Energy = 6;
+                Assert.IsFalse(m.CanUseClearTool, "体力 6 < cost 7 不可用（置灰）");
+
+                m.Energy = 7;
+                Assert.IsTrue(m.CanUseClearTool, "体力 7 = cost 7 可用");
+                Assert.IsTrue(m.SpendClearToolCost(), "扣 cost 成功");
+                Assert.AreEqual(0, m.Energy, "扣 7 后归零（cost==Energy）");
+
+                m.Energy = 10;
+                Assert.IsTrue(m.SpendClearToolCost(), "体力 10 ≥ cost 7 可扣");
+                Assert.AreEqual(3, m.Energy, "扣对应表值 7：10-7=3");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // id=5 缺键：ClearToolCost 回退默认 5，gate/扣费按 5 生效，不崩。
+        [Test]
+        public void GlobalConfig_ClearToolCost_MissingKey_FallBackToDefault5()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>());
+            try
+            {
+                Assert.AreEqual(5, MergeOrderConfig.ClearToolCost, "缺键回退默认 5");
+
+                var m = new MergeOrderState();
+                m.Reset();
+
+                m.Energy = 4;
+                Assert.IsFalse(m.CanUseClearTool, "体力 4 < 默认 cost 5 不可用");
+
+                m.Energy = 5;
+                Assert.IsTrue(m.CanUseClearTool, "体力 5 = 默认 cost 5 可用");
+                Assert.IsTrue(m.SpendClearToolCost(), "缺键下扣默认 cost 不崩");
+                Assert.AreEqual(0, m.Energy, "扣默认 5 后归零");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // ═══════════════ 订单按时整批刷新（id=2，仿时基恢复）═══════════════
+
+        // 首次无记录：以 now 初始化、本次不刷（不凭空刷一批），订单不变。
+        [Test]
+        public void OrderRefresh_FirstCall_InitsRecordNoRefresh()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.OrderCount, "3" },
+                { GlobalConfigMgr.OrderRefreshSeconds, "300" },
+            });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var m = new MergeOrderState();
+                m.Reset(); // LastOrderRefreshTime=0
+                var before = (Order[])m.ActiveOrders.Clone();
+
+                bool refreshed = m.ApplyOrderRefresh(t0);
+                Assert.IsFalse(refreshed, "首次不刷");
+                Assert.AreEqual(t0, m.LastOrderRefreshTime, "首次以 now 初始化记录时刻");
+                for (int i = 0; i < before.Length; i++)
+                    Assert.AreEqual(before[i].Type, m.ActiveOrders[i].Type, "首次订单不变");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 到点（≥interval）整批替换；记录时刻对齐 now。
+        [Test]
+        public void OrderRefresh_AfterInterval_ReplacesWholeBatch()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.OrderCount, "3" },
+                { GlobalConfigMgr.OrderRefreshSeconds, "300" },
+            });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var m = new MergeOrderState();
+                m.Reset();
+                m.LastOrderRefreshTime = t0; // 已有记录
+                int cursorBefore = m.OrderCursor;
+
+                bool refreshed = m.ApplyOrderRefresh(t0 + 300);
+                Assert.IsTrue(refreshed, "到点整批刷新");
+                Assert.AreEqual(t0 + 300, m.LastOrderRefreshTime, "记录时刻对齐 now");
+                Assert.AreEqual(cursorBefore + m.ActiveOrders.Length, m.OrderCursor, "整批每槽各取一次 NextOrder（游标推进 = 订单数）");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 未到点（<interval）：不刷、记录不动。
+        [Test]
+        public void OrderRefresh_BeforeInterval_NoRefresh()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.OrderCount, "3" },
+                { GlobalConfigMgr.OrderRefreshSeconds, "300" },
+            });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var m = new MergeOrderState();
+                m.Reset();
+                m.LastOrderRefreshTime = t0;
+                int cursorBefore = m.OrderCursor;
+
+                Assert.IsFalse(m.ApplyOrderRefresh(t0 + 299), "未到一个间隔不刷");
+                Assert.AreEqual(t0, m.LastOrderRefreshTime, "未到点记录不动");
+                Assert.AreEqual(cursorBefore, m.OrderCursor, "未刷游标不动");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 离线很久（多个间隔）：只刷一批、不堆叠；记录时刻对齐 now。
+        [Test]
+        public void OrderRefresh_LongOffline_RefreshesOnceNotStacked()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.OrderCount, "3" },
+                { GlobalConfigMgr.OrderRefreshSeconds, "300" },
+            });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var m = new MergeOrderState();
+                m.Reset();
+                m.LastOrderRefreshTime = t0;
+                int cursorBefore = m.OrderCursor;
+
+                bool refreshed = m.ApplyOrderRefresh(t0 + 300L * 1000); // 离线 1000 个间隔
+                Assert.IsTrue(refreshed, "离线很久也刷一次");
+                Assert.AreEqual(cursorBefore + m.ActiveOrders.Length, m.OrderCursor, "只刷一批（游标只推进一批量，不刷 N 批）");
+                Assert.AreEqual(t0 + 300L * 1000, m.LastOrderRefreshTime, "记录时刻对齐 now（基准重置）");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 负时差（玩家回调时钟）：不刷、不抛、不更新记录。
+        [Test]
+        public void OrderRefresh_NegativeDelta_NoRefreshNoThrow()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.OrderRefreshSeconds, "300" },
+            });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var m = new MergeOrderState();
+                m.Reset();
+                m.LastOrderRefreshTime = t0;
+
+                Assert.DoesNotThrow(() => m.ApplyOrderRefresh(t0 - 100));
+                Assert.IsFalse(m.ApplyOrderRefresh(t0 - 100), "负时差不刷");
+                Assert.AreEqual(t0, m.LastOrderRefreshTime, "负时差不更新记录时刻");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 刷新记录时刻随局内态往返续存（Export/ImportIngame）。
+        [Test]
+        public void OrderRefresh_RecordTime_RoundTripsViaIngameSave()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string> { { GlobalConfigMgr.OrderCount, "3" } });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var src = new MergeOrderState();
+                src.Reset();
+                src.LastOrderRefreshTime = t0;
+
+                var dto = new MergeIngameSave();
+                src.ExportIngame(dto);
+                Assert.AreEqual(t0, dto.lastOrderRefreshTime, "刷新记录时刻进盘");
+
+                var dst = new MergeOrderState();
+                dst.Reset();
+                dst.ImportIngame(dto);
+                Assert.AreEqual(t0, dst.LastOrderRefreshTime, "刷新记录时刻续存");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // ═══════════════ 老存档订单数组长度不匹配的优雅降级 ═══════════════
+
+        // 老档订单数组长度=5、当前配置=3：ImportIngame 走「保持 Reset 建好的订单」兜底，不崩、订单长度=新配置。
+        [Test]
+        public void OldSave_OrderArrayLengthMismatch_GracefulFallback()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string> { { GlobalConfigMgr.OrderCount, "3" } });
+            try
+            {
+                // 构造老档：激活订单 5 张（旧 ActiveOrders 常量）。
+                var dto = new MergeIngameSave
+                {
+                    ordType = new int[5],
+                    ordLevel = new int[5],
+                    ordCount = new int[5],
+                };
+                for (int i = 0; i < 5; i++)
+                {
+                    dto.ordType[i] = (int)MergeElement.Butterfly;
+                    dto.ordLevel[i] = 1;
+                    dto.ordCount[i] = 1;
+                }
+
+                var dst = new MergeOrderState();
+                dst.Reset(); // 先建好 3 张缺省订单
+                Assert.DoesNotThrow(() => dst.ImportIngame(dto), "老档长度不符 ImportIngame 不抛");
+                Assert.AreEqual(3, dst.ActiveOrders.Length, "保持 Reset 建好的新配置长度（3）");
+                foreach (var o in dst.ActiveOrders) Assert.IsTrue(o.IsValid, "兜底订单合法");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // ═══════════════ 不补单模型：交付置空 + 全空整批刷新 + 空槽存档 ═══════════════
+
+        // 交付一单后该槽置空（不补单）、其余槽不变。
+        [Test]
+        public void Deliver_EmptiesOnlyThatSlot_OthersUnchanged()
+        {
+            var m = new MergeOrderState();
+            m.Reset();
+            // 初始订单0 = OrderPool[0] = Butterfly Lv1 ×1 → 摄入一个 Butterfly 即可交付。
+            var slot1Before = m.ActiveOrders[1];
+            m.IngestElement(MergeElement.Butterfly);
+            Assert.IsTrue(m.CanDeliver(0));
+
+            Assert.IsTrue(m.Deliver(0));
+            Assert.IsFalse(m.ActiveOrders[0].IsValid, "交付后该槽置空");
+            Assert.AreEqual(slot1Before.Type, m.ActiveOrders[1].Type, "其余槽不变");
+            Assert.AreEqual(slot1Before.Level, m.ActiveOrders[1].Level);
+            Assert.AreEqual(slot1Before.Count, m.ActiveOrders[1].Count);
+        }
+
+        // 全部交付后 TryRefreshIfAllDelivered(now)：返回 true、三槽全有效（新一批）、记录时刻=now。
+        [Test]
+        public void TryRefreshIfAllDelivered_WhenAllEmpty_RefreshesAndResetsTimer()
+        {
+            const long now = 1_700_000_000L;
+            var m = new MergeOrderState();
+            m.Reset();
+            // 模拟三槽全部交付完：逐槽置空。
+            for (int i = 0; i < m.ActiveOrders.Length; i++) m.ActiveOrders[i] = default;
+            m.LastOrderRefreshTime = now - 12345; // 旧基准，验证被重置到 now
+
+            bool refreshed = m.TryRefreshIfAllDelivered(now);
+            Assert.IsTrue(refreshed, "全空 → 立即整批刷新");
+            Assert.AreEqual(now, m.LastOrderRefreshTime, "记录时刻对齐 now（到时倒计时基准重置）");
+            foreach (var o in m.ActiveOrders) Assert.IsTrue(o.IsValid, "刷出一整批有效新订单");
+        }
+
+        // 未全空（仍有有效订单）：TryRefreshIfAllDelivered 返回 false、不动订单与计时。
+        [Test]
+        public void TryRefreshIfAllDelivered_WhenNotAllEmpty_NoOp()
+        {
+            const long now = 1_700_000_000L;
+            var m = new MergeOrderState();
+            m.Reset();
+            // 只清掉部分槽，留至少一个有效。
+            m.ActiveOrders[0] = default; // slot0 空，slot1.. 仍有效
+            m.LastOrderRefreshTime = now;
+            var ordersBefore = (Order[])m.ActiveOrders.Clone();
+            int cursorBefore = m.OrderCursor;
+
+            bool refreshed = m.TryRefreshIfAllDelivered(now + 999);
+            Assert.IsFalse(refreshed, "仍有有效订单 → 不刷");
+            Assert.AreEqual(now, m.LastOrderRefreshTime, "未刷记录时刻不动");
+            Assert.AreEqual(cursorBefore, m.OrderCursor, "未刷游标不动");
+            for (int i = 0; i < ordersBefore.Length; i++)
+            {
+                Assert.AreEqual(ordersBefore[i].Type, m.ActiveOrders[i].Type, "未刷订单不动");
+                Assert.AreEqual(ordersBefore[i].Level, m.ActiveOrders[i].Level);
+                Assert.AreEqual(ordersBefore[i].Count, m.ActiveOrders[i].Count);
+            }
+        }
+
+        // 空数组防御：TryRefreshIfAllDelivered 不抛、返回 false。
+        [Test]
+        public void TryRefreshIfAllDelivered_EmptyOrNullArray_NoThrowReturnsFalse()
+        {
+            var m = new MergeOrderState();
+            m.ActiveOrders = null;
+            Assert.DoesNotThrow(() => m.TryRefreshIfAllDelivered(1_700_000_000L));
+            Assert.IsFalse(m.TryRefreshIfAllDelivered(1_700_000_000L), "null 数组返回 false");
+
+            m.ActiveOrders = new Order[0];
+            Assert.IsFalse(m.TryRefreshIfAllDelivered(1_700_000_000L), "空数组返回 false");
+        }
+
+        // 空槽如实存档往返：部分完成（某槽 default）→ Export→Import，空槽仍空、有效槽仍在、不被补单。
+        [Test]
+        public void EmptySlot_RoundTripsViaIngameSave_NotRefilled()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string> { { GlobalConfigMgr.OrderCount, "3" } });
+            try
+            {
+                var src = new MergeOrderState();
+                src.Reset();
+                // 构造部分完成态 [有效][空][有效]：置中间槽为空。
+                src.ActiveOrders[1] = default;
+                var slot0 = src.ActiveOrders[0];
+                var slot2 = src.ActiveOrders[2];
+                Assert.IsTrue(slot0.IsValid && slot2.IsValid, "前置：两端槽有效");
+
+                var dto = new MergeIngameSave();
+                src.ExportIngame(dto);
+                Assert.AreEqual(0, dto.ordType[1], "空槽导出为 None(0)");
+                Assert.AreEqual(0, dto.ordLevel[1]);
+                Assert.AreEqual(0, dto.ordCount[1]);
+
+                var dst = new MergeOrderState();
+                dst.Reset();
+                dst.ImportIngame(dto);
+                Assert.IsFalse(dst.ActiveOrders[1].IsValid, "空槽续存后仍空（不被兜底补单）");
+                Assert.AreEqual(slot0.Type, dst.ActiveOrders[0].Type, "有效槽0续存");
+                Assert.AreEqual(slot0.Level, dst.ActiveOrders[0].Level);
+                Assert.AreEqual(slot0.Count, dst.ActiveOrders[0].Count);
+                Assert.AreEqual(slot2.Type, dst.ActiveOrders[2].Type, "有效槽2续存");
+                Assert.AreEqual(slot2.Level, dst.ActiveOrders[2].Level);
+                Assert.AreEqual(slot2.Count, dst.ActiveOrders[2].Count);
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
         }
 
     }

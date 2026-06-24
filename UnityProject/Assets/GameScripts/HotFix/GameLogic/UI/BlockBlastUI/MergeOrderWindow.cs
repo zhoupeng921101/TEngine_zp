@@ -71,6 +71,13 @@ namespace GameLogic
         /// <summary>消除道具「等待玩家指定棋盘格」模式（点过按钮、未点格前为 true）。</summary>
         private bool _clearToolArming;
 
+        /// <summary>
+        /// 消除道具提示条自动隐藏倒计时（秒，&gt;0 时由 OnUpdate 递减到 0 后隐藏）。
+        /// 只用于「体力不足」这类短提示（toast）；arming 指令提示需常驻直到玩家操作，不设倒计时。
+        /// </summary>
+        private float _clearHintHideTimer;
+        private const float ClearHintAutoHideSeconds = 2.5f;
+
         private int _draggingShapeId = -1;
         /// <summary>当前拖拽块的方块色（消除预览按此着色，使可消除行列与拖拽块同色，设计 50 §二 一致性）。</summary>
         private BlockColor _draggingColor;
@@ -180,17 +187,34 @@ namespace GameLogic
         protected override void OnUpdate()
         {
             if (_merge == null || _state == null || !_state.MergeOrderMode) return;
+
+            // 消除道具提示条自动隐藏（仅 autoHide 提示设了倒计时；arming 指令提示 _clearHintHideTimer 恒为 0，不在此隐藏）。
+            if (_clearHintHideTimer > 0f)
+            {
+                _clearHintHideTimer -= Time.deltaTime;
+                if (_clearHintHideTimer <= 0f) HideClearToolHint();
+            }
+
             _energyTickAccum += Time.deltaTime;
             if (_energyTickAccum < EnergyTickInterval) return;
             _energyTickAccum = 0f;
 
+            long now = MergeMetaPersistence.NowUnixSec();
+
             int before = _merge.Energy;
-            _merge.ApplyTimeRegen(MergeMetaPersistence.NowUnixSec());
+            _merge.ApplyTimeRegen(now);
             if (_merge.Energy != before)
             {
                 RefreshEnergy();
                 RefreshClearTool(); // 体力变 → 消除道具 gate 态须刷新
                 MarkAndFlushSave(); // 体力 + lastEnergyRegenTime 进盘（设计 14 §3.7）
+            }
+
+            // 订单按时整批刷新：窗开期间也轮询，到点整批换新（含 lastOrderRefreshTime 进盘）。
+            if (_merge.ApplyOrderRefresh(now))
+            {
+                RefreshOrders();
+                MarkAndFlushSave();
             }
         }
 
@@ -213,8 +237,9 @@ namespace GameLogic
 
             // 消除道具按钮（左下角，设计 49 §3.1）：图标 gate 染色由 RefreshClearTool 运行时按体力门控写入 m_btn_ClearTool.image。
             // 关掉 Button 自带 ColorTint 过渡：prefab 上该按钮 Transition=ColorTint 且 TargetGraphic=图标自身，
-            // interactable 切换时的 ColorTint 会覆盖 RefreshClearTool 写入的 gate 染色（置灰/arming 高亮失效）。
-            // 设为 None 让手动染色成为唯一权威；interactable 仍负责拦截点击。
+            // ColorTint 会覆盖 RefreshClearTool 写入的 gate 染色（置灰/arming 高亮失效）。
+            // 设为 None 让手动染色成为唯一权威。按钮始终保持 interactable=true（体力门控只染色不拦点击，见 RefreshClearTool），
+            // 体力不足时点击仍落到 OnClick_ClearToolBtn 给出文字提示。
             if (m_btn_ClearTool != null) m_btn_ClearTool.transition = Selectable.Transition.None;
 
             // 消除道具提示条：绑定隐藏节点（prefab 已初始隐藏）。
@@ -449,13 +474,18 @@ namespace GameLogic
 
         // ── 消除道具（设计 49 §3.1）：主动清一行一列、代价体力、只受体力门控 ──
 
-        /// <summary>消除道具按钮态：体力 ≥ ClearToolCost 可用、&lt; 置灰；arming 时高亮。</summary>
+        /// <summary>
+        /// 消除道具按钮态：按钮始终可点击，体力门控只表现为图标染色（可用=白本色，体力不足=暗灰），arming 时高亮（亮橙）。
+        /// 体力不足时按钮显灰但仍可点，点击落到 OnClick_ClearToolBtn 给出「体力不足」文字提示——不再用 interactable 拦点击
+        /// （拦掉则点击事件不分发，玩家点灰按钮无任何反馈）。
+        /// </summary>
         private void RefreshClearTool()
         {
             if (m_btn_ClearTool == null) return;
             bool can = _merge.CanUseClearTool;
-            m_btn_ClearTool.interactable = can;
-            // 图标染色门控：arming 高亮（亮橙）/ 可用（白本色）/ 置灰（暗灰）。
+            // 按钮始终可点击：体力门控由 OnClick_ClearToolBtn 内部判定（够则进 arming，不够则弹提示），不再 gate interactable。
+            m_btn_ClearTool.interactable = true;
+            // 图标染色门控：arming 高亮（亮橙）/ 可用（白本色）/ 体力不足显灰（暗灰，仅视觉提示「当前不可用」）。
             m_btn_ClearTool.image.color = _clearToolArming
                 ? new Color32(0xff, 0xcc, 0x88, 0xFF)
                 : (can ? Color.white : new Color32(0x66, 0x66, 0x66, 0xFF));
@@ -463,15 +493,16 @@ namespace GameLogic
 
         /// <summary>
         /// 点消除道具按钮：体力够则进「指定格」模式（亮按钮 + 提示 + 启用 overlay 等玩家点棋盘格）；
-        /// 体力不足则提示「等体力恢复」不进 arming（设计 49 §3.1 置灰 gate）。再点一次按钮取消 arming（开关式）。
+        /// 体力不足则弹「体力不足，等恢复」短提示（数秒后自动消失）不进 arming。再点一次按钮取消 arming（开关式）。
+        /// 按钮无论体力是否充足都可点击（体力不足时显灰但仍触发本回调），故这里是体力门控的唯一判定点。
         /// </summary>
         private partial void OnClick_ClearToolBtn()
         {
             if (_clearToolArming) { CancelClearToolArming(); return; } // 开关：再点取消
             if (!_merge.CanUseClearTool)
             {
-                // 体力不足：提示等恢复，不进 arming（按钮本已置灰，此处再判一次）。
-                ShowClearToolHint("体力不足，等恢复");
+                // 体力不足：弹短提示（自动消失），不进 arming。
+                ShowClearToolHint("体力不足，等恢复", autoHide: true);
                 return;
             }
             _clearToolArming = true;
@@ -491,8 +522,8 @@ namespace GameLogic
             // 越界点击(点到棋盘外)：取消 arming，不扣体力(玩家可重新点按钮)。
             if (col < 0 || col >= N || row < 0 || row >= N) { CancelClearToolArming(); return; }
 
-            // 二次 gate(防 arming 期间体力被其它路径耗低)：不够则取消、提示。
-            if (!_merge.CanUseClearTool) { CancelClearToolArming(); ShowClearToolHint("体力不足，等恢复"); return; }
+            // 二次 gate(防 arming 期间体力被其它路径耗低)：不够则取消、弹短提示（自动消失）。
+            if (!_merge.CanUseClearTool) { CancelClearToolArming(); ShowClearToolHint("体力不足，等恢复", autoHide: true); return; }
 
             _merge.SpendClearToolCost();                  // 扣体力（已确认 CanUseClearTool）
             _state.ClearToolRowCol(_board, row, col);     // 清一行一列（同步 SaveArr / ElementArr / BinaryBoard）
@@ -522,16 +553,22 @@ namespace GameLogic
             RefreshClearTool();
         }
 
-        private void ShowClearToolHint(string msg)
+        /// <summary>
+        /// 显示消除道具提示条。autoHide=true 时设倒计时，OnUpdate 数秒后自动隐藏（用于「体力不足」短提示）；
+        /// autoHide=false（默认）则常驻直到玩家操作触发 HideClearToolHint（用于 arming 指令提示「点棋盘任一格…」）。
+        /// </summary>
+        private void ShowClearToolHint(string msg, bool autoHide = false)
         {
             if (m_img_ClearHintBg == null) return;
             m_text_ClearHint.text = msg;
             m_img_ClearHintBg.gameObject.SetActive(true);
             m_text_ClearHint.gameObject.SetActive(true);
+            _clearHintHideTimer = autoHide ? ClearHintAutoHideSeconds : 0f;
         }
 
         private void HideClearToolHint()
         {
+            _clearHintHideTimer = 0f;
             if (m_img_ClearHintBg == null) return;
             m_img_ClearHintBg.gameObject.SetActive(false);
             m_text_ClearHint.gameObject.SetActive(false);
@@ -550,6 +587,8 @@ namespace GameLogic
         {
             CancelClearToolArming(); // 交付打断指定格模式
             if (!_merge.Deliver(slot)) return;
+            // 交付后该槽置空（不补单）；若三槽全部交付完，立即整批补一批新订单并重置到时倒计时。
+            _merge.TryRefreshIfAllDelivered(MergeMetaPersistence.NowUnixSec());
             RefreshEnergy();
             RefreshOrders();
             // ③ 交付庆祝：在订单卡位置放金色爆破 + 对常驻卡实例做 scale-punch
@@ -571,7 +610,7 @@ namespace GameLogic
             RefreshClearTool(); // 体力随交付变化，按钮 gate 态须刷新
 
             MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：交付改元层(含体力) → 标脏 + 落盘
-            // 无尽模型（设计 49）：订单交付后照常刷新下一单（Deliver 内已 NextOrder），无通关终点、不触发任何结算面板。
+            // 无尽模型（设计 49）：交付后该槽置空、不补单；全部交付完则上面 TryRefreshIfAllDelivered 整批补回。无通关终点、不触发任何结算面板。
         }
 
         /// <summary>

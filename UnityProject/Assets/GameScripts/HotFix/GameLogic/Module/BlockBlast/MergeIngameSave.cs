@@ -28,6 +28,7 @@ namespace GameLogic.BlockBlast
 
         // ── 合成区 / 订单 / 连消（住在 MergeOrderState）─────────────
         public int orderCursor;       // 循环订单池游标
+        public long lastOrderRefreshTime; // 上次订单整批刷新时刻（Unix 秒；0 = 尚无记录，旧档缺此字段 JsonUtility 给缺省 0）
         public int completedOrders;   // 已完成单数
         public int totalScore;        // 累计交付得分
         public int comboChain;        // 连消链长（≥1）

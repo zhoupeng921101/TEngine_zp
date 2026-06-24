@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
+using TEngine;
 
 namespace GameLogic.Config
 {
@@ -19,6 +20,7 @@ namespace GameLogic.Config
         public const int OrderRefreshSeconds = 2; // 订单刷新时间(秒)
         public const int EnergyRecoverSeconds = 3;// 体力恢复时间(每点间隔秒)
         public const int EnergyRecoverCap = 4;    // 体力恢复上限
+        public const int ClearToolEnergyCost = 5; // 消除道具(清行列)消耗体力
 
         private static Dictionary<int, string> _cache; // 懒加载缓存：id → value(原始字符串)
 
@@ -26,14 +28,29 @@ namespace GameLogic.Config
         /// 运行期建缓存：经 <c>ConfigSystem</c>（YooAsset，需 Unity 运行时）。首次访问时灌入。
         /// 已灌（含 InitForTest 注入）则直接返回。
         /// </summary>
+        /// <remarks>
+        /// ConfigSystem 不可用（EditMode 单测无 ResourceModule / 资源未就绪）时灌空缓存而非抛：
+        /// 取值方一律走调用方给的默认值（缺键即默认），使 MergeOrderConfig 等符号化引用在纯逻辑单测里不崩。
+        /// 需要确定性表值的单测改用 <see cref="InitForTest"/> 显式注入（绕开本路径）。
+        /// </remarks>
         public static void EnsureLoaded()
         {
             if (_cache != null) return;
-            var table = ConfigSystem.Instance.Tables.TbGlobal;
-            _cache = new Dictionary<int, string>(table.DataList.Count);
-            foreach (var row in table.DataList)
+            try
             {
-                _cache[row.Id] = row.Value;
+                var table = ConfigSystem.Instance.Tables.TbGlobal;
+                _cache = new Dictionary<int, string>(table.DataList.Count);
+                foreach (var row in table.DataList)
+                {
+                    _cache[row.Id] = row.Value;
+                }
+            }
+            catch (System.Exception e)
+            {
+                // 配置不可用：灌空缓存，取值方回退默认（不抛，不崩单测/早期调用）。
+                // EditMode 单测/早期调用无 ConfigSystem 时也会进此分支（属预期回退），故记 Warning 仅供生产期排查，不上抛。
+                Log.Warning($"[GlobalConfigMgr] global 配置表加载失败，已回退默认值。{e}");
+                _cache = new Dictionary<int, string>();
             }
         }
 
@@ -78,6 +95,7 @@ namespace GameLogic.Config
         public static int OrderRefreshSecondsValue => GetInt(OrderRefreshSeconds, 300);
         public static int EnergyRecoverSecondsValue => GetInt(EnergyRecoverSeconds, 360);
         public static int EnergyRecoverCapValue => GetInt(EnergyRecoverCap, 30);
+        public static int ClearToolEnergyCostValue => GetInt(ClearToolEnergyCost, 5);
 
         /// <summary>
         /// 测试注入口：绕开 ConfigSystem，直接灌 id→value 映射（EditMode / 纯 C# 单测用）。

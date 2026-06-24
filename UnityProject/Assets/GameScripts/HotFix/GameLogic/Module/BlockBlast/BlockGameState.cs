@@ -436,6 +436,14 @@ namespace GameLogic.BlockBlast
             {
                 if (board != null) board.ConvertFromArr(SaveArr);
             }
+
+            // 订单按时整批刷新(含离线):须在 ImportIngame 之后——订单与刷新记录时刻属局内层,先恢复再按真实时差判定。
+            // 有记录则按「上次刷新时刻 → now」判是否到点整批换新;无记录(Reset 后 LastOrderRefreshTime==0)则以 now 初始化、本次不刷。
+            long nowForOrders = MergeMetaPersistence.NowUnixSec();
+            MergeState.ApplyOrderRefresh(nowForOrders);
+            // 边界保险:存档恰好全空(交付完最后一单瞬间崩溃/退出)重进 → 立即整批补回,避免卡在空订单区干等到时刷新。
+            MergeState.TryRefreshIfAllDelivered(nowForOrders);
+
             RefillPieces(board); // 全空才补:恢复后手牌非空则 no-op;恢复后恰好全空(上次落子未补)则补满
         }
 
