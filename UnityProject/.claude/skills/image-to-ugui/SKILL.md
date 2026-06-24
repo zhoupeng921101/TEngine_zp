@@ -13,6 +13,7 @@ description: "截图/效果图 → Unity UGUI 视觉占位预制体。看图产�
 - 产物 = 纯视觉占位 prefab（节点树 + 文本/图片 + 布局），存 `Assets/AssetRaw/UI/Prefabs/`，当前场景留一个链接实例。
 - 文本 = legacy `Text` + 配置字体（默认方正 GBK，渲染中文）。
 - 图片 = `Image` 占位色块。
+- **自适应布局**：烘焙器据"子框相对父框"几何自动推断锚点（拉伸/居中/锚边），产物随屏幕尺寸自适应——贴边的留在边、居中的随中心、占满父框的随父框拉伸，根节点全屏拉伸。设计分辨率下版面与硬摆一致，换尺寸时各就各位。可在节点填 `anchor` 字段显式覆盖。**前提是正确的容器化嵌套**（详见 [json-schema.md](../html-to-ugui/references/json-schema.md) 「自适应锚点」节）。
 - 不做：真实素材切图导入、控件生成、UIBindComponent、`_Gen.g.cs`、impl 骨架——这些是后续步骤（见末尾）。
 
 后端实现：`Assets/Editor/ImageToUgui/ImageToUguiBuilder.cs`，复用 `Assets/Editor/UguiBaker/` 的 `UguiBaker.Bake`。
@@ -36,6 +37,7 @@ description: "截图/效果图 → Unity UGUI 视觉占位预制体。看图产�
 - 有可见文字的节点填 `text`（建成文本）；纯色块/图标位不填 `text`、填 `color` 占位色（建成图片）。
 - 图标/插画先用纯色或半透明色块占位。
 - **文本节点只画文字，其 `color` 不作背景**：要做"按钮"这类带底色 + 文字的占位，用父图片节点（填 `color` 底色）+ 子文本节点（填 `text` 文字），别把 `text` 和 `color` 放同一节点（`color` 会被静默忽略）。
+- **容器化嵌套是自适应的前提**：按"容器装其内容"组织层级——面板/卡片/行作父节点，其内部元素作 `children`（行里的头像/名字/分数胶囊挂行下，胶囊里的图标/数字挂胶囊下，屏幕级按钮挂屏幕级容器或根下）。坐标仍写相对根的绝对坐标，容器化只改父子关系、不改坐标值。**层级拍平（全平铺到根下）会让每个元素相对整屏定位，换尺寸时自适应退化。**
 
 > 不在 JSON 阶段加控件命名前缀（`m_btn_` 等）：本管线不建控件、也不生成绑定。
 > 真按钮/滑条等在烤完后由人在 Unity 里手动转；要生成 TEngine 绑定时，命名前缀由人在转控件那步按 `.claude/skills/tengine-dev/references/naming-rules.md` 后置添加。

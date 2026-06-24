@@ -28,7 +28,7 @@ namespace UIAtlasPackerTool
     /// </summary>
     public static class BorderOverrideGenerator
     {
-        private const string MenuPath = "Tools/UI/生成 9-slice border 覆盖(Auto9Slicer -> _border_override.json)";
+        private const string MenuPath = "UITools/生成 9-slice border 覆盖(Auto9Slicer -> _border_override.json)";
 
         /// <summary>单张子图的 border 探测项。</summary>
         public class BorderEntry

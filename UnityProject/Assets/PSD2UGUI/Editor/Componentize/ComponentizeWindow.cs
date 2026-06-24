@@ -13,10 +13,10 @@ namespace PSDUIImporter
     /// </summary>
     public class ComponentizeWindow : EditorWindow
     {
-        [MenuItem("Tools/PSD2UGUI/组件化")]
+        [MenuItem("UITools/添加组件")]
         public static void Open()
         {
-            GetWindow<ComponentizeWindow>("PSD2UGUI 组件化").minSize = new Vector2(280, 300);
+            GetWindow<ComponentizeWindow>("设置组件").minSize = new Vector2(280, 300);
         }
 
         private Vector2 scroll;

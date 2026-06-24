@@ -94,7 +94,7 @@ namespace Xxhq.Htmltougui.Editor
         private const string PREFS_IS_TEXT_OVERFLOW_KEY = "HtmlToUguiConverter_IsTextOverflow";
         private const string PREFS_TOOL_TOOLBAR_INDEX_KEY = "HtmlToUguiConverter_ToolToolbarIndex";
 
-        [MenuItem("Tools/HTML to UGUI Converter")]
+        [MenuItem("UITools/HTML to UGUI", false, 2)]
         public static void ShowWindow() 
         {
             HtmlToUguiConverter window = GetWindow<HtmlToUguiConverter>("HTML 转 UGUI");

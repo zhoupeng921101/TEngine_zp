@@ -7,7 +7,7 @@
 
     public class AtlasConfigWindow : EditorWindow
     {
-        [MenuItem("Tools/图集工具/配置面板")]
+        [MenuItem("UITools/图集工具-配置面板")]
         public static void ShowWindow()
         {
             var window = GetWindow<AtlasConfigWindow>();

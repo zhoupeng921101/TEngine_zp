@@ -28,7 +28,7 @@ namespace UIAtlasPackerTool
         private const int Padding = 2;
         private const int MaxAtlasSize = 2048;
 
-        private const string MenuPath = "Tools/UI/打表(散切图 -> Multiple 精灵表)";
+        private const string MenuPath = "UITools/打表(散切图 -> Multiple 精灵表)";
 
         /// <summary>
         /// 打表结果。Success=false 时 ErrorMessage 给中止原因、未产出任何文件。

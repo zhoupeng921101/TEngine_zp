@@ -18,6 +18,14 @@ namespace EditorTools.Ugui
         public int width;
         public int height;
 
+        /// <summary>
+        /// 可选：显式指定锚点预设，非空时跳过几何推断。为空(默认)则由烘焙器据子框相对父框的几何自动推断。
+        /// 预设值：top-left/top/top-right/left/center/right/bottom-left/bottom/bottom-right/
+        /// stretch/stretch-x/stretch-y/top-stretch/bottom-stretch/left-stretch/right-stretch。
+        /// 非法值回退到自动推断。
+        /// </summary>
+        public string anchor = "";
+
         /// <summary>图片占位色(十六进制，可带 alpha)。文本节点可不填。</summary>
         public string color = "#FFFFFF00";
 

@@ -94,7 +94,7 @@
             }
         }
 
-        [MenuItem("Tools/图集工具/立即重新生成变动的图集数据")]
+        [MenuItem("UITools/图集工具-立即重新生成变动的图集数据")]
         public static void ForceGenerateAll()
         {
             _isBuildChange = true;

@@ -14,10 +14,10 @@ namespace Xxhq.Htmltougui.Editor
     /// </summary>
     public partial class ProjectPanelRightClickExtension
     {
-        const string SpriteAtlas2TmpSpriteMenuPath = "Assets/Html To UGUI/2D/SpriteAtlas -> TMP_SpriteAsset";
-        const string SpriteAtlas2SpriteSheetMenuPath = "Assets/Html To UGUI/2D/SpriteAtlas -> Sprite(Multiple)";
-        const string SpriteAtlas2SpriteGirdSheetMenuPath = "Assets/Html To UGUI/2D/SpriteAtlas -> TextureSheet";
-        const string ExportSpriteMultiplePath = "Assets/Html To UGUI/2D/Sprite(Multiple) -> Sprites";
+        const string SpriteAtlas2TmpSpriteMenuPath = "UITools/2D/SpriteAtlas -> TMP_SpriteAsset";
+        const string SpriteAtlas2SpriteSheetMenuPath = "UITools/2D/SpriteAtlas -> Sprite(Multiple)";
+        const string SpriteAtlas2SpriteGirdSheetMenuPath = "UITools/2D/SpriteAtlas -> TextureSheet";
+        const string ExportSpriteMultiplePath = "UITools/2D/Sprite(Multiple) -> Sprites";
         const int priority = 100;
 
         //确保 SpriteAtlas功能已启用，Editor/ProjectSettings/SpriteAtlas Mode-> Enable

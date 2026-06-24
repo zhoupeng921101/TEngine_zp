@@ -18,7 +18,7 @@ namespace EditorTools.Ugui
         [SerializeField] string _filePath = "";
         Vector2 _scroll;
 
-        [MenuItem("Tools/UI Architecture/UGUI Baker (JSON)")]
+        [MenuItem("UITools/UGUI Baker (JSON)")]
         static void Open()
         {
             var w = GetWindow<UguiBakerWindow>("UGUI Baker");

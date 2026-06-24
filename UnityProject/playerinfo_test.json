@@ -1,0 +1,79 @@
+{
+  "name": "玩家信息背景",
+  "x": 0, "y": 0, "width": 1080, "height": 1920, "color": "#FFFFFF00",
+  "children": [
+    { "name": "木纹边框", "x": 85, "y": 300, "width": 910, "height": 1400, "color": "#C8895A",
+      "children": [
+        { "name": "左叶子", "x": 160, "y": 255, "width": 120, "height": 85, "color": "#8FC15A" },
+        { "name": "右叶子", "x": 690, "y": 240, "width": 125, "height": 90, "color": "#8FC15A" },
+        { "name": "标题木牌", "x": 300, "y": 205, "width": 480, "height": 200, "color": "#B5793F",
+          "children": [
+            { "name": "标题文字", "x": 380, "y": 265, "width": 320, "height": 80, "text": "玩家信息", "fontColor": "#FFFFFF", "fontSize": 60, "textAlign": "center" }
+          ]
+        },
+        { "name": "关闭按钮", "x": 895, "y": 270, "width": 105, "height": 105, "color": "#E8A23D",
+          "children": [
+            { "name": "关闭X", "x": 920, "y": 285, "width": 55, "height": 70, "text": "✕", "fontColor": "#FFFFFF", "fontSize": 54, "textAlign": "center" }
+          ]
+        },
+        { "name": "信息卡", "x": 195, "y": 455, "width": 690, "height": 375, "color": "#FBF1D8",
+          "children": [
+            { "name": "头像位", "x": 230, "y": 490, "width": 175, "height": 175, "color": "#9AA0A6" },
+            { "name": "名字框", "x": 440, "y": 495, "width": 300, "height": 90, "color": "#FAEFD5",
+              "children": [
+                { "name": "名字文字", "x": 465, "y": 515, "width": 250, "height": 50, "text": "玩家123", "fontColor": "#5A6472", "fontSize": 40, "textAlign": "left" }
+              ]
+            },
+            { "name": "编辑按钮", "x": 760, "y": 495, "width": 100, "height": 90, "color": "#8BC34A" },
+            { "name": "ID框", "x": 440, "y": 600, "width": 300, "height": 90, "color": "#FAEFD5",
+              "children": [
+                { "name": "ID文字", "x": 465, "y": 620, "width": 260, "height": 50, "text": "ID:CBC_2TKMABA", "fontColor": "#8A7A5A", "fontSize": 34, "textAlign": "left" }
+              ]
+            },
+            { "name": "复制按钮", "x": 760, "y": 600, "width": 100, "height": 90, "color": "#8BC34A" },
+            { "name": "星星图标", "x": 225, "y": 705, "width": 75, "height": 75, "color": "#F2C84B" },
+            { "name": "经验条", "x": 305, "y": 718, "width": 320, "height": 48, "color": "#8FC15A" },
+            { "name": "经验文字", "x": 475, "y": 715, "width": 160, "height": 52, "text": "25/120", "fontColor": "#FFFFFF", "fontSize": 36, "textAlign": "center" },
+            { "name": "宝箱图标", "x": 755, "y": 695, "width": 95, "height": 95, "color": "#C99A4A",
+              "children": [
+                { "name": "红点提示", "x": 820, "y": 690, "width": 32, "height": 32, "color": "#E74C3C" }
+              ]
+            }
+          ]
+        },
+        { "name": "头像Tab", "x": 195, "y": 850, "width": 340, "height": 90, "color": "#F5A623",
+          "children": [
+            { "name": "头像Tab文字", "x": 300, "y": 875, "width": 130, "height": 50, "text": "头像", "fontColor": "#FFFFFF", "fontSize": 40, "textAlign": "center" }
+          ]
+        },
+        { "name": "头像框Tab", "x": 545, "y": 858, "width": 335, "height": 80, "color": "#D8B98A",
+          "children": [
+            { "name": "头像框Tab文字", "x": 635, "y": 878, "width": 160, "height": 50, "text": "头像框", "fontColor": "#FFFFFF", "fontSize": 38, "textAlign": "center" }
+          ]
+        },
+        { "name": "头像网格面板", "x": 185, "y": 940, "width": 710, "height": 545, "color": "#FAD98E",
+          "children": [
+            { "name": "头像1", "x": 250, "y": 990, "width": 165, "height": 165, "color": "#9AA0A6",
+              "children": [
+                { "name": "选中勾", "x": 255, "y": 968, "width": 55, "height": 55, "color": "#7CB342" }
+              ]
+            },
+            { "name": "头像2", "x": 480, "y": 990, "width": 165, "height": 165, "color": "#9AA0A6" },
+            { "name": "头像3", "x": 705, "y": 990, "width": 165, "height": 165, "color": "#9AA0A6" },
+            { "name": "头像4", "x": 250, "y": 1180, "width": 165, "height": 165, "color": "#9AA0A6" },
+            { "name": "头像5", "x": 480, "y": 1180, "width": 165, "height": 165, "color": "#9AA0A6" },
+            { "name": "头像6", "x": 705, "y": 1180, "width": 165, "height": 165, "color": "#9AA0A6" },
+            { "name": "头像7", "x": 250, "y": 1370, "width": 165, "height": 115, "color": "#9AA0A6" },
+            { "name": "头像8", "x": 480, "y": 1370, "width": 165, "height": 115, "color": "#9AA0A6" },
+            { "name": "头像9", "x": 705, "y": 1370, "width": 165, "height": 115, "color": "#9AA0A6" }
+          ]
+        },
+        { "name": "保存按钮", "x": 385, "y": 1520, "width": 310, "height": 115, "color": "#8BC34A",
+          "children": [
+            { "name": "保存文字", "x": 440, "y": 1545, "width": 200, "height": 60, "text": "保存", "fontColor": "#FFFFFF", "fontSize": 46, "textAlign": "center" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -6,13 +6,13 @@ namespace Xxhq.Htmltougui.Editor
 {
     public partial class HierarchyPanelRightClickExtension
     {
-        const string ApplySmartLayoutMenuPath = "GameObject/Html To UGUI/Ó¦ÓÃUIÖÇÄÜ²¼¾Ö";
-        const string ApplyCenterLayoutMenuPath="GameObject/Html To UGUI/Ó¦ÓÃUI¾ÓÖÐ²¼¾Ö";
-        const string ApplyStretchLayoutMenuPath="GameObject/Html To UGUI/Ó¦ÓÃUIÈ«À­Éì²¼¾Ö";
+        const string ApplySmartLayoutMenuPath = "UITools/å¸ƒå±€-æ™ºèƒ½";
+        const string ApplyCenterLayoutMenuPath="UITools/å¸ƒå±€-å±…ä¸­";
+        const string ApplyStretchLayoutMenuPath="UITools/å¸ƒå±€-å…¨å±€";
         const int priority = 10;
 
         /// <summary>
-        /// Ó¦ÓÃÖÇÄÜ²¼¾Öµ½Ñ¡ÖÐµÄUIÔªËØ¡£
+        /// Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½Ü²ï¿½ï¿½Öµï¿½Ñ¡ï¿½Ðµï¿½UIÔªï¿½Ø¡ï¿½
         /// </summary>
         [MenuItem(ApplySmartLayoutMenuPath, priority = priority)]
         static void ApplySmartLayoutMenu()
@@ -29,7 +29,7 @@ namespace Xxhq.Htmltougui.Editor
         }
 
         /// <summary>
-        /// Ó¦ÓÃ¾ÓÖÐ²¼¾Öµ½Ñ¡ÖÐµÄUIÔªËØ¡£
+        /// Ó¦ï¿½Ã¾ï¿½ï¿½Ð²ï¿½ï¿½Öµï¿½Ñ¡ï¿½Ðµï¿½UIÔªï¿½Ø¡ï¿½
         /// </summary>
 
         [MenuItem(ApplyCenterLayoutMenuPath, priority = priority + 1)]
@@ -47,7 +47,7 @@ namespace Xxhq.Htmltougui.Editor
         }
 
         /// <summary>
-        /// Ó¦ÓÃÈ«À­Éì²¼¾Öµ½Ñ¡ÖÐµÄUIÔªËØ¡£
+        /// Ó¦ï¿½ï¿½È«ï¿½ï¿½ï¿½ì²¼ï¿½Öµï¿½Ñ¡ï¿½Ðµï¿½UIÔªï¿½Ø¡ï¿½
         /// </summary>
         [MenuItem(ApplyStretchLayoutMenuPath, priority = priority + 2)]
         static void ApplyStretchLayoutMenu()
@@ -145,21 +145,21 @@ namespace Xxhq.Htmltougui.Editor
 
          static Vector2 GetTopLeftRelativeToParent(RectTransform rect)
         {
-            // »ñÈ¡ËÄ¸ö½ÇµÄ**ÊÀ½ç×ø±ê**£¨Ë³Ðò£º×óÏÂ¡¢×óÉÏ¡¢ÓÒÉÏ¡¢ÓÒÏÂ£©
+            // ï¿½ï¿½È¡ï¿½Ä¸ï¿½ï¿½Çµï¿½**ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½**ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½Â¡ï¿½ï¿½ï¿½ï¿½Ï¡ï¿½ï¿½ï¿½ï¿½Ï¡ï¿½ï¿½ï¿½ï¿½Â£ï¿½
             Vector3[] childCorners = new Vector3[4];
             Vector3[] parentCorners = new Vector3[4];
             rect.GetWorldCorners(childCorners);
             rect.parent.GetComponent<RectTransform>().GetWorldCorners(parentCorners);
 
-            // ×ÓÎïÌå×óÉÏ½Ç£¨ÊÀ½ç×ø±ê£©£ºx ×îÐ¡£¬y ×î´ó
-            float childLeft = childCorners[0].x;   // ×óÏÂ½Ç x
-            float childTop = childCorners[1].y;   // ×óÉÏ½Ç y
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï½Ç£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê£©ï¿½ï¿½x ï¿½ï¿½Ð¡ï¿½ï¿½y ï¿½ï¿½ï¿½
+            float childLeft = childCorners[0].x;   // ï¿½ï¿½ï¿½Â½ï¿½ x
+            float childTop = childCorners[1].y;   // ï¿½ï¿½ï¿½Ï½ï¿½ y
 
-            // ¸¸ÎïÌå×óÉÏ½Ç£¨ÊÀ½ç×ø±ê£©
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï½Ç£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ê£©
             float parentLeft = parentCorners[0].x;
             float parentTop = parentCorners[1].y;
 
-            // ×ª»»ÎªÏà¶ÔÓÚ¸¸×óÉÏ½ÇµÄÆ«ÒÆ£¨ÏòÏÂÎªÕý£©
+            // ×ªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½ï¿½Ï½Çµï¿½Æ«ï¿½Æ£ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
             float left = childLeft - parentLeft;
             float top = parentTop - childTop;
 
