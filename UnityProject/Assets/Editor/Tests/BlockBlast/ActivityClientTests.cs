@@ -309,17 +309,6 @@ namespace GameLogic.BlockBlast.Tests
         // ════════════ PV13 + PV14 + PV15 ⑧ 源码文本核:hook 落点 + 防重前置 + 不动玩法核心
         //              沿 26 settlement-window memory「整窗 hook 走读源文件 grep 关键行」范式 ════════════
 
-        [Test]
-        public void Source_GameWindow_TriggerGameOver_HasActivityHookAfterDedup()
-        {
-            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/GameWindow.cs");
-            int idxDedup = src.IndexOf("_gameOverTriggered = true;", StringComparison.Ordinal);
-            int idxHook  = src.IndexOf("Activity?.IncrementAndLogAsync(ActivityIds.AccumulatePlayCount, 1).Forget()", StringComparison.Ordinal);
-            Assert.Greater(idxDedup, 0, "GameWindow.TriggerGameOver 保留既有防重标记");
-            Assert.Greater(idxHook, 0, "GameWindow.TriggerGameOver 加入活动累加 hook");
-            Assert.Greater(idxHook, idxDedup, "hook 调用必须在防重标记之后(PV6 + PV15 ②)");
-        }
-
         // 无尽模型（设计 49）善后:MergeOrderWindow 删 TriggerWin / TriggerGameOver(无通关 / 无 GameOver),
         // 「累计游戏 N 局」活动原挂这两个终点 hook 上,无「局」后失效——本窗不再触发该活动(善后 follow-up 交 boss/plan 重定)。
         // 原 Source_MergeOrderWindow_TriggerGameOver / TriggerWin _HasActivityHookAfterDedup 翻转为「不再存在」断言。
@@ -343,21 +332,6 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void Source_GameWindow_PlaceAndResolve_Untouched_NoActivityHook()
-        {
-            // PV15 ⑧:本子单只在 TriggerGameOver 加 hook,不动其它玩法函数。
-            // 核 GameWindow.cs 中 hook 字面只出现一次(在 TriggerGameOver 内)。
-            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/GameWindow.cs");
-            int count = 0; int pos = 0;
-            while ((pos = src.IndexOf("Activity?.IncrementAndLogAsync(", pos, StringComparison.Ordinal)) >= 0)
-            {
-                count++;
-                pos += 1;
-            }
-            Assert.AreEqual(1, count, "GameWindow.cs 中 hook 字面只在 TriggerGameOver 内出现一次(PlaceAndResolve / 落子 / ghost / 拖拽零改)");
-        }
-
-        [Test]
         public void Source_MergeOrderWindow_NoActivityHookAtAll()
         {
             // 无尽模型善后:MergeOrderWindow 删 Win/GameOver 终点后,活动 hook 字面 0 次(原 2 次 = TriggerGameOver + TriggerWin)。
@@ -376,7 +350,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void Source_BusinessLayer_DoesNotImportFantasy()
         {
-            // RemoteActivityService / IActivityIncrementSource / GameWindow.cs / MergeOrderWindow.cs 不引 Fantasy.*
+            // RemoteActivityService / IActivityIncrementSource / MergeOrderWindow.cs 不引 Fantasy.*
             // (RemoteActivityIncrementSource 经 #if FANTASY_UNITY 引,沿 38 §五 IRpcGateway 范式)
             string[] businessFiles =
             {
@@ -385,7 +359,6 @@ namespace GameLogic.BlockBlast.Tests
                 "Assets/GameScripts/HotFix/GameLogic/Module/Activity/ActivityIncrementResult.cs",
                 "Assets/GameScripts/HotFix/GameLogic/Module/Activity/ActivityIncrementCode.cs",
                 "Assets/GameScripts/HotFix/GameLogic/Module/Activity/ActivityIds.cs",
-                "Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/GameWindow.cs",
                 "Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs",
             };
             foreach (var path in businessFiles)
