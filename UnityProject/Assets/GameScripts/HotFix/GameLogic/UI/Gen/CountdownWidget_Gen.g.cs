@@ -12,7 +12,7 @@ using TEngine;
 
 namespace GameLogic
 {
-	public partial class CountdownWidget : UIWindow
+	public partial class CountdownWidget : UIWidget
 	{
 		#region 脚本工具生成的代码
 
