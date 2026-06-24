@@ -436,7 +436,7 @@ namespace GameLogic
         {
             if (!_merge.OpenBlindBox(out var reward)) return;
 
-            BurstText.Spawn(m_rect_Content, BlockLayout.DesignWidth / 2f, 763, OpenResultLabel(reward), 69,
+            BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 763, OpenResultLabel(reward), 69,
                 new Color32(0xc8, 0x9a, 0xff, 0xFF));
 
             RefreshSynthesis(); // 图案进了合成区
@@ -557,11 +557,11 @@ namespace GameLogic
                 var card = slot < _orderCards.Length ? _orderCards[slot] : null;
                 if (card != null && card.rectTransform != null)
                 {
-                    // 卡世界坐标 → m_rect_Content 局部点 → 设计坐标（m_rect_Content 为 DesignWidth×DesignHeight 居中overlay，
-                    // 局部点即锚定位，与 BlockLayout.AnchoredToDesign 同坐标系）。金色爆破父层用 m_rect_Content（不随订单刷新销毁）。
-                    Vector2 local = m_rect_Content.InverseTransformPoint(card.rectTransform.position);
+                    // 卡世界坐标 → transform 局部点 → 设计坐标（transform 为 DesignWidth×DesignHeight 居中overlay，
+                    // 局部点即锚定位，与 BlockLayout.AnchoredToDesign 同坐标系）。金色爆破父层用 transform（不随订单刷新销毁）。
+                    Vector2 local = transform.InverseTransformPoint(card.rectTransform.position);
                     Vector2 design = BlockLayout.AnchoredToDesign(local);
-                    ClearBurstFx.Spawn(m_rect_Content, design.x, design.y, new Color32(0xff, 0xe4, 0x44, 0xff));
+                    ClearBurstFx.Spawn(transform, design.x, design.y, new Color32(0xff, 0xe4, 0x44, 0xff));
                     card.Punch();
                 }
             }
@@ -852,7 +852,7 @@ namespace GameLogic
                 string reason = !_merge.CanAffordPlace ? "体力不足，等恢复"
                               : !inBounds ? "超出棋盘"
                               : "这里放不下";
-                BurstText.Spawn(m_rect_Content, BlockLayout.DesignWidth / 2f, 950, reason, 63,
+                BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 950, reason, 63,
                     new Color32(0xff, 0x99, 0x66, 0xFF));
             }
 
@@ -936,18 +936,18 @@ namespace GameLogic
                     RenderSlots();
 
                 if (settle.AllClearRewarded)
-                    BurstText.Spawn(m_rect_Content, BlockLayout.DesignWidth / 2f, 677, "PERFECT!", 92, new Color32(0xff, 0xe4, 0x4a, 0xFF));
+                    BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 677, "PERFECT!", 92, new Color32(0xff, 0xe4, 0x4a, 0xFF));
                 else if (lines >= MergeOrderConfig.MultiClearMilestoneMinLines)
-                    BurstText.Spawn(m_rect_Content, BlockLayout.DesignWidth / 2f, 677, settle.MultiLabel, 81, new Color32(0x55, 0xdd, 0xaa, 0xFF));
+                    BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 677, settle.MultiLabel, 81, new Color32(0x55, 0xdd, 0xaa, 0xFF));
                 else if (settle.ComboChain >= 2)
                 {
                     int comboFs = Mathf.Min(81 + (settle.ComboChain - 2) * 8, 116);
-                    BurstText.Spawn(m_rect_Content, BlockLayout.DesignWidth / 2f, 677, $"COMBO x{settle.ComboChain}", comboFs, new Color32(0xff, 0x77, 0xbb, 0xFF));
+                    BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 677, $"COMBO x{settle.ComboChain}", comboFs, new Color32(0xff, 0x77, 0xbb, 0xFF));
                 }
 
                 // 获得盲盒（连消阈值 / 全清解锁）弹「+N ◈」（设计 12 §五）
                 if (settle.BlindBoxGained > 0)
-                    BurstText.Spawn(m_rect_Content, BlockLayout.DesignWidth / 2f, 850, $"+{settle.BlindBoxGained} ◈", 72,
+                    BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 850, $"+{settle.BlindBoxGained} ◈", 72,
                         new Color32(0xc8, 0x9a, 0xff, 0xFF));
             }
             else
@@ -1026,7 +1026,7 @@ namespace GameLogic
 
         // ── 收集飞行动画（纯表现层，fly-to-target）──────────────────────────────
         // 被消元素从棋盘格弹起、飞向合成区对应类型的图标落点，到达让目标 punch。不改任何经济/数值。
-        // 与 SpawnClearBurstFx 同坐标系口径：起点用棋盘格 BoardLayer 本地坐标；飞行父层统一用 m_rect_Content。
+        // 与 SpawnClearBurstFx 同坐标系口径：起点用棋盘格 BoardLayer 本地坐标；飞行父层统一用 transform。
 
         /// <summary>
         /// 在 HarvestClearedElements 清 ElementArr 之前，捕获被消行/列上每个已占元素格的「类型 + 棋盘格 BoardLayer 本地坐标」。
@@ -1064,12 +1064,12 @@ namespace GameLogic
         /// 为每个被消元素生成一个飞行图标：起点=棋盘格、终点=合成区该类型 token 的图标，错开起飞时间。
         /// 必须在 RefreshSynthesis 之后调用（token 池稳定）。落点按元素类型匹配（升级后等级变、类型不变），
         /// 同类型多等级 token 取第一个（RefreshSynthesis 已按类型→等级排序，即该类型最低等级）。
-        /// 两端世界坐标都转到 m_rect_Content 本地空间再插值，避免父层偏移错算（同交付庆祝爆破的坐标换算）。
+        /// 两端世界坐标都转到 transform 本地空间再插值，避免父层偏移错算（同交付庆祝爆破的坐标换算）。
         /// </summary>
         private void SpawnCollectFly(List<(MergeElement type, Vector2 boardLocal)> sources)
         {
             if (sources == null || sources.Count == 0) return;
-            if (m_rect_Content == null || m_rect_BoardLayer == null) return;
+            if (transform == null || m_rect_BoardLayer == null) return;
 
             // 落点取自合成区 token 的世界坐标，而 token 池由 RefreshSynthesis 同帧新建/重排、HorizontalLayoutGroup
             // 当帧尚未布局，新建 token（尤其全新类型首次出现）的 position 仍是默认值。先强制立即布局，确保落点准确。
@@ -1112,12 +1112,12 @@ namespace GameLogic
 
                 // 起点：BoardLayer 本地 → 世界 → Content 本地。
                 Vector3 startWorld = m_rect_BoardLayer.TransformPoint(boardLocal);
-                Vector2 startLocal = m_rect_Content.InverseTransformPoint(startWorld);
+                Vector2 startLocal = transform.InverseTransformPoint(startWorld);
                 // 终点：token 图标世界坐标 → Content 本地。
-                Vector2 endLocal = m_rect_Content.InverseTransformPoint(glyph.position);
+                Vector2 endLocal = transform.InverseTransformPoint(glyph.position);
 
                 var target = token;
-                FlyToTargetFx.Spawn(m_rect_Content, startLocal, endLocal,
+                FlyToTargetFx.Spawn(transform.GetComponent<RectTransform>(), startLocal, endLocal,
                     MergeElementVisual.SpriteName(type, 1), iconSize, idx * Stagger, // 飞行的是 Lv1 原料，取 Lv1 图
                     () =>
                     {
