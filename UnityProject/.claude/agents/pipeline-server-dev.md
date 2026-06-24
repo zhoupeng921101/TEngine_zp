@@ -31,7 +31,7 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 ## 输入(信息源 = 需求 + 设计 + 服务端工程)
 - spawn 简报(含 code-free 设计意图,self-contained)
 - 策划产出:`design-docs/` 对应文档(行为级验收,不含代码接缝)+ `pipeline/state/plan.md` 交接区的验收标准
-- `pipeline/state/server-dev.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-server-dev/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
+- `pipeline/state/server-dev.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-server-dev/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入;当前无沉淀条目)
 - 服务端工程本体(`D:\work\TEngine_block\Fantasy\examples\Server\APP\`)+ fantasy-net 正本
 
 > 设计稿给的是 code-free 设计意图:**server-dev 自行读服务端工程把意图映射到 ECS/Handler/协议接缝**。映射不出或接法不通(确是设计层错、非实现层可绕)才报 designFlaw 回 plan。
@@ -44,7 +44,7 @@ boss 对高风险/接法存疑任务,可在转 full dev 前以此模式 spawn �
 
 > 漏同步客户端生成物会导致前后端协议错位、联调报「假错」,这是全栈最高风险点,务必在交接区显式声明同步状态。
 
-> **协议导出工具的非显式坑点**(枚举语法 / Main 进程锁 / 跑服 framework / 重排 opcode):详见 [.claude/agent-memory/pipeline-server-dev/proto-exporter-quirks.md](D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-dev/proto-exporter-quirks.md)。两条最常踩:① **proto 枚举值用逗号(非分号)**,否则导出工具报 "Enum has no values";② **导出按 proto 文件名序重排 opcode**(非追加),无害——双端同次重生成、移动对称,opcode 是双端共识的运行期常量(非持久 wire 契约),核对 = `diff` 两端 OuterOpcode.cs 全量相同即可,不必逐条比对绝对值。
+> **协议导出工具的非显式坑点**(枚举语法 / Main 进程锁 / 跑服 framework / 重排 opcode)。两条最常踩:① **proto 枚举值用逗号(非分号)**,否则导出工具报 "Enum has no values";② **导出按 proto 文件名序重排 opcode**(非追加),无害——双端同次重生成、移动对称,opcode 是双端共识的运行期常量(非持久 wire 契约),核对 = `diff` 两端 OuterOpcode.cs 全量相同即可,不必逐条比对绝对值。
 
 ## MongoDB 原子写范式(涉及防重/限量/取最优时必读)
 

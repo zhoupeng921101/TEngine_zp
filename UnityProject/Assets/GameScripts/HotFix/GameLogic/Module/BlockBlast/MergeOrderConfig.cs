@@ -66,10 +66,11 @@ namespace GameLogic.BlockBlast
         // ── 时基恢复（无尽模型兜底，设计 49 §3.2）──────────────────
         // 无条件、纯时间驱动、含离线累计：每 RegenIntervalSec 真实秒回 RegenPerTick 点，封顶软上限不溢出。
         // 不依赖落子 / 消除 / 交付任何玩法动作（否则卡死时永不恢复，脱困死结，设计 49 §3.3 硬约束 3）。
-        /// <summary>时基恢复每 tick 回复量（每满间隔 +1 点）。</summary>
-        public const int RegenPerTick = 1;
-        /// <summary>时基恢复间隔秒数（每点间隔）。运行时读 global 表（id=3），缺键回退默认。</summary>
-        public static float RegenIntervalSec => GlobalConfigMgr.EnergyRecoverSecondsValue;
+        // 量与间隔均读 global 表（id=3 "点数#间隔秒"，经 GlobalConfigMgr 解析；旧 bare int 兼容为 量=1、间隔=该值，缺键回退默认）。
+        /// <summary>时基恢复每 tick 回复量（每满间隔回此点数）。运行时读 global 表（id=3 的点数段），缺键 / 旧格式回退 1。</summary>
+        public static int RegenPerTick => GlobalConfigMgr.EnergyRecoverAmount;
+        /// <summary>时基恢复间隔秒数（每满此秒数回一次）。运行时读 global 表（id=3 的间隔段），缺键回退默认。</summary>
+        public static float RegenIntervalSec => GlobalConfigMgr.EnergyRecoverIntervalSeconds;
 
         // ── 消除道具（无尽模型脱困兜底，设计 49 §3.1）──────────────
         // 主动清「一整行 + 一整列」让卡死棋盘重新可落；代价体力、无限可用、只 gate 体力（绝不做有限消耗品）。

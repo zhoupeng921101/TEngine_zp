@@ -850,8 +850,76 @@ namespace GameLogic.BlockBlast.Tests
             {
                 Assert.AreEqual(4, MergeOrderConfig.ActiveOrders, "订单数读 id=1");
                 Assert.AreEqual(123, MergeOrderConfig.OrderRefreshIntervalSec, "订单刷新间隔读 id=2");
-                Assert.AreEqual(77f, MergeOrderConfig.RegenIntervalSec, "体力恢复间隔读 id=3");
+                Assert.AreEqual(77f, MergeOrderConfig.RegenIntervalSec, "体力恢复间隔读 id=3（bare int 向后兼容作间隔）");
+                Assert.AreEqual(1, MergeOrderConfig.RegenPerTick, "体力恢复点数：bare int 旧格式回退 amount=1");
                 Assert.AreEqual(42, MergeOrderConfig.EnergyCap, "体力上限读 id=4");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // id=3 新格式 "amount#interval"：amount=点数、interval=间隔秒，分别驱动 RegenPerTick / RegenIntervalSec。
+        [Test]
+        public void GlobalConfig_EnergyRecover_AmountIntervalFormat_Parsed()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.EnergyRecoverSeconds, "2#15" },
+            });
+            try
+            {
+                Assert.AreEqual(2, MergeOrderConfig.RegenPerTick, "点数段读 amount=2");
+                Assert.AreEqual(15f, MergeOrderConfig.RegenIntervalSec, "间隔段读 interval=15");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 新格式 amount>1 时 ApplyTimeRegen 按 amount 通用恢复（非写死 1）：每满 interval 回 amount 点。
+        [Test]
+        public void GlobalConfig_EnergyRecover_AmountDrivesRegenPerTick()
+        {
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.EnergyRecoverSeconds, "3#10" }, // 每 10 秒回 3 点
+                { GlobalConfigMgr.EnergyRecoverCap, "30" },
+            });
+            try
+            {
+                const long t0 = 1_700_000_000L;
+                var m = new MergeOrderState();
+                m.Reset();
+                m.Energy = 5;
+                m.LastEnergyRegenTime = t0;
+                m.ApplyTimeRegen(t0 + 10 * 2L);          // 2 个间隔 → 回 2*3=6 点
+                Assert.AreEqual(11, m.Energy, "每 tick 回 amount=3 点，2 tick 回 6（5→11）");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+        }
+
+        // 局部非法（仅一半坏）：坏的那半各自回退默认，好的那半仍取合法值，不抛。
+        [Test]
+        public void GlobalConfig_EnergyRecover_PartialMalformed_PerHalfFallback()
+        {
+            // "a#10"：点数段非法 → amount 回退 1；间隔段合法 → 10。
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.EnergyRecoverSeconds, "a#10" },
+            });
+            try
+            {
+                Assert.AreEqual(1, MergeOrderConfig.RegenPerTick, "点数段非法回退 amount=1");
+                Assert.AreEqual(10f, MergeOrderConfig.RegenIntervalSec, "间隔段合法仍取 10");
+            }
+            finally { GlobalConfigMgr.ResetForTest(); }
+
+            // "2#"：间隔段缺失 → interval 回退默认 360；点数段合法 → 2。
+            GlobalConfigMgr.InitForTest(new Dictionary<int, string>
+            {
+                { GlobalConfigMgr.EnergyRecoverSeconds, "2#" },
+            });
+            try
+            {
+                Assert.AreEqual(2, MergeOrderConfig.RegenPerTick, "点数段合法仍取 2");
+                Assert.AreEqual(360f, MergeOrderConfig.RegenIntervalSec, "间隔段缺失回退默认 360");
             }
             finally { GlobalConfigMgr.ResetForTest(); }
         }

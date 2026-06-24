@@ -93,9 +93,53 @@ namespace GameLogic.Config
         // ── 便捷属性（带兜底默认值，与 global.xlsx 初始值一致）──
         public static int OrderCountValue => GetInt(OrderCount, 3);
         public static int OrderRefreshSecondsValue => GetInt(OrderRefreshSeconds, 300);
-        public static int EnergyRecoverSecondsValue => GetInt(EnergyRecoverSeconds, 360);
         public static int EnergyRecoverCapValue => GetInt(EnergyRecoverCap, 30);
         public static int ClearToolEnergyCostValue => GetInt(ClearToolEnergyCost, 5);
+
+        // ── 体力恢复（"点数#间隔秒"，id=3）──
+        // value 格式 "amount#interval"：每 interval 秒恢复 amount 点体力。
+        // 向后兼容：bare int（旧值 "360"）解析为 amount=1、interval=该值，老数据/单测不炸。
+        // 缺键 / 整段非法 → amount=1、interval=360（与 global.xlsx 旧初值一致）。
+        // 局部非法（如 "1#" / "#10" / "a#10"）：缺失或非法的那一半各自回退（amount→1，interval→360），另一半仍取合法部分。
+
+        /// <summary>体力恢复默认每次点数（解析失败 / 缺键回退）。</summary>
+        public const int EnergyRecoverAmountDefault = 1;
+        /// <summary>体力恢复默认间隔秒（解析失败 / 缺键回退，与旧 "360" 一致）。</summary>
+        public const int EnergyRecoverIntervalDefault = 360;
+
+        /// <summary>每次恢复体力点数（"amount#interval" 的 amount；bare int / 缺键 → 默认 1）。</summary>
+        public static int EnergyRecoverAmount => ParseEnergyRecover().amount;
+        /// <summary>体力恢复间隔秒（"amount#interval" 的 interval；bare int 取该值；缺键 → 默认 360）。</summary>
+        public static int EnergyRecoverIntervalSeconds => ParseEnergyRecover().interval;
+
+        /// <summary>
+        /// 解析体力恢复配置（id=3）为 (amount, interval)。
+        /// 接受三种形态：① "amount#interval"（新格式）；② bare int（旧格式，作 interval、amount=1）；③ 缺键 / 空。
+        /// 任一半解析失败独立回退到对应默认（amount→1，interval→360），不互相牵连、不抛。
+        /// </summary>
+        private static (int amount, int interval) ParseEnergyRecover()
+        {
+            string raw = GetString(EnergyRecoverSeconds, null);
+            if (string.IsNullOrEmpty(raw))
+                return (EnergyRecoverAmountDefault, EnergyRecoverIntervalDefault);
+
+            int sep = raw.IndexOf('#');
+            if (sep < 0)
+            {
+                // bare int（旧格式）：作间隔秒，amount=1。整段非法则全回退默认。
+                return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var iv)
+                    ? (EnergyRecoverAmountDefault, iv)
+                    : (EnergyRecoverAmountDefault, EnergyRecoverIntervalDefault);
+            }
+
+            string amountStr = raw.Substring(0, sep);
+            string intervalStr = raw.Substring(sep + 1);
+            int amount = int.TryParse(amountStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var a)
+                ? a : EnergyRecoverAmountDefault;
+            int interval = int.TryParse(intervalStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i)
+                ? i : EnergyRecoverIntervalDefault;
+            return (amount, interval);
+        }
 
         /// <summary>
         /// 测试注入口：绕开 ConfigSystem，直接灌 id→value 映射（EditMode / 纯 C# 单测用）。

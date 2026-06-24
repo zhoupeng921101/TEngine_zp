@@ -69,6 +69,12 @@ namespace GameLogic
         private readonly List<SynthTokenWidget> _synthTokens = new();
         private readonly Dictionary<(MergeElement type, int level), SynthTokenWidget> _synthByKey = new();
 
+        // 通用倒计时 widget（OnCreate 各建一个，宿主每秒喂剩余秒数 + 显隐；组件本身业务无关）：
+        // 体力倒计时挂体力栏下方锚点 m_rect_EnergyCountdownSlot——体力满（不再恢复）时隐藏；
+        // 订单倒计时挂订单区下方锚点 m_rect_OrderCountdownSlot——整批刷新单一时间戳，常显。
+        private CountdownWidget _energyCountdown;
+        private CountdownWidget _orderCountdown;
+
         /// <summary>
         /// 交付飞行进行中标志（设计第二批 §B）：点交付后 count 个元素飞向订单卡期间为 true，全部飞达的聚合回调末尾置 false。
         /// 飞行期间锁交互——忽略再次点交付、忽略落子、跳过订单按时轮询刷新——防飞行途中库存被并发改动使「飞达才扣库存」语义错乱。
@@ -164,6 +170,7 @@ namespace GameLogic
 
             BuildStaticUI();
             CreateOrderCards();
+            CreateCountdowns();
             InitGhostPool();
             InitGlowPool();
             RenderBoard();
@@ -174,6 +181,8 @@ namespace GameLogic
             RefreshBlindBox();
             RefreshPiety();
             RefreshClearTool();
+            // 初次绘制倒计时（OnUpdate 每秒轮询前先填一帧，避免首秒显示 prefab 占位文本）。
+            RefreshCountdowns(MergeMetaPersistence.NowUnixSec());
 
             // 跨会话存档兜底（设计 14 §3.4 ③）：移动端切后台 / 杀进程不经 OnDestroy，会丢末次元变更。
             // UIWindow 非 MonoBehaviour，OnApplicationPause / Quit 不在本类触发；订阅 TEngine 驱动器（UpdateDriver，MonoBehaviour）
@@ -229,6 +238,9 @@ namespace GameLogic
                 RefreshOrders();
                 MarkAndFlushSave();
             }
+
+            // 倒计时每秒刷新（在恢复 / 刷新轮询之后，用同一 now 与已推进的记录时刻，显示新周期剩余）。
+            RefreshCountdowns(now);
         }
 
         // 静态壳复用 prefab 绑定节点（_Gen.g.cs 的 m_*）：本方法只取引用、接事件、初始化隐藏态。
@@ -365,6 +377,90 @@ namespace GameLogic
                 card.OnDeliver = () => OnDeliverClicked(captured);
                 _orderCards[slot] = card;
             }
+        }
+
+        // ── 倒计时 widget 创建（OnCreate 一次性，各挂上游搭好的锚点）──
+        // 资源定位名 == 类名 "CountdownWidget"（AssetRaw/UI 走 AddressByFileName），CreateWidgetByType 可加载。
+        // 体力倒计时挂 m_rect_EnergyCountdownSlot（体力栏下），订单倒计时挂 m_rect_OrderCountdownSlot（订单区下）。
+        // 喂数 + 显隐由 OnUpdate 每秒轮询统一处理（复用既有 ApplyTimeRegen/ApplyOrderRefresh 的 now）。
+        private void CreateCountdowns()
+        {
+            if (m_rect_EnergyCountdownSlot != null)
+            {
+                _energyCountdown = CreateWidgetByType<CountdownWidget>(m_rect_EnergyCountdownSlot);
+                if (_energyCountdown == null)
+                    Log.Error("[MergeOrderWindow] CountdownWidget（体力）加载失败（资源定位名 CountdownWidget），体力倒计时未创建。");
+                else if (_energyCountdown.rectTransform != null)
+                    _energyCountdown.rectTransform.localScale = Vector3.one;
+            }
+            else
+            {
+                Log.Error("[MergeOrderWindow] m_rect_EnergyCountdownSlot 缺失，体力倒计时未创建，请检查 prefab 锚点绑定。");
+            }
+
+            if (m_rect_OrderCountdownSlot != null)
+            {
+                _orderCountdown = CreateWidgetByType<CountdownWidget>(m_rect_OrderCountdownSlot);
+                if (_orderCountdown == null)
+                    Log.Error("[MergeOrderWindow] CountdownWidget（订单）加载失败（资源定位名 CountdownWidget），订单倒计时未创建。");
+                else if (_orderCountdown.rectTransform != null)
+                    _orderCountdown.rectTransform.localScale = Vector3.one;
+            }
+            else
+            {
+                Log.Error("[MergeOrderWindow] m_rect_OrderCountdownSlot 缺失，订单倒计时未创建，请检查 prefab 锚点绑定。");
+            }
+        }
+
+        /// <summary>
+        /// 每秒刷新两个倒计时（OnUpdate 轮询调用，<paramref name="now"/> 取与 ApplyTimeRegen/ApplyOrderRefresh 一致的 Unix 秒）。
+        /// 体力倒计时 = max(0, interval - (now - LastEnergyRegenTime) % interval)；体力满（≥软上限，不再恢复）时隐藏。
+        /// 订单倒计时 = max(0, OrderRefreshIntervalSec - (now - LastOrderRefreshTime))；整批刷新单一时间戳，常显。
+        /// 记录时刻为 0（尚无记录 / 首次）或 now 早于记录时刻（玩家回拨时钟）时，剩余按整周期显示（不出现负数 / 错乱，与恢复/刷新「首次以 now 初始化、本次不补」一致）。
+        /// </summary>
+        private void RefreshCountdowns(long now)
+        {
+            // 体力倒计时：体力满时不再恢复 → 隐藏；未满则显本周期剩余秒。
+            if (_energyCountdown != null)
+            {
+                if (_merge.Energy >= MergeOrderConfig.EnergyCap)
+                {
+                    _energyCountdown.SetVisible(false);
+                }
+                else
+                {
+                    int interval = (int)MergeOrderConfig.RegenIntervalSec;
+                    int remain = CountdownRemain(now, _merge.LastEnergyRegenTime, interval, periodic: true);
+                    _energyCountdown.SetVisible(true);
+                    _energyCountdown.SetRemainingSeconds(remain);
+                }
+            }
+
+            // 订单倒计时：到点整批刷新，单一时间戳，常显。
+            if (_orderCountdown != null)
+            {
+                int interval = MergeOrderConfig.OrderRefreshIntervalSec;
+                int remain = CountdownRemain(now, _merge.LastOrderRefreshTime, interval, periodic: false);
+                _orderCountdown.SetVisible(true);
+                _orderCountdown.SetRemainingSeconds(remain);
+            }
+        }
+
+        /// <summary>
+        /// 计算到下一次结算的剩余秒（倒计时显示用，纯函数、不改状态）。
+        /// <paramref name="periodic"/>=true（体力）：剩余 = interval - 已过秒 % interval（每满间隔重置，循环恢复）。
+        /// <paramref name="periodic"/>=false（订单）：剩余 = interval - 已过秒（到点一次性整批刷新）。
+        /// 防御：interval ≤ 0（配置错）→ 返 0；lastTime ≤ 0（尚无记录 / 首次）或 now &lt; lastTime（时钟回拨）→ 显整周期 interval（不出负数）。
+        /// </summary>
+        private static int CountdownRemain(long now, long lastTime, int interval, bool periodic)
+        {
+            if (interval <= 0) return 0;
+            if (lastTime <= 0 || now < lastTime) return interval; // 尚无记录 / 回拨：显整周期，避免负数错乱
+            long elapsed = now - lastTime;
+            long remain = periodic ? interval - (elapsed % interval) : interval - elapsed;
+            if (remain < 0) remain = 0;       // 订单：已过点（轮询将刷新，此刻先显 0）
+            if (remain > interval) remain = interval;
+            return (int)remain;
         }
 
         // ── 订单卡刷新（常驻实例，只 SetData + 显隐 + 可交付优先重排，含交付按钮点亮/置灰） ──

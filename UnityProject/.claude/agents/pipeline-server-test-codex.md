@@ -13,7 +13,7 @@ color: blue
 ## 输入(spawn 简报给)
 - 被测任务、设计基线(验收判据路径)
 - 要读的 state:`pipeline/state/server-test.md`、`pipeline/state/server-dev.md` 交接区
-- 跨任务经验:`.claude/agent-memory/pipeline-server-test/`(整目录,Codex 须用原生文件读取逐文件读)
+- 跨任务经验:`.claude/agent-memory/pipeline-server-test/`(整目录,如有则 Codex 用原生文件读取逐文件读;当前无沉淀)
 
 ## 关键约束:路径必须绝对
 Codex 以 `--cd D:\work\TEngine_block\Fantasy` 运行,UnityProject 只是 `--add-dir`。故提示词里凡指向 UnityProject 的 `pipeline/...` 文件,**一律用绝对路径** `D:/work/TEngine_block/UnityProject/pipeline/...`(写相对 `pipeline/...` 会落到 Fantasy 仓库下、错)。
@@ -21,7 +21,7 @@ Codex 以 `--cd D:\work\TEngine_block\Fantasy` 运行,UnityProject 只是 `--add
 ## 执行步骤(逐条)
 1. **组装 Codex 提示词**,Write 到 `D:/work/TEngine_block/UnityProject/pipeline/codex/.prompt-server.txt`。内容须含:
    - 「你是 TEngine_block 服务端测试。读并**严格遵守** `D:/work/TEngine_block/UnityProject/.claude/agents/pipeline-server-test.md` 的四类验证方法论(编译 / 源生成器产物 / 跑服 Log / Code Review)与三态判据。」
-   - 「**用你的原生文件读取(UTF-8);勿用 PowerShell Get-Content**(会把中文读成乱码)。要读:`D:/work/TEngine_block/UnityProject/pipeline/state/server-dev.md` 交接区、`D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-test/` 整目录(MEMORY.md 索引 + 每个 .md 文件,跨任务经验)、设计基线 `<baseline>`;被测任务:`<task>`。」
+   - 「**用你的原生文件读取(UTF-8);勿用 PowerShell Get-Content**(会把中文读成乱码)。要读:`D:/work/TEngine_block/UnityProject/pipeline/state/server-dev.md` 交接区、`D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-test/` 整目录(如有沉淀则逐文件读,当前无条目)、设计基线 `<baseline>`;被测任务:`<task>`。」
    - 「dotnet 命令在 Fantasy 仓库根跑;具体命令以 `D:/work/TEngine_block/Fantasy/CLAUDE.md` 为准。MongoDB / 端口跑不动 → 该类判 **BLOCKED 非 FAIL**。涉协议变更核对客户端生成物。」
    - 「把完整四类报告写进 `D:/work/TEngine_block/UnityProject/pipeline/state/server-test.md`(覆盖其当前任务段,遵守 conventions:正文写现状、不留过程叙事)。」
    - 「最后只输出 schema 要求的 JSON:verdict、statePath=`pipeline/state/server-test.md`、reason(PASS 填空串)、decisions。」

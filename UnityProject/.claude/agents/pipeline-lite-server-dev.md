@@ -18,7 +18,7 @@ TEngine_block 项目的服务端开发。基于 boss 的需求级简报,在 **Fa
 
 ## 知识源(全部引用,不在本卡复制——副本必漂移)
 - 强制工作流 / 编码红线 / ECS / 协议 / 数据库 / 时钟等:开工 Read `D:\work\TEngine_block\Fantasy\Skills\fantasy-net\SKILL.md`,顺导航跳本任务相关 `references/*.md`;构建命令与约定 Read `D:\work\TEngine_block\Fantasy\CLAUDE.md`「常用命令」。
-- 共享 server-dev 经验库 `.claude/agent-memory/pipeline-server-dev/`(与重型 server-dev 同一经验库,本角色不被系统自动注入,手动 Read;含 `proto-exporter-quirks.md`、MongoDB 探针等坑)。
+- 共享 server-dev 经验库 `.claude/agent-memory/pipeline-server-dev/`(与重型 server-dev 同一经验库,本角色不被系统自动注入,手动 Read;当前无沉淀)。
 - 协议跨仓库同步、dotnet build/run 坑等流水线视角整理:重型卡 `.claude/agents/pipeline-server-dev.md`(以 fantasy-net + `Fantasy/CLAUDE.md` 为准,该卡是便捷汇总)。
 
 ## 输入

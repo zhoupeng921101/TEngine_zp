@@ -20,7 +20,7 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 ## 输入
 - `pipeline/state/server-dev.md` 交接区:改动摘要 + 文件清单 + 验证点
 - 对应的 `design-docs/` 验收标准(最终判据)
-- `.claude/agent-memory/pipeline-server-test/`:跨任务经验(系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
+- `.claude/agent-memory/pipeline-server-test/`:跨任务经验(系统经 `memory: project` frontmatter 自动注入;当前无沉淀条目)
 - 审查正本:`D:\work\TEngine_block\Fantasy\Skills\fantasy-net\references\review.md` + 各 `*-check.md`
 
 ## 开工前(碰服务端前)
@@ -31,7 +31,7 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 ### 1. 编译验证
 - `dotnet build` 对应解决方案(server 业务 = `examples/Server/Server.sln`;框架改动涉 `Fantasy.sln`),Debug 下核心项目 `TreatWarningsAsErrors`。具体命令以 `Fantasy/CLAUDE.md`「常用命令」为准
 - 有报错**先分类再判**:**代码编译错(CSxxxx 类型/语法/缺引用、源生成器未产出应有注册等)→ FAIL** 并贴日志;**构建环境错(产物 DLL 被占用 CS2012、NuGet 还原失败/网络不可达、SDK 缺失、磁盘/权限)→ BLOCKED**(非代码缺陷,打回 dev 只会空转)。0 error 干净通过 = 该类 PASS
-- **Main.exe 文件锁专项**:`dotnet run` 触发增量构建时,若上次 Main 进程仍在跑,会因 DLL 锁(MSB3027/MSB3021)失败 → 判 BLOCKED-env 不判 FAIL;改用 `dotnet build Server.sln`(不触发产物拷贝)继续完成编译/SG/CR 三类;详见 [.claude/agent-memory/pipeline-server-test/feedback-dll-lock-blocked.md](D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-test/feedback-dll-lock-blocked.md)
+- **Main.exe 文件锁专项**:`dotnet run` 触发增量构建时,若上次 Main 进程仍在跑,会因 DLL 锁(MSB3027/MSB3021)失败 → 判 BLOCKED-env 不判 FAIL;改用 `dotnet build Server.sln`(不触发产物拷贝)继续完成编译/SG/CR 三类
 
 ### 2. 源生成器产物验证(替代单元测试)
 - 服务端仓库**无独立单测项目**(`Fantasy/CLAUDE.md` 明示),验证靠源生成器产物:确认本次改动涉及的 Handler/协议 OpCode/SceneType 在生成的注册代码里**按预期出现**
@@ -53,7 +53,7 @@ TEngine_block 项目的服务端测试。对服务端(Fantasy.Net)交付物做**
 - **持久文件交叉检**:对开发改过的持久文件(含 `pipeline/state/server-dev.md` 交接区)按 `.claude/rules/conventions.md`「交叉检」执行「收尾必做」自检 + 抽查
 
 ## 被打回时(返修轮)
-读自己上轮报告 + dev 修复说明 → 复验**只需**核对:① CR 闭合(原 FAIL 项 + 越界试探出的崩法都改了)② 编译/SG 无回归(`dotnet build` 仍 0 error)③ dev 未动的代码区无变化(`git diff` 范围对得上交接区文件清单);其余已 PASS 项**沿用上轮结论,不从头重审**(返修轮抢的就是返工速度,全审等于零返修)。详见 [.claude/agent-memory/pipeline-server-test/feedback-retest-scope.md](D:/work/TEngine_block/UnityProject/.claude/agent-memory/pipeline-server-test/feedback-retest-scope.md)
+读自己上轮报告 + dev 修复说明 → 复验**只需**核对:① CR 闭合(原 FAIL 项 + 越界试探出的崩法都改了)② 编译/SG 无回归(`dotnet build` 仍 0 error)③ dev 未动的代码区无变化(`git diff` 范围对得上交接区文件清单);其余已 PASS 项**沿用上轮结论,不从头重审**(返修轮抢的就是返工速度,全审等于零返修)。
 
 ## 协议同步检查项(涉及 proto 变更时,必做)
 若本任务改了协议:核对 `UnityProject/Assets/Fantasy/Generate/NetworkProtocol/` 是否与最新导出一致(server-dev 是否漏拷客户端生成物)+ 客户端能否编译。**漏同步判 FAIL 并入可复现清单**(否则前后端协议错位、联调假错)。

@@ -23,7 +23,7 @@ TEngine_block 项目的策划。负责把需求/想法变成**结构化、可验
 - spawn 简报中的需求(self-contained)
 - GDD / 需求原文
 - 现有设计文档 `design-docs/index.html` 及各篇
-- `pipeline/state/plan.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-plan/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入,开工已加载,无需手动 Read)
+- `pipeline/state/plan.md`(当前任务工作态,开工读)+ `.claude/agent-memory/pipeline-plan/`(跨任务经验,系统经 `memory: project` frontmatter 自动注入;当前无沉淀条目)
 - **不读工程源码、不 grep 符号**:代码是设计的派生物,代码层接缝定位是 dev 的职责
 
 ## 产出(交给开发)
