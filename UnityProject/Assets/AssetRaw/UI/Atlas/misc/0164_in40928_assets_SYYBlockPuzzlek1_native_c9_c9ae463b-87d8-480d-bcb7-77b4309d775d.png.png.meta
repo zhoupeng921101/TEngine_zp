@@ -1,0 +1,650 @@
+fileFormatVersion: 2
+guid: a0ac6dd2a54d177488e96bb5af61b55d
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 7965531117796774176
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_0
+  - first:
+      213: 386740775834382524
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_1
+  - first:
+      213: -7049160367563229406
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_2
+  - first:
+      213: -1839785183538898492
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_3
+  - first:
+      213: -833714024031391567
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_4
+  - first:
+      213: -7998159606636742729
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_5
+  - first:
+      213: -7772918453782241856
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_6
+  - first:
+      213: 5568142280351764323
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_7
+  - first:
+      213: -6284860044597717138
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_8
+  - first:
+      213: 8292041131414302905
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_9
+  - first:
+      213: 844647866346557506
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_10
+  - first:
+      213: 4615665960873216895
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_11
+  - first:
+      213: 3907811307655733010
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_12
+  - first:
+      213: 6566469706912124611
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_13
+  - first:
+      213: -3095822905383878991
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_14
+  - first:
+      213: 2767345217986839237
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_15
+  - first:
+      213: 6041434240934807682
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_16
+  - first:
+      213: -5745989203673490624
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_17
+  - first:
+      213: -5438223953384369985
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_18
+  - first:
+      213: 4478963586616364176
+    second: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_19
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 72
+        width: 174
+        height: 180
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 021d89339504b8e60800000000000000
+      internalID: 7965531117796774176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_1
+      rect:
+        serializedVersion: 2
+        x: 174
+        y: 116
+        width: 136
+        height: 136
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: cb074c3cfaafd5500800000000000000
+      internalID: 386740775834382524
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_2
+      rect:
+        serializedVersion: 2
+        x: 310
+        y: 156
+        width: 69
+        height: 96
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 227b1a66ef95c2e90800000000000000
+      internalID: -7049160367563229406
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_3
+      rect:
+        serializedVersion: 2
+        x: 379
+        y: 183
+        width: 67
+        height: 69
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4c913288f15c776e0800000000000000
+      internalID: -1839785183538898492
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_4
+      rect:
+        serializedVersion: 2
+        x: 445
+        y: 185
+        width: 25
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1b0f859238d0e64f0800000000000000
+      internalID: -833714024031391567
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_5
+      rect:
+        serializedVersion: 2
+        x: 470
+        y: 185
+        width: 24
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7b7f98db634d00190800000000000000
+      internalID: -7998159606636742729
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_6
+      rect:
+        serializedVersion: 2
+        x: 486
+        y: 153
+        width: 25
+        height: 32
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0cd1b3659db012490800000000000000
+      internalID: -7772918453782241856
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_7
+      rect:
+        serializedVersion: 2
+        x: 310
+        y: 121
+        width: 53
+        height: 35
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 36f433717e3064d40800000000000000
+      internalID: 5568142280351764323
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_8
+      rect:
+        serializedVersion: 2
+        x: 379
+        y: 121
+        width: 63
+        height: 62
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e6715ba8611b7c8a0800000000000000
+      internalID: -6284860044597717138
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_9
+      rect:
+        serializedVersion: 2
+        x: 442
+        y: 143
+        width: 47
+        height: 40
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9b0b0e4d97f331370800000000000000
+      internalID: 8292041131414302905
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_10
+      rect:
+        serializedVersion: 2
+        x: 468
+        y: 113
+        width: 44
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 240d0e162cac8bb00800000000000000
+      internalID: 844647866346557506
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_11
+      rect:
+        serializedVersion: 2
+        x: 174
+        y: 23
+        width: 117
+        height: 93
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f7bc5bf8cb32e0040800000000000000
+      internalID: 4615665960873216895
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_12
+      rect:
+        serializedVersion: 2
+        x: 291
+        y: 18
+        width: 101
+        height: 98
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 21f131a0ea55b3630800000000000000
+      internalID: 3907811307655733010
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_13
+      rect:
+        serializedVersion: 2
+        x: 392
+        y: 23
+        width: 76
+        height: 93
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3ce4cd46869c02b50800000000000000
+      internalID: 6566469706912124611
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_14
+      rect:
+        serializedVersion: 2
+        x: 468
+        y: 83
+        width: 44
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1be731d487d6905d0800000000000000
+      internalID: -3095822905383878991
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_15
+      rect:
+        serializedVersion: 2
+        x: 468
+        y: 53
+        width: 44
+        height: 30
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5c24bf050d5976620800000000000000
+      internalID: 2767345217986839237
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_16
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 1
+        width: 73
+        height: 71
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2880dc8ee6c77d350800000000000000
+      internalID: 6041434240934807682
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_17
+      rect:
+        serializedVersion: 2
+        x: 73
+        y: 1
+        width: 70
+        height: 71
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 04bdfc743452240b0800000000000000
+      internalID: -5745989203673490624
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_18
+      rect:
+        serializedVersion: 2
+        x: 143
+        y: 5
+        width: 24
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fb01189902c8784b0800000000000000
+      internalID: -5438223953384369985
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: 0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_19
+      rect:
+        serializedVersion: 2
+        x: 468
+        y: 22
+        width: 24
+        height: 31
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 09c8d26c6a9782e30800000000000000
+      internalID: 4478963586616364176
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_0: 7965531117796774176
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_1: 386740775834382524
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_10: 844647866346557506
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_11: 4615665960873216895
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_12: 3907811307655733010
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_13: 6566469706912124611
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_14: -3095822905383878991
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_15: 2767345217986839237
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_16: 6041434240934807682
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_17: -5745989203673490624
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_18: -5438223953384369985
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_19: 4478963586616364176
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_2: -7049160367563229406
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_3: -1839785183538898492
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_4: -833714024031391567
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_5: -7998159606636742729
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_6: -7772918453782241856
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_7: 5568142280351764323
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_8: -6284860044597717138
+      0164_in40928_assets_SYYBlockPuzzlek1_native_c9_c9ae463b-87d8-480d-bcb7-77b4309d775d.png_9: 8292041131414302905
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
