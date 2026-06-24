@@ -24,8 +24,6 @@ namespace GameLogic.BlockBlast.Tests
             "GameScripts/HotFix/GameLogic/UI/BlockBlastUI/GameOverWindow.cs";
         private const string WinWindowPath =
             "GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWinWindow.cs";
-        private const string GameWindowPath =
-            "GameScripts/HotFix/GameLogic/UI/BlockBlastUI/GameWindow.cs";
         private const string MergeOrderWindowPath =
             "GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs";
 
@@ -76,17 +74,6 @@ namespace GameLogic.BlockBlast.Tests
                 "R1: isNewBest 计算必须保留（finalScore > previousHigh）");
             Assert.IsTrue(src.Contains("finalScore > 0"),
                 "R1: isNewBest 计算必须保留（finalScore > 0）");
-        }
-
-        // ── R1b：调用点 GameWindow.cs:336 未改 ────────────────────────────────────
-        [Test]
-        public void R1b_GameWindow_CallSite336_Unchanged()
-        {
-            var src = ReadSource(GameWindowPath);
-
-            // GameWindow.cs:336 ShowUIAsync<GameOverWindow>(previousHigh)
-            Assert.IsTrue(src.Contains("ShowUIAsync<GameOverWindow>(previousHigh)"),
-                "R1: GameWindow.cs 调用点应传 previousHigh（Classic 路径，不得改传参）");
         }
 
         // ── R2：无尽模型（设计 49）— MergeOrderWindow 不再路由 GameOverWindow（删软/硬 GameOver）────

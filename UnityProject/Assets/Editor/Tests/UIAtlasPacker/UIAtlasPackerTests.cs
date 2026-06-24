@@ -13,17 +13,24 @@ namespace UIAtlasPackerTool.Tests
     /// UIAtlasPacker 工具行为 EditMode 验收（设计 24 §9.1 A 档：C/R/S/V 组）。
     ///
     /// 夹具策略分两类，规避「同步测试方法内运行时建资产导入延迟」与「收集器同名资源冲突」：
-    /// 1. 工具行为(R1/R3/S1/S3/V2/V3)对 <c>_uiap_test_fixture/</c>——一个提交进库的固定只读小夹具
+    /// 1. 工具行为(R1/R3/S1/S3/V2/V3)对 <c>_uiap_test_fixture/</c>——一个固定只读小夹具
     ///    (6 张唯一命名 PNG：uiap_plate/uiap_btn=border24，uiap_chat/uiap_help/uiap_clear/uiap_x=border0；
-    ///    .meta 已设 Sprite/Single/border 并入库)。资产已入库 → Pack 内部 GetAtPath 即时可用、无 NRE；
+    ///    .meta 设 Sprite/Single/border)。资产入库后 Pack 内部 GetAtPath 即时可用、无 NRE；
     ///    文件名唯一(uiap_ 前缀避开 settings/ 与各屏) → 不触发 AddressByFileName 收录冲突。
     ///    每例 TearDown 只删产出表 Sheet__uiap_test_fixture.png，夹具保留。
-    /// 2. 核心锚(R2/S2b)读对 settings/ 全集的现行生产表 Sheet_settings.png(21 命名子图、6×24+15×0、无残留名)，
-    ///    不重跑 Pack——验「真实全集产出」语义。该表是 5 个窗口运行期 SetSubSprite 寻址的现行 atlas。
+    /// 2. 核心锚(R2/S2b)读 settings/ 全集打表产出 Sheet_settings.png(21 命名子图、6×24+15×0、无残留名)，
+    ///    不重跑 Pack——验「真实全集产出」语义。
     /// 读回子图统一走现代 API ISpriteEditorDataProvider.GetSpriteRects()(与工具写路径同源)。
     /// 运行期寻址(P 组)留给 Play 环节，不在此处。
+    ///
+    /// 当前 [Explicit]：上述夹具(_uiap_test_fixture/ 与 Sheet_settings.png 产出表)未入库，无头环境不可运行；
+    /// 提供真实夹具后移除类级 [Explicit] 即恢复。
     /// </summary>
     [TestFixture]
+    [Explicit("依赖未入库的切图夹具：_uiap_test_fixture/(6 张特定像素 PNG，含按源继承的 importer.spriteBorder)" +
+              "与现行生产表 Sheet_settings.png(settings/ 全集 21 子图 atlas)。两者均不在仓库且无 git 历史，" +
+              "无头/CI 环境无法运行。断言锚在具体像素派生的 border 值，不能凭空造图凑绿；" +
+              "需美术/构建侧提供真实夹具后移除本标记。")]
     public class UIAtlasPackerTests
     {
         private const string AtlasRoot = "Assets/AssetRaw/UI/Atlas";

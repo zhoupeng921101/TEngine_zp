@@ -15,10 +15,10 @@ namespace GameLogic.BlockBlast.Tests
     /// 异步同步驱动:桩只 <c>await UniTask.CompletedTask</c>,<c>UniTask&lt;T&gt;.GetAwaiter().GetResult()</c> 即同步完成
     /// (同 mail / redeem / rank / attrledger 客户端段做法)。
     /// 测试<b>不</b>引 Fantasy 协议类型(test asmdef 无 Fantasy.Unity 引用,memory「客户端段单测别给 test asmdef 加 Fantasy.Unity 引用」)。
-    /// 防重 / 等价计数 / Tarot 共计三类 PV(PV6 / PV7) 锚在「同一函数 hook 调用次数 = 1」,
+    /// 等价计数(PV6)锚在「service 层连续调 N 次 = N 次推送、不自带防重」,
     /// 用 <c>FakeActivityIncrementSource.IncrementCalls</c> 计数 + 注入到 <see cref="GameContext.Activity"/> 直驱
-    /// <see cref="RemoteActivityService.IncrementAndLogAsync"/>(单测不驱动 GameWindow OnCreate,沿 26 settlement-window 范式
-    /// 「读源文件文本核对关键行」,UI 层薄壳留 Play 手验)。
+    /// <see cref="RemoteActivityService.IncrementAndLogAsync"/>。无尽模型(设计 49)下 MergeOrderWindow 无「局」终点,
+    /// 不触发 AccumulatePlayCount 活动,源文本核对(Source_MergeOrderWindow_*)断言其 hook 缺席(沿 26 settlement-window 范式读源核行)。
     /// </remarks>
     [TestFixture]
     public class ActivityClientTests
@@ -211,10 +211,8 @@ namespace GameLogic.BlockBlast.Tests
                 $"fire-and-forget 不阻塞调用方;实际 {sw.ElapsedMilliseconds}ms vs 桩延迟 5000ms");
         }
 
-        // ════════════ PV6 防重等价:对同一桩 service 连续调 N 次 = N 次推送
-        //                          (业务防重在 GameWindow._gameOverTriggered / MergeOrderWindow._finished 层,
-        //                           service 层不做去重 — 沿设计 48 O8 决策。本测试验「service 不自带防重」,
-        //                           防重依赖业务标记由 GameWindowTriggerHookSourceTests 静态文本核) ════════════
+        // ════════════ PV6 等价计数:对同一桩 service 连续调 N 次 = N 次推送
+        //                          (service 层不做去重 — 沿设计 48 O8 决策,防重责任落在业务调用方) ════════════
 
         [Test]
         public void Service_Increment_NoLocalDedup()
@@ -227,7 +225,7 @@ namespace GameLogic.BlockBlast.Tests
             svc.IncrementAsync(5, 1).GetAwaiter().GetResult();
 
             Assert.AreEqual(3, stub.IncrementCalls,
-                "service 层不去重(沿 O8 防重靠业务层 _gameOverTriggered/_finished);3 次调用 = 3 次推送");
+                "service 层不去重(沿 O8 决策,防重靠业务调用方);3 次调用 = 3 次推送");
         }
 
         // ════════════ PV13 反证 service 不持本地状态(无字段、无缓存) ════════════
