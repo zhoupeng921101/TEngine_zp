@@ -15,24 +15,6 @@ public partial class Tables
 {
     #region The Tables
 
-    private item.TbItem m_TbItem;
-    public item.TbItem TbItem 
-    {
-        get
-        {
-            if (m_TbItem == null)
-            {
-                m_TbItem = new item.TbItem(defaultLoader("item_tbitem"));
-                m_TbItem.ResolveRef(this);
-            }
-            return m_TbItem;
-        }
-        set
-        {
-            m_TbItem = value;
-            m_TbItem.ResolveRef(this);
-        }
-    }
     /// <summary>
     /// BlockBlast动态权重tier表
     /// </summary>
