@@ -228,22 +228,24 @@ namespace GameLogic.BlockBlast.Tests
         // ───────────────────────── #7 合成区自动两两合并升级 ─────────────────────────
 
         [Test]
-        public void Ingest_TwoSame_MakesOneLv2()
+        public void Ingest_FourSame_MakesOneLv2()
         {
             var m = new MergeOrderState();
             m.Reset();
-            m.IngestElement(MergeElement.Butterfly);
-            m.IngestElement(MergeElement.Butterfly);
+            // 4合1：满 MergeCount 个 Lv1 合成 1 个 Lv2。
+            for (int i = 0; i < MergeOrderConfig.MergeCount; i++) m.IngestElement(MergeElement.Butterfly);
             Assert.AreEqual(0, m.InventoryCount(MergeElement.Butterfly, 1));
             Assert.AreEqual(1, m.InventoryCount(MergeElement.Butterfly, 2));
         }
 
         [Test]
-        public void Ingest_FourSame_MakesOneLv3()
+        public void Ingest_SixteenSame_CascadesToOneLv3()
         {
             var m = new MergeOrderState();
             m.Reset();
-            for (int i = 0; i < 4; i++) m.IngestElement(MergeElement.Star);
+            // 4合1 两级级联：MergeCount^2 个 Lv1 → MergeCount 个 Lv2 → 1 个 Lv3，低级清零。
+            int lv1ForLv3 = MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, 2);
+            for (int i = 0; i < lv1ForLv3; i++) m.IngestElement(MergeElement.Star);
             Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, 1));
             Assert.AreEqual(0, m.InventoryCount(MergeElement.Star, 2));
             Assert.AreEqual(1, m.InventoryCount(MergeElement.Star, 3));
@@ -254,11 +256,22 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = new MergeOrderState();
             m.Reset();
-            // 封顶等级折算基础元素数 = 2^(MaxLevel-1)；摄入 2 份即应堆积成 2 个封顶图案（封顶不再合并）。
-            int perCap = 1 << (MergeOrderConfig.MaxLevel - 1);
+            // 封顶等级折算基础元素数 = MergeCount^(MaxLevel-1)；摄入 2 份即应堆积成 2 个封顶图案（封顶不再合并）。
+            int perCap = MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, MergeOrderConfig.MaxLevel - 1);
             for (int i = 0; i < 2 * perCap; i++) m.IngestElement(MergeElement.Chalice);
             Assert.AreEqual(2, m.InventoryCount(MergeElement.Chalice, MergeOrderConfig.MaxLevel),
                 "封顶等级不再合并，堆积成 2");
+        }
+
+        [Test]
+        public void Difficulty_IsCountTimesMergeCountPow()
+        {
+            // 折算因子 = MergeCount^(等级-1)；Difficulty = 数量 × 折算因子（纯函数，与 MaxLevel 无关）。
+            Assert.AreEqual(7 * 1,   new Order(MergeElement.Star, 1, 7).Difficulty, "Lv1 折算 ×1");
+            Assert.AreEqual(3 * 4,   new Order(MergeElement.Star, 2, 3).Difficulty, "Lv2 折算 ×4");
+            Assert.AreEqual(2 * 16,  new Order(MergeElement.Star, 3, 2).Difficulty, "Lv3 折算 ×16");
+            Assert.AreEqual(1 * 64,  new Order(MergeElement.Star, 4, 1).Difficulty, "Lv4 折算 ×64");
+            Assert.AreEqual(1 * 256, new Order(MergeElement.Star, 5, 1).Difficulty, "Lv5 折算 ×256");
         }
 
         // ───────────────────────── #9/#10/#11 订单 ─────────────────────────
@@ -279,10 +292,9 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = new MergeOrderState();
             m.Reset();
-            // 初始订单1 = OrderPool[1] = Chalice Lv2 ×1 → 摄入 2 Chalice 得 1 Lv2
+            // 初始订单1 = OrderPool[1] = Chalice Lv2 ×1 → 摄入 MergeCount 个 Chalice 得 1 Lv2
             Assert.IsFalse(m.CanDeliver(1), "库存不足按钮置灰");
-            m.IngestElement(MergeElement.Chalice);
-            m.IngestElement(MergeElement.Chalice);
+            for (int i = 0; i < MergeOrderConfig.MergeCount; i++) m.IngestElement(MergeElement.Chalice);
             Assert.IsTrue(m.CanDeliver(1));
 
             int scoreBefore = m.TotalScore;

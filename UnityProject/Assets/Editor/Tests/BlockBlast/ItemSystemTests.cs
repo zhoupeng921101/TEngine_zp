@@ -341,13 +341,13 @@ namespace GameLogic.BlockBlast.Tests
             int before = state.InventoryCount(MergeElement.Butterfly, 2)
                        + state.InventoryCount(MergeElement.Butterfly, 3);
 
-            var p = ItemGrant.Resolve(PatternItem(), 2); // Butterfly Lv2 ×4
+            var p = ItemGrant.Resolve(PatternItem(), 2); // Butterfly Lv2 ×4（use_num=2 × count=2）
             ItemGrant.ApplyPattern(state, p);
 
-            // AddDirect 经既有 AddToInventory 单链级联：注入 4 个 Lv2 后，沿单链向上合一次
-            // （4 个 Lv2 取 2 合成 1 个 Lv3，剩 2 个 Lv2 不再继续——级联只追单条向上链）。
+            // AddDirect 经既有 AddToInventory 级联（4合1）：注入 4 个 Lv2 恰好满 MergeCount，
+            // 沿单链向上合 1 个 Lv3，Lv2 清零（Lv3 仅 1 个 < MergeCount，不再继续）。
             // 本测验「注入落到既有收集区」，不复刻级联算法细节：断言总持有量随注入增加即可。
-            Assert.AreEqual(2, state.InventoryCount(MergeElement.Butterfly, 2), "注入后剩 2 个 Lv2");
+            Assert.AreEqual(0, state.InventoryCount(MergeElement.Butterfly, 2), "注入 4 个 Lv2 满 MergeCount，清零升级");
             Assert.AreEqual(1, state.InventoryCount(MergeElement.Butterfly, 3), "单链向上合出 1 个 Lv3");
             Assert.Greater(state.InventoryCount(MergeElement.Butterfly, 2)
                          + state.InventoryCount(MergeElement.Butterfly, 3), before, "注入应反映到收集区");

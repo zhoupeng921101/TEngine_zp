@@ -288,6 +288,25 @@ namespace EditorTools.Ugui
 
         static void ApplyImage(Image img, UIDataNode n)
         {
+            // 标注了切图(path+sprite 均非空)→ 直接引子图填图；否则维持占位色行为(向后兼容)
+            if (!string.IsNullOrEmpty(n.path) && !string.IsNullOrEmpty(n.sprite))
+            {
+                // sprite 不含扩展名则补 .png；含扩展名按原样
+                string file = System.IO.Path.HasExtension(n.sprite) ? n.sprite : n.sprite + ".png";
+                string full = n.path.TrimEnd('/') + "/" + file;
+                var sp = AssetDatabase.LoadAssetAtPath<Sprite>(full);
+                if (sp != null)
+                {
+                    img.sprite = sp;
+                    img.color = Color.white;                 // 不染色，显示原图
+                    img.type = n.sliced ? Image.Type.Sliced : Image.Type.Simple;
+                    img.raycastTarget = true;
+                    return;
+                }
+                // 取不到(路径错 / 资源非 Sprite)→ 告警 + 回退占位色，不抛异常
+                Debug.LogWarning($"[UguiBaker] 节点「{n.name}」填图失败，回退占位色：未找到 Sprite at {full}");
+            }
+
             var col = ParseColor(n.color, new Color(1, 1, 1, 0));
             img.color = col;
             // 全透明占位不挡射线，避免遮住下层节点

@@ -12,8 +12,22 @@ namespace GameLogic.BlockBlast
         /// <summary>封顶等级（Lv1→…→Lv5）。到顶不再合并，堆积等待订单消耗。</summary>
         public const int MaxLevel = 5;
 
-        /// <summary>等级折算基础元素数 = 2^(等级-1)（Lv1=1, Lv2=2, Lv3=4, Lv4=8, Lv5=16）。索引 = 等级，[0] 占位。</summary>
-        public static readonly int[] LevelBaseCost = { 0, 1, 2, 4, 8, 16 };
+        /// <summary>
+        /// 合成比：满 MergeCount 个同 (类型,等级) 合成 1 个上一级。
+        /// 折算因子（等级折算成多少个基础 Lv1 元素，虔诚币/难度计量用）= MergeCount^(等级-1)。
+        /// </summary>
+        public const int MergeCount = 4;
+
+        /// <summary>整数幂 b^e（e≥0）。避免 Math.Pow 浮点；折算因子统一走此函数。</summary>
+        public static int Pow(int b, int e)
+        {
+            int r = 1;
+            for (int i = 0; i < e; i++) r *= b;
+            return r;
+        }
+
+        /// <summary>等级折算基础元素数 = MergeCount^(等级-1)（Lv1=1, Lv2=4, Lv3=16, Lv4=64, Lv5=256）。索引 = 等级，[0] 占位。</summary>
+        public static readonly int[] LevelBaseCost = { 0, 1, 4, 16, 64, 256 };
 
         // ── 订单 ──────────────────────────────────────────────
         /// <summary>同时激活的订单数（横滑订单列表，可交付的卡排在前）。</summary>
@@ -166,24 +180,24 @@ namespace GameLogic.BlockBlast
         public const int MultiGuideMinLines = 3;
 
         // ── 循环订单池（手编锯齿波节奏）─────────────────────────
-        // 难度量 d(单) = 数量 × 2^(等级-1) = 折算基础(Lv1)元素数。手工编排成「难单后必出简单单」，
+        // 难度量 d(单) = 数量 × MergeCount^(等级-1) = 折算基础(Lv1)元素数。手工编排成「难单后必出简单单」，
         // 保证每个目标都够得着。NextOrder() 顺序取下一项，到尾循环。
         // 完整程序化锯齿波（依进度动态算 d 并约束相邻一高一低）见文档 §3.2，demo 不实装。
         //
-        // 可满足性约束（源于 #7 自动配对）：每个 (类型,非封顶等级) 库存恒 ≤1（满 2 即升级），
-        // 故非封顶等级（Lv1..Lv4）订单数量只能为 1；唯有封顶 Lv5 可堆积，数量方可 ≥2。
-        // 文档 §3.2 的示例「Lv1 ×3」在自动配对下不可达，本池据此只取可满足组合。
+        // 可满足性约束（源于 #7 自动配对）：每个 (类型,非封顶等级) 库存恒 ≤ MergeCount-1（满 MergeCount 即升级），
+        // 故非封顶等级订单数量只要 ≤ MergeCount-1 即可堆积满足；封顶 Lv5 不再升级、可无限堆积。
+        // 本池保守只取数量小的组合，远在可满足范围内。
         /// <summary>循环订单池。</summary>
         public static readonly Order[] OrderPool =
         {
-            new Order(MergeElement.Butterfly, 1, 1), // d1  易   [初始槽0]
-            new Order(MergeElement.Chalice,   2, 1), // d2  易   [初始槽1]
-            new Order(MergeElement.Scroll,    3, 1), // d4  中
-            new Order(MergeElement.Star,      1, 1), // d1  易
-            new Order(MergeElement.Butterfly, 5, 2), // d32 难（唯一封顶堆积单，数量≥2 只能落封顶 Lv5）
-            new Order(MergeElement.Chalice,   1, 1), // d1  易（难单后回落）
-            new Order(MergeElement.Scroll,    2, 1), // d2  易-中
-            new Order(MergeElement.Star,      3, 1), // d4  中
+            new Order(MergeElement.Butterfly, 1, 1), // d1   易   [初始槽0]
+            new Order(MergeElement.Chalice,   2, 1), // d4   易   [初始槽1]
+            new Order(MergeElement.Scroll,    3, 1), // d16  中
+            new Order(MergeElement.Star,      1, 1), // d1   易
+            new Order(MergeElement.Butterfly, 5, 2), // d512 难（唯一封顶堆积单，数量≥2 落封顶 Lv5）
+            new Order(MergeElement.Chalice,   1, 1), // d1   易（难单后回落）
+            new Order(MergeElement.Scroll,    2, 1), // d4   易-中
+            new Order(MergeElement.Star,      3, 1), // d16  中
         };
     }
 }

@@ -228,7 +228,7 @@ namespace GameLogic.BlockBlast.Tests
         public void DeliverSpecial_ConsumesInventory_Rewards_Promotes()
         {
             var m = FreshState();
-            int perCap = 1 << (MergeOrderConfig.MaxLevel - 1);
+            int perCap = MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, MergeOrderConfig.MaxLevel - 1);
             m.SpecialTrack.Request(new SpecialOrder(SpecialOrderKind.Express, new Order(MergeElement.Star, MergeOrderConfig.MaxLevel, 2), 300f));
             // 凑 2 个 Star 封顶图案：2 份封顶折算量 Lv1 → 2 个封顶图案（封顶可堆积）
             for (int i = 0; i < 2 * perCap; i++) m.IngestElement(MergeElement.Star);

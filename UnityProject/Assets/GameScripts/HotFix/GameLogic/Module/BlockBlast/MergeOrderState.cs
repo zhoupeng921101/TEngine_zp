@@ -20,8 +20,8 @@ namespace GameLogic.BlockBlast
             Count = count;
         }
 
-        /// <summary>难度量 d = 数量 × 2^(等级-1)（= 折算基础元素数）。</summary>
-        public int Difficulty => Count * (1 << (Level - 1));
+        /// <summary>难度量 d = 数量 × MergeCount^(等级-1)（= 折算基础元素数）。</summary>
+        public int Difficulty => Count * MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, Level - 1);
 
         public bool IsValid => Type != MergeElement.None && Level >= 1 && Count > 0;
     }
@@ -77,7 +77,7 @@ namespace GameLogic.BlockBlast
         public long LastEnergyRegenTime;
 
         /// <summary>
-        /// 合成区库存：键 (类型, 等级) → 数量。自动配对使每 (类型,等级) 数量恒 ≤1（满 2 即合），
+        /// 合成区库存：键 (类型, 等级) → 数量。自动配对使每 (类型,非封顶等级) 数量恒 ≤ MergeCount-1（满 MergeCount 即合），
         /// 故天然紧凑、无需硬上限。计数为 0 的键即时移除。
         /// </summary>
         public readonly Dictionary<(MergeElement type, int level), int> Inventory =
@@ -296,8 +296,8 @@ namespace GameLogic.BlockBlast
             => Inventory.TryGetValue((type, level), out var n) ? n : 0;
 
         /// <summary>
-        /// 摄入一个 Lv1 元素，随即向上级联自动配对：任一 (类型,等级) 数量≥2 即
-        /// 数量-2、上一级+1，直到无法再合并或封顶 MaxLevel。
+        /// 摄入一个 Lv1 元素，随即向上级联自动配对：任一 (类型,等级) 数量 ≥ MergeCount 即
+        /// 数量 -= MergeCount、上一级 +1，直到无法再合并或封顶 MaxLevel。
         /// </summary>
         public void IngestElement(MergeElement type)
         {
@@ -307,7 +307,7 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 直接向收集区注入指定等级的图案（多消里程碑加码 / 全清奖 / 宝箱奖用，跳过逐级合成）。
-        /// 仍走向上级联：若该级注入后达 2 个，照常合并升级（封顶 Lv3 不再升、堆积）。
+        /// 仍走向上级联：若该级注入后达 MergeCount 个，照常合并升级（封顶 MaxLevel 不再升、堆积）。
         /// </summary>
         public void AddDirect(MergeElement type, int level, int count)
         {
@@ -321,10 +321,10 @@ namespace GameLogic.BlockBlast
             int cur = InventoryCount(type, level) + amount;
             Inventory[(type, level)] = cur;
 
-            // 向上级联合并
-            while (level < MergeOrderConfig.MaxLevel && Inventory[(type, level)] >= 2)
+            // 向上级联合并：满 MergeCount 个同 (类型,等级) 合成 1 个上一级
+            while (level < MergeOrderConfig.MaxLevel && Inventory[(type, level)] >= MergeOrderConfig.MergeCount)
             {
-                int left = Inventory[(type, level)] - 2;
+                int left = Inventory[(type, level)] - MergeOrderConfig.MergeCount;
                 if (left == 0) Inventory.Remove((type, level));
                 else Inventory[(type, level)] = left;
 
@@ -526,7 +526,7 @@ namespace GameLogic.BlockBlast
             }
             else if (reward.IsPattern)
             {
-                // 图案进收集区，走级联合并（产 Lv1 若该类已有 1 个 → 自动升 Lv2，预期行为）。
+                // 图案进收集区，走级联合并（产 Lv1 若该类已凑满 MergeCount 个 → 自动升 Lv2，预期行为）。
                 AddDirect(reward.PatternType, reward.PatternLevel, reward.PatternCount);
             }
             return true;

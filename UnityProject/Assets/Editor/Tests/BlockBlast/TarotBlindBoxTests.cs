@@ -332,7 +332,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = FreshState();
             // 用 Star 封顶等级 ×2（封顶等级可堆积，N≥2 可达）；凑 2 份封顶折算量 → 2 个封顶图案。
-            int perCap = 1 << (MergeOrderConfig.MaxLevel - 1);
+            int perCap = MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, MergeOrderConfig.MaxLevel - 1);
             m.SpecialTrack.Request(new SpecialOrder(kind, new Order(MergeElement.Star, MergeOrderConfig.MaxLevel, 2), 300f));
             for (int i = 0; i < 2 * perCap; i++) m.IngestElement(MergeElement.Star);
             Assert.IsTrue(m.CanDeliverSpecial());
@@ -382,7 +382,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             int sum = 0;
             foreach (var kv in m.Inventory)
-                sum += kv.Value * (1 << (kv.Key.level - 1)); // Lv1=1 Lv2=2 Lv3=4
+                sum += kv.Value * MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, kv.Key.level - 1); // 折算因子 Lv1=1 Lv2=4 Lv3=16
             return sum;
         }
     }

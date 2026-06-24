@@ -27,10 +27,10 @@ namespace GameLogic.BlockBlast.Tests
             return m;
         }
 
-        // 凑足某 (类型, 等级) ×count 的库存（自动配对：注入 count×2^(level-1) 个 Lv1）。
+        // 凑足某 (类型, 等级) ×count 的库存（自动配对：注入 count×MergeCount^(level-1) 个 Lv1）。
         private static void StockFor(MergeOrderState m, MergeElement type, int level, int count)
         {
-            int lv1 = count * (1 << (level - 1));
+            int lv1 = count * MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, level - 1);
             for (int i = 0; i < lv1; i++) m.IngestElement(type);
         }
 
@@ -42,11 +42,11 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void T1_Deliver_GrantsPiety_ByDifficulty_OldRewardsIntact()
         {
-            // 逐档：Lv1×1=d1、Lv2×1=d2、Lv3×1=d4。封顶等级×2 才可堆积交付（非封顶等级满 2 即自动升级，无法堆积）。
-            int capUnit = 1 << (MergeOrderConfig.MaxLevel - 1); // 封顶折算基础元素数
+            // 逐档：Lv1×1=d1、Lv2×1=d4、Lv3×1=d16（折算因子 MergeCount^(等级-1)）。封顶等级×2 用于堆积交付（非封顶等级用 count 凑足即可）。
+            int capUnit = MergeOrderConfig.Pow(MergeOrderConfig.MergeCount, MergeOrderConfig.MaxLevel - 1); // 封顶折算基础元素数
             AssertDeliverPiety(MergeElement.Butterfly, 1, 1, 1 * TempleConfig.PietyPerDifficulty);
-            AssertDeliverPiety(MergeElement.Star, 2, 1, 2 * TempleConfig.PietyPerDifficulty);
-            AssertDeliverPiety(MergeElement.Butterfly, 3, 1, 4 * TempleConfig.PietyPerDifficulty);
+            AssertDeliverPiety(MergeElement.Star, 2, 1, 4 * TempleConfig.PietyPerDifficulty);
+            AssertDeliverPiety(MergeElement.Butterfly, 3, 1, 16 * TempleConfig.PietyPerDifficulty);
             AssertDeliverPiety(MergeElement.Star, MergeOrderConfig.MaxLevel, 2, 2 * capUnit * TempleConfig.PietyPerDifficulty);
         }
 
@@ -322,10 +322,10 @@ namespace GameLogic.BlockBlast.Tests
             int after1 = m.Piety;
             Assert.AreEqual(1 * TempleConfig.PietyPerDifficulty, after1);
 
-            m.ActiveOrders[0] = new Order(MergeElement.Star, 2, 1); // d2 → 60
+            m.ActiveOrders[0] = new Order(MergeElement.Star, 2, 1); // Lv2×1 → d4（折算因子 MergeCount^(等级-1)）
             StockFor(m, MergeElement.Star, 2, 1);
             Assert.IsTrue(m.Deliver(0));
-            Assert.AreEqual(after1 + 2 * TempleConfig.PietyPerDifficulty, m.Piety, "多次交付累加");
+            Assert.AreEqual(after1 + 4 * TempleConfig.PietyPerDifficulty, m.Piety, "多次交付累加");
         }
 
         // ───────────── T12 旧路径零回归 ─────────────
