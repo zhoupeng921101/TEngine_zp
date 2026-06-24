@@ -292,7 +292,7 @@ namespace GameLogic
         // 无尽模型（设计 49）：完成单数无终点，作累计计数展示（订单持续刷新，无通关）。
         private void RefreshEnergy()
         {
-            m_text_Energy.text = $"⚡ {_merge.Energy}/{MergeOrderConfig.EnergyCap}";
+            m_text_Energy.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
             m_text_Energy.color = _merge.CanAffordPlace
                 ? new Color32(0x66, 0xff, 0xaa, 0xFF)
                 : new Color32(0xff, 0x66, 0x66, 0xFF);
@@ -387,11 +387,11 @@ namespace GameLogic
             {
                 // 空态：清空 token（数量降到 0，AdjustIconNum 销毁多余实例），显示空态文字。
                 AdjustIconNum<SynthTokenWidget>(_synthTokens, 0, _synthContent);
-                if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(true);
+                // if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(true);
                 return;
             }
 
-            if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(false);
+            // if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(false);
 
             // 资源定位名 == 类名 "SynthTokenWidget"（无 prefab 入参走 CreateWidgetByType，AddressByFileName 可加载）。
             AdjustIconNum<SynthTokenWidget>(_synthTokens, keys.Count, _synthContent);

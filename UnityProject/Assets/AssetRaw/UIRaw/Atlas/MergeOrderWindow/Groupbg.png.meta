@@ -1,16 +1,10 @@
 fileFormatVersion: 2
-guid: e87d6ee530081b648bb5a5a3dc83d832
+guid: 859a43e23255a2649a558c4c36cdba28
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -397063501290637687
-    second: icon_energy_0
-  - first:
-      213: 1515143330650532945
-    second: icon_energy_1
-  - first:
-      213: 8234122308906062912
-    second: icon_energy_2
+      213: 1723277057979105223
+    second: Groupbg_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -52,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -119,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: icon_energy_0
+      name: Groupbg_0
       rect:
         serializedVersion: 2
-        x: 20
-        y: 20
-        width: 132
-        height: 417
+        x: 0
+        y: 0
+        width: 145
+        height: 148
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -134,52 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 9867c4c69d85d7af0800000000000000
-      internalID: -397063501290637687
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: icon_energy_1
-      rect:
-        serializedVersion: 2
-        x: 40
-        y: 17
-        width: 459
-        height: 452
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 15c2a37e4ded60510800000000000000
-      internalID: 1515143330650532945
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: icon_energy_2
-      rect:
-        serializedVersion: 2
-        x: 65
-        y: 353
-        width: 428
-        height: 140
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 044177b1d9a754270800000000000000
-      internalID: 8234122308906062912
+      spriteID: 7cfbc6a9a5f4ae710800000000000000
+      internalID: 1723277057979105223
       vertices: []
       indices: 
       edges: []
@@ -188,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -198,9 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      icon_energy_0: -397063501290637687
-      icon_energy_1: 1515143330650532945
-      icon_energy_2: 8234122308906062912
+      Groupbg_0: 1723277057979105223
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

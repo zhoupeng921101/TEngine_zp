@@ -1,19 +1,10 @@
 fileFormatVersion: 2
-guid: 5864bb4caafe267408368f929dee21bd
+guid: 39c137453fc4b904083ab5408215ad83
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8139719423079072813
-    second: icon_coin_0
-  - first:
-      213: -1470703070690965396
-    second: icon_coin_1
-  - first:
-      213: 5082949844585374825
-    second: icon_coin_2
-  - first:
-      213: -5590284983402591771
-    second: icon_coin_3
+      213: 6689032287660951290
+    second: btn_temple_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -55,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 1
+  spriteMode: 2
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -122,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: icon_coin_0
+      name: btn_temple_0
       rect:
         serializedVersion: 2
-        x: 19
-        y: 193
-        width: 323
-        height: 225
+        x: 8
+        y: 0
+        width: 93
+        height: 98
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -137,74 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d24c9ff60b716f070800000000000000
-      internalID: 8139719423079072813
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: icon_coin_1
-      rect:
-        serializedVersion: 2
-        x: 45
-        y: 133
-        width: 328
-        height: 215
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: c68836d6953079be0800000000000000
-      internalID: -1470703070690965396
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: icon_coin_2
-      rect:
-        serializedVersion: 2
-        x: 186
-        y: 94
-        width: 307
-        height: 112
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 96463a9f3f34a8640800000000000000
-      internalID: 5082949844585374825
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: icon_coin_3
-      rect:
-        serializedVersion: 2
-        x: 281
-        y: 162
-        width: 212
-        height: 169
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 5e9861b1d615b62b0800000000000000
-      internalID: -5590284983402591771
+      spriteID: af64625fc6734dc50800000000000000
+      internalID: 6689032287660951290
       vertices: []
       indices: 
       edges: []
@@ -213,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 
     internalID: 0
     vertices: []
     indices: 
@@ -223,10 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      icon_coin_0: 8139719423079072813
-      icon_coin_1: -1470703070690965396
-      icon_coin_2: 5082949844585374825
-      icon_coin_3: -5590284983402591771
+      btn_temple_0: 6689032287660951290
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
