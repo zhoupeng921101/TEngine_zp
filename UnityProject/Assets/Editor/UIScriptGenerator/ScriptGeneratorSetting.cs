@@ -43,6 +43,10 @@ namespace TEngine.Editor.UI
         [SerializeField]
         private string _widgetName = "item";
 
+        // 烘焙器(UguiBaker)建文本节点时使用的默认字体。开箱未设时回退到工程内 GBK.ttf。
+        [SerializeField]
+        private Font defaultUIFont;
+
         public bool UseBindComponent => useBindComponent;
 
         public string GenCodePath => genCodePath;
@@ -145,6 +149,24 @@ namespace TEngine.Editor.UI
 
         public static string GetGenCodePath() => Instance?.GenCodePath;
         public static string GetImpCodePath() => Instance?.ImpCodePath;
+
+        // 工程内方正中文字体；运行时 UI 也用它配合 OS 回退渲染中文。
+        private const string GBKFontPath = "Assets/AssetRaw/Fonts/GBK.ttf";
+
+        /// <summary>
+        /// 烘焙器建文本节点用的默认字体。回退链：配置字体 → GBK.ttf → 内置 LegacyRuntime.ttf。
+        /// 默认指向 GBK.ttf，不依赖 OS 字体回退。
+        /// </summary>
+        public static Font GetDefaultUIFont()
+        {
+            var configured = Instance != null ? Instance.defaultUIFont : null;
+            if (configured != null) return configured;
+
+            var gbk = AssetDatabase.LoadAssetAtPath<Font>(GBKFontPath);
+            if (gbk != null) return gbk;
+
+            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        }
 
         public static string GetWidgetName()
         {

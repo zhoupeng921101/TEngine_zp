@@ -2,14 +2,14 @@
 
 <cite>
 **本文引用的文件**
-- [HtmlToUGUIConfig.cs](file://Assets/HtmlToUGUI/HtmlToUGUIConfig.cs)
-- [HtmlToUGUIBaker.cs](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs)
-- [HTML界面案例.html](file://Assets/HtmlToUGUI/HTML/HTML界面案例.html)
-- [HTML 转 JSON 坐标烘焙器.html](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html)
-- [test.json](file://Assets/HtmlToUGUI/UIjson/test.json)
-- [shop.json](file://Assets/HtmlToUGUI/UIjson/shop.json)
-- [UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md](file://Assets/HtmlToUGUI/DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md)
-- [README.md](file://Assets/HtmlToUGUI/README.md)
+- [UguiBaker.cs](file://Assets/Editor/UguiBaker/UguiBaker.cs)
+- [UIDataNode.cs](file://Assets/Editor/UguiBaker/UIDataNode.cs)
+- [UguiBakerWindow.cs](file://Assets/Editor/UguiBaker/UguiBakerWindow.cs)
+- [ScriptGeneratorSetting.cs](file://Assets/Editor/UIScriptGenerator/ScriptGeneratorSetting.cs)
+- [SKILL.md](file://.claude/skills/html-to-ugui/SKILL.md)
+- [json-schema.md](file://.claude/skills/html-to-ugui/references/json-schema.md)
+- [ui-dsl-spec.md](file://.claude/skills/html-to-ugui/references/ui-dsl-spec.md)
+- [bake_html_to_json.py](file://.claude/skills/html-to-ugui/scripts/bake_html_to_json.py)
 </cite>
 
 ## 目录
@@ -17,263 +17,183 @@
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
 4. [架构总览](#架构总览)
-5. [详细组件分析](#详细组件分析)
-6. [依赖关系分析](#依赖关系分析)
-7. [性能考量](#性能考量)
-8. [故障排查指南](#故障排查指南)
-9. [结论](#结论)
-10. [附录](#附录)
+5. [描述 JSON 格式](#描述-json-格式)
+6. [烘焙规则](#烘焙规则)
+7. [字体配置](#字体配置)
+8. [依赖关系分析](#依赖关系分析)
+9. [故障排查指南](#故障排查指南)
+10. [结论](#结论)
 
 ## 简介
-本工具是一套将 AI 生成的 HTML 原型直接转换为 Unity UGUI 界面树的自动化生产管线。通过自定义的 HTML 数据属性规范（UI-DSL），结合 Web 坐标提取工具和 Unity 编辑器扩展，实现从“自然语言对话”到“生产级 UGUI 预制体”的无缝流转。工具支持多分辨率预设、动态 DSL 规范导出、极速剪贴板直通流、Web 烘焙器全面升级、外部工具链桥接等特性，覆盖从规范导出、AI 生成到剪贴板烘焙的完整工作流。
+本工具把 HTML 原型转换为 Unity UGUI 的**视觉占位**节点树。流程为：用自然语言描述 → 带中文描述的 HTML → 描述 JSON → 在 Unity 烘焙出 UGUI 节点树。
+
+工具只产视觉占位，不建控件。每个节点二选一：
+
+- 节点有可见文字（`text` 非空）→ 建 legacy `Text`，用可配置字体渲染中文。
+- 节点无文字 → 建 `Image` 占位，填 `color` 占位色。
+
+哪个区域要成为真按钮、滑条、输入框、下拉、滚动等控件，由人在 Unity 里手动转。项目最终 UI 用图集精灵换皮，自动建出的默认控件是丢弃品，因此烘焙阶段不生成控件。
+
+html→ugui 与 image→ugui 两条线共用同一个烘焙后端 `UguiBaker`，契约相同。
 
 ## 项目结构
-- Assets/HtmlToUGUI
-  - Editor/HtmlToUGUIBaker.cs：Unity 编辑器扩展，负责烘焙器界面与核心逻辑
-  - HtmlToUGUIConfig.cs：全局配置脚本对象，管理多分辨率预设与 DSL 模板
-  - HTML/HTML界面案例.html：示例 HTML 原型，展示全控件规范
-  - HtmlToJson/HTML 转 JSON 坐标烘焙器.html：Web 端坐标提取与 JSON 输出工具
-  - UIjson/test.json、shop.json：示例 UI 坐标 JSON 数据
-  - DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md：UI-DSL 规范文档
-  - README.md：工具使用说明与工作流指南
+烘焙后端位于 `Assets/Editor/UguiBaker`，命名空间 `EditorTools.Ugui`：
+
+- UguiBaker.cs：源无关的烘焙后端，把描述 JSON 还原成 UGUI 节点树。
+- UIDataNode.cs：描述 JSON 的节点模型，字段与 JSON 一一对应，Newtonsoft 直接映射。
+- UguiBakerWindow.cs：编辑器窗口，菜单 `Tools/UI Architecture/UGUI Baker (JSON)`，提供粘贴 JSON 或选 JSON 文件两种输入。
+
+HTML 生成与烘焙成 JSON 的规范与脚本随 `html-to-ugui` 技能提供：
+
+- .claude/skills/html-to-ugui/references/ui-dsl-spec.md：HTML 生成规范（UI-DSL）。
+- .claude/skills/html-to-ugui/references/json-schema.md：描述 JSON 格式。
+- .claude/skills/html-to-ugui/scripts/bake_html_to_json.py：HTML → 描述 JSON 的烘焙脚本。
 
 ```mermaid
 graph TB
-subgraph "Assets/HtmlToUGUI"
-CFG["HtmlToUGUIConfig.cs"]
-BKR["Editor/HtmlToUGUIBaker.cs"]
-HTML_EX["HTML/HTML界面案例.html"]
-WEB["HtmlToJson/HTML 转 JSON 坐标烘焙器.html"]
-JSON1["UIjson/test.json"]
-JSON2["UIjson/shop.json"]
-DSL["DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md"]
-README["README.md"]
+subgraph "html-to-ugui 技能"
+DSL["ui-dsl-spec.md<br/>HTML 生成规范"]
+PY["bake_html_to_json.py<br/>HTML→JSON 脚本"]
+SCHEMA["json-schema.md<br/>JSON 格式"]
 end
-BKR --> CFG
-BKR --> JSON1
-BKR --> JSON2
-WEB --> JSON1
-WEB --> JSON2
-HTML_EX --> WEB
-README --> BKR
-README --> WEB
-DSL --> WEB
+subgraph "Assets/Editor/UguiBaker"
+WIN["UguiBakerWindow.cs<br/>烘焙窗口"]
+BAKER["UguiBaker.cs<br/>烘焙后端"]
+NODE["UIDataNode.cs<br/>节点模型"]
+end
+DSL --> PY
+PY --> SCHEMA
+SCHEMA --> WIN
+WIN --> BAKER
+BAKER --> NODE
 ```
 
-图表来源
-- [HtmlToUGUIConfig.cs:1-35](file://Assets/HtmlToUGUI/HtmlToUGUIConfig.cs#L1-L35)
-- [HtmlToUGUIBaker.cs:1-836](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L1-L836)
-- [HTML界面案例.html:1-146](file://Assets/HtmlToUGUI/HTML/HTML界面案例.html#L1-L146)
-- [HTML 转 JSON 坐标烘焙器.html:1-239](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L1-L239)
-- [test.json:1-800](file://Assets/HtmlToUGUI/UIjson/test.json#L1-L800)
-- [shop.json:1-800](file://Assets/HtmlToUGUI/UIjson/shop.json#L1-L800)
-- [UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md:1-54](file://Assets/HtmlToUGUI/DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md#L1-L54)
-- [README.md:1-71](file://Assets/HtmlToUGUI/README.md#L1-L71)
-
-章节来源
-- [README.md:1-71](file://Assets/HtmlToUGUI/README.md#L1-L71)
+**章节来源**
+- [UguiBaker.cs:1-97](file://Assets/Editor/UguiBaker/UguiBaker.cs#L1-L97)
+- [UIDataNode.cs:1-34](file://Assets/Editor/UguiBaker/UIDataNode.cs#L1-L34)
+- [UguiBakerWindow.cs:1-119](file://Assets/Editor/UguiBaker/UguiBakerWindow.cs#L1-L119)
 
 ## 核心组件
-- HtmlToUGUIConfig：全局配置脚本对象，管理多分辨率预设与 DSL 模板，支持在编辑器中自由增删分辨率，动态导出对应分辨率的 DSL 规范。
-- HtmlToUGUIBaker：Unity 编辑器扩展，提供烘焙器界面，支持外部工具链桥接、目标 Canvas 配置、JSON 输入模式（文件/字符串）、执行烘焙生成等。
-- Web 烘焙器：HTML 转 JSON 坐标烘焙器，支持实时预览、自适应缩放、一键烘焙并复制 JSON，确保坐标与尺寸的 1:1 还原。
-- UI-DSL 规范：定义 HTML 数据属性规范，约束节点类型、命名、样式等，确保与 Unity 组件映射的一致性。
+- UguiBaker：静态烘焙后端。`Bake(json, parent)` 反序列化描述 JSON，递归在目标 Canvas 下生成节点树，整棵树共用一份字体，注册 Undo。
+- UIDataNode：节点模型。`name` 为中文描述（同时作为生成节点名），含 `x/y/width/height`、`color`（图片占位色）、`text`（有则建文本）、`fontColor/fontSize/textAlign`（仅文本用）、`children`。
+- UguiBakerWindow：编辑器窗口。选目标 Canvas（缺省时自动在场景找或新建），粘贴 JSON 或选 JSON 文件，点击执行烘焙生成。
 
-章节来源
-- [HtmlToUGUIConfig.cs:1-35](file://Assets/HtmlToUGUI/HtmlToUGUIConfig.cs#L1-L35)
-- [HtmlToUGUIBaker.cs:1-836](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L1-L836)
-- [HTML 转 JSON 坐标烘焙器.html:1-239](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L1-L239)
-- [UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md:1-54](file://Assets/HtmlToUGUI/DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md#L1-L54)
+**章节来源**
+- [UguiBaker.cs:14-96](file://Assets/Editor/UguiBaker/UguiBaker.cs#L14-L96)
+- [UIDataNode.cs:11-33](file://Assets/Editor/UguiBaker/UIDataNode.cs#L11-L33)
+- [UguiBakerWindow.cs:11-118](file://Assets/Editor/UguiBaker/UguiBakerWindow.cs#L11-L118)
 
 ## 架构总览
-工具采用“规范导出 -> AI 生成 -> 剪贴板烘焙”的三步工作流：
-- 规范导出：在 Unity 中选择目标分辨率，复制对应分辨率的 DSL 规范到剪贴板，供 AI 使用。
-- AI 生成：将 DSL 规范与自然语言需求一起交给大语言模型，生成 HTML 原型。
-- 剪贴板烘焙：在 Web 端一键烘焙并复制 JSON，回到 Unity 粘贴 JSON 并执行烘焙生成，自动生成 UGUI 树。
+工具采用“生成 HTML → 烘焙 JSON → Unity 还原节点树”的三步工作流：
+
+- 生成 HTML：按 UI-DSL 规范生成带中文描述的 HTML，元素只标 `data-u-name="中文描述"`，不标控件类型。
+- 烘焙 JSON：运行 `bake_html_to_json.py` 提取每个元素的坐标、尺寸、颜色、文字，输出描述 JSON。
+- 还原节点树：把 JSON 粘进 UGUI Baker 窗口，选目标 Canvas，执行烘焙；有文字的节点建文本，其余建图片占位。
 
 ```mermaid
 sequenceDiagram
 participant Dev as "开发者"
-participant Unity as "Unity 编辑器"
-participant Web as "Web 烘焙器"
-participant JSON as "JSON 数据"
-participant UGUI as "UGUI 树"
-Dev->>Unity : 选择目标分辨率并复制 DSL
-Dev->>Web : 在浏览器中打开并粘贴 HTML
-Web->>Web : 实时预览与自适应缩放
-Web->>JSON : 一键烘焙并复制 JSON
-Dev->>Unity : 粘贴 JSON 并拖入 Canvas
-Unity->>UGUI : 执行烘焙生成
-UGUI-->>Dev : 自动生成的 UI 树
+participant Skill as "html-to-ugui 技能"
+participant Py as "bake_html_to_json.py"
+participant Win as "UGUI Baker 窗口"
+participant Tree as "UGUI 节点树"
+Dev->>Skill : 按 UI-DSL 生成带描述的 HTML
+Dev->>Py : 烘焙 HTML 为描述 JSON
+Py-->>Dev : 描述 JSON
+Dev->>Win : 粘贴 JSON, 选目标 Canvas
+Win->>Tree : 执行烘焙生成
+Tree-->>Dev : 文本/图片占位节点树
+Dev->>Tree : 手动把需交互的占位转成控件
 ```
 
-图表来源
-- [README.md:29-55](file://Assets/HtmlToUGUI/README.md#L29-L55)
-- [HTML 转 JSON 坐标烘焙器.html:115-145](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L115-L145)
-- [HtmlToUGUIBaker.cs:315-370](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L315-L370)
+**章节来源**
+- [SKILL.md](file://.claude/skills/html-to-ugui/SKILL.md)
+- [UguiBakerWindow.cs:68-100](file://Assets/Editor/UguiBaker/UguiBakerWindow.cs#L68-L100)
 
-## 详细组件分析
+## 描述 JSON 格式
+烘焙后端从如下结构还原节点树。每个节点只产出二选一的视觉占位，不设控件类型字段。
 
-### HtmlToUGUIConfig 配置系统
-- 多分辨率预设：支持在编辑器中自由增删分辨率，每个预设包含显示名称与分辨率向量。
-- DSL 模板：配置文件中可拖入包含 {WIDTH} 和 {HEIGHT} 占位符的 Markdown 模板文件，烘焙器可动态替换并复制到剪贴板。
-- 使用方法：
-  - 在 Unity 中右键 Project 窗口 -> Create -> UI Architecture -> HtmlToUGUI Config 创建配置文件。
-  - 将 DSL 模板文件拖入配置的 dslTemplateAsset 槽位。
-  - 在烘焙器中选择目标分辨率，点击“复制对应分辨率的 DSL 规范”。
-
-```mermaid
-classDiagram
-class HtmlToUGUIConfig {
-+UIResolutionConfig[] supportedResolutions
-+TextAsset dslTemplateAsset
+```json
+{
+  "name": "标题",            // 中文描述：说明该节点是什么，同时作为生成节点名
+  "x": 0,                    // 相对父节点的 X 坐标 (px)
+  "y": 0,                    // 相对父节点的 Y 坐标 (px)
+  "width": 1920,             // 节点宽度 (px)
+  "height": 1080,            // 节点高度 (px)
+  "color": "#2C3E50",        // 图片占位色 (#RRGGBB 或 #RRGGBBAA), 透明为 #FFFFFF00; 文本节点可不填
+  "text": "显示文本",         // 有可见文字 → 建文本(Text); 为空 → 建图片(Image)
+  "fontColor": "#FFFFFF",    // 仅文本用：字体颜色
+  "fontSize": 24,            // 仅文本用：字体大小 (px)
+  "textAlign": "center",     // 仅文本用：文本对齐 left/right/center
+  "children": []             // 子节点数组, 结构相同
 }
-class UIResolutionConfig {
-+string displayName
-+Vector2 resolution
-}
-HtmlToUGUIConfig --> UIResolutionConfig : "包含多个预设"
 ```
 
-图表来源
-- [HtmlToUGUIConfig.cs:10-34](file://Assets/HtmlToUGUI/HtmlToUGUIConfig.cs#L10-L34)
+坐标系：原点在父节点左上角，X 向右递增、Y 向下递增。Unity 端用 `anchorMin/Max = (0,1)` + `pivot = (0,1)` 定位，`anchoredPosition = (localX, -localY)`。
 
-章节来源
-- [HtmlToUGUIConfig.cs:1-35](file://Assets/HtmlToUGUI/HtmlToUGUIConfig.cs#L1-L35)
-- [README.md:33-36](file://Assets/HtmlToUGUI/README.md#L33-L36)
+**章节来源**
+- [UIDataNode.cs:11-33](file://Assets/Editor/UguiBaker/UIDataNode.cs#L11-L33)
+- [json-schema.md](file://.claude/skills/html-to-ugui/references/json-schema.md)
 
-### HtmlToUGUIBaker 烘焙器
-- 界面与输入模式：支持文件模式与字符串模式两种输入；可选择目标 Canvas；可切换使用旧版 Text 或 TextMeshPro。
-- 外部工具链桥接：可配置本地 HTML 转换器路径，一键在浏览器中打开。
-- 核心逻辑：
-  - 配置 CanvasScaler：根据选定分辨率设置 referenceResolution 与 matchWidthOrHeight。
-  - JSON 解析：支持从 TextAsset 或字符串解析 UIDataNode。
-  - 节点生成：递归创建 GameObject 与 RectTransform，按类型应用组件与样式。
-  - 组件映射：div/image 映射到 Image；text 映射到 Text 或 TextMeshProUGUI；button/input/scroll/toggle/slider/dropdown 映射到对应 UGUI 组件。
-  - 坐标计算：使用相对父节点的绝对坐标进行 anchoredPosition 计算，sizeDelta 保持原始尺寸。
+## 烘焙规则
+- `text` 非空 → 文本节点：建 `Text`，套用 `fontColor/fontSize/textAlign`，用配置的默认 UI 字体渲染（中文走方正 GBK 字体）。文本节点不渲染底色，其 `color` 被忽略。
+- `text` 为空 → 图片节点：建 `Image`，填 `color` 占位色；占位色全透明（alpha≈0）时自动关闭射线检测，不挡下层节点。
+
+要做“按钮”这类带底色 + 文字的占位，用**父图片节点（填 `color` 底色）+ 子文本节点（填 `text` 文字）**两层表达，不要把 `text` 和 `color` 写在同一节点。
+
+烘焙不推断控件类型。生成后由人在 Unity 里给需要交互的占位节点手动加 Button/Slider/InputField/Dropdown/ScrollRect 等组件。
 
 ```mermaid
 flowchart TD
-Start(["开始烘焙"]) --> CheckCanvas["检查目标 Canvas"]
-CheckCanvas --> Mode{"输入模式"}
-Mode --> |文件| LoadFile["加载 JSON 文件"]
-Mode --> |字符串| LoadString["读取粘贴的 JSON 字符串"]
-LoadFile --> Parse["反序列化为 UIDataNode"]
-LoadString --> Parse
-Parse --> Valid{"解析成功?"}
-Valid --> |否| Error["输出错误日志并终止"]
-Valid --> |是| Scale["配置 CanvasScaler"]
-Scale --> Bake["递归创建节点树"]
-Bake --> Done(["完成"])
-Error --> Done
+Start(["遍历节点"]) --> HasText{"text 非空?"}
+HasText --> |是| MakeText["建 Text<br/>套字体/颜色/对齐"]
+HasText --> |否| MakeImage["建 Image<br/>填 color 占位色"]
+MakeText --> Children{"有子节点?"}
+MakeImage --> Children
+Children --> |是| Recurse["递归处理子节点"]
+Children --> |否| Done["完成"]
+Recurse --> HasText
 ```
 
-图表来源
-- [HtmlToUGUIBaker.cs:315-370](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L315-L370)
-- [HtmlToUGUIBaker.cs:372-388](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L372-L388)
-- [HtmlToUGUIBaker.cs:394-421](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L394-L421)
+**章节来源**
+- [UguiBaker.cs:31-75](file://Assets/Editor/UguiBaker/UguiBaker.cs#L31-L75)
 
-章节来源
-- [HtmlToUGUIBaker.cs:1-836](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L1-L836)
+## 字体配置
+文本节点使用可配置的默认 UI 字体。取值入口为 Project Settings → TEngine → UISettings → “默认 UI 字体”。
 
-### Web 烘焙器（HTML 转 JSON 坐标烘焙器）
-- 实时预览与自适应缩放：根据容器尺寸与根节点尺寸计算缩放比例，避免 CSS 动画导致的坐标偏移。
-- 坐标提取：遍历 DOM，提取每个节点的绝对坐标、尺寸、背景色、字体颜色、字号、文本对齐、文本内容等，生成 JSON。
-- 一键烘焙：将 JSON 写入剪贴板，提示用户回到 Unity 粘贴。
+回退链：配置字体 → `Assets/AssetRaw/Fonts/GBK.ttf` → 内置 `LegacyRuntime.ttf`。开箱未配置时回退到工程内 GBK.ttf，正常渲染中文，不依赖 OS 字体回退。换字体即改该设置后重新烘焙。
 
-```mermaid
-sequenceDiagram
-participant User as "用户"
-participant Web as "Web 烘焙器"
-participant DOM as "DOM 树"
-participant JSON as "JSON 输出"
-User->>Web : 粘贴 HTML 代码
-Web->>DOM : 渲染到 sandbox
-Web->>DOM : 计算缩放 fitPreviewScale()
-Web->>DOM : 遍历节点 traverseAndBake()
-DOM-->>Web : 返回节点数据
-Web->>JSON : 生成 JSON 字符串
-Web->>User : 复制到剪贴板并提示
-```
-
-图表来源
-- [HTML 转 JSON 坐标烘焙器.html:73-145](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L73-L145)
-- [HTML 转 JSON 坐标烘焙器.html:147-224](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L147-L224)
-
-章节来源
-- [HTML 转 JSON 坐标烘焙器.html:1-239](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L1-L239)
-
-### UI-DSL 规范与示例
-- 规范要点：
-  - 唯一根节点：声明 data-u-type="div" 与 data-u-name="root" 或具体窗口名。
-  - 基准分辨率：根节点 style 中明确 width/height，最大不可超过此尺寸。
-  - 节点类型：div/image/text/button/input/scroll/toggle/slider/dropdown。
-  - 高级属性：toggle 支持 data-u-checked；slider 支持 data-u-value；dropdown 必须使用 select 并包含 option。
-- 示例 HTML：包含顶部导航栏、主体内容区、左右分栏、房间列表、回放控制等全控件示例。
-
-章节来源
-- [UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md:1-54](file://Assets/HtmlToUGUI/DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md#L1-L54)
-- [HTML界面案例.html:1-146](file://Assets/HtmlToUGUI/HTML/HTML界面案例.html#L1-L146)
-
-### JSON 数据结构与示例
-- 结构字段：name/type/dir/value/isChecked/options/x/y/width/height/color/fontColor/fontSize/textAlign/text/children。
-- 示例 JSON：test.json 与 shop.json 展示了复杂 UI 的层级结构与控件映射，可用于验证烘焙器的正确性。
-
-章节来源
-- [test.json:1-800](file://Assets/HtmlToUGUI/UIjson/test.json#L1-L800)
-- [shop.json:1-800](file://Assets/HtmlToUGUI/UIjson/shop.json#L1-L800)
+**章节来源**
+- [ScriptGeneratorSetting.cs:154-169](file://Assets/Editor/UIScriptGenerator/ScriptGeneratorSetting.cs#L154-L169)
+- [UguiBaker.cs:24-24](file://Assets/Editor/UguiBaker/UguiBaker.cs#L24-L24)
 
 ## 依赖关系分析
-- HtmlToUGUIBaker 依赖 HtmlToUGUIConfig 进行分辨率与 DSL 模板配置。
-- HtmlToUGUIBaker 依赖 Newtonsoft.Json 进行 JSON 反序列化。
-- Web 烘焙器依赖浏览器 DOM API 进行坐标提取与预览。
-- UI-DSL 规范约束 HTML 结构，确保与 Unity 组件映射一致。
+- UguiBakerWindow 调用 UguiBaker.Bake 执行烘焙。
+- UguiBaker 依赖 Newtonsoft.Json 反序列化描述 JSON。
+- UguiBaker 通过 ScriptGeneratorSetting.GetDefaultUIFont 取文本节点字体。
+- image→ugui 线复用同一 UguiBaker，与 html→ugui 共享描述 JSON 契约。
 
 ```mermaid
-graph TB
-BKR["HtmlToUGUIBaker.cs"] --> CFG["HtmlToUGUIConfig.cs"]
-BKR --> JSON["UIjson/*.json"]
-WEB["HTML 转 JSON 坐标烘焙器.html"] --> JSON
-WEB --> DSL["UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md"]
-HTML_EX["HTML界面案例.html"] --> WEB
+graph LR
+WIN["UguiBakerWindow"] --> BAKER["UguiBaker"]
+BAKER --> NODE["UIDataNode"]
+BAKER --> JSONLIB["Newtonsoft.Json"]
+BAKER --> FONT["ScriptGeneratorSetting<br/>GetDefaultUIFont"]
 ```
 
-图表来源
-- [HtmlToUGUIBaker.cs:1-8](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L1-L8)
-- [HtmlToUGUIConfig.cs:1-35](file://Assets/HtmlToUGUI/HtmlToUGUIConfig.cs#L1-L35)
-- [HTML 转 JSON 坐标烘焙器.html:1-239](file://Assets/HtmlToUGUI/HtmlToJson/HTML 转 JSON 坐标烘焙器.html#L1-L239)
-- [HTML界面案例.html:1-146](file://Assets/HtmlToUGUI/HTML/HTML界面案例.html#L1-L146)
-- [UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md:1-54](file://Assets/HtmlToUGUI/DSL/UI 原型 HTML 生成规范 (UI-DSL) - 全控件版.md#L1-L54)
-
-章节来源
-- [HtmlToUGUIBaker.cs:1-8](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L1-L8)
-
-## 性能考量
-- Web 端坐标提取：通过移除 transition 属性避免动画中间态影响 getBoundingClientRect 的准确性，确保坐标与尺寸的 1:1 还原。
-- Unity 端烘焙：使用 CanvasScaler 的 ScaleWithScreenSize 模式与 matchWidthOrHeight=0.5，实现多分辨率适配；节点生成采用递归遍历，复杂度与节点数线性相关。
-- 文本组件：支持 Legacy Text 与 TextMeshPro 两种方案，可根据项目需求选择，减少不必要的依赖。
+**章节来源**
+- [UguiBaker.cs:1-29](file://Assets/Editor/UguiBaker/UguiBaker.cs#L1-L29)
+- [UguiBakerWindow.cs:88-100](file://Assets/Editor/UguiBaker/UguiBakerWindow.cs#L88-L100)
 
 ## 故障排查指南
-- 未指定目标 Canvas：烘焙中断并输出错误日志，需在烘焙器中拖入场景中的 Canvas。
-- 未指定 JSON 数据源：文件模式下未选择 JSON 文件或字符串模式下未粘贴 JSON，烘焙中断并输出错误日志。
-- JSON 解析异常：JSON 格式不符合 UIDataNode 规范，烘焙中断并输出异常信息。
-- 配置文件缺失或分辨率索引越界：复制 DSL 失败，需检查 HtmlToUGUIConfig 是否正确配置。
-- 转换器路径为空：在浏览器中打开失败，需先配置本地 HTML 转换器路径。
+- JSON 解析为空：检查 JSON 格式是否符合节点模型；窗口会弹框提示。
+- 未指定目标 Canvas：缺省时窗口会自动在场景查找 Canvas，没有则新建一个 ScreenSpaceOverlay Canvas 与 EventSystem。
+- 中文显示为方块：确认默认 UI 字体指向含中文字形的字体（开箱为 GBK.ttf）。
+- “按钮”占位无底色：把底色写在父图片节点、文字写在子文本节点；文本节点的 `color` 不渲染。
 
-章节来源
-- [HtmlToUGUIBaker.cs:315-370](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L315-L370)
-- [HtmlToUGUIBaker.cs:259-278](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L259-L278)
-- [HtmlToUGUIBaker.cs:198-233](file://Assets/HtmlToUGUI/Editor/HtmlToUGUIBaker.cs#L198-L233)
+**章节来源**
+- [UguiBaker.cs:17-29](file://Assets/Editor/UguiBaker/UguiBaker.cs#L17-L29)
+- [UguiBakerWindow.cs:68-117](file://Assets/Editor/UguiBaker/UguiBakerWindow.cs#L68-L117)
 
 ## 结论
-HTML 转 UGUI 工具通过规范化的 UI-DSL、Web 坐标提取与 Unity 烘焙器的协同，实现了从自然语言到 UGUI 预制体的高效自动化生产。其多分辨率适配、动态 DSL 导出、极速剪贴板直通流等特性显著提升了 UI 原型开发效率，适合在团队协作与快速迭代场景中使用。
-
-## 附录
-- 使用流程（v2.0）：
-  1) 准备工作：创建 HtmlToUGUIConfig 配置文件并拖入 DSL 模板。
-  2) 导出规范与 AI 生成：在烘焙器中选择目标分辨率，复制 DSL 到剪贴板，交给 AI 生成 HTML。
-  3) Web 端一键提取坐标：在浏览器中打开工具，粘贴 HTML，一键烘焙并复制 JSON。
-  4) Unity 端极速生成：回到 Unity 粘贴 JSON 并拖入 Canvas，点击执行烘焙生成。
-
-章节来源
-- [README.md:29-55](file://Assets/HtmlToUGUI/README.md#L29-L55)
+HTML 转 UGUI 工具把 HTML 原型转换为 UGUI 视觉占位节点树：有文字建文本、无文字建图片占位，控件由人手动转。烘焙后端 `UguiBaker` 源无关，与 image→ugui 共用同一描述 JSON 契约，文本字体可在 UISettings 配置。该工具加速 UI 视觉布局的初始搭建，最终换皮与交互控件由人接力完成。

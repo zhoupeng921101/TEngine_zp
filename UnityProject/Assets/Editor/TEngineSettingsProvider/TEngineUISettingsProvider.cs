@@ -186,6 +186,14 @@ public static class TEngineUISettingsProvider
                 EditorGUILayout.PropertyField(codeStyleProperty,
                     new GUIContent("代码风格", "生成的代码风格模板"));
 
+                EditorGUILayout.Space(5);
+
+                // 烘焙器(UGUI Baker)文本节点字体；留空回退到工程内 GBK.ttf
+                EditorGUILayout.LabelField("烘焙设置", EditorStyles.boldLabel);
+                var defaultUIFontProperty = serializedObject.FindProperty("defaultUIFont");
+                EditorGUILayout.PropertyField(defaultUIFontProperty,
+                    new GUIContent("默认 UI 字体", "烘焙器建文本节点用的字体；留空回退到 GBK.ttf"));
+
                 EditorGUILayout.Space(3);
                 EditorGUILayout.HelpBox("配置代码的命名空间和基础结构", MessageType.Info);
             }

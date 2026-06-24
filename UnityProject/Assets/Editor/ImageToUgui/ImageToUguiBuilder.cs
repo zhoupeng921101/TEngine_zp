@@ -1,31 +1,28 @@
-using System.Collections.Generic;
-using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
-using EditorTools.HtmlToUGUI;
+using EditorTools.Ugui;
 
 namespace EditorTools.ImageToUgui
 {
     /// <summary>
-    /// 截图 → UGUI 视觉预制体管线的收尾装配。
-    /// 输入 UIDataNode JSON（与 html-to-ugui 同一契约），复用 HtmlToUGUIBaker.Bake 搭节点，
-    /// 再把 TMP 文本换成项目实际使用的 legacy Text + LegacyRuntime（渲染中文、与项目 UI 组件一致），
-    /// 最后存成 .prefab 并在当前场景留一个链接实例。配合 unityMCP execute_code 调用。
+    /// 截图/效果图 → UGUI 视觉预制体管线的收尾装配。
+    /// 输入描述 JSON(与 html-to-ugui 同一契约)，复用 UguiBaker.Bake 搭节点树(文本/图片占位)，
+    /// 存成 .prefab 并在当前场景留一个链接实例。配合 unityMCP execute_code 调用。
+    /// 真按钮/滑条等控件由人在 Unity 里手动转，不在此阶段生成。
     /// </summary>
     public static class ImageToUguiBuilder
     {
         const string PrefabDir = "Assets/AssetRaw/UI/Prefabs";
 
-        /// <summary>JSON → 节点树 → 项目化文本 → 存 prefab，并在当前场景留链接实例。返回状态文本。</summary>
+        /// <summary>JSON → 节点树 → 存 prefab，并在当前场景留链接实例。返回状态文本。</summary>
         public static string BuildPrefab(string json, string prefabName, int designW, int designH)
         {
             if (string.IsNullOrWhiteSpace(json)) return "ERROR: json 为空";
             if (string.IsNullOrWhiteSpace(prefabName)) return "ERROR: prefabName 为空";
 
             var canvas = NewStageCanvas(prefabName + "_Canvas", designW, designH, RenderMode.ScreenSpaceOverlay, null);
-            var root = HtmlToUGUIBaker.Bake(json, canvas.transform as RectTransform);
-            int converted = Projectize(root);
+            var root = UguiBaker.Bake(json, canvas.transform as RectTransform);
 
             EnsureFolder(PrefabDir);
             string path = PrefabDir + "/" + prefabName + ".prefab";
@@ -33,7 +30,7 @@ namespace EditorTools.ImageToUgui
             AssetDatabase.SaveAssets();
 
             bool ok = AssetDatabase.LoadAssetAtPath<GameObject>(path) != null;
-            return $"prefab={path} saved={ok} textProjectized={converted} sceneInstance={root.name}";
+            return $"prefab={path} saved={ok} sceneInstance={root.name}";
         }
 
         /// <summary>从已存盘 prefab 离屏渲一张 PNG 留证。自包含，不依赖场景状态。</summary>
@@ -101,71 +98,6 @@ namespace EditorTools.ImageToUgui
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = 0.5f;
             return canvas;
-        }
-
-        /// <summary>
-        /// TMP_Text → legacy Text + LegacyRuntime。LegacyRuntime 走 OS 动态回退，能渲染中文，
-        /// 且与项目现有 UI（m_text_* 全是 legacy Text + LegacyRuntime）一致。
-        /// 跳过 TMP_InputField / TMP_Dropdown 内部的 TMP 文本——销毁会破坏控件。
-        /// </summary>
-        static int Projectize(GameObject root)
-        {
-            var legacy = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            int n = 0;
-            var list = new List<TMP_Text>(root.GetComponentsInChildren<TMP_Text>(true));
-            foreach (var tmp in list)
-            {
-                if (tmp == null) continue;
-                if (IsInsideTmpControl(tmp.transform, root.transform)) continue;
-
-                var go = tmp.gameObject;
-                string txt = tmp.text;
-                float fs = tmp.fontSize;
-                Color col = tmp.color;
-                var align = tmp.alignment;
-                Object.DestroyImmediate(tmp);
-
-                var t = go.GetComponent<Text>();
-                if (t == null) t = go.AddComponent<Text>();
-                t.font = legacy;
-                t.text = txt;
-                t.fontSize = Mathf.RoundToInt(fs <= 0 ? 24 : fs);
-                t.color = col;
-                t.horizontalOverflow = HorizontalWrapMode.Overflow;
-                t.verticalOverflow = VerticalWrapMode.Overflow;
-                t.alignment = MapAnchor(align);
-                n++;
-            }
-            return n;
-        }
-
-        static bool IsInsideTmpControl(Transform t, Transform root)
-        {
-            for (var p = t; p != null; p = p.parent)
-            {
-                if (p.GetComponent<TMP_InputField>() != null || p.GetComponent<TMP_Dropdown>() != null) return true;
-                if (p == root) break;
-            }
-            return false;
-        }
-
-        static TextAnchor MapAnchor(TextAlignmentOptions a)
-        {
-            switch (a)
-            {
-                case TextAlignmentOptions.Left:
-                case TextAlignmentOptions.TopLeft:
-                case TextAlignmentOptions.BottomLeft:
-                case TextAlignmentOptions.MidlineLeft:
-                    return TextAnchor.MiddleLeft;
-                case TextAlignmentOptions.Right:
-                case TextAlignmentOptions.TopRight:
-                case TextAlignmentOptions.BottomRight:
-                case TextAlignmentOptions.MidlineRight:
-                    return TextAnchor.MiddleRight;
-                default:
-                    return TextAnchor.MiddleCenter;
-            }
         }
 
         static void EnsureFolder(string dir)

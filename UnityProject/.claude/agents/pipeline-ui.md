@@ -54,24 +54,25 @@ TEngine_block 项目的 UI 制作。负责把策划产出的 UI 描述变成**�
 
 ### Step 2: 生成 UI 结构骨架
 
+> 烘焙模型见 `html-to-ugui` SKILL:有可见文字的元素建文本节点，其余建图片占位节点，**不建任何控件**(不再用 `data-u-type` 标控件类型)。真按钮/滑条/输入框等由人在 Unity 里手动转。带底色 + 文字的"按钮"占位用父图片节点(底色)+ 子文本节点(文字)。
+
 1. 读 `html-to-ugui` skill 的 references/ui-dsl-spec.md(完整规范)
 2. 根据 Step 1 的节点清单生成 UI-DSL HTML
-   - 根节点:`data-u-type="div"` + `data-u-name="m_<WindowName>"`
-   - 所有 `data-u-name` **必须遵守 TEngine 命名前缀规范**(见下方「命名规范」)
+   - 每个要转成节点的元素只需 `data-u-name="中文描述"`;`data-u-name` **遵守 TEngine 命名前缀规范**(见下方「命名规范」)
    - 纯色占位:素材尚未生成，用 `background-color` 填近似色
 3. 运行烘焙脚本:
    ```bash
    python .claude/skills/html-to-ugui/scripts/bake_html_to_json.py <html文件> -o output.json -w 1920 -h 1080
    ```
-4. 将 JSON 导入 Unity:打开 `Tools > UI Architecture > HTML to UGUI Baker` 窗口，粘贴 JSON → 执行烘焙生成
+4. 将 JSON 导入 Unity:打开 `Tools/UI Architecture/UGUI Baker (JSON)` 窗口，粘贴 JSON → 执行烘焙生成
 
-### Step 3: MCP 补齐 + 修正
+### Step 3: MCP 补齐 + 控件人工转
 
-html-to-ugui 导入后，用 MCP batch_execute 逐项处理:
+烘焙导入后得到的是文本 + 图片占位节点树(无控件)，用 MCP batch_execute 逐项处理:
 
-1. **命名前缀修正**:html-to-ugui 的 `data-u-name` 如用 `m_btnSave`(无下划线)，在 Unity 里用 `manage_gameobject modify name` 批量改为 TEngine 格式 `m_btn_Save`。如 HTML 已直接写 TEngine 格式则跳过。
-2. **TMP 替换**:html-to-ugui 生成的是 legacy `InputField`，Unity 6 已移除 legacy font。用 MCP `manage_components remove` 移除 InputField → `manage_components add` 添加 `TMP_InputField`，节点改名 `m_tmpInput_XXX`。
-3. **补充缺失节点**:MCP `manage_ui` / `manage_gameobject` 创建 html-to-ugui 不支持的控件(GridLayoutGroup、LoopListView 等)。
+1. **命名前缀修正**:`data-u-name` 如用 `m_btnSave`(无下划线)，在 Unity 里用 `manage_gameobject modify name` 批量改为 TEngine 格式 `m_btn_Save`。如 HTML 已直接写 TEngine 格式则跳过。
+2. **控件人工转**:占位节点按需手动转成真控件——交互区(按钮/输入框/滑条等)用 MCP `manage_components` / `manage_ui` 在对应占位节点上加 Button / Slider / TMP_InputField 等组件;输入框转 `TMP_InputField`(Unity 6 已移除 legacy font)并按前缀改名 `m_tmpInput_XXX`。
+3. **补充缺失节点**:MCP `manage_ui` / `manage_gameobject` 创建烘焙不产出的结构(GridLayoutGroup、LoopListView 等)。
 4. **Canvas 规范**:确保根节点有 Canvas + CanvasScaler + GraphicRaycaster；CanvasScaler 设 Reference Resolution 1920×1080、Match 0.5。
 
 ### Step 4: 落素材
