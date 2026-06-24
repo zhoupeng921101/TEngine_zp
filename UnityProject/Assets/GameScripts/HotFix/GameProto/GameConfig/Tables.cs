@@ -222,6 +222,27 @@ public partial class Tables
             m_TbRank.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 全局零散参数配置表(键值型,value按需解析)
+    /// </summary>
+    private global.TbGlobal m_TbGlobal;
+    public global.TbGlobal TbGlobal 
+    {
+        get
+        {
+            if (m_TbGlobal == null)
+            {
+                m_TbGlobal = new global.TbGlobal(defaultLoader("global_tbglobal"));
+                m_TbGlobal.ResolveRef(this);
+            }
+            return m_TbGlobal;
+        }
+        set
+        {
+            m_TbGlobal = value;
+            m_TbGlobal.ResolveRef(this);
+        }
+    }
 
     #endregion
 
