@@ -301,6 +301,9 @@ namespace EditorTools.Ugui
                     img.color = Color.white;                 // 不染色，显示原图
                     img.type = n.sliced ? Image.Type.Sliced : Image.Type.Simple;
                     img.raycastTarget = true;
+                    // Simple 图标按原生像素尺寸显示，不被 JSON 粗略框拉伸；仅非拉伸态(两轴 anchorMin==anchorMax)才调，拉伸态跳过以保铺满
+                    if (!n.sliced && img.rectTransform.anchorMin == img.rectTransform.anchorMax)
+                        img.SetNativeSize();
                     return;
                 }
                 // 取不到(路径错 / 资源非 Sprite)→ 告警 + 回退占位色，不抛异常

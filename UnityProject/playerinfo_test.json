@@ -6,17 +6,13 @@
       "children": [
         { "name": "左叶子", "x": 160, "y": 255, "width": 120, "height": 85, "color": "#8FC15A" },
         { "name": "右叶子", "x": 690, "y": 240, "width": 125, "height": 90, "color": "#8FC15A" },
-        { "name": "标题木牌", "x": 300, "y": 205, "width": 480, "height": 200, "color": "#B5793F",
+        { "name": "标题木牌", "x": 300, "y": 205, "width": 480, "height": 200, "color": "#B5793F", "path": "Assets/AssetRaw/UIRaw/Atlas/settings", "sprite": "box2", "sliced": true,
           "children": [
             { "name": "标题文字", "x": 380, "y": 265, "width": 320, "height": 80, "text": "玩家信息", "fontColor": "#FFFFFF", "fontSize": 60, "textAlign": "center" }
           ]
         },
-        { "name": "关闭按钮", "x": 895, "y": 270, "width": 105, "height": 105, "color": "#E8A23D",
-          "children": [
-            { "name": "关闭X", "x": 920, "y": 285, "width": 55, "height": 70, "text": "✕", "fontColor": "#FFFFFF", "fontSize": 54, "textAlign": "center" }
-          ]
-        },
-        { "name": "信息卡", "x": 195, "y": 455, "width": 690, "height": 375, "color": "#FBF1D8",
+        { "name": "关闭按钮", "x": 895, "y": 270, "width": 105, "height": 105, "color": "#E8A23D", "path": "Assets/AssetRaw/UIRaw/Atlas/settings", "sprite": "icon_x" },
+        { "name": "信息卡", "x": 195, "y": 455, "width": 690, "height": 375, "color": "#FBF1D8", "path": "Assets/AssetRaw/UIRaw/Atlas/settings", "sprite": "box1", "sliced": true,
           "children": [
             { "name": "头像位", "x": 230, "y": 490, "width": 175, "height": 175, "color": "#9AA0A6" },
             { "name": "名字框", "x": 440, "y": 495, "width": 300, "height": 90, "color": "#FAEFD5",
@@ -51,9 +47,9 @@
             { "name": "头像框Tab文字", "x": 635, "y": 878, "width": 160, "height": 50, "text": "头像框", "fontColor": "#FFFFFF", "fontSize": 38, "textAlign": "center" }
           ]
         },
-        { "name": "头像网格面板", "x": 185, "y": 940, "width": 710, "height": 545, "color": "#FAD98E",
+        { "name": "头像网格面板", "x": 185, "y": 940, "width": 710, "height": 545, "color": "#FAD98E", "path": "Assets/AssetRaw/UIRaw/Atlas/MergeOrderWindow", "sprite": "Groupbg", "sliced": true,
           "children": [
-            { "name": "头像1", "x": 250, "y": 990, "width": 165, "height": 165, "color": "#9AA0A6",
+            { "name": "头像1", "x": 250, "y": 990, "width": 165, "height": 165, "color": "#9AA0A6", "path": "Assets/AssetRaw/UIRaw/Atlas/settings", "sprite": "no_such_icon",
               "children": [
                 { "name": "选中勾", "x": 255, "y": 968, "width": 55, "height": 55, "color": "#7CB342" }
               ]
@@ -68,7 +64,7 @@
             { "name": "头像9", "x": 705, "y": 1370, "width": 165, "height": 115, "color": "#9AA0A6" }
           ]
         },
-        { "name": "保存按钮", "x": 385, "y": 1520, "width": 310, "height": 115, "color": "#8BC34A",
+        { "name": "保存按钮", "x": 385, "y": 1520, "width": 310, "height": 115, "color": "#8BC34A", "path": "Assets/AssetRaw/UIRaw/Atlas/settings", "sprite": "button", "sliced": true,
           "children": [
             { "name": "保存文字", "x": 440, "y": 1545, "width": 200, "height": 60, "text": "保存", "fontColor": "#FFFFFF", "fontSize": 46, "textAlign": "center" }
           ]

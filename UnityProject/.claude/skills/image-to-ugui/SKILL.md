@@ -42,7 +42,22 @@ description: "截图/效果图 → Unity UGUI 视觉占位预制体。看图产�
 > 不在 JSON 阶段加控件命名前缀（`m_btn_` 等）：本管线不建控件、也不生成绑定。
 > 真按钮/滑条等在烤完后由人在 Unity 里手动转；要生成 TEngine 绑定时，命名前缀由人在转控件那步按 `.claude/skills/tengine-dev/references/naming-rules.md` 后置添加。
 
-### 2. 烤 prefab + 截图（unityMCP execute_code）
+### 2. 读切图目录 → 匹配 → 填图（可选，有切图素材时）
+
+用户给了切图目录（一或多个）时，给图片节点填真实子图，取代纯色占位：
+
+- 输入：用户给的切图目录 `path`（可多目录，如 `Assets/AssetRaw/UIRaw/Atlas/settings`）。
+- 步骤：
+  1. `Glob {path}/*.png` 枚举每个目录的子图文件名。
+  2. 每个图片节点按**语义名 + 区域职能**匹配最贴切的子图（如"关闭按钮"→`icon_x`、"信息卡底"→`box1`）；子图名不直观时 `Read` 该 png 看图比对再定。
+  3. 节点填 `path` + `sprite`（文件名不含扩展名即可，烘焙器补 `.png`）。**9 宫格底板/边框**（卡片底、按钮底、面板底）填 `sliced: true`，拉伸不糊角。
+  4. 匹配不到合适子图的区域（图标位、装饰、占位块）**留空**——不填 `path`/`sprite`，保持纯色占位。
+- 字段语义与路径拼接规则见 [json-schema.md](../html-to-ugui/references/json-schema.md) 「填图」节。
+- 文本节点不填图（这三字段对文本无效）。
+
+> **边界**：本管线只产"直接引子图"的 prefab。图集打包 + 运行期 `SetSubSprite` 寻址是用户的**下游生产**，不在本管线——这里不打图集、不挂运行时寻址组件、不产接线清单。
+
+### 3. 烤 prefab + 截图（unityMCP execute_code）
 
 ```csharp
 string json = @"...";  // 第 1 步产出
@@ -56,9 +71,9 @@ return build + "\n" + shot;
 - `BuildPrefab`：`UguiBaker.Bake` 搭节点（有文字建文本、无文字建图片）→ 存 prefab + 场景留实例。
 - `Screenshot`：从 prefab 离屏渲一张 PNG（自包含，不依赖场景状态）。
 
-### 3. 比对迭代
+### 4. 比对迭代
 
-`Read` 截图 PNG，与原图并排比。偏差大就改 JSON 回第 2 步重跑（同名覆盖）。收敛判据：主结构（分区、占位位置、文字）对得上；占位色允许与原图不同。
+`Read` 截图 PNG，与原图并排比。偏差大就改 JSON 回第 3 步重跑（同名覆盖）。收敛判据：主结构（分区、占位/填图位置、文字）对得上；未填图区域的占位色允许与原图不同。
 
 ## 坐标约定
 
@@ -72,6 +87,6 @@ return build + "\n" + shot;
 
 ## 已知限制 / 后续升级
 
-- **占位色块**非真实素材。升级切图：PNG 拷进 Assets + 设 Sprite 导入参数 + Image 引用 sprite，JSON 增 sprite 字段。
+- **填真实切图**：图片节点标注 `path`（切图目录）+ `sprite`（子图文件名），烘焙器烤时直接把该子图赋给 Image（9 宫格底板加 `sliced: true`），编辑器里所见即所得，取代纯色占位。读目录匹配流程见上「2. 读切图目录 → 匹配 → 填图」，字段语义见 [json-schema.md](../html-to-ugui/references/json-schema.md) 「填图」节。前提是子图已作为 Sprite 导入 Assets。图集打包与运行期 `SetSubSprite` 寻址是下游生产，不在本管线。
 - **控件人工转**：本版只产文本/图片占位。要交互的区域（按钮、滑条、输入框等），在 Unity 里给对应占位节点手动加 Button/Slider/InputField 等组件。
 - **升级完整 TEngine 窗口**：手动转好控件并按前缀表命名后，对 prefab 跑 `ScriptAutoGenerator` 生成 `_Gen.g.cs` + impl 骨架，节点树无需返工。

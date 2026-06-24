@@ -19,9 +19,28 @@
   "fontSize": 24,            // 仅文本用：字体大小 (px)
   "textAlign": "center",     // 仅文本用：文本对齐 left/right/center
   "anchor": "",              // 可选：显式锚点预设；为空则由烘焙器据几何自动推断（见下「自适应锚点」）
+  "path": "",                // 可选：切图所在目录（Assets 相对路径）；与 sprite 均非空时直接填图（见下「填图」）
+  "sprite": "",              // 可选：path 目录内的子图文件名；不含扩展名烘焙器补 .png
+  "sliced": false,           // 可选：true → Image.type = Sliced（9 宫格底板/边框拉伸不糊边角）
   "children": []             // 子节点数组，结构相同
 }
 ```
+
+## 填图（直接引子图，可选）
+
+图片节点（`text` 为空）可标注 `path` + `sprite`，让烘焙器把切图目录里的那张子图**直接赋给 Image**，编辑器里所见即所得，取代纯色占位：
+
+- `path`：切图所在目录的 Assets 相对路径，如 `Assets/AssetRaw/UIRaw/Atlas/settings`。
+- `sprite`：该目录内子图的文件名。不含扩展名时烘焙器自动补 `.png`；含扩展名按原样。
+- `sliced`：`true` 时 `Image.type = Sliced`（9 宫格），底板/边框随锚点拉伸时四角不糊；默认 `false`（Simple）。
+
+行为：
+
+- `path` 与 `sprite` **均非空** → 拼 `path/sprite[.png]`，`AssetDatabase.LoadAssetAtPath<Sprite>` 取图。取到 → 赋给 `sprite`、`color` 强制白（不染色显示原图）、按 `sliced` 设 type、开射线。取不到（路径错 / 资源非 Sprite）→ 回退 `color` 占位 + 一条 `LogWarning`（含节点名与完整路径），不报错。
+- `path` 或 `sprite` 为空 → 完全维持 `color` 占位行为（向后兼容）。
+
+> 文本节点（`text` 非空）忽略这三个字段——只有图片节点填图。
+> 本管线只产"直接引子图"的 prefab；**图集打包与运行期 `SetSubSprite` 寻址是下游生产**，不在烘焙阶段。
 
 ## 文本 vs 图片判定
 
