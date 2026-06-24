@@ -12,7 +12,7 @@ namespace UIAtlasPackerTool
     /// 散切图打表工具：把一个散切图目录合成一张 Multiple 模式精灵表 PNG。
     /// 子图名=源文件名(去扩展名)、pivot 居中、alignment=Center、border 从源 importer 级 spriteBorder
     /// 继承(可选 _border_override.json 覆盖)、rect 由 PackTextures 自动排布(尺寸=源像素尺寸)。
-    /// 产出落 AssetRaw/UIRaw/Atlas/ 被收集器收录，运行期经 Image.SetSubSprite(location, 子图名) 寻址。
+    /// 产出落 AssetRaw/UI/Atlas/ 被收集器收录，运行期经 Image.SetSubSprite(location, 子图名) 寻址。
     /// 设计依据：design-docs/24-ui-atlas-packer.md(经 design-docs/index.html 浏览)。
     ///
     /// 打表核心是可被 EditMode 直调的静态方法 <see cref="Pack"/>，菜单项只是薄壳。
@@ -21,7 +21,7 @@ namespace UIAtlasPackerTool
     /// </summary>
     public static class UIAtlasPacker
     {
-        public const string OutputDirAssetPath = "Assets/AssetRaw/UIRaw/Atlas";
+        public const string OutputDirAssetPath = "Assets/AssetRaw/UI/Atlas";
         public const string DefaultPackageName = "DefaultPackage";
         public const string BorderOverrideFileName = "_border_override.json";
 
@@ -87,7 +87,7 @@ namespace UIAtlasPackerTool
         /// <summary>
         /// 对一个散切图目录打表。校验不过/已存在即中止并返回 Success=false、不产出任何文件。
         /// </summary>
-        /// <param name="folderPath">散切图目录的资源路径(如 Assets/AssetRaw/UIRaw/Atlas/settings)</param>
+        /// <param name="folderPath">散切图目录的资源路径(如 Assets/AssetRaw/UI/Atlas/settings)</param>
         /// <param name="simulateBuild">成功后是否重建 YooAsset 模拟清单(EditMode 测试一般传 false)</param>
         public static PackResult Pack(string folderPath, bool simulateBuild = true)
         {

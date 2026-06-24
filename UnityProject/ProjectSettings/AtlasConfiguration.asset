@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   outputAtlasDir: Assets/AssetArt/Atlas
   sourceAtlasRootDir:
-  - Assets/AssetRaw/UIRaw/Atlas
+  - Assets/AssetRaw/UI/Atlas
   rootChildAtlasDir:
-  - Assets/AssetRaw/UIRaw/Atlas/SingleAtlas
+  - Assets/AssetRaw/UI/Atlas/SingleAtlas
   singleAtlasDir:
-  - Assets/AssetRaw/UIRaw/Atlas/Background
+  - Assets/AssetRaw/UI/Atlas/Background
   excludeFolder:
-  - Assets/AssetRaw/UIRaw/Raw
+  - Assets/AssetRaw/UI/Texture
   androidFormat: 50
   iosFormat: 49
   webglFormat: 50

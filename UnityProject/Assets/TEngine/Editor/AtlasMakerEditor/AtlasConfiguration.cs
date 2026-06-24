@@ -12,15 +12,15 @@
         public string outputAtlasDir = "Assets/AssetArt/Atlas";
 
         [Tooltip("需要生成图集的UI根目录")]
-        // public string sourceAtlasRoot = "Assets/AssetRaw/UIRaw/Atlas";
-        public string[] sourceAtlasRootDir = new string[] { "Assets/AssetRaw/UIRaw/Atlas" };
+        // public string sourceAtlasRoot = "Assets/AssetRaw/UI/Atlas";
+        public string[] sourceAtlasRootDir = new string[] { "Assets/AssetRaw/UI/Atlas" };
         [Tooltip("以当前目录的子级生成子级图集")]
         public string[] rootChildAtlasDir = new string[] {  };
         [Tooltip("每张图都单独生成图集")]
-        public string[] singleAtlasDir = new string[] { "Assets/AssetRaw/UIRaw/Atlas/Background" };
+        public string[] singleAtlasDir = new string[] { "Assets/AssetRaw/UI/Atlas/Background" };
         [Tooltip("不需要生成图集的UI目录")]
-        // public string excludeFolder = "Assets/AssetRaw/UIRaw/Raw";
-        public string[] excludeFolder = new string[] { "Assets/AssetRaw/UIRaw/Raw" };
+        // public string excludeFolder = "Assets/AssetRaw/UI/Texture";
+        public string[] excludeFolder = new string[] { "Assets/AssetRaw/UI/Texture" };
 
         [Header("平台格式设置")]
         public TextureImporterFormat androidFormat = TextureImporterFormat.ASTC_6x6;

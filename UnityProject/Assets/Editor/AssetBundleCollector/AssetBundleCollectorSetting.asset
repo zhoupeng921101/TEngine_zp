@@ -116,12 +116,12 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
-    - GroupName: UI
+    - GroupName: UIPrefab
       GroupDesc: 
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/AssetRaw/UI
+      - CollectPath: Assets/AssetRaw/UI/Prefabs
         CollectorGUID: 27e87d83814156648b58f380b834e046
         CollectorType: 0
         AddressRuleName: AddressByFileName
@@ -129,12 +129,20 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
-    - GroupName: UIRaw
+      - CollectPath: Assets/AssetRaw/UI/Widgets
+        CollectorGUID: 7884b0789a924bd7b5d458ee29a6d1ce
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
+    - GroupName: UIAtlas
       GroupDesc: 
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/AssetRaw/UIRaw/Atlas
+      - CollectPath: Assets/AssetRaw/UI/Atlas
         CollectorGUID: 6d11fa91acc253840a648b58f23db139
         CollectorType: 0
         AddressRuleName: AddressByFileName
@@ -142,7 +150,20 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
-      - CollectPath: Assets/AssetRaw/UIRaw/Raw
+      - CollectPath: Assets/AssetArt/Atlas
+        CollectorGUID: 9d6134158c52933418338d95eebd1c39
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
+    - GroupName: UITextures
+      GroupDesc: 
+      AssetTags: 
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/AssetRaw/UI/Texture
         CollectorGUID: 6bc134b912ac6bb4399ea1bec4c11636
         CollectorType: 0
         AddressRuleName: AddressByFileName

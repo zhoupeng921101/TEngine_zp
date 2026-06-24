@@ -24,7 +24,7 @@ namespace UIAtlasPackerTool.Tests
     [TestFixture]
     public class BorderOverrideGeneratorTests
     {
-        private const string AtlasRoot = "Assets/AssetRaw/UIRaw/Atlas";
+        private const string AtlasRoot = "Assets/AssetRaw/UI/Atlas";
         private const string FixtureDir = AtlasRoot + "/_uiap_test_fixture";
         private static string OverrideJson => FixtureDir + "/" + UIAtlasPacker.BorderOverrideFileName;
 

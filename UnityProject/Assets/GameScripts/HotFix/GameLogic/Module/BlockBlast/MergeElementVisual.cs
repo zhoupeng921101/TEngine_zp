@@ -45,7 +45,7 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>
-        /// 元素图标的寻址名：clip 图标库（Assets/AssetRaw/UIRaw/Atlas/blocks/clip/）中对应 PNG 的文件名（去扩展名），
+        /// 元素图标的寻址名：clip 图标库（Assets/AssetRaw/UI/Atlas/blocks/clip/）中对应 PNG 的文件名（去扩展名），
         /// 按「类型 + 等级」取图（每级独立美术，文件名形如 butterfly_3）。经 SetSprite 按文件名直接定位 Sprite。
         /// <paramref name="level"/> 夹到 [1, MergeOrderConfig.MaxLevel] 防越界。None 返回空串（无图）。
         /// </summary>

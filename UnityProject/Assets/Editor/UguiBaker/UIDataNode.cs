@@ -30,7 +30,7 @@ namespace EditorTools.Ugui
         public string color = "#FFFFFF00";
 
         /// <summary>
-        /// 可选：切图所在目录(Assets 相对路径，如 Assets/AssetRaw/UIRaw/Atlas/settings)。
+        /// 可选：切图所在目录(Assets 相对路径，如 Assets/AssetRaw/UI/Atlas/settings)。
         /// 与 sprite 均非空时，烘焙器直接把该目录下的子图赋给 Image(所见即所得)，不再用 color 占位。
         /// 为空(默认)则维持 color 占位色行为。仅图片节点(text 为空)使用。
         /// </summary>

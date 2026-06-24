@@ -5,7 +5,7 @@ namespace GameLogic.BlockBlast
     /// <summary>
     /// 单色皮肤候选池（设计 50 §四 / §五）：blocks_skin 图集实际存在的 sprite 编号集合。
     ///
-    /// 本表由 <c>Assets/AssetRaw/UIRaw/Atlas/blocks/blocks_skin/</c> 目录下 <c>blocks_skin_&lt;编号&gt;.png</c>
+    /// 本表由 <c>Assets/AssetRaw/UI/Atlas/blocks/blocks_skin/</c> 目录下 <c>blocks_skin_&lt;编号&gt;.png</c>
     /// 实际文件名导出（编号升序，连续区间 1..374）。运行期 sprite 名 = <c>blocks_skin_&lt;编号&gt;</c>。
     /// 资源增删后须重导本表，保持「编号集 = 真实文件集」。当前共 374 个编号，连续区间 1-374，无留空段。
     /// </summary>
@@ -41,7 +41,7 @@ namespace GameLogic.BlockBlast
         /// 彩色态各方块类型对应的 default_skin 纹理图编号（设计 50 §二）：彩色态也贴图（不再纯色），
         /// 每种方块类型贴 default_skin 里各自那张。索引 = colorIdx（=BlockColor 枚举 0..7
         /// Blue/Green/Yellow/Orange/Red/Steel/Teal/Purple），值 = blocks_main_&lt;编号&gt; 的编号。
-        /// 这 8 个编号与 <c>Assets/AssetRaw/UIRaw/Atlas/blocks/default_skin/blocks_main_&lt;n&gt;.png</c>
+        /// 这 8 个编号与 <c>Assets/AssetRaw/UI/Atlas/blocks/default_skin/blocks_main_&lt;n&gt;.png</c>
         /// 实际文件集（1/6/14/15/16/18/19/21）一一对应。
         /// </summary>
         private static readonly int[] ColoredIds = { 14, 15, 16, 21, 1, 6, 18, 19 };

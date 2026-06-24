@@ -107,7 +107,7 @@ namespace UIAtlasPackerTool
         /// 对一个散切图目录探测 border 并写 <c>_border_override.json</c>。
         /// 校验不过即中止并返回 Success=false、不写任何文件。
         /// </summary>
-        /// <param name="folderPath">散切图目录的资源路径（如 Assets/AssetRaw/UIRaw/Atlas/settings）</param>
+        /// <param name="folderPath">散切图目录的资源路径（如 Assets/AssetRaw/UI/Atlas/settings）</param>
         /// <param name="options">Auto9Slicer 探测参数（Tolerate 容差 / Margin 边距）。null → 取默认。</param>
         public static GenerateResult Generate(string folderPath, SliceOptions options = null)
         {

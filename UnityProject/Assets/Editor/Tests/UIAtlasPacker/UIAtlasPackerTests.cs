@@ -26,7 +26,7 @@ namespace UIAtlasPackerTool.Tests
     [TestFixture]
     public class UIAtlasPackerTests
     {
-        private const string AtlasRoot = "Assets/AssetRaw/UIRaw/Atlas";
+        private const string AtlasRoot = "Assets/AssetRaw/UI/Atlas";
 
         // 固定只读小夹具(提交进库)：工具行为类测试对它打表。
         private const string FixtureFolderName = "_uiap_test_fixture";
