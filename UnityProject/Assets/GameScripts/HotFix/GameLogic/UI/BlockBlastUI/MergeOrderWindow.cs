@@ -62,8 +62,18 @@ namespace GameLogic
         // 订单卡常驻实例（张数 = MergeOrderConfig.ActiveOrders 单一事实源，OnCreate 创建一次注入 OnDeliver 回调，
         // RefreshOrders 只 SetData + 显隐 + 按可交付优先重排 sibling 顺序，不重建实例、不改 slot 映射）。
         private readonly OrderCardWidget[] _orderCards = new OrderCardWidget[MergeOrderConfig.ActiveOrders];
-        // 合成区 token 实例池（数量由 AdjustIconNum 按库存键数增减管理）。
+        // 合成区 token 实例池：_synthTokens 是按 (类型→等级) 排序的「当前展示顺序」live 列表（收集飞行/交付飞行落点匹配按它取），
+        // _synthByKey 是 (类型,等级) → 稳定 token 实例映射（增删滑动需要稳定身份：同一 (类型,等级) 恒对应同一 token，
+        // 才能做「某 token 滑入/滑出/补位」的位置 tween）。两者每次 RefreshSynthesis 同步重建，_synthByKey 为单一事实源、
+        // _synthTokens 由它按排序导出。不再用 AdjustIconNum（按数量增减、身份不稳定，无法做补位滑动）。
         private readonly List<SynthTokenWidget> _synthTokens = new();
+        private readonly Dictionary<(MergeElement type, int level), SynthTokenWidget> _synthByKey = new();
+
+        /// <summary>
+        /// 交付飞行进行中标志（设计第二批 §B）：点交付后 count 个元素飞向订单卡期间为 true，全部飞达的聚合回调末尾置 false。
+        /// 飞行期间锁交互——忽略再次点交付、忽略落子、跳过订单按时轮询刷新——防飞行途中库存被并发改动使「飞达才扣库存」语义错乱。
+        /// </summary>
+        private bool _deliverFlying;
         // 横滑列表容器（BuildStaticUI 缓存）：订单 = OrderLayer 的 ScrollRect.content；合成 token = ElemBar 的 ScrollRect.content。
         private RectTransform _orderContent;
         private RectTransform _synthContent;
@@ -211,7 +221,10 @@ namespace GameLogic
             }
 
             // 订单按时整批刷新：窗开期间也轮询，到点整批换新（含 lastOrderRefreshTime 进盘）。
-            if (_merge.ApplyOrderRefresh(now))
+            // 交付飞行进行中跳过本次轮询：飞行的聚合回调将对正在交付的订单槽 Deliver(扣库存) + TryRefreshIfAllDelivered，
+            // 若此刻 ApplyOrderRefresh 整批换新会冲掉正在交付的订单（飞行落点/库存与新订单不匹配，破坏交付）。
+            // 跳过只是延后一帧——飞行约 0.5s 即结束、_deliverFlying 复位，下一次轮询照常判定到时刷新（计时未丢，下次 now 仍满足间隔）。
+            if (!_deliverFlying && _merge.ApplyOrderRefresh(now))
             {
                 RefreshOrders();
                 MarkAndFlushSave();
@@ -363,13 +376,20 @@ namespace GameLogic
         {
             var orders = _merge.ActiveOrders;
 
+            // 补位左滑：刷新前先记录订单容器内各卡旧位（含正在滑动中的实时位置）。
+            // 交付后空槽卡 SetActive(false) 退出 HLG → 其余卡 HLG 目标位左移，AnimateReflow 让它们从旧位滑到新位（左滑补位）。
+            var reflow = _orderContent != null ? LayoutReflowAnimator.GetOrAdd(_orderContent) : null;
+            reflow?.CaptureBefore();
+
             // 先按真实 slot 填数据 + 显隐，互不依赖排序。
             for (int slot = 0; slot < _orderCards.Length; slot++)
             {
                 var card = _orderCards[slot];
                 if (card == null) continue;
 
-                bool hasOrder = orders != null && slot < orders.Length;
+                // 空槽判定须看 Order.IsValid：交付后该槽置 default(Order)（IsValid==false），数组长度仍为 ActiveOrders（slot<Length 恒真），
+                // 仅凭索引在界内会把空槽卡判为「有单」而保持显示——故空槽卡须隐藏退出 HLG，其余卡才左滑补位。
+                bool hasOrder = orders != null && slot < orders.Length && orders[slot].IsValid;
                 card.Visible = hasOrder;
                 if (!hasOrder) continue;
 
@@ -387,17 +407,23 @@ namespace GameLogic
                 {
                     var card = _orderCards[slot];
                     if (card == null || card.rectTransform == null) continue;
-                    bool hasOrder = orders != null && slot < orders.Length;
+                    bool hasOrder = orders != null && slot < orders.Length && orders[slot].IsValid;
                     if (!hasOrder) continue; // 无单卡已隐藏，不参与排序（留在尾部）
                     if (_merge.CanDeliver(slot) != wantDeliverable) continue;
                     card.rectTransform.SetSiblingIndex(siblingIndex++);
                 }
             }
+
+            // 重排后执行补位滑动（其余订单卡旧位→新位，向左对齐补位）。
+            reflow?.AnimateReflow(SlideReflowDuration);
         }
 
-        // ── 合成区面板（SynthTokenWidget 池建于 ElemBar 的 ScrollRect Content，HorizontalLayoutGroup 横向排布、超出可横滑） ──
-        // 实例数由 AdjustIconNum 按库存键数增减（多则销毁尾部、少则追加），逐个 SetData；空态走 m_text_SynthEmpty。
-        // 条目上限 = 4 类型 × 5 等级 = 20，规模小故全量常驻（不做循环复用），收集飞行按类型取 live token 落点不受影响。
+        // ── 合成区面板（SynthTokenWidget 稳定池建于 ElemBar 的 ScrollRect Content = m_rect_SynthLayer，HorizontalLayoutGroup 横向排布、超出可横滑） ──
+        // 稳定池：(类型,等级) → 同一 token 实例恒定映射（_synthByKey）。新增键 → 建 token（直接落到 HLG 目标位、不滑入）；
+        // 消失键 → 销毁 token；留存键 → 原实例 SetData + 滑动补位。增删/补位的滑动由 LayoutReflowAnimator 统一处理
+        // （刷新前 CaptureBefore 记录旧位 → 重排 sibling → AnimateReflow 让留存 token 从旧位滑到新位）。
+        // _synthTokens 为按 (类型→等级) 排序的 live 列表（收集飞行/交付飞行落点匹配按它取），由 _synthByKey 同步导出。
+        // 条目上限 = 4 类型 × 5 等级 = 20，规模小故全量常驻（不做循环复用）。
         private void RefreshSynthesis()
         {
             // 稳定排序：按类型枚举值、再按等级
@@ -408,25 +434,55 @@ namespace GameLogic
                 return t != 0 ? t : a.level.CompareTo(b.level);
             });
 
-            if (keys.Count == 0)
+            // 补位滑动：刷新前先记录容器内各 token 旧位（含正在滑动中的实时位置）。
+            var reflow = _synthContent != null ? LayoutReflowAnimator.GetOrAdd(_synthContent) : null;
+            reflow?.CaptureBefore();
+
+            var desired = new HashSet<(MergeElement type, int level)>(keys);
+
+            // 消失键 → 销毁 token 并出 map（库存清空 / 该级被合并升走）。
+            var toRemove = new List<(MergeElement type, int level)>();
+            foreach (var kv in _synthByKey)
+                if (!desired.Contains(kv.Key)) toRemove.Add(kv.Key);
+            foreach (var key in toRemove)
             {
-                // 空态：清空 token（数量降到 0，AdjustIconNum 销毁多余实例），显示空态文字。
-                AdjustIconNum<SynthTokenWidget>(_synthTokens, 0, _synthContent);
-                // if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(true);
-                return;
+                var tk = _synthByKey[key];
+                _synthByKey.Remove(key);
+                if (tk != null && tk.gameObject != null) Object.Destroy(tk.gameObject);
             }
 
-            // if (m_text_SynthEmpty != null) m_text_SynthEmpty.gameObject.SetActive(false);
-
-            // 资源定位名 == 类名 "SynthTokenWidget"（无 prefab 入参走 CreateWidgetByType，AddressByFileName 可加载）。
-            AdjustIconNum<SynthTokenWidget>(_synthTokens, keys.Count, _synthContent);
-            for (int i = 0; i < keys.Count && i < _synthTokens.Count; i++)
+            // 新增键 → 建稳定 token（资源定位名 == 类名 "SynthTokenWidget"，CreateWidgetByType 走 AddressByFileName）。
+            foreach (var key in keys)
             {
-                var key = keys[i];
+                if (_synthByKey.ContainsKey(key)) continue;
+                var tk = CreateWidgetByType<SynthTokenWidget>(_synthContent);
+                if (tk == null)
+                {
+                    Log.Error($"[MergeOrderWindow] SynthTokenWidget 加载失败（资源定位名 SynthTokenWidget），合成 token {key} 未创建。");
+                    continue;
+                }
+                if (tk.rectTransform != null) tk.rectTransform.localScale = Vector3.one;
+                _synthByKey[key] = tk;
+            }
+
+            // 按排序重建 live 列表 + SetData + 重排 sibling（HLG 按子节点序排布）。
+            _synthTokens.Clear();
+            int siblingIndex = 0;
+            foreach (var key in keys)
+            {
+                if (!_synthByKey.TryGetValue(key, out var tk) || tk == null) continue;
                 int count = _merge.Inventory[key];
-                _synthTokens[i].SetData(key.type, MergeElementVisual.SpriteName(key.type, key.level), key.level, count);
+                tk.SetData(key.type, MergeElementVisual.SpriteName(key.type, key.level), key.level, count);
+                if (tk.rectTransform != null) tk.rectTransform.SetSiblingIndex(siblingIndex++);
+                _synthTokens.Add(tk);
             }
+
+            // 重排后执行补位滑动（留存 token 旧位→新位）。新建 token 无旧位记录，直接落到目标位。
+            reflow?.AnimateReflow(SlideReflowDuration);
         }
+
+        /// <summary>列表重排补位滑动时长（订单左滑 / 元素区增删补位共用，手感参数，交用户手测调）。</summary>
+        private const float SlideReflowDuration = 0.22f;
 
         // ── 盲盒计数 + 开盒按钮态（设计 12 §五） ──
         private void RefreshBlindBox()
@@ -583,10 +639,70 @@ namespace GameLogic
             return "开出：—";
         }
 
+        // ── 交付编排（设计第二批 §A/§B）：点交付 → 锁交互 → count 个元素从元素区对应 (type,level) token 飞向订单卡图标
+        //    → 全部飞达的聚合回调里才真正 Deliver(扣库存) + 刷新 + 庆祝 → 解锁。
+        //    「飞达才扣库存」：飞行是纯表现，真实扣减仍是 _merge.Deliver(slot) 那一下，只是延到聚合回调执行。
         private void OnDeliverClicked(int slot)
         {
-            CancelClearToolArming(); // 交付打断指定格模式
-            if (!_merge.Deliver(slot)) return;
+            if (_deliverFlying) return;      // 飞行进行中：忽略再次点交付（交互锁）
+            CancelClearToolArming();         // 交付打断指定格模式
+            if (!_merge.CanDeliver(slot)) return; // 不可交付：不启动飞行，直接返回
+
+            var orders = _merge.ActiveOrders;
+            if (orders == null || slot < 0 || slot >= orders.Length) return;
+            var order = orders[slot];
+            int count = order.Count;
+
+            // 终点：订单卡的需求图标世界坐标 → transform 本地空间（与既有收集飞行同坐标换算）。
+            var card = slot < _orderCards.Length ? _orderCards[slot] : null;
+            var cardGlyph = card != null ? card.GlyphRect : null;
+            var root = transform.GetComponent<RectTransform>();
+
+            // 飞行不可行（卡 / 图标 / 根缺失）→ 退化为同步交付（不卡死，行为等价旧版）。
+            if (card == null || cardGlyph == null || root == null || count <= 0)
+            {
+                FinishDeliver(slot);
+                return;
+            }
+
+            Vector2 endLocal = transform.InverseTransformPoint(cardGlyph.position);
+
+            // 起点：元素区里该订单 (type,level) 对应 token 的图标世界坐标；缺失则退化为从订单卡自身位置起飞（仍能交付）。
+            Vector2 startLocal = endLocal;
+            if (_synthByKey.TryGetValue((order.Type, order.Level), out var srcToken)
+                && srcToken != null && srcToken.GlyphRect != null)
+                startLocal = transform.InverseTransformPoint(srcToken.GlyphRect.position);
+
+            _deliverFlying = true; // 置交互锁：飞行期间忽略再次交付 / 落子 / 订单轮询刷新
+
+            float iconSize = BoardCellSize() * 0.7f; // 与棋盘元素图标同尺寸口径，飞行视觉连贯
+            const float Stagger = 0.06f;             // count 个图标错开起飞
+            string flySprite = MergeElementVisual.SpriteName(order.Type, order.Level);
+
+            // 聚合计数器：count 个飞行各自到达 -1，归 0 时才真正 Deliver + 刷新 + 庆祝 + 解锁。
+            int remaining = count;
+            for (int i = 0; i < count; i++)
+            {
+                FlyToTargetFx.Spawn(root, startLocal, endLocal, flySprite, iconSize, i * Stagger,
+                    () =>
+                    {
+                        remaining--;
+                        if (remaining > 0) return;
+                        // 全部飞达：真正交付（扣库存）+ 刷新 + 庆祝 + 解锁。
+                        FinishDeliver(slot);
+                        _deliverFlying = false;
+                    });
+            }
+        }
+
+        /// <summary>
+        /// 交付落地（飞行全部到达后的聚合回调 / 退化同步路径共用）：真正 Deliver(扣库存) → TryRefreshIfAllDelivered → 刷新 → 庆祝。
+        /// 防御：若此刻已不可交付（理论上飞行期间锁住不会发生），Deliver 返回 false 时安全返回、不卡死、不庆祝。
+        /// 注意：本方法不动 _deliverFlying（由调用方在末尾解锁），保证退化同步路径与聚合回调路径都正确收尾。
+        /// </summary>
+        private void FinishDeliver(int slot)
+        {
+            if (!_merge.Deliver(slot)) return; // 已不可交付（防御）：安全返回，不刷新不庆祝
             // 交付后该槽置空（不补单）；若三槽全部交付完，立即整批补一批新订单并重置到时倒计时。
             _merge.TryRefreshIfAllDelivered(MergeMetaPersistence.NowUnixSec());
             RefreshEnergy();
@@ -852,6 +968,8 @@ namespace GameLogic
         // ── 拖拽回调（与 GameWindow 同构） ──
         private void OnPieceBegin(int slotIdx)
         {
+            // 交付飞行进行中：忽略落子拖拽（不进入拖拽态、不显示 ghost）。配合 OnPieceEnd 的锁，飞行期间落子整体无效。
+            if (_deliverFlying) { _draggingShapeId = -1; return; }
             CancelClearToolArming(); // 拖拽落子打断指定格模式（玩家改主意去落子）
             var piece = _state.OperaArr[slotIdx];
             _draggingShapeId = piece?.ShapeId ?? -1;
@@ -870,6 +988,14 @@ namespace GameLogic
             ClearGhost();
             int shapeId = _draggingShapeId;
             _draggingShapeId = -1;
+
+            // 交付飞行进行中：忽略落子结算（否则飞行途中落子消除会改库存，破坏「飞达才扣库存」语义）。
+            // 候选块归位、不落子、不弹提示（玩家短暂等飞行结束即可再落）。
+            if (_deliverFlying)
+            {
+                _slotContainers[slotIdx]?.GetComponent<BlockPieceDragger>()?.ResetToOrigin();
+                return;
+            }
 
             var piece = _state.OperaArr[slotIdx];
             var shape = shapeId > 0 ? BlockShapeMap.Get(shapeId) : null;
@@ -1127,16 +1253,28 @@ namespace GameLogic
                 if (!typeToToken.ContainsKey(type)) typeToToken[type] = token;
             }
 
-            // 统计每个落点 token 将接收的飞行图标数，并在飞行前隐藏其可见内容；待飞向它的全部图标到达后再显示，
-            // 呈现「元素从棋盘汇入后，该统计格才点亮」的收集感。隐藏只改 enabled、保留布局占位（见 SetContentVisible）。
-            var pending = new Dictionary<SynthTokenWidget, int>();
+            // 渐显收集：本次飞行带来的「增量」须在图标飞达后才在元素区出现，飞行前不参与本次飞行的已有存量保持显示。
+            // 做法（每个落点 token）：
+            //   shown(飞行前显示数) = DisplayCount(库存真实值) - incoming(飞向它的图标数)；
+            //   每个图标飞达 → shown+1（数字逐个长上去）；最后一个飞达 → 恢复库存真实值 + punch。
+            // shown<=0（该 token 飞行前无存量、本次飞行全新产生）→ 飞行前隐藏内容，首个飞达起才显示并递增。
+            // 仅改文字显示与显隐，DisplayCount(库存真实值)恒不变；飞达后必回到真实值，数字不会因延迟显示而最终错/漏。
+            var flyState = new Dictionary<SynthTokenWidget, (int shown, int remaining)>();
             foreach (var (type, _) in sources)
             {
                 if (type == MergeElement.None) continue;
                 if (!typeToToken.TryGetValue(type, out var tk) || tk == null) continue;
-                pending[tk] = pending.TryGetValue(tk, out var n) ? n + 1 : 1;
+                if (flyState.TryGetValue(tk, out var st)) flyState[tk] = (st.shown, st.remaining + 1);
+                else flyState[tk] = (0, 1);
             }
-            foreach (var tk in pending.Keys) tk.SetContentVisible(false);
+            // 算飞行前显示数并落到「飞行前」态（已有存量保持显示、本次增量先不显示）。
+            foreach (var tk in new List<SynthTokenWidget>(flyState.Keys))
+            {
+                int incoming = flyState[tk].remaining;
+                int preShown = tk.DisplayCount - incoming; // 飞行前数量 = 真实值 - 本次飞入增量
+                flyState[tk] = (preShown, incoming);
+                tk.SetFlyingShownCount(preShown);
+            }
 
             float iconSize = BoardCellSize() * 0.7f; // 与棋盘元素图标同尺寸口径，飞行视觉连贯
             const float Stagger = 0.05f;             // 多图标错开起飞，增强层次
@@ -1161,12 +1299,21 @@ namespace GameLogic
                     () =>
                     {
                         if (target == null) return;
-                        // 该 token 接收的飞行图标逐个到达；最后一个到达时才显示内容 + punch（汇入点亮）。
-                        if (pending.TryGetValue(target, out var remain))
+                        // 该 token 接收的飞行图标逐个到达：显示数 +1（增量逐个长上来）；
+                        // 最后一个到达时恢复库存真实值（兜底防中间增量与级联合并不一致）+ punch（汇入点亮）。
+                        if (!flyState.TryGetValue(target, out var st)) return;
+                        int shown = st.shown + 1;
+                        int remaining = st.remaining - 1;
+                        if (remaining <= 0)
                         {
-                            remain--;
-                            if (remain <= 0) { pending.Remove(target); target.SetContentVisible(true); target.PunchGlyph(); }
-                            else pending[target] = remain;
+                            flyState.Remove(target);
+                            target.RestoreDisplayCount();
+                            target.PunchGlyph();
+                        }
+                        else
+                        {
+                            flyState[target] = (shown, remaining);
+                            target.SetFlyingShownCount(shown);
                         }
                     });
                 idx++;
