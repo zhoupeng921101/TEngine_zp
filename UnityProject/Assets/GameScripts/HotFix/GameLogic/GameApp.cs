@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Reflection;
+using Cysharp.Threading.Tasks;
 using GameLogic;
 #if ENABLE_OBFUZ
 using Obfuz;
@@ -44,18 +45,51 @@ public partial class GameApp
         // 早挂(在 Boot 之后、登录前)保登录快照不丢;事件已在网络主线程触发,可直安全刷视图。
         FantasyClient.FantasyNetwork.OnPlayerInfoSnapshot += view =>
         {
-            var attr = GameLogic.GameContext.Instance.PlayerAttr;
-            if (attr == null) return;
-            // 先档案后三属性:ApplySnapshot 末尾置 IsReady=true 并触发 All 事件,
-            // 让订阅方在收到事件时档案字段已就绪。
-            attr.ApplyProfile(view.AccountId, view.Nickname, view.Level, view.Exp, view.SchemaVersion);
-            attr.ApplySnapshot(view.Coin, view.Diamond, view.Stamina);
+            var ctx = GameLogic.GameContext.Instance;
+            var attr = ctx.PlayerAttr;
+            if (attr != null)
+            {
+                // 先档案后七属性:ApplySnapshotFull 末尾置 IsReady=true 并触发 All 事件,
+                // 让订阅方在收到事件时档案字段已就绪。
+                attr.ApplyProfile(view.AccountId, view.Nickname, view.Level, view.Exp, view.SchemaVersion);
+                attr.ApplySnapshotFull(view.Coin, view.Diamond, view.Stamina,
+                    view.SoulPower, view.Piety, view.GuardianExp, view.Energy);
+            }
+            // 四货币(P2 客户端段):用服务端快照权威值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
+            ctx.ApplyServerCurrencySnapshot(view.SoulPower, view.Piety, view.GuardianExp, view.Energy);
         };
         FantasyClient.FantasyNetwork.OnPropertyDeltaPush += (type, newAmount, reason) =>
         {
-            // PropertyType 整数值与 AttrType 一一映射(Coin=0/Diamond=1/Stamina=2)
+            // PropertyType 整数值与 AttrType 一一映射(Coin=0/Diamond=1/Stamina=2/SoulPower=3/Piety=4/GuardianExp=5/Energy=6)
             var attrType = (GameLogic.BlockBlast.Player.AttrType)type;
-            GameLogic.GameContext.Instance.PlayerAttr?.ApplyDeltaPush(attrType, newAmount, reason);
+            var ctx = GameLogic.GameContext.Instance;
+            // Coin/Diamond/Stamina 由 PlayerAttrService 处理;四货币由 MetaCurrencySync 处理(各自 set 对应字段,互不干扰)。
+            ctx.PlayerAttr?.ApplyDeltaPush(attrType, newAmount, reason);
+            var live = GameLogic.BlockBlast.BlockGameState.Instance;
+            var state = (live != null && live.MergeOrderMode) ? live.MergeState : null;
+            ctx.MetaCurrency?.ApplyDeltaPush(state, attrType, newAmount);
+        };
+
+        // 货币聚合上报钩子(P2 客户端段):每次元层落盘(MergeMetaPersistence.SaveAsync,= 一次玩法事件边界)后,
+        // 把四货币本地净变化聚合成一笔上报服务端。钩子注册在接线层(本类),使 MergeMetaPersistence 对货币同步无知。
+        GameLogic.BlockBlast.MergeMetaPersistence.OnSaved = () =>
+        {
+            var sync = GameLogic.GameContext.Instance.MetaCurrency;
+            if (sync == null) return;
+            var live = GameLogic.BlockBlast.BlockGameState.Instance;
+            // 仅 merge-order 现场有效时上报(MergeState 即四货币活态权威源);窗未开时落盘的是缓存兜底,无活态可对账。
+            if (live == null || !live.MergeOrderMode || live.MergeState == null) return;
+            sync.ReportPending(live.MergeState, "merge_event").Forget();
+        };
+
+        // 玩家身份接线(P0 全栈迁移·客户端段):playerId 改以服务端登录签发为权威。
+        // 上行:登录前读本地已加载的占位 playerId(GameContext.Player.Id,LoadPlayer 已从存档/新生成填好)上交认领。
+        //   provider 是延迟读的 Func,登录回调远晚于此处接线 + GameContext OnInit,Player 必已就绪;空值兜底退空串。
+        FantasyClient.FantasyNetwork.LocalPlayerIdProvider = () => GameLogic.GameContext.Instance.Player?.Id;
+        // 下行:服务端权威 playerId 覆盖本地内存 + 落盘(仅 ErrorCode==0 且非空触发,见 FantasyNetwork.LoginAsync 契约)。
+        FantasyClient.FantasyNetwork.OnPlayerIdIssued += serverPlayerId =>
+        {
+            GameLogic.GameContext.Instance.ApplyServerPlayerId(serverPlayerId);
         };
 #endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。

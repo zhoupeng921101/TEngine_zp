@@ -26,6 +26,14 @@ namespace GameLogic.BlockBlast
         /// <summary>本地日期字符串格式（§3.6）。</summary>
         public const string DateFormat = "yyyy-MM-dd";
 
+        /// <summary>
+        /// 落盘后钩子(P2 全栈迁移·客户端段):每次 <see cref="SaveAsync"/> 写盘完成后触发一次,
+        /// = 一次「玩法事件」边界。由接线层(GameApp.StartGameLogic)注册,把四货币本地净变化聚合上报服务端
+        /// (<c>MetaCurrencySync.ReportPending</c>)。本类保持对货币同步无知(decouple:不引用 Player/GameContext),
+        /// 仅暴露这一回调点。null = 未注册(无网络平台 / 测试)时不触发。
+        /// </summary>
+        public static Action OnSaved;
+
         // ── 同步纯逻辑层（可单测，不碰磁盘）────────────────────────
 
         /// <summary>DTO → JSON 字符串。null 入参视作空档返回空串。</summary>
@@ -108,6 +116,10 @@ namespace GameLogic.BlockBlast
                 if (!string.IsNullOrEmpty(json)) Persistence.Provider.Set(StorageKey, json);
             }
             catch { /* ignore：落盘失败不阻断玩法 */ }
+
+            // 玩法事件边界:落盘后触发货币聚合上报钩子(P2 客户端段)。失败吞掉,不阻断玩法、不影响本地落盘。
+            try { OnSaved?.Invoke(); }
+            catch { /* ignore：上报钩子异常不阻断玩法 */ }
             return UniTask.CompletedTask;
         }
 

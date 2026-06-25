@@ -25,6 +25,14 @@ namespace GameLogic.BlockBlast.Player
         public long Diamond { get; private set; }
         /// <summary>体力余额(协议 PropertyType.Stamina)。<see cref="IsReady"/>=false 时 = 0 是缺省占位非真实值。</summary>
         public long Stamina { get; private set; }
+        /// <summary>灵力余额(协议 PropertyType.SoulPower)。服务端权威值,<see cref="IsReady"/>=false 时 = 0 缺省占位。</summary>
+        public long SoulPower { get; private set; }
+        /// <summary>虔诚币余额(协议 PropertyType.Piety)。服务端权威值,<see cref="IsReady"/>=false 时 = 0 缺省占位。</summary>
+        public long Piety { get; private set; }
+        /// <summary>守护者经验余额(协议 PropertyType.GuardianExp)。服务端权威值,<see cref="IsReady"/>=false 时 = 0 缺省占位。</summary>
+        public long GuardianExp { get; private set; }
+        /// <summary>玩法体力余额(协议 PropertyType.Energy)。服务端权威值,<see cref="IsReady"/>=false 时 = 0 缺省占位。</summary>
+        public long Energy { get; private set; }
         /// <summary>是否已收到首次 InitSnapshot(true 后三属性视图才是服务端权威值)。UI 据此切「加载中...」与可点态。</summary>
         public bool IsReady { get; private set; }
 
@@ -64,12 +72,33 @@ namespace GameLogic.BlockBlast.Player
 
         /// <summary>
         /// 应用初始快照(收到 G2C_PlayerInfoSnapshot 时由分发钩子调)。覆盖三属性 + 置 IsReady=true + 触发一次 All 事件。
+        /// 四玩法货币(SoulPower/Piety/GuardianExp/Energy)沿用上次值不动——仅含三属性的旧调用路径保持原语义;
+        /// 七属性全量快照用 <see cref="ApplySnapshotFull"/>(P2 客户端段登录初始化覆盖四货币)。
         /// </summary>
         public void ApplySnapshot(long coin, long diamond, long stamina)
         {
             Coin = coin;
             Diamond = diamond;
             Stamina = stamina;
+            IsReady = true;
+            OnAttrChanged?.Invoke(AttrType.All, 0L, "init_snapshot");
+        }
+
+        /// <summary>
+        /// 应用七属性全量初始快照(P2 客户端段:登录拿到 G2C_PlayerInfoSnapshot 后由分发钩子调)。
+        /// 覆盖三属性 + 四玩法货币的服务端权威值 + 置 IsReady=true + 触发一次 All 事件。
+        /// 四货币以服务端值为准覆盖本地视图(验收:登录后显示 = 服务端快照值,非本地旧值)。
+        /// </summary>
+        public void ApplySnapshotFull(long coin, long diamond, long stamina,
+                                      long soulPower, long piety, long guardianExp, long energy)
+        {
+            Coin = coin;
+            Diamond = diamond;
+            Stamina = stamina;
+            SoulPower = soulPower;
+            Piety = piety;
+            GuardianExp = guardianExp;
+            Energy = energy;
             IsReady = true;
             OnAttrChanged?.Invoke(AttrType.All, 0L, "init_snapshot");
         }
@@ -125,9 +154,13 @@ namespace GameLogic.BlockBlast.Player
         {
             switch (type)
             {
-                case AttrType.Coin:    Coin = newBalance; break;
-                case AttrType.Diamond: Diamond = newBalance; break;
-                case AttrType.Stamina: Stamina = newBalance; break;
+                case AttrType.Coin:        Coin = newBalance; break;
+                case AttrType.Diamond:     Diamond = newBalance; break;
+                case AttrType.Stamina:     Stamina = newBalance; break;
+                case AttrType.SoulPower:   SoulPower = newBalance; break;
+                case AttrType.Piety:       Piety = newBalance; break;
+                case AttrType.GuardianExp: GuardianExp = newBalance; break;
+                case AttrType.Energy:      Energy = newBalance; break;
                 // All / 未知 type:不动字段(协议层应已保不会出现,此处只防御)
             }
         }
