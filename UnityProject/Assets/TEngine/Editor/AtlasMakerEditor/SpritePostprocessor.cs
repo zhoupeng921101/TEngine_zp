@@ -10,6 +10,9 @@ namespace TEngine.Editor
 
     public class SpritePostprocessor : AssetPostprocessor
     {
+        // 导入设置强制的覆盖范围：整个 UI 源图目录，比图集成员范围更广。
+        private const string UISourceRootDir = "Assets/AssetRaw/UI";
+
         private static List<string> m_resourcesToDelete = new List<string>();
 
         // 文件名缓存：key=小写文件名(不含扩展名), value=完整路径列表
@@ -186,9 +189,16 @@ namespace TEngine.Editor
 
             foreach (var asset in assets)
             {
+                // 导入设置强制覆盖整个 UI 源图目录（含 Texture/ 等非图集图），独立于图集成员判定。
+                // reimport 会再次触发本回调，本回合不再继续做图集脏标记，待 reimport 后的回合处理。
+                if (!isDelete && ShouldForceImportSettings(asset) && EnforceImportSettings(asset))
+                {
+                    continue;
+                }
+
                 if (ShouldProcessAsset(asset))
                 {
-                    if (!isDelete && (CheckFileNameContainsSpace(asset) || CheckDuplicateAssetName(asset) || ChangeSpriteTextureType(asset)))
+                    if (!isDelete && (CheckFileNameContainsSpace(asset) || CheckDuplicateAssetName(asset)))
                     {
                         continue;
                     }
@@ -198,7 +208,12 @@ namespace TEngine.Editor
             }
         }
 
-        private static bool ChangeSpriteTextureType(string path)
+        /// <summary>
+        /// 幂等强制 UI 源图的导入设置：textureType=Sprite、spriteImportMode=Single、
+        /// WebGL 平台格式 override，以及按配置开关的 mipmap。
+        /// 仅在当前值与目标不同时写回并 SaveAndReimport，返回是否触发了 reimport。
+        /// </summary>
+        private static bool EnforceImportSettings(string path)
         {
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
 
@@ -210,6 +225,17 @@ namespace TEngine.Editor
             if (importer.textureType != TextureImporterType.Sprite)
             {
                 importer.textureType = TextureImporterType.Sprite;
+                isChange = true;
+            }
+
+            if (importer.spriteImportMode != SpriteImportMode.Single)
+            {
+                importer.spriteImportMode = SpriteImportMode.Single;
+                isChange = true;
+            }
+
+            if (EnforceWebGLSourceFormat(importer))
+            {
                 isChange = true;
             }
 
@@ -233,6 +259,27 @@ namespace TEngine.Editor
                 importer.SaveAndReimport();
             }
             return isChange;
+        }
+
+        /// <summary>
+        /// 幂等设置 WebGL 平台 override 为配置的源图格式，仅覆盖 WebGL 一项，
+        /// maxTextureSize 沿用默认平台当前值。返回是否发生改动。
+        /// </summary>
+        private static bool EnforceWebGLSourceFormat(TextureImporter importer)
+        {
+            var target = AtlasConfiguration.Instance.webglSourceFormat;
+            var settings = importer.GetPlatformTextureSettings("WebGL");
+
+            if (settings.overridden && settings.format == target)
+            {
+                return false;
+            }
+
+            settings.overridden = true;
+            settings.format = target;
+            settings.maxTextureSize = importer.GetDefaultPlatformTextureSettings().maxTextureSize;
+            importer.SetPlatformTextureSettings(settings);
+            return true;
         }
 
         private static bool CheckFileNameContainsSpace(string assetPath)
@@ -318,9 +365,14 @@ namespace TEngine.Editor
                     EditorSpriteSaveInfo.MarkParentAtlasesDirty(oldPaths[i], true);
                 }
 
+                if (ShouldForceImportSettings(newPaths[i]) && EnforceImportSettings(newPaths[i]))
+                {
+                    continue;
+                }
+
                 if (ShouldProcessAsset(newPaths[i]))
                 {
-                    if (CheckFileNameContainsSpace(newPaths[i]) || CheckDuplicateAssetName(newPaths[i]) || ChangeSpriteTextureType(newPaths[i]))
+                    if (CheckFileNameContainsSpace(newPaths[i]) || CheckDuplicateAssetName(newPaths[i]))
                     {
                         continue;
                     }
@@ -347,6 +399,31 @@ namespace TEngine.Editor
             foreach (var keyword in config.excludeKeywords)
             {
                 if (assetPath.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 导入设置强制的范围判定：整个 UI 源图目录下的图片即纳入，与图集成员范围解耦。
+        /// 比 ShouldProcessAsset 更广（不限于 Atlas 子树、不排除 Texture），但仍尊重 excludeKeywords。
+        /// </summary>
+        private static bool ShouldForceImportSettings(string assetPath)
+        {
+            var config = AtlasConfiguration.Instance;
+
+            if (string.IsNullOrEmpty(assetPath)) return false;
+            if (assetPath.StartsWith("Packages/")) return false;
+
+            var normalized = assetPath.Replace("\\", "/");
+            if (!normalized.StartsWith(UISourceRootDir + "/")) return false;
+
+            if (!IsValidImageFile(normalized)) return false;
+
+            foreach (var keyword in config.excludeKeywords)
+            {
+                if (normalized.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                     return false;
             }
 
@@ -400,6 +477,47 @@ namespace TEngine.Editor
             {
                 Debug.Log($"{operation} {Path.GetFileName(path)}\nPath: {path}");
             }
+        }
+
+        /// <summary>
+        /// 对存量 UI 源图批量强制导入设置。postprocessor 只在导入时触发，已存在的图需手动跑一次本菜单。
+        /// </summary>
+        [MenuItem("UITools/图集工具-强制刷新UI源图导入设置")]
+        private static void ForceEnforceAllImportSettings()
+        {
+            if (!Directory.Exists(UISourceRootDir))
+            {
+                Debug.LogWarning($"UI 源图目录不存在: {UISourceRootDir}");
+                return;
+            }
+
+            var files = Directory.GetFiles(UISourceRootDir, "*.*", SearchOption.AllDirectories)
+                .Select(p => p.Replace("\\", "/"))
+                .Where(ShouldForceImportSettings)
+                .ToList();
+
+            int changed = 0;
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                for (int i = 0; i < files.Count; i++)
+                {
+                    EditorUtility.DisplayProgressBar("强制刷新UI源图导入设置",
+                        Path.GetFileName(files[i]), (float)i / Mathf.Max(1, files.Count));
+                    if (EnforceImportSettings(files[i]))
+                    {
+                        changed++;
+                    }
+                }
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+                AssetDatabase.StopAssetEditing();
+                AssetDatabase.Refresh();
+            }
+
+            Debug.Log($"UI 源图导入设置强制完成：扫描 {files.Count} 张，改动 {changed} 张。");
         }
     }
 }

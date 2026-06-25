@@ -28,6 +28,9 @@
         public TextureImporterFormat iosFormat = TextureImporterFormat.ASTC_5x5;
         public TextureImporterFormat webglFormat = TextureImporterFormat.ASTC_6x6;
 
+        [Tooltip("UI 源图在 WebGL 平台的格式 override（施加在源纹理 TextureImporter 上，区别于上方 webglFormat 的图集输出格式）")]
+        public TextureImporterFormat webglSourceFormat = TextureImporterFormat.RGBA32;
+
         [Header("PackingSetting")]
         public int padding = 2;
 
