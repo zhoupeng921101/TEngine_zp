@@ -89,6 +89,14 @@ namespace FantasyClient
             Save();
         }
 
+        /// <summary>
+        /// 是否开启框架中央收发包 JSON 日志（默认关）。
+        /// 开启后 <see cref="FantasyNetwork.Connect"/> 把该值作 enableReceiveMessageJsonLog 尾参传入 Scene.Connect，
+        /// 框架改用 DebugClientSession（打印所有发包）+ DebugClientMessageScheduler（打印所有收包，含 RPC 响应），整包 JSON、Log.Debug 级。
+        /// 噪声大且为 Debug 级，平时关、调试链路时开（须确保日志级别含 Debug 才可见）。
+        /// </summary>
+        public static bool EnableNetworkJsonLog = true;
+
         /// <summary>连接成功后是否自动登录。</summary>
         public static bool AutoLogin = true;
 

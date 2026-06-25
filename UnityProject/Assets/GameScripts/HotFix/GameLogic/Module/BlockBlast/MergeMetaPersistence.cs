@@ -27,10 +27,13 @@ namespace GameLogic.BlockBlast
         public const string DateFormat = "yyyy-MM-dd";
 
         /// <summary>
-        /// 落盘后钩子(P2 全栈迁移·客户端段):每次 <see cref="SaveAsync"/> 写盘完成后触发一次,
-        /// = 一次「玩法事件」边界。由接线层(GameApp.StartGameLogic)注册,把四货币本地净变化聚合上报服务端
-        /// (<c>MetaCurrencySync.ReportPending</c>)。本类保持对货币同步无知(decouple:不引用 Player/GameContext),
-        /// 仅暴露这一回调点。null = 未注册(无网络平台 / 测试)时不触发。
+        /// 落盘后钩子:每次 <see cref="SaveAsync"/> 写盘完成后触发一次,代表一次「玩法事件」存档边界。
+        /// 由接线层(GameApp.StartGameLogic)注册,驱动两件事:四货币本地净变化聚合上报服务端
+        /// (<c>MetaCurrencySync.ReportPending</c>)+ 云存档节流上传(<c>CloudSaveSync.TryUploadThrottled</c>)。
+        /// 本类保持对二者无知(decouple:不引用 Player/GameContext),仅暴露这一回调点。
+        /// 服务端→本地的回灌写(登录快照 / 身份回写)经 <see cref="SaveAsync"/> 的 fireSavedHook=false 绕开本钩子
+        /// (非玩法事件边界,触发只会空跑上报 + 传一份内容未变的 blob 空涨 version)。
+        /// null = 未注册(无网络平台 / 测试)时不触发。
         /// </summary>
         public static Action OnSaved;
 
@@ -107,8 +110,10 @@ namespace GameLogic.BlockBlast
         /// 落盘（序列化 + 写存储）。version 由调用方在 ExportMeta 时已置 CurrentVersion。
         /// 经 <see cref="Persistence.Provider"/> 写入（PlayerPrefs 非阻塞 / InMemory）。失败吞掉不抛
         /// （仿 BlockGameState.Save 的 try-catch 兜底），不阻断玩法。返回 UniTask 以满足异步红线。
+        /// <paramref name="fireSavedHook"/>=false 用于服务端→本地的回灌写(登录快照 / 身份回写):只落盘、
+        /// 不触发 <see cref="OnSaved"/> 存档边界钩子(那不是玩法事件,详见 OnSaved 文档)。
         /// </summary>
-        public static UniTask SaveAsync(MergeMetaSave dto)
+        public static UniTask SaveAsync(MergeMetaSave dto, bool fireSavedHook = true)
         {
             try
             {
@@ -117,9 +122,12 @@ namespace GameLogic.BlockBlast
             }
             catch { /* ignore：落盘失败不阻断玩法 */ }
 
-            // 玩法事件边界:落盘后触发货币聚合上报钩子(P2 客户端段)。失败吞掉,不阻断玩法、不影响本地落盘。
-            try { OnSaved?.Invoke(); }
-            catch { /* ignore：上报钩子异常不阻断玩法 */ }
+            // 玩法事件边界:落盘后触发存档边界钩子(货币聚合上报 + 云存档上传)。失败吞掉,不阻断玩法、不影响本地落盘。
+            if (fireSavedHook)
+            {
+                try { OnSaved?.Invoke(); }
+                catch { /* ignore：钩子异常不阻断玩法 */ }
+            }
             return UniTask.CompletedTask;
         }
 

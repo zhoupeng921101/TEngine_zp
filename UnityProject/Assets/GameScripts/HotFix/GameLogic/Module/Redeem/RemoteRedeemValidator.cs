@@ -36,7 +36,6 @@ namespace GameLogic.Redeem
             try
             {
                 // 发 RPC 并 await 回包:FTask 自带 awaiter,可在 async UniTask 体内直接 await。
-                TEngine.Log.Info($"[Fantasy] 发送兑换码 code={code}");
                 response = await session.C2G_RedeemCodeRequest(code);
             }
             catch

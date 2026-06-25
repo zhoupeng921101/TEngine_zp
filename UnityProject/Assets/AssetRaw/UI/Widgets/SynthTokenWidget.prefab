@@ -206,7 +206,6 @@ MonoBehaviour:
   m_DrawOnNull: 1
   m_AdaptiveSize: 0
   spriteAtlas: {fileID: 100100200, guid: 1f0b11651d56f814bb06a92cd794a0a0, type: 3}
-  nowSpriteName: 
 --- !u!1 &8847012819091812629
 GameObject:
   m_ObjectHideFlags: 0

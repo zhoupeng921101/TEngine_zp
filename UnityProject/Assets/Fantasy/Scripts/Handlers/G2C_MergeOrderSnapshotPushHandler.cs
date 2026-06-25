@@ -24,8 +24,6 @@ namespace FantasyClient
                 return;
             }
 
-            Log.Info($"[Fantasy] 收到订单快照推送 槽数={message.Snapshot.ActiveOrders?.Count ?? 0} " +
-                     $"Cursor={message.Snapshot.OrderCursor} RefreshIntervalSec={message.Snapshot.OrderRefreshIntervalSec}");
             FantasyNetwork.RaiseMergeOrderSnapshotPush(message.Snapshot);
             await FTask.CompletedTask;
         }

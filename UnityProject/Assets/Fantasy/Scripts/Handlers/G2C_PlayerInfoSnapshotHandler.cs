@@ -50,10 +50,6 @@ namespace FantasyClient
                 info.AccountId, info.Nickname, info.Level, info.Exp,
                 coin, diamond, stamina, soulPower, piety, guardianExp, energy, info.SchemaVersion);
 
-            Log.Info($"[Fantasy] 收到玩家信息快照 Account={view.AccountId} Nickname={view.Nickname} " +
-                     $"Level={view.Level} Exp={view.Exp} Coin={view.Coin} Diamond={view.Diamond} " +
-                     $"Stamina={view.Stamina} Soul={view.SoulPower} Piety={view.Piety} " +
-                     $"GuardianExp={view.GuardianExp} Energy={view.Energy} SchemaVersion={view.SchemaVersion}");
             FantasyNetwork.RaisePlayerInfoSnapshot(view);
             await FTask.CompletedTask;
         }

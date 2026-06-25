@@ -180,7 +180,7 @@ namespace FantasyClient
                 OnConnectComplete,
                 OnConnectFail,
                 OnConnectDisconnect,
-                false, 5000);
+                false, 5000, FantasyNetworkConfig.EnableNetworkJsonLog);
         }
 
         private static void OnConnectComplete()
@@ -267,7 +267,7 @@ namespace FantasyClient
 
             // 本地已持久化的 playerId 作为认领候选上交；无 provider / 无本地值 → 空串（新装首登）。
             string localPlayerId = LocalPlayerIdProvider?.Invoke() ?? string.Empty;
-            Log.Info($"[Fantasy] 发送登录 account={accountName} localPlayerId={(string.IsNullOrEmpty(localPlayerId) ? "(空)" : localPlayerId)}");
+            Log.Info($"[Fantasy] 登录中 account={accountName} localPlayerId={(string.IsNullOrEmpty(localPlayerId) ? "(空)" : localPlayerId)}");
             var response = await Session.C2G_LoginGameRequest(accountName, localPlayerId);
             if (response.ErrorCode != 0)
             {
@@ -343,7 +343,6 @@ namespace FantasyClient
                 return "(未连接)";
             }
 
-            Log.Info($"[Fantasy] 发送连通自检 tag={tag}");
             var response = await Session.C2G_TestRequest(tag, new List<byte>());
             return response.Tag;
         }

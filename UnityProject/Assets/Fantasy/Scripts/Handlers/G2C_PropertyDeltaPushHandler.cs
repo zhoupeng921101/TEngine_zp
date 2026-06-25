@@ -14,7 +14,6 @@ namespace FantasyClient
     {
         protected override async FTask Run(Session session, G2C_PropertyDeltaPush message)
         {
-            Log.Info($"[Fantasy] 收到属性推送 Type={message.Type} NewAmount={message.NewAmount} Reason={message.Reason}");
             FantasyNetwork.RaisePropertyDeltaPush((int)message.Type, message.NewAmount, message.Reason);
             await FTask.CompletedTask;
         }

@@ -32,7 +32,6 @@ namespace GameLogic.BlockBlast.Player
             G2C_CloudSaveUploadResponse response;
             try
             {
-                TEngine.Log.Info($"[Fantasy] 发送云存档上传 version={version} blobBytes={blob?.Length ?? 0}");
                 response = await session.C2G_CloudSaveUploadRequest(version, blob);
             }
             catch
@@ -62,7 +61,6 @@ namespace GameLogic.BlockBlast.Player
             G2C_CloudSaveDownloadResponse response;
             try
             {
-                TEngine.Log.Info($"[Fantasy] 发送云存档下载");
                 response = await session.C2G_CloudSaveDownloadRequest();
             }
             catch

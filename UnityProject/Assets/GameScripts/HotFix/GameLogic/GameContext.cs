@@ -179,7 +179,7 @@ namespace GameLogic
             // 磁盘已是服务端值 → 跳过冗余落盘；否则（含磁盘缺 playerId 字段 / 无档）落盘。
             var dto = MergeMetaPersistence.Load();
             if (dto != null && dto.playerId == serverPlayerId) return;
-            SavePlayer();
+            SavePlayer(fireSavedHook: false); // 回灌写:身份不入云存档 blob,不触发存档边界钩子(避免无意义上传 + version 空涨)
         }
 
         /// <summary>
@@ -211,7 +211,9 @@ namespace GameLogic
             dto.exp = (int)exp;
             dto.energy = (int)energy;
             dto.lastEnergyRegenTime = MergeMetaPersistence.NowUnixSec();
-            MergeMetaPersistence.SaveAsync(dto).Forget();
+            // 回灌写:货币 + lastEnergyRegenTime 均不入云存档 blob,触发存档边界钩子只会空跑货币上报 +
+            // 传一份内容未变的 blob 空涨 version,故 fireSavedHook=false 只落本地缓存、不惊动上报/上传。
+            MergeMetaPersistence.SaveAsync(dto, fireSavedHook: false).Forget();
         }
 
         /// <summary>
@@ -219,13 +221,15 @@ namespace GameLogic
         /// 读回既有 DTO（保留玩法元层字段，仅覆写玩家字段），再 <see cref="PlayerInfo.ExportToMeta"/> 写入、
         /// 经异步外壳 <see cref="MergeMetaPersistence.SaveAsync"/> 即发即忘落盘。
         /// 无既有 DTO（首次）→ 现场新建一份 DTO（version 由 Save 内序列化承接）。
+        /// <paramref name="fireSavedHook"/>=false 用于服务端→本地的身份回写(<see cref="ApplyServerPlayerId"/>):
+        /// 只落盘、不触发存档边界钩子(playerId 不入云存档 blob,非玩法事件)。
         /// </summary>
-        public void SavePlayer()
+        public void SavePlayer(bool fireSavedHook = true)
         {
             if (Player == null) return;
             var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
             Player.ExportToMeta(dto);
-            MergeMetaPersistence.SaveAsync(dto).Forget();
+            MergeMetaPersistence.SaveAsync(dto, fireSavedHook).Forget();
         }
 
         /// <summary>

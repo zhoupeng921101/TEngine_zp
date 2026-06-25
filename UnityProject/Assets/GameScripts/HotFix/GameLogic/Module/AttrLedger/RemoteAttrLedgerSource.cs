@@ -43,7 +43,6 @@ namespace GameLogic.AttrLedger
             try
             {
                 // FTask 自带 awaiter,可在 async UniTask 体内直接 await(memory「跨框架通用异步与网络库异步」)
-                TEngine.Log.Info($"[Fantasy] 发送流水查询 kind={(kind.HasValue ? kind.Value.ToString() : "All")} since={sinceTs} limit={limit}");
                 response = await session.C2G_QueryAttrLedger(protocolKind, sinceTs, limit);
             }
             catch
