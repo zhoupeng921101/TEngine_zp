@@ -13,7 +13,7 @@ namespace GameLogic
     /// 逻辑（UserData 解析 / 结算行渲染 / 回调目标）保留不动（零回归约束）。
     /// </summary>
     [Window(UILayer.Top, location: "MergeOrderWinWindow", fullScreen: true)]
-    public sealed class MergeOrderWinWindow : UIWindow
+    public sealed class MergeOrderWinWindow : UIWindowMono
     {
         // 子图取自 Sheet_settings.png（Multiple 精灵表，设计 23 已打通，SetSubSprite 可寻址）
         private const string Atlas = "Sheet_settings";

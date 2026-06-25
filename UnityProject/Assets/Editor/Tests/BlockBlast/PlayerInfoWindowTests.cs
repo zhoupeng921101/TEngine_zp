@@ -39,6 +39,7 @@ namespace GameLogic.BlockBlast.Tests
         [TearDown]
         public void TearDown()
         {
+            if (_bareGo != null) { UnityEngine.Object.DestroyImmediate(_bareGo); _bareGo = null; }
             if (GameContext.IsValid) GameContext.Instance.Release();
             Persistence.Provider = _savedProvider;
         }
@@ -101,7 +102,17 @@ namespace GameLogic.BlockBlast.Tests
         // 反射调 bare 窗口的私有 OnRenameSubmit，观察 GameContext.Player 的 Name/RenameCount 是否按
         // 数据层规则变化（数据层 R1–R5 规则本身已由 PlayerInfoTests 覆盖，此处只证「窗口走的是它」）。
 
-        private static PlayerInfoWindow NewBareWindow() => new PlayerInfoWindow();
+        // PlayerInfoWindow 迁 MonoBehaviour 体系（UIWindowMono）后不能 new 构造：挂到临时 GameObject 上。
+        // 不 Setup / 不加载 prefab，UI 组件字段（[SerializeField]）全 null，窗口方法对 null 字段已做空守卫，
+        // 故仍只测纯托管逻辑（改名委托 / 占位不抛 / 取色稳定）。建出的 GameObject 在 TearDown 销毁。
+        private GameObject _bareGo;
+
+        private PlayerInfoWindow NewBareWindow()
+        {
+            if (_bareGo != null) UnityEngine.Object.DestroyImmediate(_bareGo);
+            _bareGo = new GameObject("PlayerInfoWindow_BareTest");
+            return _bareGo.AddComponent<PlayerInfoWindow>();
+        }
 
         private static void InvokeRenameSubmit(PlayerInfoWindow w, string newName)
         {

@@ -119,16 +119,23 @@ namespace TEngine.Editor.UI
                 }
             }
 
-            strVar.AppendLine($"\t\tprivate UIBindComponent m_bindComponent;");
+            // Mono 模式：基类是 UIWindowMono / UIWidgetMono。引用走 [SerializeField] 拖拽，
+            // 字段生成 [SerializeField] private T m_x; ScriptGenerator() 只挂事件，不取 UIBindComponent、不按 index。
+            bool isMono = IsMonoUIType(uiTypeName);
 
-            strBind.AppendLine($"\t\t\tm_bindComponent = gameObject.GetComponent<UIBindComponent>();");
-            strBind.AppendLine($"\t\t\tif(m_bindComponent == null)");
-            strBind.AppendLine($"\t\t\t{{");
-            strBind.AppendLine($"\t\t\t\tLog.Error($\"根物体: {{gameObject.name}} 缺少组件 UIBindComponent, 请检查！！！\");");
-            strBind.AppendLine($"\t\t\t\treturn;");
-            strBind.AppendLine($"\t\t\t}}");
+            if (!isMono)
+            {
+                strVar.AppendLine($"\t\tprivate UIBindComponent m_bindComponent;");
+
+                strBind.AppendLine($"\t\t\tm_bindComponent = gameObject.GetComponent<UIBindComponent>();");
+                strBind.AppendLine($"\t\t\tif(m_bindComponent == null)");
+                strBind.AppendLine($"\t\t\t{{");
+                strBind.AppendLine($"\t\t\t\tLog.Error($\"根物体: {{gameObject.name}} 缺少组件 UIBindComponent, 请检查！！！\");");
+                strBind.AppendLine($"\t\t\t\treturn;");
+                strBind.AppendLine($"\t\t\t}}");
+            }
             m_bindIndex = 0;
-            AutoErgodic(root, root, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask);
+            AutoErgodic(root, root, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask, isMono);
             StringBuilder strFile = new StringBuilder();
 
             if (includeListener)
@@ -255,25 +262,42 @@ namespace TEngine.Editor.UI
 
         private static int m_bindIndex = 0;
 
+        /// <summary>
+        /// 基类是否为 MonoBehaviour UI 体系（UIWindowMono / UIWidgetMono）。
+        /// 泛型形式（如 <c>UIWindowMono&lt;T&gt;</c>）取尖括号前的裸名判断。
+        /// </summary>
+        private static bool IsMonoUIType(string uiTypeName)
+        {
+            if (string.IsNullOrEmpty(uiTypeName))
+            {
+                return false;
+            }
+
+            var idx = uiTypeName.IndexOf('<');
+            var bareName = idx >= 0 ? uiTypeName.Substring(0, idx) : uiTypeName;
+            return string.Equals(bareName, "UIWindowMono", StringComparison.Ordinal)
+                   || string.Equals(bareName, "UIWidgetMono", StringComparison.Ordinal);
+        }
+
         public static void AutoErgodic(Transform root, Transform transform, ref StringBuilder strVar,
-            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask)
+            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask, bool isMono = false)
         {
             for (int i = 0; i < transform.childCount; i++)
             {
                 Transform child = transform.GetChild(i);
-                WriteAutoScript(root, child, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask);
+                WriteAutoScript(root, child, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask, isMono);
                 // 跳过 "m_item"
                 if (child.name.StartsWith(GetUIWidgetGameObjectName()))
                 {
                     continue;
                 }
 
-                AutoErgodic(root, child, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask);
+                AutoErgodic(root, child, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask, isMono);
             }
         }
 
         private static void WriteAutoScript(Transform root, Transform child, ref StringBuilder strVar,
-            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask)
+            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask, bool isMono = false)
         {
             string varName = child.name;
             // 查找相关的规则定义
@@ -299,21 +323,29 @@ namespace TEngine.Editor.UI
                 return;
             }
 
-            // strVar.AppendLine($"\t\tprivate {componentName} {varName};");
-            strVar.AppendLine($"\t\tprivate {componentName} {varName}{(ScriptGeneratorSetting.Instance.NullableEnable ? " = null!;" : ";")}");
-            if (rule.componentName == UIComponentName.GameObject)
+            if (isMono)
             {
-                strBind.AppendLine($"\t\t\t{varName} = m_bindComponent.GetComponent<RectTransform>({m_bindIndex}).gameObject;");
-            }
-            else if (rule.componentName != UIComponentName.GameObject && rule.isUIWidget)
-            {
-                strBind.AppendLine($"\t\t\t{varName} = CreateWidget<{componentName}>(m_bindComponent.GetComponent<RectTransform>({m_bindIndex}).gameObject);");
+                // Mono 模式：字段 [SerializeField] 暴露到 Inspector，引用靠拖拽就位，不走 UIBindComponent / index。
+                strVar.AppendLine($"\t\t[SerializeField] private {componentName} {varName}{(ScriptGeneratorSetting.Instance.NullableEnable ? " = null!;" : ";")}");
             }
             else
             {
-                strBind.AppendLine($"\t\t\t{varName} = m_bindComponent.GetComponent<{componentName}>({m_bindIndex});");
+                // strVar.AppendLine($"\t\tprivate {componentName} {varName};");
+                strVar.AppendLine($"\t\tprivate {componentName} {varName}{(ScriptGeneratorSetting.Instance.NullableEnable ? " = null!;" : ";")}");
+                if (rule.componentName == UIComponentName.GameObject)
+                {
+                    strBind.AppendLine($"\t\t\t{varName} = m_bindComponent.GetComponent<RectTransform>({m_bindIndex}).gameObject;");
+                }
+                else if (rule.componentName != UIComponentName.GameObject && rule.isUIWidget)
+                {
+                    strBind.AppendLine($"\t\t\t{varName} = CreateWidget<{componentName}>(m_bindComponent.GetComponent<RectTransform>({m_bindIndex}).gameObject);");
+                }
+                else
+                {
+                    strBind.AppendLine($"\t\t\t{varName} = m_bindComponent.GetComponent<{componentName}>({m_bindIndex});");
+                }
+                m_bindIndex++;
             }
-            m_bindIndex++;
 
             switch (rule.componentName)
             {
@@ -392,7 +424,8 @@ namespace TEngine.Editor.UI
             strFile.AppendLine($"namespace {ScriptGeneratorSetting.GetUINameSpace()}");
             strFile.AppendLine("{");
             {
-                if (string.Equals(uiTypeName, "UIWindow", StringComparison.Ordinal))
+                if (string.Equals(uiTypeName, "UIWindow", StringComparison.Ordinal)
+                    || string.Equals(uiTypeName, "UIWindowMono", StringComparison.Ordinal))
                 {
                     strFile.AppendLine($"\t[Window(UILayer.UI, location : \"{fileName.Replace(".cs", "")}\")]");
                 }

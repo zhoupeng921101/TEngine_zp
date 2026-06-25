@@ -7,11 +7,12 @@ namespace GameLogic
 {
     /// <summary>
     /// MonoBehaviour 窗口基类（可挂 prefab 根、字段用 <c>[SerializeField]</c> 暴露到 Inspector）。
-    /// 与经典 <see cref="UIWindow"/> 并行：自身即 panel，引用绑定走序列化字段而非命名前缀 / FindChild。
+    /// 与经典 <see cref="UIWindow"/> 并行：自身即 panel，引用绑定走序列化字段而非命名前缀 / FindChild；
+    /// 共享面（父子链 / FindChild / 事件 / CreateWidget / 子树更新）继承自 <see cref="UIBaseMono"/>。
     /// 生命周期由 <see cref="UIModule"/> 显式驱动，不写 Awake/Start/OnEnable/Update 等魔法方法
     /// （<see cref="OnDestroy"/> 为 Unity 魔法回调，故用 <see cref="IsDestroyed"/> 守卫防双触发）。
     /// </summary>
-    public abstract class UIWindowMono : MonoBehaviour, IUIWindow
+    public abstract class UIWindowMono : UIBaseMono, IUIWindow
     {
         #region Properties
 
@@ -23,20 +24,6 @@ namespace GameLogic
         private Canvas[] _childCanvas;
         private GraphicRaycaster _raycaster;
         private GraphicRaycaster[] _childRaycaster;
-        private bool _isSortingOrderDirty = false;
-
-        /// <summary>窗口位置矩阵组件（panel 即自身）。</summary>
-        // ReSharper disable once InconsistentNaming
-        public RectTransform rectTransform => (RectTransform)transform;
-
-        /// <summary>自定义数据集。</summary>
-        protected object[] _userDatas;
-
-        /// <summary>自定义数据。</summary>
-        public object UserData => _userDatas != null && _userDatas.Length >= 1 ? _userDatas[0] : null;
-
-        /// <summary>自定义数据集。</summary>
-        public object[] UserDatas => _userDatas;
 
         public Canvas Canvas => _canvas;
         public GraphicRaycaster GraphicRaycaster => _raycaster;
@@ -49,9 +36,6 @@ namespace GameLogic
         public int HideTimeToClose { get; set; }
         public int HideTimerId { get; set; }
 
-        /// <summary>资源是否准备完毕。</summary>
-        public bool IsPrepare { protected set; get; }
-
         /// <summary>是否加载完毕。</summary>
         public bool IsLoadDone { get; private set; }
 
@@ -60,9 +44,6 @@ namespace GameLogic
 
         /// <summary>是否隐藏待关闭。</summary>
         public bool IsHide { set; get; } = false;
-
-        /// <summary>是否需要 Update。</summary>
-        protected bool _hasOverrideUpdate = true;
 
         /// <summary>窗口深度值（排序）。</summary>
         public int Depth
@@ -238,9 +219,7 @@ namespace GameLogic
                 return false;
             }
 
-            _hasOverrideUpdate = true;
-            OnUpdate();
-            return _hasOverrideUpdate;
+            return UpdateChildren();
         }
 
         public void InternalDestroy(bool isShutDown = false)
@@ -253,6 +232,19 @@ namespace GameLogic
             _isCreate = false;
             RemoveAllUIEvent();
             _prepareCallback = null;
+
+            // 销毁子组件（语义对应经典 UIWindow.InternalDestroy 对 ListChild 的遍历）。
+            for (int i = 0; i < ListChild.Count; i++)
+            {
+                var uiChild = ListChild[i];
+                if (uiChild == null)
+                {
+                    continue;
+                }
+
+                uiChild.OnDestroyWidgetCallback();
+                uiChild.OnDestroyWidget();
+            }
 
             OnDestroyWindow();
             IsDestroyed = true;
@@ -297,11 +289,6 @@ namespace GameLogic
             IsDestroyed = true;
         }
 
-        private void _OnSortDepth()
-        {
-            OnSortDepth();
-        }
-
         protected void Close()
         {
             UIModule.Instance.CloseUI(GetType());
@@ -312,85 +299,7 @@ namespace GameLogic
             UIModule.Instance.HideUI(GetType());
         }
 
-        #region 生命周期虚函数
-
-        /// <summary>代码自动生成绑定 / 事件挂载（Mono 路径：引用已由序列化就位，仅挂事件）。</summary>
-        protected virtual void ScriptGenerator() { }
-
-        /// <summary>注册事件。</summary>
-        protected virtual void RegisterEvent() { }
-
-        /// <summary>窗口创建。</summary>
-        protected virtual void OnCreate() { }
-
-        /// <summary>窗口刷新。</summary>
-        protected virtual void OnRefresh() { }
-
-        /// <summary>窗口更新。</summary>
-        protected virtual void OnUpdate()
-        {
-            _hasOverrideUpdate = false;
-        }
-
         /// <summary>窗口销毁回调（与经典 UIWindow.OnDestroy 语义一致，避开 Unity 魔法名）。</summary>
         protected virtual void OnDestroyWindow() { }
-
-        /// <summary>层级排序触发。</summary>
-        protected virtual void OnSortDepth() { }
-
-        /// <summary>显隐触发。</summary>
-        protected virtual void OnSetVisible(bool visible) { }
-
-        #endregion
-
-        #region FindChild / 事件（按需极简版）
-
-        public Transform FindChild(string path)
-        {
-            var findTrans = rectTransform.Find(path);
-            return findTrans != null ? findTrans : null;
-        }
-
-        public T FindChildComponent<T>(string path) where T : Component
-        {
-            var findTrans = rectTransform.Find(path);
-            return findTrans != null ? findTrans.gameObject.GetComponent<T>() : null;
-        }
-
-        private GameEventMgr _eventMgr;
-
-        protected GameEventMgr EventMgr
-        {
-            get
-            {
-                if (_eventMgr == null)
-                {
-                    _eventMgr = MemoryPool.Acquire<GameEventMgr>();
-                }
-
-                return _eventMgr;
-            }
-        }
-
-        public void AddUIEvent(int eventType, Action handler)
-        {
-            EventMgr.AddEvent(eventType, handler);
-        }
-
-        protected void AddUIEvent<T>(int eventType, Action<T> handler)
-        {
-            EventMgr.AddEvent(eventType, handler);
-        }
-
-        protected void RemoveAllUIEvent()
-        {
-            if (_eventMgr != null)
-            {
-                MemoryPool.Release(_eventMgr);
-                _eventMgr = null;
-            }
-        }
-
-        #endregion
     }
 }

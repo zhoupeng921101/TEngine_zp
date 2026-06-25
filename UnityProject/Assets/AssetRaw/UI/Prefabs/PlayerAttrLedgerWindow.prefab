@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 5611492348107739601}
   - component: {fileID: 8201794654837820102}
   - component: {fileID: 1457986271940673012}
+  - component: {fileID: 1000000000000000006}
   m_Layer: 0
   m_Name: PlayerAttrLedgerWindow
   m_TagString: Untagged
@@ -78,3 +79,15 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &1000000000000000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4609174621230154601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f41249200dd75a4ea1fd06556b5acb4, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: GameLogic::GameLogic.UI.PlayerAttrLedgerWindow

@@ -10,7 +10,7 @@ namespace GameLogic
     /// 经典纯无尽（GameWindow）入口下线，融合主玩法 = 承载完整经济的 MergeOrderWindow。
     /// </summary>
     [Window(UILayer.UI, location: "MainMenuWindow", fullScreen: true)]
-    public sealed class MainMenuWindow : UIWindow
+    public sealed class MainMenuWindow : UIWindowMono
     {
         protected override void OnCreate()
         {

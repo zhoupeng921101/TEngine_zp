@@ -250,9 +250,12 @@ namespace GameLogic
         /// </summary>
         /// <param name="userDatas">用户自定义数据。</param>
         /// <returns>打开窗口操作句柄。</returns>
-        public void ShowUIAsync<T>(params System.Object[] userDatas) where T : UIWindow , new()
+        public void ShowUIAsync<T>(params System.Object[] userDatas) where T : IUIWindow
         {
-            ShowUIImp<T>(true, userDatas);
+            // 约束为 IUIWindow（同时容纳经典 UIWindow 与 MonoBehaviour 的 UIWindowMono）：经 typeof(T)
+            // 走 ShowUIImp(Type)，其内部按 IsAssignableFrom(UIWindowMono) 分流到 Mono / 经典路径。
+            // 窗口迁成 UIWindowMono 后调用点 ShowUIAsync<那窗口>() 不需改写。
+            ShowUIImp(typeof(T), true, userDatas);
         }
 
         /// <summary>
@@ -272,19 +275,23 @@ namespace GameLogic
         /// <typeparam name="T">窗口类。</typeparam>
         /// <param name="userDatas">用户自定义数据。</param>
         /// <returns>打开窗口操作句柄。</returns>
-        public void ShowUI<T>(params System.Object[] userDatas) where T : UIWindow , new()
+        public void ShowUI<T>(params System.Object[] userDatas) where T : IUIWindow
         {
-            ShowUIImp<T>(false, userDatas);
+            ShowUIImp(typeof(T), false, userDatas);
         }
-        
+
         /// <summary>
         /// 异步打开窗口。
         /// </summary>
         /// <param name="userDatas">用户自定义数据。</param>
         /// <returns>打开窗口操作句柄。</returns>
-        public async UniTask<T> ShowUIAsyncAwait<T>(params System.Object[] userDatas) where T : UIWindow , new()
+        public async UniTask<T> ShowUIAsyncAwait<T>(params System.Object[] userDatas) where T : IUIWindow
         {
-            return await ShowUIAwaitImp<T>(true, userDatas) as T;
+            Type type = typeof(T);
+            IUIWindow window = typeof(UIWindowMono).IsAssignableFrom(type)
+                ? await ShowMonoUIAwaitImp(type, true, userDatas)
+                : await ShowUIAwaitImp(type, true, userDatas);
+            return (T)window;
         }
 
         /// <summary>
@@ -365,6 +372,34 @@ namespace GameLogic
 
             _pendingMono.Add(windowName);
             LoadMonoWindow(type, windowName, isAsync, userDatas).Forget();
+        }
+
+        /// <summary>
+        /// 打开 Mono 窗口并等待加载完成，返回窗口实例（<see cref="ShowUIAsyncAwait{T}"/> 的 Mono 版）。
+        /// 复用 <see cref="ShowMonoUIImp"/> 触发加载，再轮询 _uiStack 直至命中实例且 IsLoadDone（与经典
+        /// <see cref="ShowUIAwaitImp{T}"/> 同口径，60s 超时兜底）。已在栈中则即时返回。
+        /// </summary>
+        private async UniTask<IUIWindow> ShowMonoUIAwaitImp(Type type, bool isAsync, System.Object[] userDatas)
+        {
+            string windowName = type.FullName;
+            ShowMonoUIImp(type, isAsync, userDatas);
+
+            float time = 0f;
+            while (true)
+            {
+                IUIWindow window = GetWindow(windowName);
+                if (window != null && window.IsLoadDone)
+                {
+                    return window;
+                }
+
+                time += Time.deltaTime;
+                if (time > 60f)
+                {
+                    return GetWindow(windowName);
+                }
+                await UniTask.Yield();
+            }
         }
 
         /// <summary>
@@ -472,11 +507,41 @@ namespace GameLogic
         }
 
         /// <summary>
+        /// 经典窗口的 Type 版异步等待（<see cref="ShowUIAwaitImp{T}"/> 的去 new() 版，用 <see cref="CreateInstance(Type)"/>
+        /// 反射构造），供 <see cref="ShowUIAsyncAwait{T}"/> 在约束放宽为 IUIWindow 后复用。
+        /// </summary>
+        private async UniTask<IUIWindow> ShowUIAwaitImp(Type type, bool isAsync, params System.Object[] userDatas)
+        {
+            string windowName = type.FullName;
+
+            if (TryGetWindow(windowName, out UIWindow window, userDatas))
+            {
+                return window;
+            }
+
+            window = CreateInstance(type);
+            Push(window); //首次压入
+            window.InternalLoad(window.AssetName, OnWindowPrepare, isAsync, userDatas).Forget();
+            float time = 0f;
+            while (!window.IsLoadDone)
+            {
+                time += Time.deltaTime;
+                if (time > 60f)
+                {
+                    break;
+                }
+                await UniTask.Yield();
+            }
+            return window;
+        }
+
+        /// <summary>
         /// 关闭窗口。
         /// </summary>
         /// <typeparam name="T">窗口类型</typeparam>
-        public void CloseUI<T>() where T : UIWindow
+        public void CloseUI<T>() where T : IUIWindow
         {
+            // IUIWindow 约束容纳经典 + Mono；CloseUI(Type) 经 IUIWindow 多态驱动 InternalDestroy，两类通用。
             CloseUI(typeof(T));
         }
 
@@ -493,7 +558,7 @@ namespace GameLogic
             OnSetWindowVisible();
         }
         
-        public void HideUI<T>() where T : UIWindow
+        public void HideUI<T>() where T : IUIWindow
         {
             HideUI(typeof(T));
         }

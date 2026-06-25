@@ -12,7 +12,7 @@ namespace GameLogic
     /// 结算逻辑（UserData 解析 / finalScore 计算）零回归不动；重试回调融合后改指融合窗口（设计 29 §3.1）。
     /// </summary>
     [Window(UILayer.Top, location: "GameOverWindow", fullScreen: true)]
-    public sealed class GameOverWindow : UIWindow
+    public sealed class GameOverWindow : UIWindowMono
     {
         // 子图取自 Sheet_settings.png（Multiple 精灵表，设计 23 已打通，SetSubSprite 可寻址）
         private const string Atlas = "Sheet_settings";

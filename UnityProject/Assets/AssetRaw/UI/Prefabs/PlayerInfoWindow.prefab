@@ -1665,6 +1665,7 @@ GameObject:
   - component: {fileID: 5049628253669453850}
   - component: {fileID: 235993649961930460}
   - component: {fileID: 3630256842458782635}
+  - component: {fileID: 1011016256157791331}
   m_Layer: 5
   m_Name: PlayerInfoWindow
   m_TagString: Untagged
@@ -1734,6 +1735,35 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &1011016256157791331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6839774203522385965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c26f4e2ee431a144a8978f4ca6da0477, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameLogic::GameLogic.UI.PlayerInfoWindow
+  _btnMask: {fileID: 4458053046537474967}
+  _btnClose: {fileID: 7446623553484009731}
+  _btnConfirm: {fileID: 4878744977280086386}
+  _imgClose: {fileID: 6624166540344767418}
+  _imgConfirmBg: {fileID: 6855233169111994275}
+  _imgPanelBg: {fileID: 8722602953469858863}
+  _imgTitleBg: {fileID: 5655445820177344010}
+  _imgAvatar: {fileID: 621735868975217545}
+  _imgAvatarFrame: {fileID: 7756800623594321366}
+  _btnEditAvatar: {fileID: 5119576743005944554}
+  _textName: {fileID: 648946865455951058}
+  _inputName: {fileID: 146422384210544620}
+  _btnEditName: {fileID: 6345947069238852062}
+  _textDiamond: {fileID: 0}
+  _btnBirthYear: {fileID: 4354298571465285241}
+  _btnBirthMonth: {fileID: 6763546382906737134}
+  _btnBirthDay: {fileID: 7406988277565914927}
 --- !u!1 &6947000016360203481
 GameObject:
   m_ObjectHideFlags: 0

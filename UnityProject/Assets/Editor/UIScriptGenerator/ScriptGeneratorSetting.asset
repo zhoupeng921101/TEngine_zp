@@ -23,6 +23,10 @@ MonoBehaviour:
     isGeneric: 0
   - uiTypeName: UIWidget
     isGeneric: 0
+  - uiTypeName: UIWindowMono
+    isGeneric: 0
+  - uiTypeName: UIWidgetMono
+    isGeneric: 0
   NullableEnable: 1
   scriptGenerateRule:
   - uiElementRegex: m_go

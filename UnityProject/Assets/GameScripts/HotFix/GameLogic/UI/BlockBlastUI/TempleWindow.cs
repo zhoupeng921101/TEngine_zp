@@ -14,7 +14,7 @@ namespace GameLogic
     /// 叠层打开不丢当前局；修复后刷新本窗，返回 MergeOrderWindow 时虔诚币自然反映扣减。
     /// </summary>
     [Window(UILayer.UI, location: "TempleWindow", fullScreen: true)]
-    public sealed class TempleWindow : UIWindow
+    public sealed class TempleWindow : UIWindowMono
     {
         private const int Cols = 3;   // 3 列 × 4 行 = 12 厅
 
@@ -43,7 +43,7 @@ namespace GameLogic
             RefreshTempleList();
         }
 
-        protected override void OnDestroy()
+        protected override void OnDestroyWindow()
         {
             _onClosed?.Invoke();
         }

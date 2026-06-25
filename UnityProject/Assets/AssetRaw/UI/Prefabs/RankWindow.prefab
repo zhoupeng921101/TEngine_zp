@@ -486,6 +486,7 @@ GameObject:
   - component: {fileID: 3504129597627428363}
   - component: {fileID: 3536137036333688805}
   - component: {fileID: 1010804213854395758}
+  - component: {fileID: 3808445247913311757}
   m_Layer: 0
   m_Name: RankWindow
   m_TagString: Untagged
@@ -555,6 +556,31 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &3808445247913311757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2528599456071029168}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f727d2f960839fd4baa033b3ae29eb5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameLogic::GameLogic.UI.RankWindow
+  _btnMask: {fileID: 3042403277418635409}
+  _btnClose: {fileID: 1911647383917814863}
+  _btnBottom: {fileID: 5957069273032437015}
+  _imgClose: {fileID: 8228583861983009990}
+  _imgBottomBtnBg: {fileID: 599261726045173111}
+  _imgPanelBg: {fileID: 1481389177498403649}
+  _imgTitleBg: {fileID: 9029768556802725054}
+  _listRoot: {fileID: 3170258290333810061}
+  _textMyRank: {fileID: 7525297589710944496}
+  _textMyName: {fileID: 9141742519150481595}
+  _textMyScore: {fileID: 1761965975848756955}
+  _imgMyAvatar: {fileID: 2315680899558377902}
+  _myRankNode: {fileID: 7414516838392974175}
 --- !u!1 &2530451791453673027
 GameObject:
   m_ObjectHideFlags: 0

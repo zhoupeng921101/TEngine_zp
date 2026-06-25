@@ -22,7 +22,7 @@ namespace GameLogic.UI
     /// (设计 46 §5.1 表)。
     /// </remarks>
     [Window(UILayer.Top, location: "PlayerAttrLedgerWindow", fullScreen: false)]
-    public sealed class PlayerAttrLedgerWindow : UIWindow
+    public sealed class PlayerAttrLedgerWindow : UIWindowMono
     {
         // 拉取参数(设计 46 §4.1 O2 默认 50 条)
         private const int DefaultLimit = 50;
@@ -69,7 +69,7 @@ namespace GameLogic.UI
             RefetchAsync(_currentKind).Forget();
         }
 
-        protected override void OnDestroy()
+        protected override void OnDestroyWindow()
         {
             _disposed = true; // 后到达的 RefetchAsync 响应据此跳过 UI 更新
             // 子节点(行 / 按钮 / Text)由 GameObject 销毁链自动清,无需手动 Destroy

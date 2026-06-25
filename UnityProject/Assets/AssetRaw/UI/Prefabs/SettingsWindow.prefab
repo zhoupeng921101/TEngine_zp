@@ -1866,6 +1866,7 @@ GameObject:
   - component: {fileID: 1974047478767191115}
   - component: {fileID: 7135363183324995437}
   - component: {fileID: 2298757253472817889}
+  - component: {fileID: 7626234657520187169}
   m_Layer: 5
   m_Name: SettingsWindow
   m_TagString: Untagged
@@ -1935,6 +1936,60 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &7626234657520187169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4551220309791716188}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b48d5c9e1976d874a967836174db8a71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameLogic::GameLogic.UI.SettingsWindow
+  _btnMask: {fileID: 7455634551125540079}
+  _btnClose: {fileID: 5364151502309447479}
+  _imgClose: {fileID: 1365055167093510925}
+  _imgPanelTopBg: {fileID: 7048108659997532936}
+  _btnFacebook: {fileID: 2786500987437942882}
+  _btnTwitter: {fileID: 4247127917664444306}
+  _btnX: {fileID: 2305885393560127675}
+  _btnYoutube: {fileID: 4684635907937366902}
+  _btnInstagram: {fileID: 4257298442039030232}
+  _imgFacebook: {fileID: 4364140169707680988}
+  _imgTwitter: {fileID: 7636056432919858829}
+  _imgX: {fileID: 5846050672297401789}
+  _imgYoutube: {fileID: 4125016602341908370}
+  _imgInstagram: {fileID: 3061953260228233299}
+  _btnContact: {fileID: 6098077609487077151}
+  _btnMoreGames: {fileID: 5814513623886325527}
+  _btnLanguage: {fileID: 8447283468730674036}
+  _btnLogout: {fileID: 6811329509771179942}
+  _imgContactBg: {fileID: 8568420581000098960}
+  _imgMoreGamesBg: {fileID: 8030226799287579248}
+  _imgLanguageBg: {fileID: 6721904460601422805}
+  _imgLogoutBg: {fileID: 6564527720494652851}
+  _imgContactIcon: {fileID: 5257851365406665699}
+  _imgMoreGamesIcon: {fileID: 540202890569222862}
+  _imgLanguageIcon: {fileID: 4974999006746145928}
+  _imgLogoutIcon: {fileID: 1496592554051246164}
+  _imgPanelBottomBg: {fileID: 636172055092033964}
+  _btnClearSave: {fileID: 6359769477755205349}
+  _btnHelp: {fileID: 4627071086971377277}
+  _btnPrivacy: {fileID: 1176545818367119574}
+  _imgClearSaveBg: {fileID: 2675010984075950798}
+  _imgClearSaveIcon: {fileID: 7406944716502307700}
+  _imgHelpBg: {fileID: 2260254872172223987}
+  _imgHelpIcon: {fileID: 5314768643659355390}
+  _imgPrivacyBg: {fileID: 4496771685615124960}
+  _imgPrivacyIcon: {fileID: 8360139696210125460}
+  _toggleMusic: {fileID: 6052484436130766327}
+  _toggleSound: {fileID: 4097913868260297586}
+  _imgMusicBg: {fileID: 6880403436356722946}
+  _imgMusicIcon: {fileID: 7712593877527126182}
+  _imgSoundBg: {fileID: 850000834244959629}
+  _imgSoundIcon: {fileID: 7283263304296569976}
 --- !u!1 &4659307300224272992
 GameObject:
   m_ObjectHideFlags: 0

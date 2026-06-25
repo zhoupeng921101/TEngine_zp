@@ -25,20 +25,28 @@ namespace GameLogic.UI
     /// 点赞按钮默认省略（效果图无该钮，设计 28 §七 D2）；接线点见 <see cref="OnPraisePlaceholder"/> 注释。
     /// </remarks>
     [Window(UILayer.Top, location: "RankWindow", fullScreen: false)]
-    public sealed class RankWindow : UIWindow
+    public sealed class RankWindow : UIWindowMono
     {
         private const string Atlas = "Sheet_settings";   // 复用设置窗精灵表（设计 23 §三）
         private const int RankId = 1;                     // 本屏默认展示榜 id（单榜，§七 D1；多榜则换页签选中 id）
 
+        // 引用走 Inspector 拖拽（[SerializeField]）；prefab 节点路径见 ScriptGenerator 旁注。
         // ── 关闭 / 遮罩 / 底部按钮 ──
-        private Button _btnMask, _btnClose, _btnBottom;
-        private Image _imgClose, _imgBottomBtnBg, _imgPanelBg, _imgTitleBg;
+        [SerializeField] private Button _btnMask;
+        [SerializeField] private Button _btnClose;
+        [SerializeField] private Button _btnBottom;
+        [SerializeField] private Image _imgClose;
+        [SerializeField] private Image _imgBottomBtnBg;
+        [SerializeField] private Image _imgPanelBg;
+        [SerializeField] private Image _imgTitleBg;
 
         // ── 列表 + 我的名次条容器 ──
-        private Transform _listRoot;     // 榜单列表容器（ScrollRect content 或固定槽父节点，§五）
-        private Text _textMyRank, _textMyName, _textMyScore;
-        private Image _imgMyAvatar;
-        private GameObject _myRankNode;
+        [SerializeField] private Transform _listRoot;     // 榜单列表容器（ScrollRect content 或固定槽父节点，§五）
+        [SerializeField] private Text _textMyRank;
+        [SerializeField] private Text _textMyName;
+        [SerializeField] private Text _textMyScore;
+        [SerializeField] private Image _imgMyAvatar;
+        [SerializeField] private GameObject _myRankNode;
 
         // 代码生成的行实例（OnRefresh 重建，跨刷复用以免泄漏）。
         private readonly List<GameObject> _rowInstances = new List<GameObject>();
@@ -47,20 +55,15 @@ namespace GameLogic.UI
 
         protected override void ScriptGenerator()
         {
-            _btnMask        = FindChildComponent<Button>("m_btn_Mask");
-            _btnClose       = FindChildComponent<Button>("Root/m_btn_Close");
-            _btnBottom      = FindChildComponent<Button>("Root/m_btn_Bottom");
-            _imgPanelBg     = FindChildComponent<Image>("Root/m_img_PanelBg");
-            _imgTitleBg     = FindChildComponent<Image>("Root/m_img_TitleBg");
-            _imgClose       = FindChildComponent<Image>("Root/m_btn_Close");
-            _imgBottomBtnBg = FindChildComponent<Image>("Root/m_btn_Bottom");
-            _listRoot       = FindChildComponent<Transform>("Root/m_scroll_List/Viewport/Content");
-
-            _myRankNode  = FindChildComponent<Transform>("Root/m_node_MyRank")?.gameObject;
-            _textMyRank  = FindChildComponent<Text>("Root/m_node_MyRank/m_text_MyRank");
-            _textMyName  = FindChildComponent<Text>("Root/m_node_MyRank/m_text_MyName");
-            _textMyScore = FindChildComponent<Text>("Root/m_node_MyRank/m_text_MyScore");
-            _imgMyAvatar = FindChildComponent<Image>("Root/m_node_MyRank/m_img_MyAvatar");
+            // 引用由 [SerializeField] 在 Inspector 拖入就位（原 FindChild 路径对照，便于校核拖线）：
+            //   _btnMask        m_btn_Mask
+            //   _btnClose       Root/m_btn_Close (Button)        _imgClose       Root/m_btn_Close (Image)
+            //   _btnBottom      Root/m_btn_Bottom (Button)       _imgBottomBtnBg Root/m_btn_Bottom (Image)
+            //   _imgPanelBg     Root/m_img_PanelBg               _imgTitleBg     Root/m_img_TitleBg
+            //   _listRoot       Root/m_scroll_List/Viewport/Content
+            //   _myRankNode     Root/m_node_MyRank               _imgMyAvatar    Root/m_node_MyRank/m_img_MyAvatar
+            //   _textMyRank     Root/m_node_MyRank/m_text_MyRank
+            //   _textMyName     Root/m_node_MyRank/m_text_MyName _textMyScore    Root/m_node_MyRank/m_text_MyScore
 
             // 接钮（onClick；监听随 GameObject 销毁自动清，无需手动 Remove——同设计 23 / 25）。
             // 三种关闭：遮罩（点任意处）/ X / 底部「再来一次」，均 CloseUI（底部语义 D3 默认关窗）。
@@ -337,6 +340,6 @@ namespace GameLogic.UI
         // 奖经邮件发进收件箱（不在本窗弹奖，设计 22 §3.5），末尾 OnRefresh() 刷态。窗口不自写领取逻辑（W4）。
         // private void OnPraisePlaceholder() { var r = Svc.ClaimPraise(RankId); /* switch(r.Status) ... */ OnRefresh(); }
 
-        private void Close() => GameModule.UI.CloseUI<RankWindow>();
+        // 关闭走基类 UIWindowMono.Close()（= UIModule.CloseUI(GetType())，等价 CloseUI<RankWindow>()）。
     }
 }

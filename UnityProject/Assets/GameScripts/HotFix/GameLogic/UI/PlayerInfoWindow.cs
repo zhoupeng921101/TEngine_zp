@@ -26,30 +26,40 @@ namespace GameLogic.UI
     /// 生日（D2）：3 下拉纯 UI 占位，不绑数据、不入存档（数据层无生日字段）。
     /// </remarks>
     [Window(UILayer.Top, location: "PlayerInfoWindow", fullScreen: false)]
-    public sealed class PlayerInfoWindow : UIWindow
+    public sealed class PlayerInfoWindow : UIWindowMono
     {
         private const string Atlas = "Sheet_settings";   // 复用设置窗精灵表（设计 23 §三）
 
+        // 引用走 Inspector 拖拽（[SerializeField]）；prefab 节点路径见 ScriptGenerator 旁注。
         // ── 关闭 / 遮罩 ──
-        private Button _btnMask, _btnClose, _btnConfirm;
-        private Image _imgClose, _imgConfirmBg, _imgPanelBg, _imgTitleBg;
+        [SerializeField] private Button _btnMask;
+        [SerializeField] private Button _btnClose;
+        [SerializeField] private Button _btnConfirm;
+        [SerializeField] private Image _imgClose;
+        [SerializeField] private Image _imgConfirmBg;
+        [SerializeField] private Image _imgPanelBg;
+        [SerializeField] private Image _imgTitleBg;
 
         // ── 头像区 ──
-        private Image _imgAvatar, _imgAvatarFrame;
-        private Button _btnEditAvatar;
+        [SerializeField] private Image _imgAvatar;
+        [SerializeField] private Image _imgAvatarFrame;
+        [SerializeField] private Button _btnEditAvatar;
 
         // ── 玩家名区 ──
-        private Text _textName;
-        private InputField _inputName;
-        private Button _btnEditName;
+        [SerializeField] private Text _textName;
+        [SerializeField] private InputField _inputName;
+        [SerializeField] private Button _btnEditName;
 
         // ── 钻石余额行(设计 38 §五,钻石面板支撑「钻石不足」可观测)──
-        private Text _textDiamond;
+        [SerializeField] private Text _textDiamond;
 
         // ── 生日区（整块占位，不绑数据 §5.3）──
-        private Button _btnBirthYear, _btnBirthMonth, _btnBirthDay;
+        [SerializeField] private Button _btnBirthYear;
+        [SerializeField] private Button _btnBirthMonth;
+        [SerializeField] private Button _btnBirthDay;
 
         // ── 我的流水入口按钮(设计 46 §4.2,代码动态生成挂 NameBlock 下;美术 Tier 2+ 补图)──
+        // 运行时代码生成（非 [SerializeField]），引用见 BuildLedgerEntryButton。
         private Button _btnLedgerEntry;
 
         private PlayerInfo P => GameContext.Instance.Player;
@@ -57,27 +67,19 @@ namespace GameLogic.UI
 
         protected override void ScriptGenerator()
         {
-            _btnMask    = FindChildComponent<Button>("m_btn_Mask");
-            _btnClose   = FindChildComponent<Button>("Root/m_btn_Close");
-            _btnConfirm = FindChildComponent<Button>("Root/m_btn_Confirm");
-            _imgClose     = FindChildComponent<Image>("Root/m_btn_Close");
-            _imgConfirmBg = FindChildComponent<Image>("Root/m_btn_Confirm");
-            _imgPanelBg   = FindChildComponent<Image>("Root/m_img_PanelBg");
-            _imgTitleBg   = FindChildComponent<Image>("Root/m_img_TitleBg");
-
-            _imgAvatar      = FindChildComponent<Image>("Root/AvatarBlock/m_img_Avatar");
-            _imgAvatarFrame = FindChildComponent<Image>("Root/AvatarBlock/m_img_AvatarFrame");
-            _btnEditAvatar  = FindChildComponent<Button>("Root/AvatarBlock/m_btn_EditAvatar");
-
-            _textName    = FindChildComponent<Text>("Root/NameBlock/m_text_Name");
-            _inputName   = FindChildComponent<InputField>("Root/NameBlock/m_input_Name");
-            _btnEditName = FindChildComponent<Button>("Root/NameBlock/m_btn_EditName");
-            // 钻石余额行(prefab 节点缺失时为 null,运行期靠 RefreshDiamond null-safe;美术接入后补节点 §五)
-            _textDiamond = FindChildComponent<Text>("Root/NameBlock/m_text_DiamondBalance");
-
-            _btnBirthYear  = FindChildComponent<Button>("Root/BirthdayBlock/m_btn_BirthYear");
-            _btnBirthMonth = FindChildComponent<Button>("Root/BirthdayBlock/m_btn_BirthMonth");
-            _btnBirthDay   = FindChildComponent<Button>("Root/BirthdayBlock/m_btn_BirthDay");
+            // 引用由 [SerializeField] 在 Inspector 拖入就位（原 FindChild 路径对照，便于校核拖线）：
+            //   _btnMask        m_btn_Mask
+            //   _btnClose       Root/m_btn_Close (Button)        _imgClose       Root/m_btn_Close (Image)
+            //   _btnConfirm     Root/m_btn_Confirm (Button)      _imgConfirmBg   Root/m_btn_Confirm (Image)
+            //   _imgPanelBg     Root/m_img_PanelBg               _imgTitleBg     Root/m_img_TitleBg
+            //   _imgAvatar      Root/AvatarBlock/m_img_Avatar    _imgAvatarFrame Root/AvatarBlock/m_img_AvatarFrame
+            //   _btnEditAvatar  Root/AvatarBlock/m_btn_EditAvatar
+            //   _textName       Root/NameBlock/m_text_Name       _inputName      Root/NameBlock/m_input_Name
+            //   _btnEditName    Root/NameBlock/m_btn_EditName
+            //   _textDiamond    Root/NameBlock/m_text_DiamondBalance（prefab 节点缺失时留 None，运行期 RefreshDiamond null-safe）
+            //   _btnBirthYear   Root/BirthdayBlock/m_btn_BirthYear
+            //   _btnBirthMonth  Root/BirthdayBlock/m_btn_BirthMonth
+            //   _btnBirthDay    Root/BirthdayBlock/m_btn_BirthDay
 
             // ── 接钮（onClick；监听随 GameObject 销毁自动清，无需手动 Remove——同设计 23）──
             // 遮罩 = 效果图「点击任意位置关闭」；确定 / X 同义：保存并关。
@@ -173,7 +175,7 @@ namespace GameLogic.UI
             if (Attr != null) Attr.OnAttrChanged += OnAttrChangedDispatch;
         }
 
-        protected override void OnDestroy()
+        protected override void OnDestroyWindow()
         {
             // 解绑事件,防 Window 销毁后留 GC root(沿设计 38 §7.4)。
             if (Attr != null) Attr.OnAttrChanged -= OnAttrChangedDispatch;

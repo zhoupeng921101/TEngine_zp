@@ -63,6 +63,8 @@ namespace TEngine.Editor.UI
         {
             new UIGenType("UIWindow", false),
             new UIGenType("UIWidget", false),
+            new UIGenType("UIWindowMono", false),
+            new UIGenType("UIWidgetMono", false),
         };
         public List<UIGenType> UIGenTypes => uiGenTypes;
 

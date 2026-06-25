@@ -12,7 +12,7 @@ namespace GameLogic.UI
     /// 纯代码搭 UI（仿 <see cref="GameLogic.MainMenuWindow"/>），prefab 为空壳根节点，无 m_* 绑定。
     /// </summary>
     [Window(UILayer.Top, location: "ServerConfigWindow", fullScreen: false)]
-    public sealed class ServerConfigWindow : UIWindow
+    public sealed class ServerConfigWindow : UIWindowMono
     {
         // 设计坐标系（1080×1920，左上原点、Y 下正），与 UGuiFactory 同口径。
         private const float Cx = 540f;

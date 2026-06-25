@@ -26,80 +26,82 @@ namespace GameLogic.UI
     ///   B4：下排实图含「音乐♪」「音效🔊」两位 → 音乐 + 音效双开关进窗。
     /// </remarks>
     [Window(UILayer.Top, location: "SettingsWindow", fullScreen: false)]
-    public sealed class SettingsWindow : UIWindow
+    public sealed class SettingsWindow : UIWindowMono
     {
         private const string Atlas = "Sheet_settings";
 
+        // 引用走 Inspector 拖拽（[SerializeField]）；prefab 节点路径见 ScriptGenerator 旁注。
         // ── 关闭 / 遮罩 ──
-        private Button _btnMask;
-        private Button _btnClose;
-        private Image _imgClose;
+        [SerializeField] private Button _btnMask;
+        [SerializeField] private Button _btnClose;
+        [SerializeField] private Image _imgClose;
 
         // ── 上面板 ──
-        private Image _imgPanelTopBg;
-        private Button _btnFacebook, _btnTwitter, _btnX, _btnYoutube, _btnInstagram;
-        private Image _imgFacebook, _imgTwitter, _imgX, _imgYoutube, _imgInstagram;
-        private Button _btnContact, _btnMoreGames, _btnLanguage, _btnLogout;
-        private Image _imgContactBg, _imgMoreGamesBg, _imgLanguageBg, _imgLogoutBg;
-        private Image _imgContactIcon, _imgMoreGamesIcon, _imgLanguageIcon, _imgLogoutIcon;
+        [SerializeField] private Image _imgPanelTopBg;
+        [SerializeField] private Button _btnFacebook;
+        [SerializeField] private Button _btnTwitter;
+        [SerializeField] private Button _btnX;
+        [SerializeField] private Button _btnYoutube;
+        [SerializeField] private Button _btnInstagram;
+        [SerializeField] private Image _imgFacebook;
+        [SerializeField] private Image _imgTwitter;
+        [SerializeField] private Image _imgX;
+        [SerializeField] private Image _imgYoutube;
+        [SerializeField] private Image _imgInstagram;
+        [SerializeField] private Button _btnContact;
+        [SerializeField] private Button _btnMoreGames;
+        [SerializeField] private Button _btnLanguage;
+        [SerializeField] private Button _btnLogout;
+        [SerializeField] private Image _imgContactBg;
+        [SerializeField] private Image _imgMoreGamesBg;
+        [SerializeField] private Image _imgLanguageBg;
+        [SerializeField] private Image _imgLogoutBg;
+        [SerializeField] private Image _imgContactIcon;
+        [SerializeField] private Image _imgMoreGamesIcon;
+        [SerializeField] private Image _imgLanguageIcon;
+        [SerializeField] private Image _imgLogoutIcon;
 
         // ── 下面板 ──
-        private Image _imgPanelBottomBg;
-        private Button _btnClearSave, _btnHelp, _btnPrivacy;
-        private Image _imgClearSaveBg, _imgClearSaveIcon, _imgHelpBg, _imgHelpIcon, _imgPrivacyBg, _imgPrivacyIcon;
-        private Toggle _toggleMusic, _toggleSound;
-        private Image _imgMusicBg, _imgMusicIcon, _imgSoundBg, _imgSoundIcon;
+        [SerializeField] private Image _imgPanelBottomBg;
+        [SerializeField] private Button _btnClearSave;
+        [SerializeField] private Button _btnHelp;
+        [SerializeField] private Button _btnPrivacy;
+        [SerializeField] private Image _imgClearSaveBg;
+        [SerializeField] private Image _imgClearSaveIcon;
+        [SerializeField] private Image _imgHelpBg;
+        [SerializeField] private Image _imgHelpIcon;
+        [SerializeField] private Image _imgPrivacyBg;
+        [SerializeField] private Image _imgPrivacyIcon;
+        [SerializeField] private Toggle _toggleMusic;
+        [SerializeField] private Toggle _toggleSound;
+        [SerializeField] private Image _imgMusicBg;
+        [SerializeField] private Image _imgMusicIcon;
+        [SerializeField] private Image _imgSoundBg;
+        [SerializeField] private Image _imgSoundIcon;
 
         private SettingsService Svc => GameContext.Instance.Settings;
 
         protected override void ScriptGenerator()
         {
-            _btnMask  = FindChildComponent<Button>("m_btn_Mask");
-            _btnClose = FindChildComponent<Button>("Root/m_btn_Close");
-            _imgClose = FindChildComponent<Image>("Root/m_btn_Close");
-
-            _imgPanelTopBg = FindChildComponent<Image>("Root/PanelTop/m_img_PanelTopBg");
-            _btnFacebook   = FindChildComponent<Button>("Root/PanelTop/SocialRow/m_btn_Facebook");
-            _btnTwitter    = FindChildComponent<Button>("Root/PanelTop/SocialRow/m_btn_Twitter");
-            _btnX          = FindChildComponent<Button>("Root/PanelTop/SocialRow/m_btn_X");
-            _btnYoutube    = FindChildComponent<Button>("Root/PanelTop/SocialRow/m_btn_Youtube");
-            _btnInstagram  = FindChildComponent<Button>("Root/PanelTop/SocialRow/m_btn_Instagram");
-            _imgFacebook   = FindChildComponent<Image>("Root/PanelTop/SocialRow/m_btn_Facebook");
-            _imgTwitter    = FindChildComponent<Image>("Root/PanelTop/SocialRow/m_btn_Twitter");
-            _imgX          = FindChildComponent<Image>("Root/PanelTop/SocialRow/m_btn_X");
-            _imgYoutube    = FindChildComponent<Image>("Root/PanelTop/SocialRow/m_btn_Youtube");
-            _imgInstagram  = FindChildComponent<Image>("Root/PanelTop/SocialRow/m_btn_Instagram");
-
-            _btnContact   = FindChildComponent<Button>("Root/PanelTop/m_btn_Contact");
-            _btnMoreGames = FindChildComponent<Button>("Root/PanelTop/m_btn_MoreGames");
-            _btnLanguage  = FindChildComponent<Button>("Root/PanelTop/m_btn_Language");
-            _btnLogout    = FindChildComponent<Button>("Root/PanelTop/m_btn_Logout");
-            _imgContactBg   = FindChildComponent<Image>("Root/PanelTop/m_btn_Contact");
-            _imgMoreGamesBg = FindChildComponent<Image>("Root/PanelTop/m_btn_MoreGames");
-            _imgLanguageBg  = FindChildComponent<Image>("Root/PanelTop/m_btn_Language");
-            _imgLogoutBg    = FindChildComponent<Image>("Root/PanelTop/m_btn_Logout");
-            _imgContactIcon   = FindChildComponent<Image>("Root/PanelTop/m_btn_Contact/Icon");
-            _imgMoreGamesIcon = FindChildComponent<Image>("Root/PanelTop/m_btn_MoreGames/Icon");
-            _imgLanguageIcon  = FindChildComponent<Image>("Root/PanelTop/m_btn_Language/Icon");
-            _imgLogoutIcon    = FindChildComponent<Image>("Root/PanelTop/m_btn_Logout/Icon");
-
-            _imgPanelBottomBg = FindChildComponent<Image>("Root/PanelBottom/m_img_PanelBottomBg");
-            _btnClearSave = FindChildComponent<Button>("Root/PanelBottom/m_btn_ClearSave");
-            _btnHelp      = FindChildComponent<Button>("Root/PanelBottom/m_btn_Help");
-            _btnPrivacy   = FindChildComponent<Button>("Root/PanelBottom/m_btn_Privacy");
-            _imgClearSaveBg   = FindChildComponent<Image>("Root/PanelBottom/m_btn_ClearSave");
-            _imgClearSaveIcon = FindChildComponent<Image>("Root/PanelBottom/m_btn_ClearSave/Icon");
-            _imgHelpBg        = FindChildComponent<Image>("Root/PanelBottom/m_btn_Help");
-            _imgHelpIcon      = FindChildComponent<Image>("Root/PanelBottom/m_btn_Help/Icon");
-            _imgPrivacyBg     = FindChildComponent<Image>("Root/PanelBottom/m_btn_Privacy");
-            _imgPrivacyIcon   = FindChildComponent<Image>("Root/PanelBottom/m_btn_Privacy/Icon");
-
-            _toggleMusic = FindChildComponent<Toggle>("Root/PanelBottom/m_toggle_Music");
-            _toggleSound = FindChildComponent<Toggle>("Root/PanelBottom/m_toggle_Sound");
-            _imgMusicBg   = FindChildComponent<Image>("Root/PanelBottom/m_toggle_Music");
-            _imgMusicIcon = FindChildComponent<Image>("Root/PanelBottom/m_toggle_Music/Icon");
-            _imgSoundBg   = FindChildComponent<Image>("Root/PanelBottom/m_toggle_Sound");
-            _imgSoundIcon = FindChildComponent<Image>("Root/PanelBottom/m_toggle_Sound/Icon");
+            // 引用由 [SerializeField] 在 Inspector 拖入就位（原 FindChild 路径对照，便于校核拖线）：
+            //   _btnMask        m_btn_Mask
+            //   _btnClose       Root/m_btn_Close (Button)        _imgClose       Root/m_btn_Close (Image)
+            //   _imgPanelTopBg  Root/PanelTop/m_img_PanelTopBg
+            //   _btnFacebook    Root/PanelTop/SocialRow/m_btn_Facebook   _imgFacebook    同节点 (Image)
+            //   _btnTwitter     Root/PanelTop/SocialRow/m_btn_Twitter    _imgTwitter     同节点 (Image)
+            //   _btnX           Root/PanelTop/SocialRow/m_btn_X          _imgX           同节点 (Image)
+            //   _btnYoutube     Root/PanelTop/SocialRow/m_btn_Youtube    _imgYoutube     同节点 (Image)
+            //   _btnInstagram   Root/PanelTop/SocialRow/m_btn_Instagram  _imgInstagram   同节点 (Image)
+            //   _btnContact     Root/PanelTop/m_btn_Contact     _imgContactBg   同节点 (Image)   _imgContactIcon   Root/PanelTop/m_btn_Contact/Icon
+            //   _btnMoreGames   Root/PanelTop/m_btn_MoreGames   _imgMoreGamesBg 同节点 (Image)   _imgMoreGamesIcon Root/PanelTop/m_btn_MoreGames/Icon
+            //   _btnLanguage    Root/PanelTop/m_btn_Language    _imgLanguageBg  同节点 (Image)   _imgLanguageIcon  Root/PanelTop/m_btn_Language/Icon
+            //   _btnLogout      Root/PanelTop/m_btn_Logout      _imgLogoutBg    同节点 (Image)   _imgLogoutIcon    Root/PanelTop/m_btn_Logout/Icon
+            //   _imgPanelBottomBg Root/PanelBottom/m_img_PanelBottomBg
+            //   _btnClearSave   Root/PanelBottom/m_btn_ClearSave  _imgClearSaveBg 同节点 (Image)  _imgClearSaveIcon Root/PanelBottom/m_btn_ClearSave/Icon
+            //   _btnHelp        Root/PanelBottom/m_btn_Help       _imgHelpBg      同节点 (Image)  _imgHelpIcon      Root/PanelBottom/m_btn_Help/Icon
+            //   _btnPrivacy     Root/PanelBottom/m_btn_Privacy    _imgPrivacyBg   同节点 (Image)  _imgPrivacyIcon   Root/PanelBottom/m_btn_Privacy/Icon
+            //   _toggleMusic    Root/PanelBottom/m_toggle_Music   _imgMusicBg     同节点 (Image)  _imgMusicIcon     Root/PanelBottom/m_toggle_Music/Icon
+            //   _toggleSound    Root/PanelBottom/m_toggle_Sound   _imgSoundBg     同节点 (Image)  _imgSoundIcon     Root/PanelBottom/m_toggle_Sound/Icon
 
             // ── 接钮（onClick / onValueChanged；监听随 GameObject 销毁自动清，无需手动 Remove）──
             _btnMask.onClick.AddListener(Close);
@@ -218,6 +220,6 @@ namespace GameLogic.UI
         /// <summary>占位统一反馈（V5：不死按钮）。工程暂无 Toast / 飘字系统 → 临时 Log.Info；待建后替换。</summary>
         private void ShowPlaceholder(string msg) => Log.Info($"[设置窗·待建] {msg}");
 
-        private void Close() => GameModule.UI.CloseUI<SettingsWindow>();
+        // 关闭走基类 UIWindowMono.Close()（= UIModule.CloseUI(GetType())，等价 CloseUI<SettingsWindow>()）。
     }
 }
