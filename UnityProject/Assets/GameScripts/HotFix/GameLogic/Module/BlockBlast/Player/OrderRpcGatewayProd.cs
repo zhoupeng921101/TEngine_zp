@@ -36,6 +36,7 @@ namespace GameLogic.BlockBlast.Player
             try
             {
                 // FTask 自带 awaiter,可在 async UniTask 体内直接 await(memory「跨框架通用异步与网络库异步」)
+                TEngine.Log.Info($"[Fantasy] 发送订单交付 slot={slot}");
                 response = await session.C2G_DeliverOrderRequest(slot);
             }
             catch

@@ -59,9 +59,11 @@ namespace GameLogic
         private Image _openBoxBtnBg;
         private Text _openBoxBtnLabel;
 
-        // 订单卡常驻实例（张数 = MergeOrderConfig.ActiveOrders 单一事实源，OnCreate 创建一次注入 OnDeliver 回调，
+        // 订单卡常驻实例（张数 = MergeOrderConfig.ActiveOrders 单一事实源；CreateOrderCards 在 OnCreate 内按该值分配数组、创建卡、注入 OnDeliver 回调；
         // RefreshOrders 只 SetData + 显隐 + 按可交付优先重排 sibling 顺序，不重建实例、不改 slot 映射）。
-        private readonly OrderCardWidget[] _orderCards = new OrderCardWidget[MergeOrderConfig.ActiveOrders];
+        // 必须在 OnCreate 分配、不可写成字段初始化器：字段初始化器在 MonoBehaviour 构造函数内运行，此刻读 ActiveOrders 会触发 global 表的 YooAsset 同步加载，
+        // 加载途中 YooAsset 调 GetActiveScene——Unity 禁止在构造函数内调用，抛异常后 GlobalConfigMgr 缓存被灌空字典且整局不再重载，全局配置静默退默认值。
+        private OrderCardWidget[] _orderCards;
         // 合成区 token 实例池：_synthTokens 是按 (类型→等级) 排序的「当前展示顺序」live 列表（收集飞行/交付飞行落点匹配按它取），
         // _synthByKey 是 (类型,等级) → 稳定 token 实例映射（增删滑动需要稳定身份：同一 (类型,等级) 恒对应同一 token，
         // 才能做「某 token 滑入/滑出/补位」的位置 tween）。两者每次 RefreshSynthesis 同步重建，_synthByKey 为单一事实源、
@@ -161,6 +163,11 @@ namespace GameLogic
             // Reset() 清 _dynamicWeight / _preDynamicWeight / _refillIndex，消除跨局 / 跨模式 / 跨 app 重启的累积，从中位公平起步。
             DynamicWeightDiff.Instance.Reset();
             DynamicWeightDiff.Instance.BeginGame();
+
+            // 纵深防御(单入口下非必需,异常路径留证):正常经 MainMenuWindow 入口闸进窗时云存档已就绪。
+            // 此处只读断言不 await、不转圈;若未就绪说明绕过了入口闸,ResetForMergeOrder 可能读到旧本地。
+            if (GameContext.Instance?.CloudSave is { IsReady: false })
+                Log.Warning("[MergeOrderWindow] 进窗时云存档未就绪(疑似绕过入口闸),场景可能恢复成旧本地。");
 
             // 进入即重置（隐患 A，设计 29 §5.3）：ResetForMergeOrder 将 BlockGameState.Score / Combo 清零（局内瞬态，不进盘）。
             // 元层进度（灵力 / 虔诚币 / 女神 / 神庙 / 盲盒 / HighScore 等）经存档加载覆盖，与局内瞬态分层不重叠。
@@ -356,6 +363,9 @@ namespace GameLogic
         // 交付回调注入对应槽位闭包。卡结构 / 视觉由 OrderCardWidget.prefab 提供，本窗不再绑卡内部节点。
         private void CreateOrderCards()
         {
+            // 数组按配置张数分配（OnCreate 时机，YooAsset / GetActiveScene 合法）；即使下方容器缺失提前返回，数组也已分配，
+            // 供 RefreshOrders / 交付路径按 _orderCards.Length 安全遍历（元素为 null）。
+            _orderCards = new OrderCardWidget[MergeOrderConfig.ActiveOrders];
             if (_orderContent == null)
             {
                 Log.Error("[MergeOrderWindow] 订单滚动容器缺失（OrderLayer 的 ScrollRect.content），订单卡未创建。");

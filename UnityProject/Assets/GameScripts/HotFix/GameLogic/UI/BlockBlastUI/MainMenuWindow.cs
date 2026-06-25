@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Cysharp.Threading.Tasks;
 using TEngine;
 using GameLogic.BlockBlast;
 
@@ -12,6 +13,12 @@ namespace GameLogic
     [Window(UILayer.UI, location: "MainMenuWindow", fullScreen: true)]
     public sealed class MainMenuWindow : UIWindowMono
     {
+        /// <summary>进玩法入口等云存档就绪时的看门狗超时(毫秒)。慢网偶发短等;超时按本地兜底放行,绝不卡死。</summary>
+        private const int EnterReadyTimeoutMs = 8000;
+
+        /// <summary>进窗防重入。等待就绪期间二次点击「开始游戏」只进窗一次。</summary>
+        private bool _entering;
+
         protected override void OnCreate()
         {
             var state = BlockGameState.Instance;
@@ -39,11 +46,9 @@ namespace GameLogic
                 new Color32(0x44, 0x77, 0xff, 0xFF), Color.white, out _, out _);
             UGuiFactory.CreateText(content, "StartSub", cx, 1138, 677, 58, "落子·消除·合成·订单 · 完成 5 单通关", 32,
                 new Color32(0xdd, 0xee, 0xff, 0xFF));
-            btn.onClick.AddListener(() =>
-            {
-                GameModule.UI.CloseUI<MainMenuWindow>();
-                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
-            });
+            // 进玩法入口闸:进窗前先等云存档下载对齐就绪(常态点按钮时抢跑下载已完成 → 零等待;
+            // 慢网偶发才短暂等,期间禁用按钮)。配看门狗超时,超时按本地兜底放行。
+            btn.onClick.AddListener(() => EnterMergeOrder(btn).Forget());
 
             // BEST
             UGuiFactory.CreateText(content, "Best", cx, 1469, 677, 72, $"BEST  {state.HighScore}", 46,
@@ -81,6 +86,39 @@ namespace GameLogic
             {
                 GameModule.UI.ShowUIAsync<GameLogic.UI.ServerConfigWindow>();
             });
+        }
+
+        /// <summary>
+        /// 「开始游戏」进玩法编排:等云存档就绪(配看门狗超时)→ 关主菜单 + 开融合玩法窗。
+        /// 由 Button.onClick 经 .Forget() 调用(等价 async void),故全程 try/catch 兜底、异常不外逃;
+        /// _entering 防重入保证等待期二次点击只进窗一次。就绪/超时后再 Close+Show,MergeOrderWindow.OnCreate 读到的本地键已是服务端对齐后投影。
+        /// </summary>
+        private async UniTaskVoid EnterMergeOrder(Button btn)
+        {
+            if (_entering) return;
+            _entering = true;
+            if (btn != null) btn.interactable = false; // 等待期禁用,慢网时给轻量「不可再点」反馈
+
+            try
+            {
+                var cloud = GameContext.Instance?.CloudSave;
+                if (cloud != null && !cloud.IsReady)
+                {
+                    // 看门狗:就绪与超时谁先到都放行。超时→按本地兜底进入(ResetForMergeOrder 回落本地),绝不卡死。
+                    await UniTask.WhenAny(cloud.WhenReady(), UniTask.Delay(EnterReadyTimeoutMs, ignoreTimeScale: true));
+                }
+
+                GameModule.UI.CloseUI<MainMenuWindow>();
+                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+            }
+            catch (System.Exception e)
+            {
+                // 任何异常都不得让 async void 逃逸崩主菜单:本地兜底放行。
+                Log.Warning($"[MainMenuWindow] 进玩法等待云存档就绪异常,按本地兜底放行:{e.Message}");
+                GameModule.UI.CloseUI<MainMenuWindow>();
+                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+            }
+            // 不重置 _entering / 按钮 interactable:成功路径下本窗已 Close 销毁,无需还原。
         }
 
         /// <summary>

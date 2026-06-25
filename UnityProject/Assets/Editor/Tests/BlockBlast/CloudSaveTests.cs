@@ -257,6 +257,62 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual("{\"score\":555}", Read(_store, ClassicKey), "采用了回带 ServerBlob");
         }
 
+        // ── 可控挂起的下载桩:DownloadAsync 阻在一个 source 上,Complete() 才放行(测 WhenReady 续延)。──
+        private sealed class GatedDownloadGateway : ICloudSaveGateway
+        {
+            private readonly UniTaskCompletionSource _gate = new();
+            public CloudDownloadResult DownloadResult = new CloudDownloadResult(CloudDownloadCode.NoSnapshot, 0, null);
+
+            public void Complete() => _gate.TrySetResult();
+
+            public async UniTask<CloudUploadResult> UploadAsync(long version, byte[] blob)
+            {
+                await UniTask.CompletedTask;
+                return new CloudUploadResult(CloudUploadCode.Accepted, version, null);
+            }
+
+            public async UniTask<CloudDownloadResult> DownloadAsync()
+            {
+                await _gate.Task; // 阻到 Complete()
+                return DownloadResult;
+            }
+        }
+
+        // ── C11:已就绪 WhenReady 即时返回(下载完成后,常态零等待)──
+        [Test]
+        public void C11_WhenReady_AlreadyReady_CompletesImmediately()
+        {
+            var gw = new StubGateway();
+            var sync = new CloudSaveSync(gw, () => 0);
+            sync.DownloadAndResolve().GetAwaiter().GetResult(); // 同步桩,完成即 Ready
+
+            Assert.IsTrue(sync.IsReady);
+            Assert.IsTrue(sync.WhenReady().Status.IsCompleted(), "已就绪 WhenReady 应即时完成");
+        }
+
+        // ── C12:未就绪 WhenReady 挂起;DownloadAndResolve 完成后续延 ──
+        [Test]
+        public void C12_WhenReady_NotReady_SuspendsThenResumesOnReady()
+        {
+            var gw = new GatedDownloadGateway();
+            var sync = new CloudSaveSync(gw, () => 0);
+
+            // 启动下载(阻在 gate),IsReady 未置位。
+            var download = sync.DownloadAndResolve();
+            Assert.IsFalse(sync.IsReady, "下载未完成前不就绪");
+
+            // 此刻取 WhenReady:应处挂起态(Pending)。
+            var ready = sync.WhenReady();
+            Assert.IsFalse(ready.Status.IsCompleted(), "未就绪 WhenReady 应挂起");
+
+            // 放行下载 → DownloadAndResolve 完成置 IsReady → WhenReady 续延完成。
+            gw.Complete();
+            download.GetAwaiter().GetResult();
+
+            Assert.IsTrue(sync.IsReady);
+            Assert.IsTrue(ready.Status.IsCompleted(), "就绪置位后 WhenReady 应完成");
+        }
+
         // ── C10:节流 — 窗口内第二次 TryUploadThrottled 不立即发 ──
         [Test]
         public void C10_Upload_Throttled_WithinWindow_Skips()

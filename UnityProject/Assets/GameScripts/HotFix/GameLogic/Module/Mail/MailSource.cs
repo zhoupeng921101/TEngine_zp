@@ -183,6 +183,7 @@ namespace GameLogic.Mail
             try
             {
                 // 发 RPC 并 await 回包：FTask 自带 awaiter，可在 async UniTask 体内直接 await。请求无业务字段、不自报账号（CV5）。
+                TEngine.Log.Info($"[Fantasy] 发送邮件列表");
                 response = await session.C2G_MailListRequest();
             }
             catch
@@ -217,6 +218,7 @@ namespace GameLogic.Mail
             try
             {
                 // 发领取 RPC 并 await 裁决。请求只带邮件标识，身份从会话取、不自报账号（CV5）。
+                TEngine.Log.Info($"[Fantasy] 发送邮件领取 mailId={mailId}");
                 response = await session.C2G_MailClaimRequest(mailId);
             }
             catch

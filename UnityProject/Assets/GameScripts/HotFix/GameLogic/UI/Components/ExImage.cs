@@ -23,8 +23,10 @@ namespace GameLogic
         /// <summary>GetSprite 返回的运行期 clone，生命周期由本组件负责销毁。</summary>
         private Sprite mSpriteClone;
 
-        [SerializeField]
-        private string nowSpriteName;
+        // 当前 sprite 名，仅供 SpriteName setter 运行时去重（同名早返，避免重复克隆图集 sprite）。
+        // 不序列化：无加载期应用钩子，序列化值对渲染无效；且非空序列化值会令 setter 早返、吞掉运行时首次赋值。
+        // 静态图走 Source Image 直接拖；运行时动态图走 SpriteName 按名从图集换。
+        private string nowSpriteName = string.Empty;
 
         public SpriteAtlas Atlas
         {

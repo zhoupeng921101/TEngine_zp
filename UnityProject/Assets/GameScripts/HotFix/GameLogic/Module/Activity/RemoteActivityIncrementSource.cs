@@ -40,6 +40,7 @@ namespace GameLogic.Activity
             try
             {
                 // FTask 自带 awaiter,可在 async UniTask 体内直接 await(memory「跨框架通用异步与网络库异步」)
+                TEngine.Log.Info($"[Fantasy] 发送活动自增 activityId={activityId} delta={delta}");
                 response = await session.C2G_ActivityIncrement(activityId, delta);
             }
             catch

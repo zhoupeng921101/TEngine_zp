@@ -91,7 +91,19 @@ namespace TEngine.Editor.UI
             string uiGenTypeName = null, bool isGenImp = false,
             string impSavePath = null)
         {
-            var root = Selection.activeTransform;
+            return GenerateCSharpScript(Selection.activeTransform, includeListener, isUniTask,
+                isAutoGenerate, savePath, className, uiGenTypeName, isGenImp, impSavePath);
+        }
+
+        /// <summary>
+        /// 显式传入遍历根的生成入口，不依赖全局 <see cref="Selection"/>。
+        /// 自定义 Inspector 按钮按被检视组件的 transform 调用，菜单项仍走 Selection。
+        /// </summary>
+        public static bool GenerateCSharpScript(Transform root, bool includeListener, bool isUniTask = false,
+            bool isAutoGenerate = false, string savePath = null, string className = null,
+            string uiGenTypeName = null, bool isGenImp = false,
+            string impSavePath = null)
+        {
             if (root == null)
             {
                 return false;
@@ -510,6 +522,43 @@ namespace TEngine.Editor.UI
         private static string GetPrefixNameByCodeStyle(UIFieldCodeStyle style)
         {
             return ScriptGeneratorSetting.GetPrefixNameByCodeStyle(style);
+        }
+
+        /// <summary>
+        /// 在 <paramref name="root"/> 子树内按节点名精确匹配查找后代 Transform，遇 widget 边界
+        /// （名字以 <see cref="GetUIWidgetGameObjectName"/> 起头的子节点）即停止下钻，与 <see cref="AutoErgodic"/>
+        /// 的遍历边界同规则。找不到返回 null。
+        /// </summary>
+        public static Transform FindNodeByNameWithWidgetBoundary(Transform root, string nodeName)
+        {
+            if (root == null || string.IsNullOrEmpty(nodeName))
+            {
+                return null;
+            }
+
+            var widgetBoundary = GetUIWidgetGameObjectName();
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                if (string.Equals(child.name, nodeName, StringComparison.Ordinal))
+                {
+                    return child;
+                }
+
+                // 命中 widget 边界则不再下钻该子树（与 AutoErgodic 一致）。
+                if (child.name.StartsWith(widgetBoundary))
+                {
+                    continue;
+                }
+
+                var found = FindNodeByNameWithWidgetBoundary(child, nodeName);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
         }
 
         private static string GetUIWidgetGameObjectName()

@@ -43,8 +43,35 @@ namespace GameLogic.BlockBlast.Player
         private long _lastUploadAtMs;
         private bool _pendingUpload; // 节流窗口内被触发过,待窗口到点补一发
 
+        private bool _isReady;
+
+        // 进玩法入口闸(MainMenuWindow 开始游戏)用:等登录下载对齐完成再恢复场景,避免读到旧本地。
+        // 已就绪时 WhenReady 走快路径返 completed;未就绪时返此 source 的 task,在置 Ready 同处 TrySetResult 唤醒。
+        private UniTaskCompletionSource _readySource;
+
         /// <summary>已下载对齐过(登录下载完成)。下载前不主动上传,避免拿未对齐的本地 version 覆盖云端。</summary>
-        public bool IsReady { get; private set; }
+        public bool IsReady
+        {
+            get => _isReady;
+            private set
+            {
+                _isReady = value;
+                if (value) _readySource?.TrySetResult(); // 置位即唤醒所有等待者(WhenReady)
+            }
+        }
+
+        /// <summary>
+        /// 进玩法入口闸:等待登录下载对齐完成。已就绪即返 completed task(常态零等待);
+        /// 未就绪返一个在 <see cref="IsReady"/> 置位时完成的 task。
+        /// <see cref="DownloadAndResolve"/> 在所有分支末尾置 IsReady,gateway 自带超时降级不挂,故此 task 必在有限时间完成。
+        /// 调用方仍应配看门狗超时兜底,避免极端阻塞。
+        /// </summary>
+        public UniTask WhenReady()
+        {
+            if (_isReady) return UniTask.CompletedTask;
+            _readySource ??= new UniTaskCompletionSource();
+            return _readySource.Task;
+        }
 
         /// <summary>当前本地 version(供日志/验收观测)。</summary>
         public long LocalVersion { get { EnsureLoaded(); return _localVersion; } }

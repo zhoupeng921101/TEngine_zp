@@ -126,7 +126,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85029446ad2b954489492fa289c48b9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameLogic::GameLogic.SynthTokenWidget
-  m_img_Glyph: {fileID: 3044953850005477161}
+  m_eximg_Glyph: {fileID: 3044953850005477161}
   m_text_Info: {fileID: 3087384590666615940}
 --- !u!1 &8559697048380919848
 GameObject:

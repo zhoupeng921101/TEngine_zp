@@ -193,6 +193,7 @@ namespace GameLogic.Rank
             try
             {
                 // 发 RPC 并 await 回包：FTask 自带 awaiter，可在 async UniTask 体内直接 await。请求不自报账号（CV3）。
+                TEngine.Log.Info($"[Fantasy] 发送排行榜提交 rankId={rankId} score={score}");
                 response = await session.C2G_RankSubmitScoreRequest(rankId, score);
             }
             catch
@@ -225,6 +226,7 @@ namespace GameLogic.Rank
             Fantasy.G2C_RankQueryResponse response;
             try
             {
+                TEngine.Log.Info($"[Fantasy] 发送排行榜查询 rankId={rankId}");
                 response = await session.C2G_RankQueryRequest(rankId); // 请求不自报账号（CV3）
             }
             catch
