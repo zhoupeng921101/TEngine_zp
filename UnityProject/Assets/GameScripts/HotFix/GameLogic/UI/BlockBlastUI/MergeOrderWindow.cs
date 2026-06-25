@@ -29,8 +29,8 @@ namespace GameLogic
         private MergeOrderState _merge;
         private BinaryBoard _board;
 
-        private readonly Image[,] _cellImages = new Image[N, N];
-        private readonly Image[,] _elemCells = new Image[N, N];
+        private readonly BlockWidget[,] _blockWidgets = new BlockWidget[N, N];
+        private readonly ElementWidget[,] _elemWidgets = new ElementWidget[N, N];
         private readonly RectTransform[] _slotContainers = new RectTransform[3];
         private readonly Image[] _ghostPool = new Image[N * N];
         private int _ghostUsed;
@@ -867,52 +867,48 @@ namespace GameLogic
                 for (int c = 0; c < N; c++)
                 {
                     int colorIdx = _state.SaveArr[r][c];
-                    var existing = _cellImages[r, c];
+                    var existing = _blockWidgets[r, c];
                     if (colorIdx == -1)
                     {
-                        if (existing != null) { Object.Destroy(existing.gameObject); _cellImages[r, c] = null; }
+                        if (existing != null) { existing.Destroy(); _blockWidgets[r, c] = null; }
                     }
                     else
                     {
-                        Image img = existing;
-                        if (img == null)
+                        var block = existing;
+                        if (block == null)
                         {
-                            // 初始纯色作 sprite 异步加载到位前的占位，避免闪空（到位后 ApplyCellSkin 切白 tint + 贴图）。
+                            // 资源定位名 == 类名 "BlockWidget"，CreateWidgetByType 走 AddressByFileName 加载。
+                            block = CreateWidgetByType<BlockWidget>(m_rect_BoardLayer);
+                            if (block == null)
+                            {
+                                Log.Error("[MergeOrderWindow] BlockWidget 加载失败（资源定位名 BlockWidget），棋盘格底块未创建。");
+                                continue;
+                            }
                             // 自适应：格尺寸与位置按 BoardLayer.rect 现算（BoardCellSize / BoardCellLocalPos），随 BoardLayer 缩放。
-                            var placeholder = BlockLayout.ColorOf((BlockColor)colorIdx);
-                            float cell = BoardCellSize();
-                            // CreateImage 内部按设计坐标摆位（anchor/pivot 已居中），随即用 BoardLayer 本地坐标覆写 anchoredPosition。
                             // 单格视觉边长 = cell - BoardCellGap（内缩间隙走 BlockLayout.BoardCellGap 单一事实源，与候选块同口径）。
+                            float cell = BoardCellSize();
                             float boardCellVisual = cell - BlockLayout.BoardCellGap;
-                            img = UGuiFactory.CreateImage(m_rect_BoardLayer, $"cell_{r}_{c}", 0, 0,
-                                boardCellVisual, boardCellVisual, placeholder);
-                            img.rectTransform.anchoredPosition = BoardCellLocalPos(c, r);
-                            img.raycastTarget = false;
-                            _cellImages[r, c] = img;
+                            var rt = block.rectTransform;
+                            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                            rt.pivot = new Vector2(0.5f, 0.5f);
+                            rt.localScale = Vector3.one;
+                            rt.sizeDelta = new Vector2(boardCellVisual, boardCellVisual);
+                            rt.anchoredPosition = BoardCellLocalPos(c, r);
+                            // 纯色占位作 sprite 异步加载到位前防闪（到位后 SetSkin 切白 tint + 贴图覆盖）。
+                            block.SetPlaceholder(BlockLayout.ColorOf((BlockColor)colorIdx));
+                            _blockWidgets[r, c] = block;
                         }
-                        ApplyCellSkin(img, mono, monoLoc, colorIdx);
+                        // 单色态全盘同图；彩色态按类型取 default_skin 纹理（设计 50 §二）。
+                        block.SetSkin(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName(colorIdx));
                     }
                 }
             }
             RenderElements();
         }
 
-        /// <summary>
-        /// 给一个棋盘格 Image 施加皮肤（设计 50 §二），两态都贴图、白色 tint 让 sprite 显本色：
-        /// 单色态 → 全盘统一贴当前单色 sprite；彩色态 → 按方块类型 colorIdx 贴 default_skin 各自那张纹理。
-        /// sprite 加载经既有 SetSprite 异步外壳（散 PNG 按文件名 location），引用计数自管。
-        /// </summary>
-        private void ApplyCellSkin(Image img, bool mono, string monoLoc, int colorIdx)
-        {
-            if (img == null) return;
-            img.color = Color.white;                 // 两态 sprite 均自带颜色，tint 用白避免叠色
-            // 单色态全盘同图；彩色态按类型取 default_skin 纹理（设计 50 §二）。
-            img.SetSprite(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName(colorIdx));
-        }
-
-        // ── 渲染元素 overlay（clip 图标 sprite） ──
-        // 元素图标 Image：白 tint 显本色、raycastTarget=false（不挡棋盘点击），尺寸比格略小留边（自适应格尺寸*0.7）。
-        // None 不建 Image / 已建则销毁置 null。
+        // ── 渲染元素 overlay（ElementWidget 图标） ──
+        // 元素 widget：图标 raycastTarget=false（prefab 已烤死，不挡棋盘点击），尺寸比格略小留边（自适应格尺寸*0.7）。
+        // None 不建 widget / 已建则销毁置 null。
         // 父层用 m_rect_BoardLayer（与棋盘格同父同坐标系），不用 m_rect_ElemLayer：ElemLayer 与 BoardLayer 不同父不同位，
         // 挂 ElemLayer 会让元素图标与棋盘格错位。挂 BoardLayer + BoardCellLocalPos 保证「元素 = 所在格视觉位置」。
         private void RenderElements()
@@ -924,29 +920,34 @@ namespace GameLogic
                 for (int c = 0; c < N; c++)
                 {
                     var el = arr != null ? arr[r][c] : MergeElement.None;
-                    var existing = _elemCells[r, c];
+                    var existing = _elemWidgets[r, c];
                     if (el == MergeElement.None)
                     {
-                        if (existing != null) { Object.Destroy(existing.gameObject); _elemCells[r, c] = null; }
+                        if (existing != null) { existing.Destroy(); _elemWidgets[r, c] = null; }
                     }
                     else
                     {
-                        if (existing != null)
+                        var elem = existing;
+                        if (elem == null)
                         {
-                            existing.SetSprite(MergeElementVisual.SpriteName(el, 1), setNativeSize:true); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
-                            existing.transform.SetAsLastSibling(); // 元素图标与棋盘格同父，置顶避免被新建 cell 盖住
+                            // 资源定位名 == 类名 "ElementWidget"，CreateWidgetByType 走 AddressByFileName 加载。
+                            elem = CreateWidgetByType<ElementWidget>(m_rect_BoardLayer);
+                            if (elem == null)
+                            {
+                                Log.Error("[MergeOrderWindow] ElementWidget 加载失败（资源定位名 ElementWidget），棋盘元素图标未创建。");
+                                continue;
+                            }
+                            // 父层 m_rect_BoardLayer + BoardLayer 本地坐标（与棋盘格同源），居中摆根。
+                            var rt = elem.rectTransform;
+                            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                            rt.pivot = new Vector2(0.5f, 0.5f);
+                            rt.localScale = Vector3.one;
+                            rt.sizeDelta = new Vector2(iconSize, iconSize);
+                            rt.anchoredPosition = BoardCellLocalPos(c, r);
+                            _elemWidgets[r, c] = elem;
                         }
-                        else
-                        {
-                            // 父层 m_rect_BoardLayer + BoardLayer 本地坐标（与棋盘格同源），覆写 CreateImage 的设计坐标摆位。
-                            var icon = UGuiFactory.CreateImage(m_rect_BoardLayer, $"elem_{r}_{c}", 0, 0,
-                                iconSize, iconSize, Color.white);
-                            icon.rectTransform.anchoredPosition = BoardCellLocalPos(c, r);
-                            icon.raycastTarget = false;
-                            icon.SetSprite(MergeElementVisual.SpriteName(el, 1), setNativeSize:true); // 棋盘元素 = Lv1 原料，取 Lv1 图
-                            icon.transform.SetAsLastSibling(); // 同上：置顶于棋盘格之上
-                            _elemCells[r, c] = icon;
-                        }
+                        elem.SetIcon(MergeElementVisual.SpriteName(el, 1)); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
+                        elem.transform.SetAsLastSibling();                  // 元素图标与棋盘格同父，置顶避免被新建格底块盖住
                     }
                 }
             }
@@ -1013,36 +1014,26 @@ namespace GameLogic
                     for (int c = 0; c < shape.Width; c++)
                     {
                         if (((shape.Shape[r] >> (shape.Width - c - 1)) & 1) == 0) continue;
-                        var cell = new GameObject($"sc_{r}_{c}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                        var cell = CreateWidgetByType<BlockWidget>(container);
                         var crt = cell.GetComponent<RectTransform>();
-                        crt.SetParent(container, false);
+                        // crt.SetParent(container, false);
                         crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
                         crt.pivot = new Vector2(0.5f, 0.5f);
                         crt.sizeDelta = new Vector2(slotCellBase, slotCellBase);
                         crt.anchoredPosition = new Vector2(offX + c * BlockLayout.SlotCell, offY - r * BlockLayout.SlotCell);
-                        var ci = cell.GetComponent<Image>();
-                        // 候选块换皮：白 tint 显本色；彩色态按方块类型 (int)piece.Color 贴 default_skin，单色态统一贴当前单色 sprite。
-                        ci.color = Color.white;
-                        ci.SetSprite(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName((int)piece.Color));
-                        ci.raycastTarget = false;
-
+                        cell.SetSkin(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName((int)piece.Color));
+                        
                         if (piece.Elements != null && cellIdx < piece.Elements.Length
                             && piece.Elements[cellIdx] != MergeElement.None)
                         {
                             var el = piece.Elements[cellIdx];
                             // 候选块上的元素标记：clip 图标 sprite（白 tint 显本色），铺满格子、不挡拖拽。
-                            var gt = new GameObject($"sg_{r}_{c}", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                            var gt = CreateWidgetByType<ElementWidget>(crt);
                             var grt = gt.GetComponent<RectTransform>();
                             grt.SetParent(crt, false);
                             grt.anchorMin = Vector2.zero; grt.anchorMax = Vector2.one;
                             grt.offsetMin = Vector2.zero; grt.offsetMax = Vector2.zero;
-                            var gimg = gt.GetComponent<Image>();
-                            gimg.color = Color.white;
-                            gimg.raycastTarget = false;
-                            // 不可用 setNativeSize：Image.SetNativeSize 会把 anchorMax 收回到 anchorMin（左下角）并改写 sizeDelta 为
-                            // sprite 原生像素尺寸，覆盖上面的拉伸充填，导致元素跑到格子左下角且尺寸过大（待选区位置/大小错位的根因）。
-                            // 保持拉伸充填（offsets 全 0）= 元素正好铺满候选格、居中，与设计「铺满格子」一致。
-                            gimg.SetSprite(MergeElementVisual.SpriteName(el, 1)); // 候选块元素 = Lv1 原料，取 Lv1 图
+                            gt.SetIcon(MergeElementVisual.SpriteName(el, 1));
                         }
                         cellIdx++;
                     }
@@ -1137,15 +1128,15 @@ namespace GameLogic
             }
             RenderBoard();
 
-            // ② 落子格 scale-punch：迭代被落格、对已存在的 cell Image 添加 ScalePunch
+            // ② 落子格 scale-punch：迭代被落格、对已存在的格底块 widget 做一次放大反馈
             for (int pr = 0; pr < shape.Height; pr++)
             {
                 for (int pc = 0; pc < shape.Width; pc++)
                 {
                     if (((shape.Shape[pr] >> (shape.Width - pc - 1)) & 1) == 0) continue;
                     int gr = row + pr, gc = col + pc;
-                    if (gr >= 0 && gr < N && gc >= 0 && gc < N && _cellImages[gr, gc] != null)
-                        _cellImages[gr, gc].gameObject.AddComponent<ScalePunch>();
+                    if (gr >= 0 && gr < N && gc >= 0 && gc < N && _blockWidgets[gr, gc] != null)
+                        _blockWidgets[gr, gc].Punch();
                 }
             }
 

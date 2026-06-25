@@ -9,6 +9,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
+using UnityEngine.Serialization;
 
 namespace GameLogic
 {
@@ -16,7 +17,7 @@ namespace GameLogic
 	{
 		#region 脚本工具生成的代码
 
-		[SerializeField] private Image m_img_Glyph;
+		[SerializeField] private ExImage m_eximg_Glyph;
 		[SerializeField] private Text m_text_Info;
 
 		protected override void ScriptGenerator()

@@ -17,6 +17,7 @@ MonoBehaviour:
   impCodePath: Assets/GameScripts/HotFix/GameLogic/UI
   _namespace: GameLogic
   _widgetName: item
+  defaultUIFont: {fileID: 0}
   CodeStyle: 1
   uiGenTypes:
   - uiTypeName: UIWindowMono
@@ -93,4 +94,7 @@ MonoBehaviour:
     isUIWidget: 0
   - uiElementRegex: m_tmp
     componentName: 19
+    isUIWidget: 0
+  - uiElementRegex: m_eximg
+    componentName: 24
     isUIWidget: 0

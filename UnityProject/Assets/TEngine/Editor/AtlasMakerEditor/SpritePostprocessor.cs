@@ -11,7 +11,7 @@ namespace TEngine.Editor
     public class SpritePostprocessor : AssetPostprocessor
     {
         // 导入设置强制的覆盖范围：整个 UI 源图目录，比图集成员范围更广。
-        private const string UISourceRootDir = "Assets/AssetRaw/UI";
+        private const string UISourceRootDir = "Assets/AssetRaw/UI/Atlas";
 
         private static List<string> m_resourcesToDelete = new List<string>();
 

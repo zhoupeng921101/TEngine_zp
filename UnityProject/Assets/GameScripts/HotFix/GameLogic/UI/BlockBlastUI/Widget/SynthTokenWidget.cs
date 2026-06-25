@@ -29,7 +29,7 @@ namespace GameLogic
         {
             ElementType = type;
             DisplayCount = count;
-            if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName, setNativeSize:true);
+            if (!string.IsNullOrEmpty(glyphSpriteName)) m_eximg_Glyph.SpriteName = glyphSpriteName;
 
             // 仅显示数量；等级已由图标分级（{type}_{level}）表现，文字不再重复等级。
             m_text_Info.text = count.ToString();
@@ -41,12 +41,12 @@ namespace GameLogic
         /// 图标落点 RectTransform（合成区元素图标），供收集飞行动画取终点世界坐标。
         /// 只读暴露既有绑定节点，不改 prefab 结构。
         /// </summary>
-        public RectTransform GlyphRect => m_img_Glyph != null ? m_img_Glyph.rectTransform : null;
+        public RectTransform GlyphRect => m_eximg_Glyph != null ? m_eximg_Glyph.rectTransform : null;
 
         /// <summary>对图标做一次轻微放大反馈（收集飞行图标到达时调用）。ScalePunch 仅销毁组件、不动 GameObject，可重复调用。</summary>
         public void PunchGlyph()
         {
-            if (m_img_Glyph != null) m_img_Glyph.gameObject.AddComponent<ScalePunch>();
+            if (m_eximg_Glyph != null) m_eximg_Glyph.gameObject.AddComponent<ScalePunch>();
         }
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace GameLogic
         /// </summary>
         public void SetContentVisible(bool visible)
         {
-            if (m_img_Glyph != null) m_img_Glyph.enabled = visible;
+            if (m_eximg_Glyph != null) m_eximg_Glyph.enabled = visible;
             if (m_text_Info != null) m_text_Info.enabled = visible;
         }
     }

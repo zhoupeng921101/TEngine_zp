@@ -12,25 +12,19 @@ using TEngine;
 
 namespace GameLogic
 {
-	public partial class OrderCardWidget : UIWidgetMono
+	public partial class ElementWidget : UIWidgetMono
 	{
 		#region 脚本工具生成的代码
 
-		[SerializeField] private ExImage m_eximg_Glyph;
-		[SerializeField] private Text m_text_Req;
-		[SerializeField] private Button m_btn_Deliver;
+		[SerializeField] private ExImage m_eximg_Icon = null!;
 
 		protected override void ScriptGenerator()
 		{
-			m_btn_Deliver.onClick.RemoveAllListeners();
-			m_btn_Deliver.onClick.AddListener(OnClick_DeliverBtn);
 		}
 
 		#endregion
 
 		#region 事件
-
-		private partial void OnClick_DeliverBtn();
 
 		#endregion
 	}

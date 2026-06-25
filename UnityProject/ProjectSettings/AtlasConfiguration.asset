@@ -24,10 +24,11 @@ MonoBehaviour:
   androidFormat: 50
   iosFormat: 49
   webglFormat: 50
+  webglSourceFormat: 4
   padding: 4
   enableRotation: 1
   blockOffset: 1
-  tightPacking: 1
+  tightPacking: 0
   compressionQuality: 50
   autoGenerate: 1
   enableLogging: 1

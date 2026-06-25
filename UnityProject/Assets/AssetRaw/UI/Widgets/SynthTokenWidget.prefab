@@ -66,7 +66,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -6799750250098804662, guid: 9de24435e56913a4b9d7c69e2f961f0d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 9de24435e56913a4b9d7c69e2f961f0d, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -85,7 +85,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3794020898840494156}
-  - component: {fileID: 212201240794114462}
   - component: {fileID: 5991608928117382384}
   m_Layer: 0
   m_Name: SynthTokenWidget
@@ -115,26 +114,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 120, y: 101}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &212201240794114462
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2264897186045848986}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
-  m_IgnoreLayout: 0
-  m_MinWidth: -1
-  m_MinHeight: -1
-  m_PreferredWidth: 187
-  m_PreferredHeight: 101
-  m_FlexibleWidth: 0
-  m_FlexibleHeight: -1
-  m_LayoutPriority: 1
 --- !u!114 &5991608928117382384
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -147,7 +126,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85029446ad2b954489492fa289c48b9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameLogic::GameLogic.SynthTokenWidget
-  m_img_Glyph: {fileID: 8373547195857020993}
+  m_img_Glyph: {fileID: 3044953850005477161}
   m_text_Info: {fileID: 3087384590666615940}
 --- !u!1 &8559697048380919848
 GameObject:
@@ -159,9 +138,9 @@ GameObject:
   m_Component:
   - component: {fileID: 5500985463852146671}
   - component: {fileID: 6929820270626444271}
-  - component: {fileID: 8373547195857020993}
+  - component: {fileID: 3044953850005477161}
   m_Layer: 0
-  m_Name: m_img_Glyph
+  m_Name: m_eximg_Glyph
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -194,7 +173,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8559697048380919848}
   m_CullTransparentMesh: 1
---- !u!114 &8373547195857020993
+--- !u!114 &3044953850005477161
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -203,9 +182,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 8559697048380919848}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 060b935c29aae0145a8fba310b10ccb5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: GameLogic::GameLogic.ExImage
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
@@ -224,6 +203,10 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+  m_DrawOnNull: 1
+  m_AdaptiveSize: 0
+  spriteAtlas: {fileID: 100100200, guid: 1f0b11651d56f814bb06a92cd794a0a0, type: 3}
+  nowSpriteName: 
 --- !u!1 &8847012819091812629
 GameObject:
   m_ObjectHideFlags: 0
@@ -369,7 +352,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -8804495992186746546, guid: f5ae35a31a4b9a64ea3a25eb6b2ceeea, type: 3}
+  m_Sprite: {fileID: 21300000, guid: f5ae35a31a4b9a64ea3a25eb6b2ceeea, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

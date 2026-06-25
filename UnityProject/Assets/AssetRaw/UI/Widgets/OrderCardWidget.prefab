@@ -51,7 +51,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d7c45ff7459068479bee5dd78365bfe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameLogic::GameLogic.OrderCardWidget
-  m_img_Glyph: {fileID: 3076530623913784203}
+  m_eximg_Glyph: {fileID: 2619110861524292615}
   m_text_Req: {fileID: 2597210099509693438}
   m_btn_Deliver: {fileID: 6481112887421259379}
 --- !u!1 &6031444588129773238
@@ -241,7 +241,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: e8b091bf0c6bc8241b04ad57411d9f35, type: 3}
     m_FontSize: 35
     m_FontStyle: 0
     m_BestFit: 0
@@ -264,9 +264,9 @@ GameObject:
   m_Component:
   - component: {fileID: 7408896625919963497}
   - component: {fileID: 1887289771484065830}
-  - component: {fileID: 3076530623913784203}
+  - component: {fileID: 2619110861524292615}
   m_Layer: 0
-  m_Name: m_img_Glyph
+  m_Name: m_eximg_Glyph
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -300,7 +300,7 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6700633773683650748}
   m_CullTransparentMesh: 1
---- !u!114 &3076530623913784203
+--- !u!114 &2619110861524292615
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -309,9 +309,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6700633773683650748}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 060b935c29aae0145a8fba310b10ccb5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
+  m_EditorClassIdentifier: GameLogic::GameLogic.ExImage
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
@@ -330,6 +330,10 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+  m_DrawOnNull: 0
+  m_AdaptiveSize: 0
+  spriteAtlas: {fileID: 100100200, guid: 1f0b11651d56f814bb06a92cd794a0a0, type: 3}
+  nowSpriteName: 
 --- !u!1 &8013884075131489719
 GameObject:
   m_ObjectHideFlags: 0
@@ -395,7 +399,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -5358844502568650999, guid: faed85118d121354c9a5b56d8d146eb8, type: 3}
+  m_Sprite: {fileID: 21300000, guid: faed85118d121354c9a5b56d8d146eb8, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -471,7 +475,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: e8b091bf0c6bc8241b04ad57411d9f35, type: 3}
     m_FontSize: 35
     m_FontStyle: 0
     m_BestFit: 0

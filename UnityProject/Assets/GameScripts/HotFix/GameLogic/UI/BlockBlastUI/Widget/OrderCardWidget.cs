@@ -34,7 +34,7 @@ namespace GameLogic
         /// <param name="canDeliver">是否满足交付条件。</param>
         public void SetData(string glyphSpriteName, string reqLabel, bool canDeliver)
         {
-            if (!string.IsNullOrEmpty(glyphSpriteName)) m_img_Glyph.SetSprite(glyphSpriteName, setNativeSize:true);
+            if (!string.IsNullOrEmpty(glyphSpriteName)) m_eximg_Glyph.SpriteName = glyphSpriteName;
             
             m_text_Req.text = reqLabel;
 
@@ -52,7 +52,7 @@ namespace GameLogic
         /// 元素图标落点 RectTransform（订单卡内的需求图标），供交付飞行动画取终点世界坐标。
         /// 只读暴露既有绑定节点，不改 prefab 结构。
         /// </summary>
-        public RectTransform GlyphRect => m_img_Glyph != null ? m_img_Glyph.rectTransform : null;
+        public RectTransform GlyphRect => m_eximg_Glyph != null ? m_eximg_Glyph.rectTransform : null;
 
         /// <summary>交付庆祝：对本卡 GameObject 施加 scale-punch（订单卡为常驻实例，原 RefreshOrders 对重建卡 punch 的等价替换）。</summary>
         public void Punch()

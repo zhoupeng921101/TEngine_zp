@@ -16,7 +16,7 @@ namespace GameLogic
 	{
 		#region 脚本工具生成的代码
 
-		[SerializeField] private Image m_img_Skin = null!;
+		[SerializeField] private ExImage m_eximg_Skin = null!;
 
 		protected override void ScriptGenerator()
 		{
