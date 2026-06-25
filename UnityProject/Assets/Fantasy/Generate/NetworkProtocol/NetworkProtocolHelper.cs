@@ -22,15 +22,40 @@ namespace Fantasy
 			return (G2C_ActivityIncrementResponse)await session.Call(C2G_ActivityIncrement_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_CloudSaveUploadResponse> C2G_CloudSaveUploadRequest(this Session session, C2G_CloudSaveUploadRequest C2G_CloudSaveUploadRequest_request)
+		{
+			return (G2C_CloudSaveUploadResponse)await session.Call(C2G_CloudSaveUploadRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_CloudSaveUploadResponse> C2G_CloudSaveUploadRequest(this Session session, long version, byte[] blob)
+		{
+			using var C2G_CloudSaveUploadRequest_request = Fantasy.C2G_CloudSaveUploadRequest.Create();
+			C2G_CloudSaveUploadRequest_request.Version = version;
+			C2G_CloudSaveUploadRequest_request.Blob = blob;
+			return (G2C_CloudSaveUploadResponse)await session.Call(C2G_CloudSaveUploadRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_CloudSaveDownloadResponse> C2G_CloudSaveDownloadRequest(this Session session, C2G_CloudSaveDownloadRequest C2G_CloudSaveDownloadRequest_request)
+		{
+			return (G2C_CloudSaveDownloadResponse)await session.Call(C2G_CloudSaveDownloadRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_CloudSaveDownloadResponse> C2G_CloudSaveDownloadRequest(this Session session)
+		{
+			using var C2G_CloudSaveDownloadRequest_request = Fantasy.C2G_CloudSaveDownloadRequest.Create();
+			return (G2C_CloudSaveDownloadResponse)await session.Call(C2G_CloudSaveDownloadRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_LoginGameResponse> C2G_LoginGameRequest(this Session session, C2G_LoginGameRequest C2G_LoginGameRequest_request)
 		{
 			return (G2C_LoginGameResponse)await session.Call(C2G_LoginGameRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_LoginGameResponse> C2G_LoginGameRequest(this Session session, string accountName)
+		public static async FTask<G2C_LoginGameResponse> C2G_LoginGameRequest(this Session session, string accountName, string localPlayerId)
 		{
 			using var C2G_LoginGameRequest_request = Fantasy.C2G_LoginGameRequest.Create();
 			C2G_LoginGameRequest_request.AccountName = accountName;
+			C2G_LoginGameRequest_request.LocalPlayerId = localPlayerId;
 			return (G2C_LoginGameResponse)await session.Call(C2G_LoginGameRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]

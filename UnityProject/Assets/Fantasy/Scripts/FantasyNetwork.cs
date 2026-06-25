@@ -9,7 +9,7 @@ namespace FantasyClient
 {
     /// <summary>
     /// 登录玩家信息快照视图(对应协议 G2C_PlayerInfoSnapshot.Info)。
-    /// 承载基础档案(账号/昵称/等级/经验) + 三属性余额(coin/diamond/stamina) + schema 版本,
+    /// 承载基础档案(账号/昵称/等级/经验) + 七属性余额(coin/diamond/stamina + 四玩法货币 soul/piety/guardianExp/energy) + schema 版本,
     /// 经 <see cref="FantasyNetwork.OnPlayerInfoSnapshot"/> 一次性下发到热更区订阅方。
     /// 不可变值类型:Fantasy 协议对象用完即回池,跨边界须复制为独立快照避免引用悬空。
     /// </summary>
@@ -22,10 +22,17 @@ namespace FantasyClient
         public readonly long Coin;
         public readonly long Diamond;
         public readonly long Stamina;
+        // 四玩法货币(P2 全栈迁移·客户端段):服务端权威值,登录快照下发覆盖本地视图。
+        public readonly long SoulPower;
+        public readonly long Piety;
+        public readonly long GuardianExp;
+        public readonly long Energy;
         public readonly int SchemaVersion;
 
         public PlayerInfoView(string accountId, string nickname, int level, long exp,
-                              long coin, long diamond, long stamina, int schemaVersion)
+                              long coin, long diamond, long stamina,
+                              long soulPower, long piety, long guardianExp, long energy,
+                              int schemaVersion)
         {
             AccountId = accountId;
             Nickname = nickname;
@@ -34,6 +41,10 @@ namespace FantasyClient
             Coin = coin;
             Diamond = diamond;
             Stamina = stamina;
+            SoulPower = soulPower;
+            Piety = piety;
+            GuardianExp = guardianExp;
+            Energy = energy;
             SchemaVersion = schemaVersion;
         }
     }
@@ -79,6 +90,21 @@ namespace FantasyClient
         /// type 整数值与协议 Fantasy.PropertyType 一致(Coin=0/Diamond=1/Stamina=2)。
         /// </summary>
         public static event Action<int, long, string> OnPropertyDeltaPush;
+
+        /// <summary>
+        /// 登录上行的本地 playerId 提供者(P0 全栈迁移·客户端段)。
+        /// <see cref="LoginAsync"/> 发 C2G_LoginGameRequest 前读取它填 LocalPlayerId,把本地已持久化的
+        /// playerId 上交服务端认领;返回 null/空 → 传空串(新装/无本地值)。
+        /// 由热更区(GameApp #if FANTASY_UNITY)接入读取 GameContext.Player.Id,FantasyClient 不反向依赖 GameLogic。
+        /// </summary>
+        public static Func<string> LocalPlayerIdProvider { get; set; }
+
+        /// <summary>
+        /// 服务端签发/认领后的权威 playerId 到达(P0 全栈迁移·客户端段)。仅 ErrorCode==0 且 PlayerId 非空时触发。
+        /// 订阅方(GameApp #if FANTASY_UNITY)须用此值覆盖本地权威存储(MergeMetaSave.playerId)并持久化,
+        /// 此后会话内一律以服务端值为准。在网络主线程 Scene 内触发,可直接落盘。
+        /// </summary>
+        public static event Action<string> OnPlayerIdIssued;
 
         /// <summary>由 <see cref="G2C_PlayerInfoSnapshotHandler"/> 调,把分发交给热更区订阅方(避免 FantasyClient 反向依赖 GameLogic)。</summary>
         internal static void RaisePlayerInfoSnapshot(PlayerInfoView view)
@@ -202,8 +228,9 @@ namespace FantasyClient
         }
 
         /// <summary>
-        /// 登录：发送 C2G_LoginGameRequest，返回服务器错误码（0 表示成功）。
-        /// 成功后置位 <see cref="IsLoggedIn"/> 并触发 <see cref="OnLoggedIn"/>。
+        /// 登录：发送 C2G_LoginGameRequest（带本地 playerId 上交认领），返回服务器错误码（0 表示成功）。
+        /// 上行 LocalPlayerId 取自 <see cref="LocalPlayerIdProvider"/>（本地占位值，无则空串）；
+        /// 成功后置位 <see cref="IsLoggedIn"/>、用服务端 PlayerId 触发 <see cref="OnPlayerIdIssued"/>（订阅方覆盖本地落地），再触发 <see cref="OnLoggedIn"/>。
         /// </summary>
         public static async FTask<uint> LoginAsync(string accountName)
         {
@@ -213,8 +240,10 @@ namespace FantasyClient
                 return uint.MaxValue;
             }
 
-            Log.Info($"[Fantasy] 登录中 account={accountName} ...");
-            var response = await Session.C2G_LoginGameRequest(accountName);
+            // 本地已持久化的 playerId 作为认领候选上交；无 provider / 无本地值 → 空串（新装首登）。
+            string localPlayerId = LocalPlayerIdProvider?.Invoke() ?? string.Empty;
+            Log.Info($"[Fantasy] 登录中 account={accountName} localPlayerId={(string.IsNullOrEmpty(localPlayerId) ? "(空)" : localPlayerId)} ...");
+            var response = await Session.C2G_LoginGameRequest(accountName, localPlayerId);
             if (response.ErrorCode != 0)
             {
                 Log.Error($"[Fantasy] ❌ 登录失败 ErrorCode={response.ErrorCode}");
@@ -223,6 +252,17 @@ namespace FantasyClient
 
             IsLoggedIn = true;
             AccountName = accountName;
+            // 服务端签发/认领的权威 playerId：ErrorCode==0 时保证非空，落地交订阅方覆盖本地（设计契约）。
+            // 非空守卫兜底极端协议异常，不拿空值覆盖本地占位值。
+            if (!string.IsNullOrEmpty(response.PlayerId))
+            {
+                Log.Info($"[Fantasy] 服务端权威 playerId={response.PlayerId}");
+                OnPlayerIdIssued?.Invoke(response.PlayerId);
+            }
+            else
+            {
+                Log.Warning("[Fantasy] 登录成功但服务端 PlayerId 为空，保留本地占位值不覆盖。");
+            }
             Log.Info($"[Fantasy] ✅ 登录成功 account={accountName}");
             OnLoggedIn?.Invoke();
             return 0;

@@ -38,6 +38,9 @@ namespace GameLogic
         /// <summary>玩家元层属性服务(Coin/Diamond/Stamina 客户端账本视图,设计 38 客户端段)。</summary>
         public PlayerAttrService PlayerAttr { get; private set; }
 
+        /// <summary>四玩法货币(Soul/Piety/Exp/Energy)本地视图 ↔ 服务端权威对账器(P2 全栈迁移·客户端段)。</summary>
+        public MetaCurrencySync MetaCurrency { get; private set; }
+
         /// <summary>远程 ledger 服务(我的流水查询,设计 46 客户端段)。</summary>
         public RemoteAttrLedgerService AttrLedger { get; private set; }
 
@@ -65,6 +68,10 @@ namespace GameLogic
             // FantasyNetwork.On* 事件订阅在 GameApp.StartGameLogic 内挂(GameContext 不直接 using FantasyClient,
             // 沿设计 38 §五接线落点;Fantasy 程序集受 FANTASY_UNITY 约束,事件订阅须在 #if 内)。
             PlayerAttr = new PlayerAttrService(new RpcGatewayProd());
+
+            // 四货币对账器(P2 客户端段):复用同一 RPC 接缝(RpcGatewayProd 经 Session 发 C2G_PropertyChangeRequest);
+            // 登录快照 → ApplySnapshot 覆盖本地视图 + 基线;落盘边界 → ReportPending 聚合上报。接线在 GameApp.StartGameLogic。
+            MetaCurrency = new MetaCurrencySync(new RpcGatewayProd());
 
             // 远程 ledger 服务(设计 46 客户端段):生产用 RemoteAttrLedgerSource(经 FantasyNetwork.Session 发 C2G_QueryAttrLedger);
             // 服务端独占审计完整性(44 §5.4),客户端不持本地副本,每次打开窗实时拉真协议。
@@ -137,6 +144,60 @@ namespace GameLogic
         {
             try { return GameLogic.Config.AvatarConfigMgr.GetAvatar(id) != null; }
             catch { return true; }
+        }
+
+        /// <summary>
+        /// 落地服务端登录签发/认领的权威 playerId（P0 全栈迁移·客户端段）：用服务端值覆盖内存 <see cref="Player"/>.Id，
+        /// 并经 <see cref="SavePlayer"/> 持久化到 <see cref="MergeMetaSave.playerId"/>。此后会话内 <see cref="Player"/>.Id 一律以服务端值为准。
+        /// </summary>
+        /// <remarks>
+        /// 调用方为 <c>GameApp.StartGameLogic</c> 订阅 <c>FantasyNetwork.OnPlayerIdIssued</c>（仅 ErrorCode==0 且非空时触发）。
+        /// 落盘判据锚到「磁盘上的 playerId」而非内存 <see cref="Player"/>.Id：首装时内存占位 guid 恰与服务端认领值相同，
+        /// 但该 guid 尚未落盘（<see cref="LoadPlayer"/> 走 CreateDefault 仅置内存）；只比内存会漏掉这次落盘，
+        /// 导致重启时盘上无 playerId、被迫重生成新 guid 再上交（虽最终仍收敛回服务端值，但违「首登后盘上即为服务端值」验收）。
+        /// 故只要磁盘值 != 服务端值（含磁盘缺失），即覆盖内存并落盘；磁盘已是服务端值则跳过冗余写盘。
+        /// Player 为 null（OnInit 尚未跑）时直接返回——实际时序中登录回包远晚于 OnInit，此守卫仅兜底。
+        /// </remarks>
+        public void ApplyServerPlayerId(string serverPlayerId)
+        {
+            if (Player == null || string.IsNullOrEmpty(serverPlayerId)) return;
+            Player.Id = serverPlayerId; // 内存权威无条件以服务端值为准
+            // 磁盘已是服务端值 → 跳过冗余落盘；否则（含磁盘缺 playerId 字段 / 无档）落盘。
+            var dto = MergeMetaPersistence.Load();
+            if (dto != null && dto.playerId == serverPlayerId) return;
+            SavePlayer();
+        }
+
+        /// <summary>
+        /// 落地服务端登录四货币权威快照(P2 全栈迁移·客户端段)：用服务端值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
+        /// 验收:登录后四货币显示 = 服务端快照值(非本地旧值);单纯改本地 PlayerPrefs 四货币重登录被服务端覆盖。
+        /// </summary>
+        /// <remarks>
+        /// 三处一并覆盖,保证后续任一读取路径都拿服务端值:
+        /// ① 缓存 <see cref="MergeMetaSave"/>(soul/piety/exp/energy 字段):玩法窗稍后开窗经 ImportMeta 从缓存读,
+        ///    故必须先把权威值写进缓存,否则开窗会用本地旧缓存覆盖显示;
+        /// ② 对账器 <see cref="MetaCurrency"/> 基线:钉到服务端值,后续产销 delta 从此基准算;
+        /// ③ 若玩法窗已开(MergeState 非空,如挂后台登录重连),直接覆盖活态字段,即时反映。
+        /// 体力字段连带把 lastEnergyRegenTime 置 now:服务端值是「此刻权威体力」,本地预测恢复应从此刻起算
+        /// (避免用旧记录时刻把已结算过的离线恢复再补一遍)。
+        /// </remarks>
+        public void ApplyServerCurrencySnapshot(long soul, long piety, long exp, long energy)
+        {
+            var live = BlockGameState.Instance;
+            var state = (live != null && live.MergeOrderMode) ? live.MergeState : null;
+
+            // ① + ② 经对账器:set 基线,若活态在则一并覆盖活态字段。
+            MetaCurrency?.ApplySnapshot(state, soul, piety, exp, energy);
+
+            // ③ 缓存:把四货币权威值写进 MergeMetaSave(保留其余元层字段),供稍后开窗 ImportMeta 读取。
+            //    energy 连带把 lastEnergyRegenTime 置 now(权威体力从此刻起算本地预测恢复)。
+            var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
+            dto.soul = (int)soul;
+            dto.piety = (int)piety;
+            dto.exp = (int)exp;
+            dto.energy = (int)energy;
+            dto.lastEnergyRegenTime = MergeMetaPersistence.NowUnixSec();
+            MergeMetaPersistence.SaveAsync(dto).Forget();
         }
 
         /// <summary>
@@ -215,6 +276,15 @@ namespace GameLogic
         public void InitPlayerAttrWith(IRpcGateway gateway)
         {
             PlayerAttr = new PlayerAttrService(gateway);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定 RPC 接缝重建 <see cref="MetaCurrency"/>(沿 <see cref="InitPlayerAttrWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IRpcGateway"/>,断言四货币聚合上报 + 对账,不连网。
+        /// </summary>
+        public void InitMetaCurrencyWith(IRpcGateway gateway)
+        {
+            MetaCurrency = new MetaCurrencySync(gateway);
         }
 
         /// <summary>

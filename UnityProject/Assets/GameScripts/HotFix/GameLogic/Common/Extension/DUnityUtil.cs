@@ -233,27 +233,27 @@ namespace TEngine
         }
 
         public static Vector2 anchorMin, anchorMax;
-        public static void AdaptiveUIScreen(RectTransform Rootrect)
-        {
-#if UNITY_EDITOR
-            var rectInfo = Screen.safeArea;
-            float py = (float)rectInfo.y / (float)rectInfo.height;
-            // Rootrect初始时设置其Anchor，使其与父节点一样大，也就是屏幕的大小
-            anchorMin = rectInfo.position;
-            anchorMax = rectInfo.position + rectInfo.size;
-            anchorMin.x /= Screen.width;
-            anchorMin.y /= Screen.height;
-            anchorMax.x /= Screen.width;
-            anchorMax.y /= Screen.height;
-            Rootrect.anchorMax = anchorMax;
-#else
-            var safeArea = Mid.System.GetSafeArea();
-            anchorMax = new Vector2(safeArea.width + safeArea.left, safeArea.height);
-            anchorMax.x /= safeArea.width;
-            anchorMax.y /= safeArea.bottom;
-            Rootrect.anchorMax = anchorMax;
-#endif
-        }
+//         public static void AdaptiveUIScreen(RectTransform Rootrect)
+//         {
+// #if UNITY_EDITOR
+//             var rectInfo = Screen.safeArea;
+//             float py = (float)rectInfo.y / (float)rectInfo.height;
+//             // Rootrect初始时设置其Anchor，使其与父节点一样大，也就是屏幕的大小
+//             anchorMin = rectInfo.position;
+//             anchorMax = rectInfo.position + rectInfo.size;
+//             anchorMin.x /= Screen.width;
+//             anchorMin.y /= Screen.height;
+//             anchorMax.x /= Screen.width;
+//             anchorMax.y /= Screen.height;
+//             Rootrect.anchorMax = anchorMax;
+// #else
+//             var safeArea = Mid.System.GetSafeArea();
+//             anchorMax = new Vector2(safeArea.width + safeArea.left, safeArea.height);
+//             anchorMax.x /= safeArea.width;
+//             anchorMax.y /= safeArea.bottom;
+//             Rootrect.anchorMax = anchorMax;
+// #endif
+//         }
         
         public static Rect GetRectToWX(RectTransform target)
         {

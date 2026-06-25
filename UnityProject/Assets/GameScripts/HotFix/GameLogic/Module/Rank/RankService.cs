@@ -85,7 +85,9 @@ namespace GameLogic.Rank
         }
 
         /// <summary>
-        /// 提交本机一次成绩（取较大者更新最佳，落盘）。供玩法结束时调（设计 22 §3.3）。
+        /// 提交本机一次成绩到本地展示缓存（取较大者更新，落盘）。
+        /// 仅离线 / 断服降级时作展示兜底（无服务端权威结果时记本机成绩，设计 31 §四）；
+        /// 在线提交以服务端裁决为准，经 <see cref="SubmitScoreAsync"/> 用服务端权威最佳分刷新缓存。
         /// 成绩夹 ≥0；更高分时刷新 AchievedTicks 为当前注入时钟。
         /// </summary>
         public void SubmitScore(int rankId, long score)
@@ -95,6 +97,23 @@ namespace GameLogic.Rank
             if (score > p.bestScore)
             {
                 p.bestScore = score;
+                p.bestAchievedTicks = NowProvider().Ticks;
+            }
+            _persist.Save(_progress);
+        }
+
+        /// <summary>
+        /// 用服务端权威最佳分刷新本地展示缓存（设计 31：服务端是排名唯一权威，本地仅展示）。
+        /// 与 <see cref="SubmitScore"/> 的「取较大者」不同：直接采用服务端值（含服务端因反作弊 / 其它客户端写入而与本地不一致的情形），
+        /// 本地不再自算谁更优。bestScore &lt; 0 夹 0。
+        /// </summary>
+        private void RefreshCachedBestFromServer(int rankId, long serverBestScore)
+        {
+            if (serverBestScore < 0) serverBestScore = 0;
+            var p = FindProgress(rankId, create: true);
+            if (p.bestScore != serverBestScore)
+            {
+                p.bestScore = serverBestScore;
                 p.bestAchievedTicks = NowProvider().Ticks;
             }
             _persist.Save(_progress);
@@ -200,22 +219,50 @@ namespace GameLogic.Rank
         }
 
         /// <summary>
-        /// 上报一次成绩（设计 31 §3.1 / CV1）：有远程源 → 发上报 RPC（取最优由服务端裁定）；
-        /// 无论远程成功 / 失败，<b>始终</b>同步更新本地最佳（成绩已在本地，断服时本地源仍记本机最佳，设计 31 §四）。
-        /// 身份从会话取、不自报账号（CV3）。返回服务端裁决结果（断服 = ServiceUnavailable，不阻断玩法）。
+        /// 上报一次成绩（设计 31 §3.1 / CV1）：服务端是排名唯一权威，本地仅作展示缓存。
+        /// 有远程源 → 发上报 RPC，按服务端权威裁决更新本地展示缓存：
+        /// <list type="bullet">
+        /// <item><see cref="RankSubmitCode.BestRefreshed"/> → 用服务端权威最佳分刷新本地展示缓存。</item>
+        /// <item><see cref="RankSubmitCode.BestNotRefreshed"/> / <see cref="RankSubmitCode.BelowEnterRequirement"/> / <see cref="RankSubmitCode.RankNotFound"/> → 不刷新本地缓存（按服务端「未刷新」）。</item>
+        /// <item><see cref="RankSubmitCode.RejectedByAntiCheat"/> → 不刷新本地缓存、不阻断玩法、不弹错；记一条排查 Log。</item>
+        /// <item><see cref="RankSubmitCode.ServiceUnavailable"/>（断服 / 超时） → 退展示兜底：把本次本机成绩写入本地展示缓存（取较大者），供无网时展示，重连后可重报。</item>
+        /// </list>
+        /// 无远程源（纯离线） → 同断服：写本地展示缓存兜底，返 ServiceUnavailable。
+        /// 身份从会话取、不自报账号（CV3）。任何分支均不抛、不阻断玩法。
         /// </summary>
         /// <remarks>
-        /// 本地落盘与远程上报并行不冲突：本地最佳是离线源的本机记录（设计 22），远程最佳是服务端权威。
-        /// 远程不可用时本地仍保住「本机历史最佳 + 陪榜榜」，重连后可重报（取最优、重报同分不掉名次）。
+        /// 服务端是排名唯一权威，本地仅展示缓存：在线被服务端接受时本地缓存采用服务端权威最佳分（非客户端本地自算值），
+        /// 故单改本地缓存无法绕过服务端影响榜；仅离线 / 断服无服务端权威可取时，才退本机成绩作展示兜底（设计 31 §四）。
         /// </remarks>
         public async UniTask<RankSubmitOutcome> SubmitScoreAsync(int rankId, long score)
         {
-            SubmitScore(rankId, score); // 本地最佳始终更新（断服降级时本地源仍记本机最佳，设计 31 §四）
             if (_remote == null)
             {
-                return new RankSubmitOutcome(RankSubmitCode.ServiceUnavailable, GetMyBest(rankId).score); // 离线：无远程裁决
+                // 纯离线：无服务端裁决，写展示缓存兜底（取较大者），返服务不可用
+                SubmitScore(rankId, score);
+                return new RankSubmitOutcome(RankSubmitCode.ServiceUnavailable, GetMyBest(rankId).score);
             }
-            return await _remote.SubmitScoreAsync(rankId, score); // 失败返 ServiceUnavailable（不抛，不阻断玩法）
+
+            var outcome = await _remote.SubmitScoreAsync(rankId, score); // 失败返 ServiceUnavailable（不抛，不阻断玩法）
+
+            switch (outcome.Code)
+            {
+                case RankSubmitCode.BestRefreshed:
+                    // 服务端权威最佳已刷新 → 本地展示缓存采用服务端值（非客户端自算）
+                    RefreshCachedBestFromServer(rankId, outcome.BestScore);
+                    break;
+                case RankSubmitCode.RejectedByAntiCheat:
+                    // 反作弊拒绝：不刷新本地展示缓存、不阻断玩法、不弹错；记一条排查 Log
+                    TEngine.Log.Warning($"[Rank] 本次成绩被服务端反作弊拒绝，不计入。rankId={rankId}, score={score}");
+                    break;
+                case RankSubmitCode.ServiceUnavailable:
+                    // 断服 / 超时：退展示兜底，写本机成绩到本地缓存（取较大者），供无网展示，重连可重报
+                    SubmitScore(rankId, score);
+                    break;
+                // BestNotRefreshed / BelowEnterRequirement / RankNotFound：服务端未刷新 → 本地展示缓存不动
+            }
+
+            return outcome;
         }
 
         /// <summary>名次排序比较：分数降序；同分按 AchievedTicks 升序（早者靠前）。</summary>

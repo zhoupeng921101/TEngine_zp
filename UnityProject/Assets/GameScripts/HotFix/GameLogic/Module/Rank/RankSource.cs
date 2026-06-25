@@ -60,6 +60,8 @@ namespace GameLogic.Rank
         RankNotFound = 3,
         /// <summary>服务不可用 / 断服 / 超时 → 不阻断玩法，稍后重连可重报（设计 31 §四）。</summary>
         ServiceUnavailable = 4,
+        /// <summary>服务端反作弊拦截（超绝对上限 / 频率过密 / 跃升异常等）→ 不进榜、不刷新本地展示缓存，不阻断玩法。BestScore = 服务端已存最佳。</summary>
+        RejectedByAntiCheat = 5,
     }
 
     /// <summary>
@@ -277,6 +279,7 @@ namespace GameLogic.Rank
                 case Fantasy.RankSubmitResultCode.BelowEnterRequirement: return RankSubmitCode.BelowEnterRequirement;
                 case Fantasy.RankSubmitResultCode.RankNotFound:          return RankSubmitCode.RankNotFound;
                 case Fantasy.RankSubmitResultCode.ServiceUnavailable:    return RankSubmitCode.ServiceUnavailable;
+                case Fantasy.RankSubmitResultCode.RejectedByAntiCheat:   return RankSubmitCode.RejectedByAntiCheat;
                 default:                                                 return RankSubmitCode.ServiceUnavailable;
             }
         }

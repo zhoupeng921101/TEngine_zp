@@ -24,8 +24,10 @@ namespace FantasyClient
                 return;
             }
 
-            // 三属性各一项(Coin/Diamond/Stamina),按 type 散到三个 long;缺项以 0 缺省(沿服务端段默认初值)。
+            // 七属性各一项(Coin/Diamond/Stamina + 四玩法货币 SoulPower/Piety/GuardianExp/Energy),按 type 散到对应 long;
+            // 缺项以 0 缺省(沿服务端段默认初值)。
             long coin = 0, diamond = 0, stamina = 0;
+            long soulPower = 0, piety = 0, guardianExp = 0, energy = 0;
             if (info.Properties != null)
             {
                 foreach (var item in info.Properties)
@@ -33,20 +35,25 @@ namespace FantasyClient
                     if (item == null) continue;
                     switch (item.Type)
                     {
-                        case PropertyType.Coin:    coin = item.Amount; break;
-                        case PropertyType.Diamond: diamond = item.Amount; break;
-                        case PropertyType.Stamina: stamina = item.Amount; break;
+                        case PropertyType.Coin:        coin = item.Amount; break;
+                        case PropertyType.Diamond:     diamond = item.Amount; break;
+                        case PropertyType.Stamina:     stamina = item.Amount; break;
+                        case PropertyType.SoulPower:   soulPower = item.Amount; break;
+                        case PropertyType.Piety:       piety = item.Amount; break;
+                        case PropertyType.GuardianExp: guardianExp = item.Amount; break;
+                        case PropertyType.Energy:      energy = item.Amount; break;
                     }
                 }
             }
 
             var view = new PlayerInfoView(
                 info.AccountId, info.Nickname, info.Level, info.Exp,
-                coin, diamond, stamina, info.SchemaVersion);
+                coin, diamond, stamina, soulPower, piety, guardianExp, energy, info.SchemaVersion);
 
             Log.Info($"[Fantasy] 收到玩家信息快照 Account={view.AccountId} Nickname={view.Nickname} " +
                      $"Level={view.Level} Exp={view.Exp} Coin={view.Coin} Diamond={view.Diamond} " +
-                     $"Stamina={view.Stamina} SchemaVersion={view.SchemaVersion}");
+                     $"Stamina={view.Stamina} Soul={view.SoulPower} Piety={view.Piety} " +
+                     $"GuardianExp={view.GuardianExp} Energy={view.Energy} SchemaVersion={view.SchemaVersion}");
             FantasyNetwork.RaisePlayerInfoSnapshot(view);
             await FTask.CompletedTask;
         }
