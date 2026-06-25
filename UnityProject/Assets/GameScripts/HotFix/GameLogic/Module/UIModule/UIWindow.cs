@@ -8,13 +8,13 @@ using Object = UnityEngine.Object;
 
 namespace GameLogic
 {
-    public abstract class UIWindow : UIBase
+    public abstract class UIWindow : UIBase, IUIWindow
     {
         #region Propreties
 
         private SetUISafeFitHelper _setUISafeFitHelper;
 
-        private System.Action<UIWindow> _prepareCallback;
+        private System.Action<IUIWindow> _prepareCallback;
 
         private bool _isCreate = false;
 
@@ -220,7 +220,12 @@ namespace GameLogic
         /// <summary>
         /// 是否加载完毕。
         /// </summary>
-        internal bool IsLoadDone = false;
+        internal bool _isLoadDone = false;
+
+        /// <summary>
+        /// 是否加载完毕（接口只读暴露）。
+        /// </summary>
+        public bool IsLoadDone => _isLoadDone;
         
         /// <summary>
         /// UI是否销毁。
@@ -230,7 +235,7 @@ namespace GameLogic
         /// <summary>
         /// UI是否隐藏标志位。
         /// </summary>
-        public bool IsHide { internal set; get; } = false;
+        public bool IsHide { set; get; } = false;
 
         #endregion
 
@@ -297,7 +302,7 @@ namespace GameLogic
 
         #endregion
 
-        internal void TryInvoke(System.Action<UIWindow> prepareCallback, System.Object[] userDatas)
+        public void TryInvoke(System.Action<IUIWindow> prepareCallback, System.Object[] userDatas)
         {
             CancelHideToCloseTimer();
             base._userDatas = userDatas;
@@ -311,7 +316,7 @@ namespace GameLogic
             }
         }
 
-        internal async UniTaskVoid InternalLoad(string location, Action<UIWindow> prepareCallback, bool isAsync, System.Object[] userDatas)
+        internal async UniTaskVoid InternalLoad(string location, Action<IUIWindow> prepareCallback, bool isAsync, System.Object[] userDatas)
         {
             _prepareCallback = prepareCallback;
             this._userDatas = userDatas;
@@ -335,7 +340,7 @@ namespace GameLogic
             }
         }
 
-        internal void InternalCreate()
+        public void InternalCreate()
         {
             if (_isCreate == false)
             {
@@ -348,12 +353,12 @@ namespace GameLogic
             }
         }
 
-        internal void InternalRefresh()
+        public void InternalRefresh()
         {
             OnRefresh();
         }
 
-        internal bool InternalUpdate()
+        public bool InternalUpdate()
         {
             if (!IsPrepare || !Visible)
             {
@@ -424,7 +429,7 @@ namespace GameLogic
             return needUpdate;
         }
 
-        internal void InternalDestroy(bool isShutDown = false)
+        public void InternalDestroy(bool isShutDown = false)
         {
             _isCreate = false;
 
@@ -468,8 +473,8 @@ namespace GameLogic
                 return;
             }
 
-            IsLoadDone = true;
-            
+            _isLoadDone = true;
+
             if (IsDestroyed)
             {
                 Object.Destroy(panel);
@@ -511,7 +516,7 @@ namespace GameLogic
             UIModule.Instance.CloseUI(this.GetType());
         }
         
-        internal void CancelHideToCloseTimer()
+        public void CancelHideToCloseTimer()
         {
             IsHide = false;
             if (HideTimerId > 0)
