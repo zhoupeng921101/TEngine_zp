@@ -34,7 +34,7 @@ MonoBehaviour:
         CollectorGUID: 8ef7a411b66e70f4cb65c2233c9a0868
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -47,7 +47,7 @@ MonoBehaviour:
         CollectorGUID: dd2928019aef34248af368b99bc53bea
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -60,7 +60,7 @@ MonoBehaviour:
         CollectorGUID: 3aad79ec1ea08c24c891bd3c669d4125
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -73,7 +73,7 @@ MonoBehaviour:
         CollectorGUID: 0fe175e1e1bd49a4ca71e66b6a9b7237
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -86,7 +86,7 @@ MonoBehaviour:
         CollectorGUID: 2473375c9ee163a4b861278b38091455
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -99,7 +99,7 @@ MonoBehaviour:
         CollectorGUID: 228b1547e7065d546ad0bf215fd6a276
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -112,7 +112,7 @@ MonoBehaviour:
         CollectorGUID: cace6ee6539f661419b5e5f8ae1c0146
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -142,19 +142,11 @@ MonoBehaviour:
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/AssetRaw/UI/Atlas
-        CollectorGUID: 6d11fa91acc253840a648b58f23db139
-        CollectorType: 0
-        AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
-        FilterRuleName: CollectAll
-        AssetTags: 
-        UserData: 
       - CollectPath: Assets/AssetArt/Atlas
         CollectorGUID: 9d6134158c52933418338d95eebd1c39
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
@@ -167,7 +159,7 @@ MonoBehaviour:
         CollectorGUID: 6bc134b912ac6bb4399ea1bec4c11636
         CollectorType: 0
         AddressRuleName: AddressByFileName
-        PackRuleName: PackDirectory
+        PackRuleName: PackSeparately
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 

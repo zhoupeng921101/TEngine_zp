@@ -13,11 +13,18 @@ namespace YooAsset.Editor
     /// <summary>
     /// Unity2022版本以上推荐官方类：MultiColumnListView组件
     /// </summary>
+#if UNITY_2023_2_OR_NEWER
+    // Unity 6 / 2023.2+ 用 [UxmlElement] 源生成器注册自定义控件；旧版 UxmlFactory 写法在 Unity 6 下不再被 UXML 解析识别。
+    [UxmlElement]
+    public partial class TableViewer : VisualElement
+    {
+#else
     public class TableViewer : VisualElement
     {
         public new class UxmlFactory : UxmlFactory<TableViewer, UxmlTraits>
         {
         }
+#endif
 
         private readonly Toolbar _toolbar;
         private readonly ListView _listView;

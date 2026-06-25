@@ -202,6 +202,8 @@ namespace TEngine
             buildParameters.PackageVersion = config.PackageVersion;
             buildParameters.VerifyBuildingResult = config.VerifyBuildingResult;
             buildParameters.EnableSharePackRule = config.EnableSharePackRule;
+            // 单引用且未被收集的依赖并入引用方 bundle(Addressable 式归属),不各自抽成 share_ 微包;YooAsset 默认 true 会独立成包。
+            buildParameters.SingleReferencedPackAlone = false;
             buildParameters.FileNameStyle = config.FileNameStyle;
             buildParameters.BuildinFileCopyOption = config.BuildinFileCopyOption;
             buildParameters.BuildinFileCopyParams = string.Empty;
@@ -250,6 +252,8 @@ namespace TEngine
             buildParameters.PackageVersion = packageVersion;
             buildParameters.VerifyBuildingResult = true;
             buildParameters.EnableSharePackRule = true;
+            // 单引用且未被收集的依赖并入引用方 bundle(Addressable 式归属),不各自抽成 share_ 微包;YooAsset 默认 true 会独立成包。
+            buildParameters.SingleReferencedPackAlone = false;
             buildParameters.FileNameStyle = EFileNameStyle.BundleName_HashName;
             buildParameters.BuildinFileCopyOption = EBuildinFileCopyOption.ClearAndCopyAll;
             buildParameters.BuildinFileCopyParams = string.Empty;
