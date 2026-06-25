@@ -57,6 +57,11 @@ public partial class GameApp
             }
             // 四货币(P2 客户端段):用服务端快照权威值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
             ctx.ApplyServerCurrencySnapshot(view.SoulPower, view.Piety, view.GuardianExp, view.Energy);
+
+            // 云存档下载(P3 客户端段):在 P0 身份确立(OnPlayerIdIssued 已在 LoginAsync 内先触发)、
+            // P2 货币快照已应用(上一行)之后再做,避免次序冲突。下载只覆盖局内/标志/权重,保留本地货币 + playerId。
+            // 即发即忘:DownloadAndResolve 完成后置 IsReady,此后存档边界上传才放行。
+            ctx.CloudSave?.DownloadAndResolve().Forget();
         };
         FantasyClient.FantasyNetwork.OnPropertyDeltaPush += (type, newAmount, reason) =>
         {
@@ -74,12 +79,17 @@ public partial class GameApp
         // 把四货币本地净变化聚合成一笔上报服务端。钩子注册在接线层(本类),使 MergeMetaPersistence 对货币同步无知。
         GameLogic.BlockBlast.MergeMetaPersistence.OnSaved = () =>
         {
-            var sync = GameLogic.GameContext.Instance.MetaCurrency;
-            if (sync == null) return;
+            var ctx = GameLogic.GameContext.Instance;
             var live = GameLogic.BlockBlast.BlockGameState.Instance;
-            // 仅 merge-order 现场有效时上报(MergeState 即四货币活态权威源);窗未开时落盘的是缓存兜底,无活态可对账。
-            if (live == null || !live.MergeOrderMode || live.MergeState == null) return;
-            sync.ReportPending(live.MergeState, "merge_event").Forget();
+
+            // 四货币聚合上报(P2):仅 merge-order 现场有效时(MergeState 即四货币活态权威源);窗未开时落盘的是缓存兜底,无活态可对账。
+            var sync = ctx.MetaCurrency;
+            if (sync != null && live != null && live.MergeOrderMode && live.MergeState != null)
+                sync.ReportPending(live.MergeState, "merge_event").Forget();
+
+            // 云存档节流上传(P3):元层落盘 = 一次「有意义的存档边界」,据此节流批量上传(只搬非货币非身份切片)。
+            // 下载未完成(IsReady=false)时 TryUploadThrottled 内部直接 return,不会拿未对齐 version 覆盖云端。
+            ctx.CloudSave?.TryUploadThrottled().Forget();
         };
 
         // 玩家身份接线(P0 全栈迁移·客户端段):playerId 改以服务端登录签发为权威。

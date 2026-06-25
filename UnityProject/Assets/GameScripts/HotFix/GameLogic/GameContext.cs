@@ -41,6 +41,9 @@ namespace GameLogic
         /// <summary>四玩法货币(Soul/Piety/Exp/Energy)本地视图 ↔ 服务端权威对账器(P2 全栈迁移·客户端段)。</summary>
         public MetaCurrencySync MetaCurrency { get; private set; }
 
+        /// <summary>云存档同步编排(P3 全栈迁移·客户端段):登录下载冲突解决 + 存档边界节流上传(只搬非货币非身份切片)。</summary>
+        public CloudSaveSync CloudSave { get; private set; }
+
         /// <summary>远程 ledger 服务(我的流水查询,设计 46 客户端段)。</summary>
         public RemoteAttrLedgerService AttrLedger { get; private set; }
 
@@ -72,6 +75,10 @@ namespace GameLogic
             // 四货币对账器(P2 客户端段):复用同一 RPC 接缝(RpcGatewayProd 经 Session 发 C2G_PropertyChangeRequest);
             // 登录快照 → ApplySnapshot 覆盖本地视图 + 基线;落盘边界 → ReportPending 聚合上报。接线在 GameApp.StartGameLogic。
             MetaCurrency = new MetaCurrencySync(new RpcGatewayProd());
+
+            // 云存档同步(P3 客户端段):生产用 CloudSaveGatewayProd(经 FantasyNetwork.Session 发 C2G_CloudSave*);
+            // 登录(身份+货币快照之后)→ DownloadAndResolve;存档边界 → TryUploadThrottled。接线在 GameApp.StartGameLogic。
+            CloudSave = new CloudSaveSync(new CloudSaveGatewayProd());
 
             // 远程 ledger 服务(设计 46 客户端段):生产用 RemoteAttrLedgerSource(经 FantasyNetwork.Session 发 C2G_QueryAttrLedger);
             // 服务端独占审计完整性(44 §5.4),客户端不持本地副本,每次打开窗实时拉真协议。
@@ -285,6 +292,15 @@ namespace GameLogic
         public void InitMetaCurrencyWith(IRpcGateway gateway)
         {
             MetaCurrency = new MetaCurrencySync(gateway);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定接缝(+ 可注入毫秒时钟便于断言节流)重建 <see cref="CloudSave"/>(沿 <see cref="InitMetaCurrencyWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="ICloudSaveGateway"/>,断言下载冲突解决 / 上传节流 / Stale 让位,不连网。
+        /// </summary>
+        public void InitCloudSaveWith(ICloudSaveGateway gateway, System.Func<long> nowMsProvider = null)
+        {
+            CloudSave = new CloudSaveSync(gateway, nowMsProvider);
         }
 
         /// <summary>

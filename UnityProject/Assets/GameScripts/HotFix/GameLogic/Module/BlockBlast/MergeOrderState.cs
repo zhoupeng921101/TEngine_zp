@@ -70,6 +70,13 @@ namespace GameLogic.BlockBlast
         public int Energy;
 
         /// <summary>
+        /// 自上次上报以来本地预测恢复累计的体力增量(P2 客户端段)。<see cref="ApplyTimeRegen"/> 每次补点累加,
+        /// <c>MetaCurrencySync.ReportPending</c> 读它把恢复量从待上报 Energy delta 排除并清零(恢复是服务端懒结算的
+        /// 显示预测,不上报为客户端产出,P2 §4)。纯运行期对账辅助态,不进盘(ExportMeta/ImportMeta 不含)、不进局内态。
+        /// </summary>
+        public int RegenSinceReport;
+
+        /// <summary>
         /// 上次时基恢复结算时刻（Unix 秒，本地时钟）。时基恢复（含离线）按「此刻 → now」真实秒差补算（设计 49 §3.2）。
         /// 跨会话随元层一同落盘（设计 14 §3.7）。0 = 尚无记录（首次 / 旧档），
         /// 首次结算以 now 初始化、本次不补（设计 49 §3.2 崩法三）。
@@ -189,6 +196,7 @@ namespace GameLogic.BlockBlast
         public void Reset()
         {
             Energy = MergeOrderConfig.EnergyStart;
+            RegenSinceReport = 0; // 对账辅助态:开局清零(新局基线由 MetaCurrencySync 另行对齐)
             LastEnergyRegenTime = 0; // 尚无记录：首次 ApplyTimeRegen(now) 以 now 初始化、本次不补（设计 49 §3.2）
             LastOrderRefreshTime = 0; // 尚无记录：首次 ApplyOrderRefresh(now) 以 now 初始化、本次不刷
             Inventory.Clear();
@@ -272,7 +280,11 @@ namespace GameLogic.BlockBlast
             {
                 long restored = ticks * MergeOrderConfig.RegenPerTick;
                 long newEnergy = Energy + restored;
-                Energy = newEnergy > MergeOrderConfig.EnergyCap ? MergeOrderConfig.EnergyCap : (int)newEnergy;
+                int after = newEnergy > MergeOrderConfig.EnergyCap ? MergeOrderConfig.EnergyCap : (int)newEnergy;
+                // 本地预测恢复增量(夹软上限后的实际净增)累计到 RegenSinceReport,供 MetaCurrencySync 从待上报 delta 排除:
+                // 恢复是服务端懒结算的「显示预测」,不可作为客户端产出上报(否则与服务端体力双重结算,P2 §4)。
+                RegenSinceReport += after - Energy;
+                Energy = after;
             }
 
             // 只推进「已整除掉的秒数」，余秒（deltaSec % interval）留到下次，不被吞掉。
