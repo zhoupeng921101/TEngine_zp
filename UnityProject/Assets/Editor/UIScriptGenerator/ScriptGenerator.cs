@@ -89,12 +89,12 @@ namespace TEngine.Editor.UI
                     if (root.name.StartsWith(widgetPrefix))
                     {
                         var className = root.name.StartsWith(widgetPrefix) ? root.name[widgetPrefix.Length..] : root.name;
-                        strFile.Append("\tclass " + className + " : UIWidget\n");
+                        strFile.Append("\tpublic partial class " + className + " : UIWidgetMono\n");
                     }
                     else
                     {
                         strFile.Append($"\t[Window(UILayer.UI,location:\"{root.name}\")]\n");
-                        strFile.Append("\tclass " + root.name + " : UIWindow\n");
+                        strFile.Append("\tpublic partial class " + root.name + " : UIWindowMono\n");
                     }
 
                     strFile.Append("\t{\n");

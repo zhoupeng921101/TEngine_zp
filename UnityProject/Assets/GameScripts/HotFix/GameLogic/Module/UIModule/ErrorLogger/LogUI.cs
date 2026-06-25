@@ -1,24 +1,25 @@
-﻿using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace GameLogic
 {
     [Window(UILayer.System, fromResources: true)]
-    class LogUI : UIWindow
+    class LogUI : UIWindowMono
     {
         private readonly Stack<string> _errorTextString = new Stack<string>();
 
-        #region 脚本工具生成的代码
+        #region 引用（Inspector 拖拽，[SerializeField]）
 
-        private Text m_textError;
-        private Button m_btnClose;
+        [SerializeField] private Text m_textError;
+        [SerializeField] private Button m_btnClose;
 
         protected override void ScriptGenerator()
         {
-            m_textError = FindChildComponent<Text>("m_textError");
-            m_btnClose = FindChildComponent<Button>("m_btnClose");
+            // 引用由 [SerializeField] 在 Inspector 拖入就位（原 FindChild 路径对照，便于校核拖线）：
+            //   m_textError  m_textError
+            //   m_btnClose   m_btnClose
             m_btnClose.onClick.AddListener(OnClickCloseBtn);
         }
 

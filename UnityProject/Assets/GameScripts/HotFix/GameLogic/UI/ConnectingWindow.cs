@@ -16,7 +16,7 @@ namespace GameLogic.UI
     /// 纯代码搭 UI（仿 <see cref="ServerConfigWindow"/>），prefab 为空壳根节点，无 m_* 绑定。
     /// </summary>
     [Window(UILayer.Top, location: "ConnectingWindow", fullScreen: true)]
-    public sealed class ConnectingWindow : UIWindow
+    public sealed class ConnectingWindow : UIWindowMono
     {
         // 设计坐标系（1080×1920，左上原点、Y 下正），与 UGuiFactory 同口径。
         private const float Cx = 540f;
@@ -63,7 +63,7 @@ namespace GameLogic.UI
             _retryGroup.gameObject.SetActive(false);
 
 #if FANTASY_UNITY
-            // 订阅绑定 OnCreate/OnDestroy（各一次），不绑 OnRefresh（同窗重复 ShowUI 会重入 → 重复订阅）。
+            // 订阅绑定 OnCreate/OnDestroyWindow（各一次），不绑 OnRefresh（同窗重复 ShowUI 会重入 → 重复订阅）。
             FantasyClient.FantasyNetwork.OnLoginFailed += OnLoginFailed;
             FantasyClient.FantasyNetwork.OnConnected += OnReconnected;
 #endif
@@ -75,7 +75,7 @@ namespace GameLogic.UI
             SetConnecting();
         }
 
-        protected override void OnDestroy()
+        protected override void OnDestroyWindow()
         {
 #if FANTASY_UNITY
             FantasyClient.FantasyNetwork.OnLoginFailed -= OnLoginFailed;

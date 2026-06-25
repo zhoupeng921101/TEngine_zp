@@ -101,6 +101,13 @@ namespace FantasyClient
         public static event Action<int, long, string> OnPropertyDeltaPush;
 
         /// <summary>
+        /// 服务端订单整批快照推送到达(P1 全栈迁移·客户端段:登录初推 + 整批刷新到点推)。参数 = 协议 <see cref="MergeOrderSnapshot"/>。
+        /// 订阅方(GameApp #if FANTASY_UNITY)须在回调内<b>同步</b>把它转成框架中立 DTO 再应用——协议对象在 Handler.Run 返回后回池,
+        /// 不可跨帧持有(沿 OnPlayerInfoSnapshot「用完即复制」范式)。FantasyClient 不反向依赖 GameLogic,故事件携带协议类型、由 GameApp 转换。
+        /// </summary>
+        public static event Action<MergeOrderSnapshot> OnMergeOrderSnapshotPush;
+
+        /// <summary>
         /// 登录上行的本地 playerId 提供者(P0 全栈迁移·客户端段)。
         /// <see cref="LoginAsync"/> 发 C2G_LoginGameRequest 前读取它填 LocalPlayerId,把本地已持久化的
         /// playerId 上交服务端认领;返回 null/空 → 传空串(新装/无本地值)。
@@ -122,6 +129,13 @@ namespace FantasyClient
         /// <summary>由 <see cref="G2C_PropertyDeltaPushHandler"/> 调,把分发交给热更区订阅方。</summary>
         internal static void RaisePropertyDeltaPush(int type, long newAmount, string reason)
             => OnPropertyDeltaPush?.Invoke(type, newAmount, reason);
+
+        /// <summary>
+        /// 由 <see cref="G2C_MergeOrderSnapshotPushHandler"/> 调,把订单快照分发给热更区订阅方。
+        /// 同步分发(订阅方在本调用内转换 + 应用),协议对象 <paramref name="snapshot"/> 在本调用返回后由 Handler 回池。
+        /// </summary>
+        internal static void RaiseMergeOrderSnapshotPush(MergeOrderSnapshot snapshot)
+            => OnMergeOrderSnapshotPush?.Invoke(snapshot);
 
         private static string _address;
         private static string _account;

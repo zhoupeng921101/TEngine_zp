@@ -5,10 +5,10 @@ using Object = UnityEngine.Object;
 namespace GameLogic
 {
     /// <summary>
-    /// MonoBehaviour UI 组件基类：经典 <see cref="UIWidget"/> 的 Mono 端口。
+    /// MonoBehaviour UI 组件基类。
     /// 脚本作为组件挂在 widget prefab 根上，组件即自身、节点访问走 MonoBehaviour 原生，
     /// 引用 / 数值用 <c>[SerializeField]</c> 暴露到 Inspector。
-    /// 与经典 UIWidget 并行，由 <see cref="UIBaseMono"/> 提供共享面。
+    /// 共享面由 <see cref="UIBaseMono"/> 提供。
     /// </summary>
     public abstract class UIWidgetMono : UIBaseMono
     {
@@ -48,7 +48,7 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 逐帧更新（语义同经典 <c>UIWidget.InternalUpdate</c>，子树遍历复用 <see cref="UIBaseMono.UpdateChildren"/>）。
+        /// 逐帧更新（子树遍历复用 <see cref="UIBaseMono.UpdateChildren"/>）。
         /// </summary>
         internal bool InternalUpdate()
         {
@@ -93,8 +93,8 @@ namespace GameLogic
 
         /// <summary>
         /// 根据 prefab 实例创建（实例化与 GetComponent 由工厂完成，本方法接管已实例化的根节点）。
-        /// <remarks>对应经典 <c>UIWidget.CreateByPrefab</c>，差异：Mono 下组件即自身，实例化已在
-        /// <see cref="UIBaseMono.CreateWidgetByPrefab{T}"/> 内完成，故此处直接接管实例。</remarks>
+        /// <remarks>组件即自身，实例化已在 <see cref="UIBaseMono.CreateWidgetByPrefab{T}"/> 内完成，
+        /// 故此处直接接管实例。</remarks>
         /// </summary>
         public bool CreateByPrefab(UIBaseMono parentUI, GameObject widgetRoot, bool visible = true)
         {
@@ -143,8 +143,8 @@ namespace GameLogic
                 return false;
             }
 
-            // Mono 端口不复刻经典 UIWidget 的 name=GetType().Name 影子字段：
-            // MonoBehaviour 的 name 即 GameObject 名，无消费方依赖该影子值，覆盖会误改物体名。
+            // 不维护 name=GetType().Name 影子字段：MonoBehaviour 的 name 即 GameObject 名，
+            // 无消费方依赖该影子值，覆盖会误改物体名。
             Log.Assert(rectTransform != null, $"{go.name} ui base element need to be RectTransform");
             return true;
         }
@@ -182,7 +182,7 @@ namespace GameLogic
 
         /// <summary>
         /// 框架销毁组件（请勿手动调用，由父节点销毁流程驱动）。
-        /// 语义对应经典 <c>UIWidget.OnDestroyWidget</c>：清事件、递归销毁子组件、销毁自身 GameObject。
+        /// 清事件、递归销毁子组件、销毁自身 GameObject。
         /// </summary>
         protected internal void OnDestroyWidget()
         {
@@ -215,7 +215,7 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 主动销毁组件（语义对应经典 <c>UIWidget.Destroy</c>）。
+        /// 主动销毁组件（从父节点摘除并递归销毁子树）。
         /// </summary>
         public void Destroy()
         {
@@ -228,8 +228,8 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 用户可重写的销毁回调（语义对应经典 <c>UIWidget.OnDestroy</c>；避开 Unity 魔法名 OnDestroy 改名）。
-        /// protected internal：供同程序集的父节点（窗口 / widget）销毁流程驱动调用，等价经典 <c>CallDestroy</c>。
+        /// 用户可重写的销毁回调（避开 Unity 魔法名 OnDestroy）。
+        /// protected internal：供同程序集的父节点（窗口 / widget）销毁流程驱动调用。
         /// </summary>
         protected internal virtual void OnDestroyWidgetCallback() { }
 

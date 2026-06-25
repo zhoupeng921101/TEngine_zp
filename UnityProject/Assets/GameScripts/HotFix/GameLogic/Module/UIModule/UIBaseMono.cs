@@ -7,10 +7,10 @@ using UnityEngine;
 namespace GameLogic
 {
     /// <summary>
-    /// MonoBehaviour UI 基类：经典 <see cref="UIBase"/> 共享面的 Mono 端口（节点访问走 MonoBehaviour 原生）。
+    /// MonoBehaviour UI 基类：UI 共享面（节点访问走 MonoBehaviour 原生）。
     /// 由 <see cref="UIWindowMono"/> 与 <see cref="UIWidgetMono"/> 共同继承，承载父子链、FindChild、事件、
     /// CreateWidget 工厂家族与子树更新（<see cref="UpdateChildren"/>）。
-    /// 与经典路径并行；引用绑定走 <c>[SerializeField]</c> 而非 FindChild / UIBindComponent。
+    /// 引用绑定走 <c>[SerializeField]</c> 具名拖拽。
     /// </summary>
     public abstract class UIBaseMono : MonoBehaviour
     {
@@ -90,8 +90,7 @@ namespace GameLogic
         #region 子树更新 / 排序
 
         /// <summary>
-        /// 更新子组件树（经典 <c>UIWindow.InternalUpdate</c> 与 <c>UIWidget.InternalUpdate</c> 中
-        /// 对 <see cref="ListChild"/> 遍历部分的合并版，供窗口与 widget 复用）。
+        /// 更新子组件树（遍历 <see cref="ListChild"/> 驱动逐帧更新，窗口与 widget 共用一份遍历）。
         /// </summary>
         /// <returns>本节点是否仍需逐帧更新。</returns>
         protected bool UpdateChildren()

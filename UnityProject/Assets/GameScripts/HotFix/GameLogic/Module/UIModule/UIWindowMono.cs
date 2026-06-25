@@ -7,16 +7,16 @@ namespace GameLogic
 {
     /// <summary>
     /// MonoBehaviour 窗口基类（可挂 prefab 根、字段用 <c>[SerializeField]</c> 暴露到 Inspector）。
-    /// 与经典 <see cref="UIWindow"/> 并行：自身即 panel，引用绑定走序列化字段而非命名前缀 / FindChild；
+    /// 自身即 panel，引用绑定走序列化字段而非命名前缀 / FindChild；
     /// 共享面（父子链 / FindChild / 事件 / CreateWidget / 子树更新）继承自 <see cref="UIBaseMono"/>。
     /// 生命周期由 <see cref="UIModule"/> 显式驱动，不写 Awake/Start/OnEnable/Update 等魔法方法
     /// （<see cref="OnDestroy"/> 为 Unity 魔法回调，故用 <see cref="IsDestroyed"/> 守卫防双触发）。
     /// </summary>
-    public abstract class UIWindowMono : UIBaseMono, IUIWindow
+    public abstract class UIWindowMono : UIBaseMono
     {
         #region Properties
 
-        private Action<IUIWindow> _prepareCallback;
+        private Action<UIWindowMono> _prepareCallback;
 
         private bool _isCreate = false;
 
@@ -153,9 +153,9 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 初始化 panel（= 经典 <c>UIWindow.Handle_Completed</c> 的「对自己」版，1:1 复刻 Canvas 设置与就绪流程）。
+        /// 初始化 panel（抓取 Canvas / 子 Canvas / Raycaster，置就绪并回调，由 <see cref="UIModule"/> 加载完成后驱动）。
         /// </summary>
-        internal void Setup(GameObject panel, Action<IUIWindow> prepareCallback, object[] userDatas)
+        internal void Setup(GameObject panel, Action<UIWindowMono> prepareCallback, object[] userDatas)
         {
             _prepareCallback = prepareCallback;
             _userDatas = userDatas;
@@ -182,7 +182,7 @@ namespace GameLogic
             _prepareCallback?.Invoke(this);
         }
 
-        public void TryInvoke(Action<IUIWindow> prepareCallback, object[] userDatas)
+        public void TryInvoke(Action<UIWindowMono> prepareCallback, object[] userDatas)
         {
             CancelHideToCloseTimer();
             _userDatas = userDatas;
@@ -233,7 +233,7 @@ namespace GameLogic
             RemoveAllUIEvent();
             _prepareCallback = null;
 
-            // 销毁子组件（语义对应经典 UIWindow.InternalDestroy 对 ListChild 的遍历）。
+            // 销毁子组件（遍历 ListChild 递归销毁 widget）。
             for (int i = 0; i < ListChild.Count; i++)
             {
                 var uiChild = ListChild[i];
@@ -272,8 +272,10 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// Unity 魔法回调。框架外部直接销毁 GameObject（场景卸载等）时的兜底清理；
+        /// Unity 魔法回调。框架外部直接销毁 GameObject（场景卸载 / 手动 Destroy 物体）时的兜底清理；
         /// 框架显式 <see cref="InternalDestroy"/> 已先行，二次进入被 <see cref="IsDestroyed"/> 守卫拦下。
+        /// 仅当框架未先行时，通知 <see cref="UIModule"/> 从窗口栈摘除并重排深度 / 重算可见性，
+        /// 避免留死项（计划缺陷 C 的窗口侧修复，与 <see cref="UIWidgetMono"/> 的 OnDestroy 对称）。
         /// </summary>
         private void OnDestroy()
         {
@@ -287,6 +289,12 @@ namespace GameLogic
             _prepareCallback = null;
             OnDestroyWindow();
             IsDestroyed = true;
+
+            // UIModule 单例在 OnRelease 时可能已不可用；正常运行期 Instance 有效。
+            if (UIModule.Instance != null)
+            {
+                UIModule.Instance.NotifyWindowDestroyed(this);
+            }
         }
 
         protected void Close()
@@ -299,7 +307,7 @@ namespace GameLogic
             UIModule.Instance.HideUI(GetType());
         }
 
-        /// <summary>窗口销毁回调（与经典 UIWindow.OnDestroy 语义一致，避开 Unity 魔法名）。</summary>
+        /// <summary>窗口销毁回调（用户可重写，避开 Unity 魔法名 OnDestroy）。</summary>
         protected virtual void OnDestroyWindow() { }
     }
 }

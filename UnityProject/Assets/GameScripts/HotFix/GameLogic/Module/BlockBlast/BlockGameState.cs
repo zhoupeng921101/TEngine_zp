@@ -39,6 +39,13 @@ namespace GameLogic.BlockBlast
         /// <summary>该模式的新系统状态（合成区/订单/体力/保底）。仅 MergeOrderMode 时非空。</summary>
         public MergeOrderState MergeState;
 
+        /// <summary>
+        /// 玩法窗活态就绪钩子(P1 全栈迁移·客户端段)。<see cref="ResetForMergeOrder"/> 末尾(局内存档加载之后)以新建的
+        /// <see cref="MergeState"/> 触发。接线层(OrderSync 经 GameApp)据此把活态切服务端权威 + 接交付 RPC + 应用已缓存订单快照
+        /// (覆盖 blob 旧 normal 订单)。null(纯逻辑单测/无网络)→ 不触发,保持本地行为零回归(沿 MergeMetaPersistence.OnSaved 范式)。
+        /// </summary>
+        public static Action<MergeOrderState> OnMergeStateReady;
+
         protected override void OnInit()
         {
             SaveArr = MakeEmptyBoard();
@@ -445,11 +452,22 @@ namespace GameLogic.BlockBlast
             MergeState.TryRefreshIfAllDelivered(nowForOrders);
 
             RefillPieces(board); // 全空才补:恢复后手牌非空则 no-op;恢复后恰好全空(上次落子未补)则补满
+
+            // 活态就绪钩子(P1):在局内存档加载(ImportIngame)之后触发,接线层据此应用服务端订单快照、覆盖 blob 旧 normal 订单。
+            // 钩子内若已缓存登录快照即整份覆盖上面本地建好的订单;无网络/单测时钩子为 null,保持本地订单不变。
+            OnMergeStateReady?.Invoke(MergeState);
         }
+
+        /// <summary>
+        /// 玩法窗活态退出钩子(P1):<see cref="ExitMergeOrder"/> 丢弃 <see cref="MergeState"/> 前触发,接线层据此解绑旧活态,
+        /// 避免后续快照推送打到已弃用的 state。null(单测/无网络)→ 不触发(沿 <see cref="OnMergeStateReady"/> 范式)。
+        /// </summary>
+        public static Action<MergeOrderState> OnMergeStateClosed;
 
         /// <summary>退出 merge-order Demo：关闭门控 + 释放元素层 + 丢弃 MergeState，回到 Classic 零残留。</summary>
         public void ExitMergeOrder()
         {
+            if (MergeState != null) OnMergeStateClosed?.Invoke(MergeState);
             MergeOrderMode = false;
             ElementArr = null;
             MergeState = null;

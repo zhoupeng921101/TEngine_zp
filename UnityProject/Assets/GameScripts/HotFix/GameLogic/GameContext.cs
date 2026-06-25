@@ -41,6 +41,9 @@ namespace GameLogic
         /// <summary>四玩法货币(Soul/Piety/Exp/Energy)本地视图 ↔ 服务端权威对账器(P2 全栈迁移·客户端段)。</summary>
         public MetaCurrencySync MetaCurrency { get; private set; }
 
+        /// <summary>normal 订单本地视图 ↔ 服务端权威投影器(P1 全栈迁移·客户端段:登录快照/推送应用 + 交付 RPC 编排)。</summary>
+        public OrderSync OrderSync { get; private set; }
+
         /// <summary>云存档同步编排(P3 全栈迁移·客户端段):登录下载冲突解决 + 存档边界节流上传(只搬非货币非身份切片)。</summary>
         public CloudSaveSync CloudSave { get; private set; }
 
@@ -75,6 +78,10 @@ namespace GameLogic
             // 四货币对账器(P2 客户端段):复用同一 RPC 接缝(RpcGatewayProd 经 Session 发 C2G_PropertyChangeRequest);
             // 登录快照 → ApplySnapshot 覆盖本地视图 + 基线;落盘边界 → ReportPending 聚合上报。接线在 GameApp.StartGameLogic。
             MetaCurrency = new MetaCurrencySync(new RpcGatewayProd());
+
+            // 订单服务端权威投影器(P1 客户端段):生产用 OrderRpcGatewayProd(经 Session 发 C2G_DeliverOrderRequest);
+            // 登录/刷新推送 → OnSnapshotPush 应用快照;开窗 → OnMergeStateReady 切权威 + 接交付钩子。接线在 GameApp.StartGameLogic。
+            OrderSync = new OrderSync(new OrderRpcGatewayProd());
 
             // 云存档同步(P3 客户端段):生产用 CloudSaveGatewayProd(经 FantasyNetwork.Session 发 C2G_CloudSave*);
             // 登录(身份+货币快照之后)→ DownloadAndResolve;存档边界 → TryUploadThrottled。接线在 GameApp.StartGameLogic。
@@ -292,6 +299,15 @@ namespace GameLogic
         public void InitMetaCurrencyWith(IRpcGateway gateway)
         {
             MetaCurrency = new MetaCurrencySync(gateway);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定 RPC 接缝重建 <see cref="OrderSync"/>(沿 <see cref="InitMetaCurrencyWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IOrderRpcGateway"/>,断言交付 RPC 编排 + 快照应用 + 失败退还库存,不连网。
+        /// </summary>
+        public void InitOrderSyncWith(IOrderRpcGateway gateway)
+        {
+            OrderSync = new OrderSync(gateway);
         }
 
         /// <summary>

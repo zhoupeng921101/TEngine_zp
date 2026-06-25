@@ -19,10 +19,6 @@ MonoBehaviour:
   _widgetName: item
   CodeStyle: 1
   uiGenTypes:
-  - uiTypeName: UIWindow
-    isGeneric: 0
-  - uiTypeName: UIWidget
-    isGeneric: 0
   - uiTypeName: UIWindowMono
     isGeneric: 0
   - uiTypeName: UIWidgetMono

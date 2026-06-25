@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -11,6 +11,9 @@ namespace GameLogic
 {
     /// <summary>
     /// UI管理模块。
+    /// 窗口体系统一为 MonoBehaviour（<see cref="UIWindowMono"/>）：脚本挂 prefab 根、引用走 [SerializeField]。
+    /// 实例须先加载 prefab 再 GetComponent 取得，故无法像纯 C# 窗口那样加载前同步入栈，
+    /// 加载期由 <see cref="_pendingMono"/> 占位去重并承接「加载途中请求关闭」的竞态。
     /// </summary>
     public sealed partial class UIModule : Singleton<UIModule>, IUpdate
     {
@@ -18,21 +21,24 @@ namespace GameLogic
         private static Transform _instanceRoot = null;          // UI根节点变换组件
         private bool _enableErrorLog = true;                    // 是否启用错误日志
         private Camera _uiCamera = null;                        // UI专用摄像机
-        private readonly List<IUIWindow> _uiStack = new List<IUIWindow>(128); // 窗口堆栈（经典 + Mono 两类共栈）
-        // Mono 窗口加载中去重集合（窗口名）。Mono 实例在加载完成后才存在，无法像经典窗口那样加载前同步入栈去重，
-        // 故用此集合在加载期占位去重。失败路径必须移除键，否则该窗口再也打不开；不往 _uiStack 塞占位以免污染遍历。
-        private readonly HashSet<string> _pendingMono = new HashSet<string>();
+        private readonly List<UIWindowMono> _uiStack = new List<UIWindowMono>(128); // 窗口堆栈
+        // Mono 窗口加载中状态表。键 = 窗口名（类型 FullName），值 = 加载途中是否已请求关闭。
+        // 实例在加载完成后才存在，无法加载前入栈去重，故用此表在加载期占位。
+        // 加载途中 CloseUI/CloseAll 命中时把值置 true；LoadMonoWindow 在 await 后据此放弃入栈并销毁实例
+        // （等价经典窗口 Handle_Completed 的 IsDestroyed 兜底，修复「加载中关闭被吞、窗口照开」竞态）。
+        // 任何结束路径都必须移除键，否则该窗口再也打不开。
+        private readonly Dictionary<string, bool> _pendingMono = new Dictionary<string, bool>();
         private ErrorLogger _errorLogger;                       // 错误日志记录器
 
         // 常量定义
-        public const int LAYER_DEEP = 2000; 
+        public const int LAYER_DEEP = 2000;
         public const int WINDOW_DEEP = 100;
         public const int WINDOW_HIDE_LAYER = 2; // Ignore Raycast
         public const int WINDOW_SHOW_LAYER = 5; // UI
 
         // 资源加载接口
         public static IUIResourceLoader Resource;
-        
+
         /// <summary>
         /// UI根节点访问属性
         /// </summary>
@@ -42,7 +48,7 @@ namespace GameLogic
         /// UI摄像机访问属性
         /// </summary>
         public Camera UICamera => _uiCamera;
-        
+
         /// <summary>
         /// 模块初始化（自动调用）。
         /// 1. 查找场景中的UIRoot
@@ -62,7 +68,7 @@ namespace GameLogic
                 Log.Fatal("UIRoot not found !");
                 return;
             }
-            
+
             Resource = new UIResourceLoader();
 
             UnityEngine.Object.DontDestroyOnLoad(_instanceRoot.parent != null ? _instanceRoot.parent : _instanceRoot);
@@ -92,7 +98,7 @@ namespace GameLogic
                 if (_enableErrorLog)
                 {
                     _errorLogger = new ErrorLogger(this);
-                }   
+                }
             }
         }
 
@@ -142,7 +148,7 @@ namespace GameLogic
             float offsetMaxX = scaler.referenceResolution.x - width - posX;
             float offsetMaxY = scaler.referenceResolution.y - height - posY;
 
-            // 注意：安全区坐标系的原点为左下角	
+            // 注意：安全区坐标系的原点为左下角
             var rectTrans = UIRoot.transform as RectTransform;
             if (rectTrans != null)
             {
@@ -188,7 +194,7 @@ namespace GameLogic
                 return string.Empty;
             }
 
-            IUIWindow topWindow = _uiStack[^1];
+            UIWindowMono topWindow = _uiStack[^1];
             return topWindow.WindowName;
         }
 
@@ -197,7 +203,7 @@ namespace GameLogic
         /// </summary>
         public string GetTopWindow(int layer)
         {
-            IUIWindow lastOne = null;
+            UIWindowMono lastOne = null;
             for (int i = 0; i < _uiStack.Count; i++)
             {
                 if (_uiStack[i].WindowLayer == layer)
@@ -222,7 +228,7 @@ namespace GameLogic
                     return true;
             }
 
-            return false;
+            return _pendingMono.Count > 0;
         }
 
         /// <summary>
@@ -245,16 +251,12 @@ namespace GameLogic
             return IsContains(type.FullName);
         }
 
-       /// <summary>
+        /// <summary>
         /// 异步打开窗口。
         /// </summary>
         /// <param name="userDatas">用户自定义数据。</param>
-        /// <returns>打开窗口操作句柄。</returns>
-        public void ShowUIAsync<T>(params System.Object[] userDatas) where T : IUIWindow
+        public void ShowUIAsync<T>(params System.Object[] userDatas) where T : UIWindowMono
         {
-            // 约束为 IUIWindow（同时容纳经典 UIWindow 与 MonoBehaviour 的 UIWindowMono）：经 typeof(T)
-            // 走 ShowUIImp(Type)，其内部按 IsAssignableFrom(UIWindowMono) 分流到 Mono / 经典路径。
-            // 窗口迁成 UIWindowMono 后调用点 ShowUIAsync<那窗口>() 不需改写。
             ShowUIImp(typeof(T), true, userDatas);
         }
 
@@ -263,7 +265,6 @@ namespace GameLogic
         /// </summary>
         /// <param name="type">界面类型。</param>
         /// <param name="userDatas">用户自定义数据。</param>
-        /// <returns>打开窗口操作句柄。</returns>
         public void ShowUIAsync(Type type, params System.Object[] userDatas)
         {
             ShowUIImp(type, true, userDatas);
@@ -274,24 +275,19 @@ namespace GameLogic
         /// </summary>
         /// <typeparam name="T">窗口类。</typeparam>
         /// <param name="userDatas">用户自定义数据。</param>
-        /// <returns>打开窗口操作句柄。</returns>
-        public void ShowUI<T>(params System.Object[] userDatas) where T : IUIWindow
+        public void ShowUI<T>(params System.Object[] userDatas) where T : UIWindowMono
         {
             ShowUIImp(typeof(T), false, userDatas);
         }
 
         /// <summary>
-        /// 异步打开窗口。
+        /// 异步打开窗口并等待返回实例。
         /// </summary>
         /// <param name="userDatas">用户自定义数据。</param>
-        /// <returns>打开窗口操作句柄。</returns>
-        public async UniTask<T> ShowUIAsyncAwait<T>(params System.Object[] userDatas) where T : IUIWindow
+        public async UniTask<T> ShowUIAsyncAwait<T>(params System.Object[] userDatas) where T : UIWindowMono
         {
-            Type type = typeof(T);
-            IUIWindow window = typeof(UIWindowMono).IsAssignableFrom(type)
-                ? await ShowMonoUIAwaitImp(type, true, userDatas)
-                : await ShowUIAwaitImp(type, true, userDatas);
-            return (T)window;
+            UIWindowMono window = await ShowUIAwaitImp(typeof(T), true, userDatas);
+            return window as T;
         }
 
         /// <summary>
@@ -299,98 +295,63 @@ namespace GameLogic
         /// </summary>
         /// <param name="type"></param>
         /// <param name="userDatas"></param>
-        /// <returns>打开窗口操作句柄。</returns>
         public void ShowUI(Type type, params System.Object[] userDatas)
         {
             ShowUIImp(type, false, userDatas);
         }
 
-        private void ShowUIImp(Type type, bool isAsync, params System.Object[] userDatas)
-        {
-            // 分流：MonoBehaviour 窗口走 Mono 路径（先加载 prefab 再 GetComponent 取实例）。
-            if (typeof(UIWindowMono).IsAssignableFrom(type))
-            {
-                ShowMonoUIImp(type, isAsync, userDatas);
-                return;
-            }
-
-            string windowName = type.FullName;
-
-            if (!TryGetWindow(windowName, out UIWindow window, userDatas))
-            {
-                window = CreateInstance(type);
-                Push(window); //首次压入
-                window.InternalLoad(window.AssetName, OnWindowPrepare, isAsync, userDatas).Forget();
-            }
-        }
-
-        private void ShowUIImp<T>(bool isAsync, params System.Object[] userDatas) where T : UIWindow , new()
-        {
-            Type type = typeof(T);
-
-            // 分流：MonoBehaviour 窗口走 Mono 路径（泛型约束 T:UIWindow 下此分支不会命中，保留以与 Type 重载对称）。
-            if (typeof(UIWindowMono).IsAssignableFrom(type))
-            {
-                ShowMonoUIImp(type, isAsync, userDatas);
-                return;
-            }
-
-            string windowName = type.FullName;
-
-            if (!TryGetWindow(windowName, out UIWindow window, userDatas))
-            {
-                window = CreateInstance<T>();
-                Push(window); //首次压入
-                window.InternalLoad(window.AssetName, OnWindowPrepare, isAsync, userDatas).Forget();
-            }
-        }
-
         /// <summary>
-        /// 打开 MonoBehaviour 窗口（<see cref="UIWindowMono"/> 子类）。
-        /// 与经典路径差异：实例必须先加载 prefab 再 <c>GetComponent</c> 取得，故加载期靠 <see cref="_pendingMono"/> 去重，
-        /// 不在加载前向 _uiStack 塞占位。
+        /// 打开窗口（<see cref="UIWindowMono"/> 子类）：先加载 prefab，再 <c>GetComponent</c> 取实例。
+        /// 已在栈中（已加载完成的复用）→ 重新置顶并触发刷新回调；正在加载中 → 去重忽略本次请求。
         /// </summary>
-        private void ShowMonoUIImp(Type type, bool isAsync, params System.Object[] userDatas)
+        private void ShowUIImp(Type type, bool isAsync, params System.Object[] userDatas)
         {
             string windowName = type.FullName;
 
             // 已在栈中（已加载完成的复用）→ 重新置顶并触发刷新回调。
             if (IsContains(windowName))
             {
-                IUIWindow exist = GetWindow(windowName);
+                UIWindowMono exist = GetWindow(windowName);
                 Pop(exist);
                 Push(exist);
                 exist.TryInvoke(OnWindowPrepare, userDatas);
                 return;
             }
 
-            // 正在加载中 → 去重，忽略本次请求。
-            if (_pendingMono.Contains(windowName))
+            // 正在加载中 → 去重，忽略本次请求（且清掉可能已置位的关闭标记，本次请求覆盖为「要打开」）。
+            if (_pendingMono.ContainsKey(windowName))
             {
+                _pendingMono[windowName] = false;
                 return;
             }
 
-            _pendingMono.Add(windowName);
+            _pendingMono[windowName] = false;
             LoadMonoWindow(type, windowName, isAsync, userDatas).Forget();
         }
 
         /// <summary>
-        /// 打开 Mono 窗口并等待加载完成，返回窗口实例（<see cref="ShowUIAsyncAwait{T}"/> 的 Mono 版）。
-        /// 复用 <see cref="ShowMonoUIImp"/> 触发加载，再轮询 _uiStack 直至命中实例且 IsLoadDone（与经典
-        /// <see cref="ShowUIAwaitImp{T}"/> 同口径，60s 超时兜底）。已在栈中则即时返回。
+        /// 打开窗口并等待加载完成，返回窗口实例（<see cref="ShowUIAsyncAwait{T}"/> 的内部实现）。
+        /// 复用 <see cref="ShowUIImp"/> 触发加载，再轮询 _uiStack 直至命中实例且 IsLoadDone（60s 超时兜底）。
+        /// 已在栈中则即时返回。
         /// </summary>
-        private async UniTask<IUIWindow> ShowMonoUIAwaitImp(Type type, bool isAsync, System.Object[] userDatas)
+        private async UniTask<UIWindowMono> ShowUIAwaitImp(Type type, bool isAsync, System.Object[] userDatas)
         {
             string windowName = type.FullName;
-            ShowMonoUIImp(type, isAsync, userDatas);
+            ShowUIImp(type, isAsync, userDatas);
 
             float time = 0f;
             while (true)
             {
-                IUIWindow window = GetWindow(windowName);
+                UIWindowMono window = GetWindow(windowName);
                 if (window != null && window.IsLoadDone)
                 {
                     return window;
+                }
+
+                // 加载途中被请求关闭：pending 已清、栈中也无 → 不再等待，返回 null。
+                if (!_pendingMono.ContainsKey(windowName) && window == null)
+                {
+                    return null;
                 }
 
                 time += Time.deltaTime;
@@ -404,7 +365,7 @@ namespace GameLogic
 
         /// <summary>
         /// 加载 Mono 窗口 prefab，取组件、Init、入栈，再走统一的 OnWindowPrepare。
-        /// 任何失败路径（加载失败 / 组件缺失 / 加载途中被销毁）都必须从 _pendingMono 移除键。
+        /// 任何失败路径（加载失败 / 组件缺失 / 加载途中被请求关闭）都必须从 _pendingMono 移除键。
         /// </summary>
         private async UniTaskVoid LoadMonoWindow(Type type, string windowName, bool isAsync, System.Object[] userDatas)
         {
@@ -415,9 +376,16 @@ namespace GameLogic
                 bool fullScreen = attribute != null && attribute.FullScreen;
                 string assetName = attribute != null && !string.IsNullOrEmpty(attribute.Location) ? attribute.Location : type.Name;
                 int hideTimeToClose = attribute != null ? attribute.HideTimeToClose : 10;
+                bool fromResources = attribute != null && attribute.FromResources;
 
+                // 加载分支：fromResources 走 Resources.Load 同步实例化（LogUI 等内置资源依赖），
+                // 否则走 YooAsset 异步/同步加载。
                 GameObject panel;
-                if (isAsync)
+                if (fromResources)
+                {
+                    panel = UnityEngine.Object.Instantiate(Resources.Load<GameObject>(assetName), UIRoot);
+                }
+                else if (isAsync)
                 {
                     panel = await Resource.LoadGameObjectAsync(assetName, parent: UIRoot);
                 }
@@ -426,11 +394,19 @@ namespace GameLogic
                     panel = Resource.LoadGameObject(assetName, parent: UIRoot);
                 }
 
-                // 加载途中窗口可能已被关闭请求清掉（栈与 pending 都不在）→ 清理实例。
                 if (panel == null)
                 {
                     _pendingMono.Remove(windowName);
                     Log.Error($"Load mono window prefab failed: {windowName} (location={assetName})");
+                    return;
+                }
+
+                // 加载途中被请求关闭（CloseUI/CloseAll 命中 pending 并置位）→ 放弃入栈、销毁实例、清键。
+                // 这是「加载中关闭」竞态的兜底：实例加载完成时若关闭请求已先到，不让其入栈成僵尸窗。
+                if (_pendingMono.TryGetValue(windowName, out bool closeRequested) && closeRequested)
+                {
+                    _pendingMono.Remove(windowName);
+                    UnityEngine.Object.Destroy(panel);
                     return;
                 }
 
@@ -443,10 +419,10 @@ namespace GameLogic
                     return;
                 }
 
-                window.Init(windowName, layer, fullScreen, assetName, fromResources: false, hideTimeToClose);
+                window.Init(windowName, layer, fullScreen, assetName, fromResources, hideTimeToClose);
 
                 // 加载完成，移除 pending。先入栈（OnWindowPrepare 的排序/显隐遍历需窗口已在栈），
-                // 再 Setup 抓 Canvas / 置就绪 / 回调 OnWindowPrepare（与经典 Handle_Completed 同序）。
+                // 再 Setup 抓 Canvas / 置就绪 / 回调 OnWindowPrepare。
                 _pendingMono.Remove(windowName);
                 Push(window);
                 window.Setup(panel, OnWindowPrepare, userDatas);
@@ -458,97 +434,27 @@ namespace GameLogic
             }
         }
 
-        private bool TryGetWindow(string windowName,out UIWindow window, params System.Object[] userDatas)
-        {
-            window = null;
-            if (IsContains(windowName))
-            {
-                // 经典路径专用：命中即为经典 UIWindow（Mono 窗口走 ShowMonoUIImp 自有复用分支）。
-                window = GetWindow(windowName) as UIWindow;
-                if (window == null)
-                {
-                    return false;
-                }
-                Pop(window); //弹出窗口
-                Push(window); //重新压入
-                window.TryInvoke(OnWindowPrepare, userDatas);
-
-                return true;
-            }
-            return false;
-        }
-        
-        private async UniTask<T> ShowUIAwaitImp<T>(bool isAsync, params System.Object[] userDatas) where T : UIWindow , new()
-        {
-            Type type = typeof(T);
-            string windowName = type.FullName;
-
-            if (TryGetWindow(windowName, out UIWindow window, userDatas))
-            {
-                return window as T;
-            }
-            else
-            {
-                window = CreateInstance<T>();
-                Push(window); //首次压入
-                window.InternalLoad(window.AssetName, OnWindowPrepare, isAsync, userDatas).Forget();
-                float time = 0f;
-                while (!window.IsLoadDone)
-                {
-                    time += Time.deltaTime;
-                    if (time > 60f)
-                    {
-                        break;
-                    }
-                    await UniTask.Yield();
-                }
-                return window as T;
-            }
-        }
-
-        /// <summary>
-        /// 经典窗口的 Type 版异步等待（<see cref="ShowUIAwaitImp{T}"/> 的去 new() 版，用 <see cref="CreateInstance(Type)"/>
-        /// 反射构造），供 <see cref="ShowUIAsyncAwait{T}"/> 在约束放宽为 IUIWindow 后复用。
-        /// </summary>
-        private async UniTask<IUIWindow> ShowUIAwaitImp(Type type, bool isAsync, params System.Object[] userDatas)
-        {
-            string windowName = type.FullName;
-
-            if (TryGetWindow(windowName, out UIWindow window, userDatas))
-            {
-                return window;
-            }
-
-            window = CreateInstance(type);
-            Push(window); //首次压入
-            window.InternalLoad(window.AssetName, OnWindowPrepare, isAsync, userDatas).Forget();
-            float time = 0f;
-            while (!window.IsLoadDone)
-            {
-                time += Time.deltaTime;
-                if (time > 60f)
-                {
-                    break;
-                }
-                await UniTask.Yield();
-            }
-            return window;
-        }
-
         /// <summary>
         /// 关闭窗口。
         /// </summary>
         /// <typeparam name="T">窗口类型</typeparam>
-        public void CloseUI<T>() where T : IUIWindow
+        public void CloseUI<T>() where T : UIWindowMono
         {
-            // IUIWindow 约束容纳经典 + Mono；CloseUI(Type) 经 IUIWindow 多态驱动 InternalDestroy，两类通用。
             CloseUI(typeof(T));
         }
 
         public void CloseUI(Type type)
         {
             string windowName = type.FullName;
-            IUIWindow window = GetWindow(windowName);
+
+            // 加载途中关闭：实例尚未存在，置「已请求关闭」标记，由 LoadMonoWindow 在 await 后兜底销毁。
+            if (_pendingMono.ContainsKey(windowName))
+            {
+                _pendingMono[windowName] = true;
+                return;
+            }
+
+            UIWindowMono window = GetWindow(windowName);
             if (window == null)
                 return;
 
@@ -557,8 +463,8 @@ namespace GameLogic
             OnSortWindowDepth(window.WindowLayer);
             OnSetWindowVisible();
         }
-        
-        public void HideUI<T>() where T : IUIWindow
+
+        public void HideUI<T>() where T : UIWindowMono
         {
             HideUI(typeof(T));
         }
@@ -566,7 +472,7 @@ namespace GameLogic
         public void HideUI(Type type)
         {
             string windowName = type.FullName;
-            IUIWindow window = GetWindow(windowName);
+            UIWindowMono window = GetWindow(windowName);
             if (window == null)
             {
                 return;
@@ -597,9 +503,12 @@ namespace GameLogic
         /// </summary>
         public void CloseAll(bool isShutDown = false)
         {
+            // 加载中的窗口一并标记关闭，避免 await 返回后又入栈成僵尸窗。
+            MarkAllPendingClose();
+
             for (int i = 0; i < _uiStack.Count; i++)
             {
-                IUIWindow window = _uiStack[i];
+                UIWindowMono window = _uiStack[i];
                 window.InternalDestroy(isShutDown);
             }
 
@@ -609,11 +518,13 @@ namespace GameLogic
         /// <summary>
         /// 关闭所有窗口除了。
         /// </summary>
-        public void CloseAllWithOut(UIWindow withOut)
+        public void CloseAllWithOut(UIWindowMono withOut)
         {
+            MarkAllPendingClose();
+
             for (int i = _uiStack.Count - 1; i >= 0; i--)
             {
-                IUIWindow window = _uiStack[i];
+                UIWindowMono window = _uiStack[i];
                 if (ReferenceEquals(window, withOut))
                 {
                     continue;
@@ -627,11 +538,13 @@ namespace GameLogic
         /// <summary>
         /// 关闭所有窗口除了。
         /// </summary>
-        public void CloseAllWithOut<T>() where T : UIWindow
+        public void CloseAllWithOut<T>() where T : UIWindowMono
         {
+            MarkAllPendingClose();
+
             for (int i = _uiStack.Count - 1; i >= 0; i--)
             {
-                IUIWindow window = _uiStack[i];
+                UIWindowMono window = _uiStack[i];
                 if (window.GetType() == typeof(T))
                 {
                     continue;
@@ -642,7 +555,47 @@ namespace GameLogic
             }
         }
 
-        private void OnWindowPrepare(IUIWindow window)
+        /// <summary>
+        /// 把所有加载中的窗口标记为「已请求关闭」，使其加载完成后不入栈（CloseAll/CloseAllWithOut 用）。
+        /// </summary>
+        private void MarkAllPendingClose()
+        {
+            if (_pendingMono.Count == 0)
+            {
+                return;
+            }
+
+            var keys = new List<string>(_pendingMono.Keys);
+            for (int i = 0; i < keys.Count; i++)
+            {
+                _pendingMono[keys[i]] = true;
+            }
+        }
+
+        /// <summary>
+        /// 窗口被外部直接销毁（场景卸载 / 手动 Destroy GameObject）时的兜底出栈。
+        /// 由 <see cref="UIWindowMono.OnDestroy"/> 在框架显式 InternalDestroy 未先行时调用：
+        /// 从栈摘除、重排同层深度、重算可见性（缺陷 C 的窗口侧修复）。
+        /// </summary>
+        internal void NotifyWindowDestroyed(UIWindowMono window)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            int index = _uiStack.IndexOf(window);
+            if (index < 0)
+            {
+                return;
+            }
+
+            _uiStack.RemoveAt(index);
+            OnSortWindowDepth(window.WindowLayer);
+            OnSetWindowVisible();
+        }
+
+        private void OnWindowPrepare(UIWindowMono window)
         {
             window.InternalCreate();
             window.InternalRefresh();
@@ -668,7 +621,7 @@ namespace GameLogic
             bool isHideNext = false;
             for (int i = _uiStack.Count - 1; i >= 0; i--)
             {
-                IUIWindow window = _uiStack[i];
+                UIWindowMono window = _uiStack[i];
                 if (isHideNext == false)
                 {
                     if (window.IsHide)
@@ -687,55 +640,11 @@ namespace GameLogic
                 }
             }
         }
-        
-        private UIWindow CreateInstance<T>() where T : UIWindow , new()
-        {
-            Type type = typeof(T);
-            UIWindow window = new T();
-            WindowAttribute attribute = Attribute.GetCustomAttribute(type, typeof(WindowAttribute)) as WindowAttribute;
 
-            if (window == null)
-                throw new GameFrameworkException($"Window {type.FullName} create instance failed.");
-
-            if (attribute != null)
-            {
-                string assetName = string.IsNullOrEmpty(attribute.Location) ? type.Name : attribute.Location;
-                window.Init(type.FullName, attribute.WindowLayer, attribute.FullScreen, assetName, attribute.FromResources, attribute.HideTimeToClose);
-            }
-            else
-            {
-                window.Init(type.FullName, (int)UILayer.UI, fullScreen: window.FullScreen, assetName: type.Name, fromResources: false, hideTimeToClose: 10);
-            }
-
-            return window;
-        }
-
-        private UIWindow CreateInstance(Type type)
-        {
-            UIWindow window = Activator.CreateInstance(type) as UIWindow;
-            WindowAttribute attribute = Attribute.GetCustomAttribute(type, typeof(WindowAttribute)) as WindowAttribute;
-
-            if (window == null)
-                throw new GameFrameworkException($"Window {type.FullName} create instance failed.");
-
-            if (attribute != null)
-            {
-                string assetName = string.IsNullOrEmpty(attribute.Location) ? type.Name : attribute.Location;
-                window.Init(type.FullName, attribute.WindowLayer, attribute.FullScreen, assetName, attribute.FromResources, attribute.HideTimeToClose);
-            }
-            else
-            {
-                window.Init(type.FullName, (int)UILayer.UI, fullScreen: window.FullScreen, assetName: type.Name, fromResources: false, hideTimeToClose: 10);
-            }
-
-            return window;
-        }
-        
         /// <summary>
         /// 异步获取窗口。
         /// </summary>
-        /// <returns>打开窗口操作句柄。</returns>
-        public async UniTask<T> GetUIAsyncAwait<T>(CancellationToken cancellationToken = default) where T : UIWindow
+        public async UniTask<T> GetUIAsyncAwait<T>(CancellationToken cancellationToken = default) where T : UIWindowMono
         {
             string windowName = typeof(T).FullName;
             var window = GetWindow(windowName);
@@ -743,7 +652,7 @@ namespace GameLogic
             {
                 return null;
             }
-            
+
             var ret = window as T;
 
             if (ret == null)
@@ -773,8 +682,7 @@ namespace GameLogic
         /// 异步获取窗口。
         /// </summary>
         /// <param name="callback">回调。</param>
-        /// <returns>打开窗口操作句柄。</returns>
-        public void GetUIAsync<T>(Action<T> callback) where T : UIWindow
+        public void GetUIAsync<T>(Action<T> callback) where T : UIWindowMono
         {
             string windowName = typeof(T).FullName;
             var window = GetWindow(windowName);
@@ -784,7 +692,7 @@ namespace GameLogic
             }
 
             var ret = window as T;
-            
+
             if (ret == null)
             {
                 return;
@@ -808,11 +716,11 @@ namespace GameLogic
             }
         }
 
-        private IUIWindow GetWindow(string windowName)
+        private UIWindowMono GetWindow(string windowName)
         {
             for (int i = 0; i < _uiStack.Count; i++)
             {
-                IUIWindow window = _uiStack[i];
+                UIWindowMono window = _uiStack[i];
                 if (window.WindowName == windowName)
                 {
                     return window;
@@ -826,7 +734,7 @@ namespace GameLogic
         {
             for (int i = 0; i < _uiStack.Count; i++)
             {
-                IUIWindow window = _uiStack[i];
+                UIWindowMono window = _uiStack[i];
                 if (window.WindowName == windowName)
                 {
                     return true;
@@ -836,7 +744,7 @@ namespace GameLogic
             return false;
         }
 
-        private void Push(IUIWindow window)
+        private void Push(UIWindowMono window)
         {
             // 如果已经存在
             if (IsContains(window.WindowName))
@@ -876,7 +784,7 @@ namespace GameLogic
             _uiStack.Insert(insertIndex, window);
         }
 
-        private void Pop(IUIWindow window)
+        private void Pop(UIWindowMono window)
         {
             // 从堆栈里移除
             _uiStack.Remove(window);

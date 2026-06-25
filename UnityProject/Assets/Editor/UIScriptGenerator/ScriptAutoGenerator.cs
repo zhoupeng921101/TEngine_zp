@@ -81,7 +81,7 @@ namespace TEngine.Editor.UI
 
             if (uiGenType == null)
             {
-                return "UIWindow";
+                return "UIWindowMono";
             }
             return !uiGenType.isGeneric ? uiGenType.uiTypeName : $"{uiGenType.uiTypeName}<{fileName}>";
         }
@@ -111,31 +111,17 @@ namespace TEngine.Editor.UI
             string uiTypeName = GetUITypeName(uiGenTypeName, className);
             if (!isAutoGenerate)
             {
-                uiTypeName = "UIWindow";
+                uiTypeName = "UIWindowMono";
                 if (root.name.StartsWith(widgetPrefix))
                 {
-                    uiTypeName = "UIWidget";
+                    uiTypeName = "UIWidgetMono";
                     fileName = $"{root.name.Replace(GetUIWidgetName(), string.Empty)}.cs";
                 }
             }
 
-            // Mono 模式：基类是 UIWindowMono / UIWidgetMono。引用走 [SerializeField] 拖拽，
-            // 字段生成 [SerializeField] private T m_x; ScriptGenerator() 只挂事件，不取 UIBindComponent、不按 index。
-            bool isMono = IsMonoUIType(uiTypeName);
-
-            if (!isMono)
-            {
-                strVar.AppendLine($"\t\tprivate UIBindComponent m_bindComponent;");
-
-                strBind.AppendLine($"\t\t\tm_bindComponent = gameObject.GetComponent<UIBindComponent>();");
-                strBind.AppendLine($"\t\t\tif(m_bindComponent == null)");
-                strBind.AppendLine($"\t\t\t{{");
-                strBind.AppendLine($"\t\t\t\tLog.Error($\"根物体: {{gameObject.name}} 缺少组件 UIBindComponent, 请检查！！！\");");
-                strBind.AppendLine($"\t\t\t\treturn;");
-                strBind.AppendLine($"\t\t\t}}");
-            }
-            m_bindIndex = 0;
-            AutoErgodic(root, root, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask, isMono);
+            // 窗口体系统一为 MonoBehaviour（UIWindowMono / UIWidgetMono）：引用走 [SerializeField] 具名拖拽，
+            // 字段生成 [SerializeField] private T m_x; ScriptGenerator() 只挂事件，不取 index。
+            AutoErgodic(root, root, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask, isMono: true);
             StringBuilder strFile = new StringBuilder();
 
             if (includeListener)
@@ -260,27 +246,8 @@ namespace TEngine.Editor.UI
             return true;
         }
 
-        private static int m_bindIndex = 0;
-
-        /// <summary>
-        /// 基类是否为 MonoBehaviour UI 体系（UIWindowMono / UIWidgetMono）。
-        /// 泛型形式（如 <c>UIWindowMono&lt;T&gt;</c>）取尖括号前的裸名判断。
-        /// </summary>
-        private static bool IsMonoUIType(string uiTypeName)
-        {
-            if (string.IsNullOrEmpty(uiTypeName))
-            {
-                return false;
-            }
-
-            var idx = uiTypeName.IndexOf('<');
-            var bareName = idx >= 0 ? uiTypeName.Substring(0, idx) : uiTypeName;
-            return string.Equals(bareName, "UIWindowMono", StringComparison.Ordinal)
-                   || string.Equals(bareName, "UIWidgetMono", StringComparison.Ordinal);
-        }
-
         public static void AutoErgodic(Transform root, Transform transform, ref StringBuilder strVar,
-            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask, bool isMono = false)
+            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask, bool isMono = true)
         {
             for (int i = 0; i < transform.childCount; i++)
             {
@@ -297,7 +264,7 @@ namespace TEngine.Editor.UI
         }
 
         private static void WriteAutoScript(Transform root, Transform child, ref StringBuilder strVar,
-            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask, bool isMono = false)
+            ref StringBuilder strBind, ref StringBuilder strOnCreate, ref StringBuilder strCallback, bool isUniTask, bool isMono = true)
         {
             string varName = child.name;
             // 查找相关的规则定义
@@ -323,29 +290,8 @@ namespace TEngine.Editor.UI
                 return;
             }
 
-            if (isMono)
-            {
-                // Mono 模式：字段 [SerializeField] 暴露到 Inspector，引用靠拖拽就位，不走 UIBindComponent / index。
-                strVar.AppendLine($"\t\t[SerializeField] private {componentName} {varName}{(ScriptGeneratorSetting.Instance.NullableEnable ? " = null!;" : ";")}");
-            }
-            else
-            {
-                // strVar.AppendLine($"\t\tprivate {componentName} {varName};");
-                strVar.AppendLine($"\t\tprivate {componentName} {varName}{(ScriptGeneratorSetting.Instance.NullableEnable ? " = null!;" : ";")}");
-                if (rule.componentName == UIComponentName.GameObject)
-                {
-                    strBind.AppendLine($"\t\t\t{varName} = m_bindComponent.GetComponent<RectTransform>({m_bindIndex}).gameObject;");
-                }
-                else if (rule.componentName != UIComponentName.GameObject && rule.isUIWidget)
-                {
-                    strBind.AppendLine($"\t\t\t{varName} = CreateWidget<{componentName}>(m_bindComponent.GetComponent<RectTransform>({m_bindIndex}).gameObject);");
-                }
-                else
-                {
-                    strBind.AppendLine($"\t\t\t{varName} = m_bindComponent.GetComponent<{componentName}>({m_bindIndex});");
-                }
-                m_bindIndex++;
-            }
+            // 字段 [SerializeField] 暴露到 Inspector，引用靠具名拖拽就位。
+            strVar.AppendLine($"\t\t[SerializeField] private {componentName} {varName}{(ScriptGeneratorSetting.Instance.NullableEnable ? " = null!;" : ";")}");
 
             switch (rule.componentName)
             {
@@ -560,255 +506,6 @@ namespace TEngine.Editor.UI
 
         #endregion
 
-
-        #region GenerateUIComponent
-
-        public static bool GenerateUIComponentScript()
-        {
-            var root = Selection.activeTransform;
-
-            if (root == null)
-            {
-                return false;
-            }
-            // 检查是否在预制体编辑模式下
-            bool isInPrefabMode = IsInPrefabMode(root.gameObject);
-
-            CheckVariableNames();
-            var uiComponent = AddComponent2Window();
-
-            if (uiComponent == null)
-            {
-                return false;
-            }
-
-            ErgodicUIComponent(root, root, uiComponent);
-            // 如果是预制体模式，需要特殊处理保存
-            if (isInPrefabMode)
-            {
-                SavePrefabChanges(root.gameObject);
-            }
-            AssetDatabase.Refresh();
-            return true;
-            // Debug.Log($"<color=#1E90FF>脚本已生成到剪贴板，请自行Ctl+V粘贴</color>");
-        }
-
-        public static void ErgodicUIComponent(Transform root, Transform transform, UIBindComponent uiBindComponent)
-        {
-            for (int i = 0; i < transform.childCount; i++)
-            {
-                Transform child = transform.GetChild(i);
-                WriteScriptUIComponent(root, child, uiBindComponent);
-
-                // 跳过 "m_item"
-                if (child.name.StartsWith(GetUIWidgetGameObjectName()))
-                {
-                    continue;
-                }
-
-                ErgodicUIComponent(root, child, uiBindComponent);
-            }
-        }
-
-        private static void WriteScriptUIComponent(Transform root, Transform child, UIBindComponent uiBindComponent)
-        {
-            string varName = child.name;
-            // 查找相关的规则定义
-            var rule = ScriptGeneratorSetting.GetScriptGenerateRule()
-                .Find(r => varName.StartsWith(r.uiElementRegex));
-
-            if (rule == null)
-            {
-                return;
-            }
-
-            var componentName = rule.componentName.ToString();
-
-            if (string.IsNullOrEmpty(componentName))
-            {
-                return;
-            }
-
-            if (rule.componentName == UIComponentName.GameObject || rule.isUIWidget)
-            {
-                var c = child.gameObject.GetComponent<RectTransform>();
-                uiBindComponent.AddComponent(c);
-                return;
-            }
-
-            Type componentType = GetComponentTypeFromEnumName(rule.componentName);
-
-            if (componentType == null)
-            {
-                componentType = GetComponentTypeFromEnumName(componentName);
-
-                if (componentType == null)
-                {
-                    Debug.LogWarning($"未找到对应的组件类型: {componentName}");
-                    return;
-                }
-            }
-
-            varName = GetVariableName(varName);
-
-            if (string.IsNullOrEmpty(varName))
-            {
-                return;
-            }
-
-            var com = child.GetComponent(componentType);
-            if (com == null)
-            {
-                Debug.LogError($"{child.name}上未找到组件: {componentType.FullName}", child);
-                return;
-            }
-            uiBindComponent.AddComponent(com);
-        }
-
-        private static Type GetComponentTypeFromEnumName(string enumName)
-        {
-            Type type = Type.GetType($"UnityEngine.{enumName}, UnityEngine");
-            if (type != null) return type;
-
-            type = Type.GetType($"UnityEngine.UI.{enumName}, UnityEngine.UI");
-            if (type != null) return type;
-
-            type = Type.GetType($"GameLogic.{enumName}, GameLogic");
-            if (type != null) return type;
-
-            type = Type.GetType($"TMPro.{enumName}, TMPro");
-            if (type != null) return type;
-
-            type = Type.GetType(enumName);
-            if (type != null) return type;
-
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                type = assembly.GetType(enumName);
-                if (type != null) return type;
-
-                type = assembly.GetType($"UnityEngine.{enumName}");
-                if (type != null) return type;
-
-                type = assembly.GetType($"UnityEngine.UI.{enumName}");
-                if (type != null) return type;
-
-                type = assembly.GetType($"GameLogic.{enumName}");
-                if (type != null) return type;
-            }
-
-            return null;
-        }
-
-        private static Type GetComponentTypeFromEnumName(UIComponentName enumName)
-        {
-            return enumName switch
-            {
-                UIComponentName.GameObject => typeof(GameObject),
-                UIComponentName.Button => typeof(Button),
-                UIComponentName.Toggle => typeof(Toggle),
-                UIComponentName.Slider => typeof(Slider),
-                UIComponentName.Text => typeof(Text),
-                UIComponentName.Canvas => typeof(Canvas),
-                UIComponentName.Image => typeof(Image),
-                UIComponentName.RectTransform => typeof(RectTransform),
-                UIComponentName.Transform => typeof(Transform),
-                UIComponentName.AnimationCurve => typeof(AnimationCurve),
-                UIComponentName.Scrollbar => typeof(Scrollbar),
-                UIComponentName.ScrollRect => typeof(ScrollRect),
-                UIComponentName.CanvasGroup => typeof(CanvasGroup),
-                UIComponentName.InputField => typeof(InputField),
-                UIComponentName.ToggleGroup => typeof(ToggleGroup),
-                UIComponentName.RawImage => typeof(RawImage),
-                UIComponentName.GridLayoutGroup => typeof(GridLayoutGroup),
-                UIComponentName.HorizontalLayoutGroup => typeof(HorizontalLayoutGroup),
-                UIComponentName.VerticalLayoutGroup => typeof(VerticalLayoutGroup),
-                UIComponentName.Dropdown => typeof(Dropdown),
-#if TextMeshPro
-                UIComponentName.TMP_InputField => typeof(TMP_InputField),
-                UIComponentName.TMP_Dropdown => typeof(TMP_Dropdown),
-                UIComponentName.TextMeshProUGUI => typeof(TextMeshProUGUI),
-#endif
-                _ => null,
-            };
-        }
-
-        private static UIBindComponent AddComponent2Window()
-        {
-            var root = Selection.activeTransform;
-
-            if (root == null)
-            {
-                Debug.LogWarning("请先选中一个物体，再进行脚本生成");
-                return null;
-            }
-
-            GameObject rootObj = root.gameObject;
-
-            var compt = rootObj.GetComponent<UIBindComponent>();
-
-            if (compt == null)
-            {
-                compt = rootObj.AddComponent<UIBindComponent>();
-            }
-
-            compt.Clear();
-            return compt;
-        }
-
-        private static bool IsInPrefabMode(GameObject gameObject)
-        {
-#if UNITY_EDITOR
-            if (PrefabStageUtility.GetCurrentPrefabStage() != null)
-            {
-                return true;
-            }
-
-            var prefabAssetType = PrefabUtility.GetPrefabAssetType(gameObject);
-
-            if (prefabAssetType != PrefabAssetType.NotAPrefab)
-            {
-                return true;
-            }
-
-            var prefabInstanceStatus = PrefabUtility.GetPrefabInstanceStatus(gameObject);
-            return prefabInstanceStatus != PrefabInstanceStatus.NotAPrefab;
-#else
-            return false;
-#endif
-        }
-
-        private static void SavePrefabChanges(GameObject prefabObject)
-        {
-#if UNITY_EDITOR
-            try
-            {
-                EditorUtility.SetDirty(prefabObject);
-                var prefabInstanceStatus = PrefabUtility.GetPrefabInstanceStatus(prefabObject);
-
-                if (prefabInstanceStatus == PrefabInstanceStatus.Connected)
-                {
-                    var rootPrefab = PrefabUtility.GetCorrespondingObjectFromOriginalSource(prefabObject);
-
-                    if (rootPrefab != null)
-                    {
-                        PrefabUtility.ApplyPrefabInstance(prefabObject,
-                            InteractionMode.AutomatedAction);
-                    }
-                }
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-
-                // Debug.Log("预制体修改已保存");
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"保存预制体时出错: {e.Message}");
-            }
-#endif
-        }
-
-        #endregion
 
         private static string GetPrefixNameByCodeStyle(UIFieldCodeStyle style)
         {

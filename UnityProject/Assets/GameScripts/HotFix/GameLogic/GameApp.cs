@@ -95,6 +95,21 @@ public partial class GameApp
             ctx.MetaCurrency?.ApplyDeltaPush(state, attrType, newAmount);
         };
 
+        // normal 订单服务端权威投影(P1 客户端段):
+        // ① 活态就绪/退出钩子 → 交 OrderSync 切权威(置 ServerAuthoritativeOrders)+ 接交付 RPC + 应用已缓存快照
+        //    (覆盖 blob 旧 normal 订单)/ 解绑旧活态。开关在 OrderSync.OnMergeStateReady 内置位,无静态、不污染单测。
+        GameLogic.BlockBlast.BlockGameState.OnMergeStateReady = state =>
+            GameLogic.GameContext.Instance.OrderSync?.OnMergeStateReady(state);
+        GameLogic.BlockBlast.BlockGameState.OnMergeStateClosed = state =>
+            GameLogic.GameContext.Instance.OrderSync?.OnMergeStateClosed(state);
+        // ③ 服务端订单快照推送(登录初推 + 整批刷新到点推):回调内同步把协议对象转框架中立 DTO 再应用
+        //    (协议对象在 Handler.Run 返回后回池,不可跨帧持有,沿 OnPlayerInfoSnapshot 范式)。
+        FantasyClient.FantasyNetwork.OnMergeOrderSnapshotPush += snapshot =>
+        {
+            var data = GameLogic.BlockBlast.Player.OrderRpcGatewayProd.ToSnapshot(snapshot);
+            GameLogic.GameContext.Instance.OrderSync?.OnSnapshotPush(data);
+        };
+
         // 货币聚合上报钩子(P2 客户端段):每次元层落盘(MergeMetaPersistence.SaveAsync,= 一次玩法事件边界)后,
         // 把四货币本地净变化聚合成一笔上报服务端。钩子注册在接线层(本类),使 MergeMetaPersistence 对货币同步无知。
         GameLogic.BlockBlast.MergeMetaPersistence.OnSaved = () =>

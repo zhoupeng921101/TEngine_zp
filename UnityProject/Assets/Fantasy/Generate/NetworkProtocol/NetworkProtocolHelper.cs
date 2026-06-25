@@ -82,6 +82,30 @@ namespace Fantasy
 			return (G2C_MailClaimResponse)await session.Call(C2G_MailClaimRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_DeliverOrderResponse> C2G_DeliverOrderRequest(this Session session, C2G_DeliverOrderRequest C2G_DeliverOrderRequest_request)
+		{
+			return (G2C_DeliverOrderResponse)await session.Call(C2G_DeliverOrderRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_DeliverOrderResponse> C2G_DeliverOrderRequest(this Session session, int slot)
+		{
+			using var C2G_DeliverOrderRequest_request = Fantasy.C2G_DeliverOrderRequest.Create();
+			C2G_DeliverOrderRequest_request.Slot = slot;
+			return (G2C_DeliverOrderResponse)await session.Call(C2G_DeliverOrderRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_MergeOrderSnapshotPush(this Session session, G2C_MergeOrderSnapshotPush G2C_MergeOrderSnapshotPush_message)
+		{
+			session.Send(G2C_MergeOrderSnapshotPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_MergeOrderSnapshotPush(this Session session, MergeOrderSnapshot snapshot)
+		{
+			using var G2C_MergeOrderSnapshotPush_message = Fantasy.G2C_MergeOrderSnapshotPush.Create();
+			G2C_MergeOrderSnapshotPush_message.Snapshot = snapshot;
+			session.Send(G2C_MergeOrderSnapshotPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void C2G_TestEmptyMessage(this Session session, C2G_TestEmptyMessage C2G_TestEmptyMessage_message)
 		{
 			session.Send(C2G_TestEmptyMessage_message);

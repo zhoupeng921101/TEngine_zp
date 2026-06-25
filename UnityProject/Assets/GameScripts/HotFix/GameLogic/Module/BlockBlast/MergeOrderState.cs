@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using GameLogic.BlockBlast.Core;
+using GameLogic.BlockBlast.Player;
 
 namespace GameLogic.BlockBlast
 {
@@ -102,6 +103,31 @@ namespace GameLogic.BlockBlast
 
         /// <summary>循环订单池游标（下一张待取的索引，按池长取模）。</summary>
         public int OrderCursor;
+
+        // ── normal 订单服务端权威投影（P1 全栈迁移·客户端段）────────────────────
+        // 服务端持 normal 订单 + 交付裁决 + 发奖的唯一事实源,客户端降为投影:登录快照 + 整批刷新推送是唯一来源,
+        // 交付走 RPC、奖励由服务端发 + delta-push 回。开关由接线层(OrderSync 经 OnMergeStateReady 钩子,仅生产注入)置位,
+        // 使本地生成/墙钟刷新(NextOrder/RefreshAllOrders/ApplyOrderRefresh/TryRefreshIfAllDelivered)在生产 no-op;
+        // 纯逻辑单测不触钩子 → 实例恒 false → 保持旧本地行为零回归(无静态,无跨用例/跨 Play 域污染)。
+
+        /// <summary>
+        /// 本实例是否服务端权威投影 normal 订单。true 时:Deliver 不本地发 Energy/Piety、改发交付 RPC;
+        /// ApplyOrderRefresh/TryRefreshIfAllDelivered 不本地生成订单(改为「是否有未绘制的服务端快照变更」信号)。
+        /// 由接线层在玩法窗就绪钩子里置 true(生产),纯逻辑单测不置 → 恒 false。
+        /// </summary>
+        public bool ServerAuthoritativeOrders;
+
+        /// <summary>
+        /// 交付 RPC 钩子(服务端权威分支用)。<see cref="Deliver"/> 同步乐观扣库存后调它发起异步 RPC,
+        /// 参数 = (槽位, 被消费订单)。由接线层(OrderSync 经 GameApp)注入,使本类不直接依赖网络层。
+        /// </summary>
+        public Action<int, Order> DeliverHook;
+
+        /// <summary>
+        /// 服务端快照已更新 normal 订单、尚未被 UI 绘制的脏标记。<see cref="ApplyServerOrderSnapshot"/> 置位,
+        /// 冻结 UI 的每秒轮询经 <see cref="ApplyOrderRefresh"/> 读它(返 true 触发其 RefreshOrders)后清零。
+        /// </summary>
+        private bool _serverOrdersDirty;
 
         /// <summary>已完成单数。</summary>
         public int CompletedOrders;
@@ -380,6 +406,15 @@ namespace GameLogic.BlockBlast
         /// </summary>
         public bool ApplyOrderRefresh(long nowUnixSec)
         {
+            // 服务端权威投影模式:不按客户端墙钟生成/刷新 normal 订单。本方法转义为「自上次绘制以来服务端快照是否更新过」
+            // 信号——冻结 UI 的每秒轮询据此返回值决定是否 RefreshOrders,使服务端推送的整批刷新得以经既有重绘入口落地。
+            if (ServerAuthoritativeOrders)
+            {
+                if (!_serverOrdersDirty) return false;
+                _serverOrdersDirty = false;
+                return true;
+            }
+
             if (LastOrderRefreshTime == 0)
             {
                 LastOrderRefreshTime = nowUnixSec; // 首次：初始化记录时刻，本次不刷（不凭空刷一批）
@@ -409,6 +444,9 @@ namespace GameLogic.BlockBlast
         /// </summary>
         public bool TryRefreshIfAllDelivered(long nowUnixSec)
         {
+            // 服务端权威投影模式:整批刷新由服务端裁定 + 推送,客户端不本地补单。冻结 UI 在交付后仍会调本方法,此处 no-op。
+            if (ServerAuthoritativeOrders) return false;
+
             if (ActiveOrders == null || ActiveOrders.Length == 0) return false; // 防御：无订单数组不刷、不崩
             for (int i = 0; i < ActiveOrders.Length; i++)
                 if (ActiveOrders[i].IsValid) return false; // 仍有有效订单：未全部交付，不刷
@@ -451,15 +489,69 @@ namespace GameLogic.BlockBlast
             if (left == 0) Inventory.Remove((o.Type, o.Level));
             else Inventory[(o.Type, o.Level)] = left;
 
-            Energy += MergeOrderConfig.OrderRewardEnergy;            // 奖励可溢出软上限
+            // TotalScore / CompletedOrders 为本地显示/统计,两模式都保留(服务端段未接管这两项)。
             TotalScore += o.Level * o.Count * MergeOrderConfig.OrderScoreFactor;
             CompletedOrders += 1;
 
+            if (ServerAuthoritativeOrders)
+            {
+                // 服务端权威分支(P1):奖励由服务端 RPC 发 + delta-push 回(已有 MetaCurrencySync.ApplyDeltaPush 落地),
+                // 本地不发 Energy/Piety——故 MetaCurrencySync.ReportPending 基线 diff 看不到交付增量、不会双计上报。
+                // 槽位乐观置空(UI 即时反馈),发起交付 RPC;失败时 OrderSync 经 RefundInventoryForFailedDeliver 退还库存 + 回滚计数。
+                ActiveOrders[slot] = default;
+                DeliverHook?.Invoke(slot, o);
+                return true;
+            }
+
+            // 本地权威分支(单测 / 无网络平台):保持旧本地发奖行为,零回归。
+            Energy += MergeOrderConfig.OrderRewardEnergy;            // 奖励可溢出软上限
             // 长期主线（设计 13 §3.1）：虔诚币 = 订单难度 × 旋钮。纯追加，不动上方旧发奖。
             AddPiety(o.Difficulty * TempleConfig.PietyPerDifficulty);
 
             ActiveOrders[slot] = default; // 该槽置空，不补单；全空或到时整批刷新
             return true;
+        }
+
+        /// <summary>
+        /// 退还一次失败交付乐观扣减的库存 + 回滚乐观计数(服务端权威分支,交付 RPC 失败时由 OrderSync 调)。
+        /// <see cref="Deliver"/> 同步扣了 <paramref name="consumed"/> 的库存 + TotalScore + CompletedOrders;服务端未消费该单时全数退回,
+        /// 使本地视图与服务端对齐、失败不丢库存。库存退还走级联合并(与 <see cref="AddDirect"/> 同口径,满 MergeCount 仍合)。
+        /// </summary>
+        public void RefundInventoryForFailedDeliver(Order consumed)
+        {
+            if (!consumed.IsValid) return;
+            AddDirect(consumed.Type, consumed.Level, consumed.Count);
+            TotalScore -= consumed.Level * consumed.Count * MergeOrderConfig.OrderScoreFactor;
+            if (TotalScore < 0) TotalScore = 0;
+            CompletedOrders -= 1;
+            if (CompletedOrders < 0) CompletedOrders = 0;
+        }
+
+        /// <summary>
+        /// 用服务端订单快照整份覆盖 normal 订单视图(P1 全栈迁移·客户端段)。<see cref="ActiveOrders"/> 按快照逐槽重建
+        /// (Type=0 → 空槽 default(Order));同步服务端游标 + 上次刷新时刻(毫秒转秒,供倒计时显示)。
+        /// 置 <see cref="_serverOrdersDirty"/>,使冻结 UI 的每秒轮询(经 <see cref="ApplyOrderRefresh"/>)下一拍重绘订单区。
+        /// </summary>
+        public void ApplyServerOrderSnapshot(OrderSnapshotData snapshot)
+        {
+            if (snapshot == null) return;
+
+            var src = snapshot.ActiveOrders;
+            int n = src?.Count ?? 0;
+            var arr = new Order[n];
+            for (int i = 0; i < n; i++)
+            {
+                var it = src[i];
+                arr[i] = (it.Type != (int)MergeElement.None && it.Level >= 1 && it.Count > 0)
+                    ? new Order((MergeElement)it.Type, it.Level, it.Count)
+                    : default; // 空槽 / 非法项 → 空槽（与 ImportIngame 同口径）
+            }
+            ActiveOrders = arr;
+            OrderCursor = snapshot.OrderCursor;
+            // 服务端权威时钟为毫秒;客户端倒计时按 Unix 秒显示(LastOrderRefreshTime 单位秒,与 ApplyTimeRegen 同口径)。
+            if (snapshot.LastOrderRefreshMs > 0) LastOrderRefreshTime = snapshot.LastOrderRefreshMs / 1000L;
+
+            _serverOrdersDirty = true; // 通知冻结 UI 下一拍重绘订单区
         }
 
         /// <summary>激活订单所需的去重元素类型集合（注入类型池来源 = 此并集）。</summary>

@@ -61,8 +61,6 @@ namespace TEngine.Editor.UI
         [SerializeField]
         private List<UIGenType> uiGenTypes = new List<UIGenType>()
         {
-            new UIGenType("UIWindow", false),
-            new UIGenType("UIWidget", false),
             new UIGenType("UIWindowMono", false),
             new UIGenType("UIWidgetMono", false),
         };
