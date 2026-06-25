@@ -9,7 +9,7 @@ namespace GameLogic
     /// 通用倒计时显示组件。仅负责显示剩余时间文本，业务数据由父窗口每秒喂入。
     /// 绑定字段由 CountdownWidget_Gen.g.cs 的 ScriptGenerator() 负责。
     /// </summary>
-    public partial class CountdownWidget : UIWidget
+    public partial class CountdownWidget : UIWidgetMono
     {
         /// <summary>
         /// 设置剩余秒数，刷新时间显示文本。自适应格式：

@@ -9,8 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5424538553454955316}
-  - component: {fileID: 5081406961508021525}
   - component: {fileID: 508403595685912512}
+  - component: {fileID: 7220465689579050881}
   m_Layer: 0
   m_Name: OrderCardWidget
   m_TagString: Untagged
@@ -40,27 +40,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 252, y: 144}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &5081406961508021525
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4915893115754715125}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: da5b4f8f74fed5b43b4b4c25dc3eac22, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: GameLogic::GameLogic.UIBindComponent
-  m_components:
-  - {fileID: 3076530623913784203}
-  - {fileID: 2597210099509693438}
-  - {fileID: 6481112887421259379}
-  genCodePath: Assets/GameScripts/HotFix/GameLogic/UI/Gen
-  className: OrderCardWidget
-  impCodePath: Assets/GameScripts/HotFix/GameLogic/UI
-  isGenImpClass: 0
-  uiType: UIWindow
 --- !u!114 &508403595685912512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -81,6 +60,21 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &7220465689579050881
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4915893115754715125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d7c45ff7459068479bee5dd78365bfe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameLogic::GameLogic.OrderCardWidget
+  m_img_Glyph: {fileID: 3076530623913784203}
+  m_text_Req: {fileID: 2597210099509693438}
+  m_btn_Deliver: {fileID: 6481112887421259379}
 --- !u!1 &6031444588129773238
 GameObject:
   m_ObjectHideFlags: 0

@@ -10,7 +10,7 @@ namespace GameLogic
     /// 交付按钮点击通过 <see cref="OnDeliver"/> 回调暴露给窗口，窗口注入槽位索引闭包。
     /// 绑定字段由 OrderCardWidget_Gen.g.cs 的 ScriptGenerator() 负责，本文件不重复定义。
     /// </summary>
-    public partial class OrderCardWidget : UIWidget
+    public partial class OrderCardWidget : UIWidgetMono
     {
         /// <summary>交付按钮点击回调，由 MergeOrderWindow 在 CreateWidget 后注入。</summary>
         public System.Action OnDeliver;

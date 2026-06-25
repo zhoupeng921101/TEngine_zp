@@ -2756,7 +2756,7 @@ GameObject:
   - component: {fileID: 5083333657997103204}
   - component: {fileID: 6500890607300668563}
   - component: {fileID: 5670704784844930628}
-  - component: {fileID: 8359451918252731558}
+  - component: {fileID: 611771147439835040}
   m_Layer: 5
   m_Name: MergeOrderWindow
   m_TagString: Untagged
@@ -2838,7 +2838,7 @@ MonoBehaviour:
   m_BlockingMask:
     serializedVersion: 2
     m_Bits: 4294967295
---- !u!114 &8359451918252731558
+--- !u!114 &611771147439835040
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2847,45 +2847,39 @@ MonoBehaviour:
   m_GameObject: {fileID: 7187243058147379579}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: da5b4f8f74fed5b43b4b4c25dc3eac22, type: 3}
+  m_Script: {fileID: 11500000, guid: 2a27ce34552148d418778b79bfd3f673, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GameLogic::GameLogic.UIBindComponent
-  m_components:
-  - {fileID: 2464817475178931588}
-  - {fileID: 6020382695732594040}
-  - {fileID: 3743399371686217464}
-  - {fileID: 7670943226920649671}
-  - {fileID: 5404203269950814973}
-  - {fileID: 3495345353503833244}
-  - {fileID: 2038953325733060373}
-  - {fileID: 8096303311098011138}
-  - {fileID: 3852744874764345840}
-  - {fileID: 2434977075504903147}
-  - {fileID: 7093980909405577067}
-  - {fileID: 3551772027236168932}
-  - {fileID: 3110533813699541221}
-  - {fileID: 1078530802861184927}
-  - {fileID: 6660310527076309483}
-  - {fileID: 3219564189726330732}
-  - {fileID: 2522132750583023617}
-  - {fileID: 4002291168417410060}
-  - {fileID: 5575729181309958910}
-  - {fileID: 243214094904019896}
-  - {fileID: 234881425633417117}
-  - {fileID: 6180226810987042189}
-  - {fileID: 9222814351141695587}
-  - {fileID: 9040803189574073663}
-  - {fileID: 6168677441859870805}
-  - {fileID: 9126739175072351940}
-  - {fileID: 340341773943004553}
-  - {fileID: 3182203395915721698}
-  - {fileID: 3443501371165759924}
-  - {fileID: 8502471962245307198}
-  genCodePath: Assets/GameScripts/HotFix/GameLogic/UI/Gen
-  className: MergeOrderWindow
-  impCodePath: Assets/GameScripts/HotFix/GameLogic/UI
-  isGenImpClass: 0
-  uiType: UIWindow
+  m_EditorClassIdentifier: GameLogic::GameLogic.MergeOrderWindow
+  m_img_Energy: {fileID: 2464817475178931588}
+  m_text_Energy: {fileID: 6020382695732594040}
+  m_rect_EnergyCountdownSlot: {fileID: 3743399371686217464}
+  m_img_CoinIcon: {fileID: 7670943226920649671}
+  m_text_CoinNum: {fileID: 5404203269950814973}
+  m_img_GemIcon: {fileID: 3495345353503833244}
+  m_text_GemNum: {fileID: 2038953325733060373}
+  m_img_EnergyIcon: {fileID: 8096303311098011138}
+  m_text_EnergyNum: {fileID: 3852744874764345840}
+  m_text_Goal: {fileID: 2434977075504903147}
+  m_img_BoxCard: {fileID: 7093980909405577067}
+  m_btn_OpenBox: {fileID: 3551772027236168932}
+  m_text_BlindBox: {fileID: 3110533813699541221}
+  m_text_Piety: {fileID: 1078530802861184927}
+  m_rect_OrderLayer: {fileID: 6660310527076309483}
+  m_rect_OrderContent: {fileID: 3219564189726330732}
+  m_rect_OrderCountdownSlot: {fileID: 2522132750583023617}
+  m_img_ElemBar: {fileID: 4002291168417410060}
+  m_rect_SynthLayer: {fileID: 5575729181309958910}
+  m_img_BoardOuter: {fileID: 243214094904019896}
+  m_rect_BoardLayer: {fileID: 234881425633417117}
+  m_img_SlotBg: {fileID: 6180226810987042189}
+  m_rect_SlotLayer: {fileID: 9222814351141695587}
+  m_btn_ClearTool: {fileID: 9040803189574073663}
+  m_btn_Temple: {fileID: 6168677441859870805}
+  m_btn_Exit: {fileID: 9126739175072351940}
+  m_img_ClearOverlay: {fileID: 340341773943004553}
+  m_img_ClearHintBg: {fileID: 3182203395915721698}
+  m_text_ClearHint: {fileID: 3443501371165759924}
+  m_rect_GhostLayer: {fileID: 8502471962245307198}
 --- !u!1 &7504094285513774729
 GameObject:
   m_ObjectHideFlags: 0

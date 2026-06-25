@@ -10,7 +10,7 @@ namespace GameLogic
     /// 每个实例对应一种合成元素（类型×等级），显示图标和数量文字。
     /// 绑定字段由 SynthTokenWidget_Gen.g.cs 的 ScriptGenerator() 负责，本文件不重复定义。
     /// </summary>
-    public partial class SynthTokenWidget : UIWidget
+    public partial class SynthTokenWidget : UIWidgetMono
     {
         /// <summary>本 token 当前承载的元素类型（供收集飞行动画按类型匹配落点；None 表示未设置）。</summary>
         public MergeElement ElementType { get; private set; } = MergeElement.None;

@@ -18,7 +18,7 @@ namespace GameLogic
     /// 消除道具（主动清一行一列、代价体力、只受体力门控）。
     /// </summary>
     [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
-    public sealed partial class MergeOrderWindow : UIWindow
+    public sealed partial class MergeOrderWindow : UIWindowMono
     {
         // 静态视觉壳（sprite + tint）烤进 prefab 绑定节点（_Gen.g.cs 的 m_*）的 m_Sprite / m_Color，prefab 为唯一来源，
         // 代码不运行时 SetSprite 这些节点。动态内容（棋盘格 / ghost / 候选块 / 元素图标 / 订单卡 / 合成 token）由代码生成、
@@ -1600,7 +1600,7 @@ namespace GameLogic
             return (col, row);
         }
 
-        protected override void OnDestroy()
+        protected override void OnDestroyWindow()
         {
             // 发光池行 / 列两份材质为运行时 new，窗口销毁随之销毁，避免材质泄漏。
             if (_glowMatRow != null) Object.Destroy(_glowMatRow);
