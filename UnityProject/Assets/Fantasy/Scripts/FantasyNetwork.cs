@@ -80,6 +80,15 @@ namespace FantasyClient
         public static event Action OnDisconnected;
 
         /// <summary>
+        /// 入口登录流程失败时触发(与 <see cref="OnLoggedIn"/> 对称)。参数 = 面向用户的失败原因文案。
+        /// 触发时机:①连接服务器失败(<see cref="OnConnectFail"/>);②登录 RPC 回包 ErrorCode≠0(<see cref="LoginAsync"/>)。
+        /// 仅覆盖「入口尚未登录成功」阶段;已登录后的会话中途断线由 <see cref="OnDisconnected"/> 处理,不经此事件。
+        /// 底层已自带自动重连(<see cref="ScheduleReconnect"/>):连接失败后会按退避自动重连、重连成功后 <see cref="OnConnectComplete"/> 自动重登。
+        /// 订阅方据此把入口 UI 切到「重试」态(显示原因 + 手动重试入口),在登录成功前阻断进入主菜单。
+        /// </summary>
+        public static event Action<string> OnLoginFailed;
+
+        /// <summary>
         /// 服务端登录玩家信息快照到达。参数 = 完整 <see cref="PlayerInfoView"/>(档案 + 三属性 + schema 版本)。
         /// 在主线程 Scene 内触发,业务侧可直接刷 UI;<see cref="G2C_PlayerInfoSnapshotHandler"/> 内置薄壳分发。
         /// </summary>
@@ -180,6 +189,8 @@ namespace FantasyClient
         {
             IsConnected = false;
             Log.Error($"[Fantasy] ❌ 连接服务器失败：请确认服务器已启动且 Gate({FantasyNetworkConfig.Protocol} {_address}) 可达。");
+            // 入口失败通知:让入口 UI 切到重试态并阻断进入(底层 ScheduleReconnect 同时驱动自动重连)。
+            OnLoginFailed?.Invoke($"连接服务器失败\n（{FantasyNetworkConfig.Protocol} {_address}）");
             ScheduleReconnect();
         }
 
@@ -247,6 +258,9 @@ namespace FantasyClient
             if (response.ErrorCode != 0)
             {
                 Log.Error($"[Fantasy] ❌ 登录失败 ErrorCode={response.ErrorCode}");
+                // 入口失败通知:登录被服务端拒绝(连接仍在),让入口 UI 切到重试态、阻断进入。
+                // 此路径无自动重连(自动重连只覆盖连接断开),需用户经 UI 手动 RetryLogin。
+                OnLoginFailed?.Invoke($"登录被拒绝（错误码 {response.ErrorCode}）");
                 return response.ErrorCode;
             }
 
@@ -266,6 +280,31 @@ namespace FantasyClient
             Log.Info($"[Fantasy] ✅ 登录成功 account={accountName}");
             OnLoggedIn?.Invoke();
             return 0;
+        }
+
+        /// <summary>
+        /// 手动重试入口登录(供入口重试 UI 调用)。按当前连接态选路:
+        /// 未连接 → 重新发起连接(<see cref="Connect"/>),连上后 <see cref="OnConnectComplete"/> 自动重登;
+        /// 已连接但未登录 → 直接重发登录 RPC。已登录则忽略(入口已通过)。
+        /// 与底层自动重连不冲突:_intentionalClose 仍为 false,二者最终都汇入同一登录流程。
+        /// </summary>
+        public static void RetryLogin()
+        {
+            if (IsLoggedIn)
+            {
+                return;
+            }
+            if (IsConnected)
+            {
+                if (!string.IsNullOrEmpty(_account))
+                {
+                    LoginAsync(_account).Coroutine();
+                }
+                return;
+            }
+            // 未连接:重置重连计数后立即重连(connectFail 兜底仍会按退避自动重连)。
+            _reconnectAttempt = 0;
+            Connect();
         }
 
         /// <summary>关闭网络：销毁 Scene 会级联清理连接与 Fantasy 功能（不会触发重连）。</summary>

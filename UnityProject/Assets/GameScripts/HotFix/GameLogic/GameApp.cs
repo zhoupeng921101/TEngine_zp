@@ -19,6 +19,16 @@ public partial class GameApp
 {
     private static List<Assembly> _hotfixAssembly;
 
+#if FANTASY_UNITY
+    // 入口闸（强制联网入口）：登录成功 + 服务端玩家信息快照应用后，才放行主菜单。
+    // 两信号来自独立网络消息（OnLoggedIn 来自登录 RPC 回包；OnPlayerInfoSnapshot 来自 push），到达顺序不保证，
+    // 故各置一标志位、每个信号到达时检查「两者俱备」。云存档下载（P3）尽力而为、不入闸：登录已成功即服务器可达，
+    // 下载失败有本地兜底，不挡门。_mainMenuOpened 守卫确保主菜单只开一次。
+    private static bool _loginSucceeded;
+    private static bool _snapshotApplied;
+    private static bool _mainMenuOpened;
+#endif
+
     /// <summary>
     /// 热更域App主入口。
     /// </summary>
@@ -37,6 +47,11 @@ public partial class GameApp
     private static void StartGameLogic()
     {
 #if FANTASY_UNITY
+        // 重置入口闸标志位:静态字段跨「编辑器内反复 Play」不归零,不重置会让二次进入直接卡住或跳过闸。
+        _loginSucceeded = false;
+        _snapshotApplied = false;
+        _mainMenuOpened = false;
+
         // 启动 Fantasy 客户端网络：初始化运行时 -> 连接服务器 Gate -> 自动登录。
         // 地址/账号取自 FantasyClient.FantasyNetworkConfig；业务可订阅 FantasyNetwork.OnLoggedIn 进主流程。
         FantasyClient.FantasyNetwork.Boot();
@@ -61,7 +76,12 @@ public partial class GameApp
             // 云存档下载(P3 客户端段):在 P0 身份确立(OnPlayerIdIssued 已在 LoginAsync 内先触发)、
             // P2 货币快照已应用(上一行)之后再做,避免次序冲突。下载只覆盖局内/标志/权重,保留本地货币 + playerId。
             // 即发即忘:DownloadAndResolve 完成后置 IsReady,此后存档边界上传才放行。
+            // 注意:云存档下载不入入口闸,失败不挡门(下载在此发起即返回,闸只认快照已应用)。
             ctx.CloudSave?.DownloadAndResolve().Forget();
+
+            // 入口闸信号①:服务端玩家信息快照已应用。
+            _snapshotApplied = true;
+            TryOpenMainMenu();
         };
         FantasyClient.FantasyNetwork.OnPropertyDeltaPush += (type, newAmount, reason) =>
         {
@@ -101,6 +121,13 @@ public partial class GameApp
         {
             GameLogic.GameContext.Instance.ApplyServerPlayerId(serverPlayerId);
         };
+
+        // 入口闸信号②:登录成功(OnLoggedIn 在 OnPlayerIdIssued 之后由登录 RPC 回包触发,ErrorCode==0)。
+        FantasyClient.FantasyNetwork.OnLoggedIn += () =>
+        {
+            _loginSucceeded = true;
+            TryOpenMainMenu();
+        };
 #endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
         // 接 AudioSink，把设置开关推到真实音频模块（设计 23 §五；落点在热更入口而非
@@ -124,9 +151,34 @@ public partial class GameApp
         {
             Log.Warning($"[GameApp] 权重表初始化失败，动态难度退化为随机：{e.Message}");
         }
+#if FANTASY_UNITY
+        // 强制联网入口:先开「连接中/重试」闸窗遮住背后,登录成功 + 快照应用前不开主菜单(见 TryOpenMainMenu)。
+        // 登录失败由 FantasyNetwork.OnLoginFailed 驱动 ConnectingWindow 切重试态、阻断进入。
+        GameModule.UI.ShowUIAsync<GameLogic.UI.ConnectingWindow>();
+#else
+        // 网络模块未启用(无 Fantasy 栈,无登录流程):退回旧行为直接开主菜单,避免闸永不满足而卡死。
         GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+#endif
     }
-    
+
+#if FANTASY_UNITY
+    /// <summary>
+    /// 入口闸放行检查:登录成功 + 服务端快照应用「两者俱备」时,关闭连接闸窗、打开主菜单(只开一次)。
+    /// 由两个独立网络信号回调各自调用一次;先到者不满足条件直接返回,后到者补齐时放行。
+    /// </summary>
+    private static void TryOpenMainMenu()
+    {
+        if (_mainMenuOpened || !_loginSucceeded || !_snapshotApplied)
+        {
+            return;
+        }
+        _mainMenuOpened = true;
+        GameModule.UI.CloseUI<GameLogic.UI.ConnectingWindow>();
+        GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+        Log.Info("[GameApp] 入口闸放行:登录成功 + 快照就绪,打开主菜单。");
+    }
+#endif
+
     private static void Release()
     {
         SingletonSystem.Release();
