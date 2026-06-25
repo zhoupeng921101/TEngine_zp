@@ -35,7 +35,7 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectByExtensions
         AssetTags: 
         UserData: 
     - GroupName: Configs
@@ -48,9 +48,9 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectByExtensions
         AssetTags: 
-        UserData: 
+        UserData: '*.bytes'
     - GroupName: DLL
       GroupDesc: 
       AssetTags: 
@@ -74,7 +74,7 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectPrefab
         AssetTags: 
         UserData: 
     - GroupName: Fonts
@@ -87,7 +87,7 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectByExtensions
         AssetTags: 
         UserData: 
     - GroupName: Materials
@@ -126,7 +126,7 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectPrefab
         AssetTags: 
         UserData: 
       - CollectPath: Assets/AssetRaw/UI/Widgets
@@ -134,7 +134,7 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectPrefab
         AssetTags: 
         UserData: 
     - GroupName: UIAtlas
@@ -147,9 +147,9 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectByExtensions
         AssetTags: 
-        UserData: 
+        UserData: '*.spriteatlasv2'
     - GroupName: UITextures
       GroupDesc: 
       AssetTags: 
@@ -160,7 +160,7 @@ MonoBehaviour:
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
-        FilterRuleName: CollectAll
+        FilterRuleName: CollectSprite
         AssetTags: 
         UserData: 
   - PackageName: OtherPackage

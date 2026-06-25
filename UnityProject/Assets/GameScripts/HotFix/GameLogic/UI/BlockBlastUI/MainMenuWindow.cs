@@ -81,6 +81,15 @@ namespace GameLogic
             {
                 GameModule.UI.ShowUIAsync<GameLogic.UI.ServerConfigWindow>();
             });
+
+            // [临时·手测入口] MonoBehaviour 窗口并行路径验证（UIWindowMono / TestMonoWindow）。
+            // 验收后可整段删除：本按钮 + TestMonoWindow.cs + TestMonoWindow.prefab。
+            var btnMonoTest = UGuiFactory.CreateButton(content, "BtnMonoTest", 220, 120, 380, 96, "Mono窗口测试", 40,
+                new Color32(0x99, 0x66, 0x66, 0xFF), Color.white, out _, out _);
+            btnMonoTest.onClick.AddListener(() =>
+            {
+                GameModule.UI.ShowUIAsync(typeof(TestMonoWindow));
+            });
         }
 
         /// <summary>
