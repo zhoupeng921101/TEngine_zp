@@ -66,7 +66,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: e8b091bf0c6bc8241b04ad57411d9f35, type: 3}
     m_FontSize: 35
     m_FontStyle: 1
     m_BestFit: 0
@@ -136,7 +136,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2908514140809409992}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 060b935c29aae0145a8fba310b10ccb5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
@@ -157,6 +157,9 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+  m_DrawOnNull: 0
+  m_AdaptiveSize: 0
+  spriteAtlas: {fileID: 100100200, guid: 123240a9379acc64d9097f7e1b5aaa11, type: 3}
 --- !u!1 &3651677332126820087
 GameObject:
   m_ObjectHideFlags: 0
@@ -344,7 +347,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: e8b091bf0c6bc8241b04ad57411d9f35, type: 3}
     m_FontSize: 37
     m_FontStyle: 1
     m_BestFit: 0
@@ -423,7 +426,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_FontData:
-    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_Font: {fileID: 12800000, guid: e8b091bf0c6bc8241b04ad57411d9f35, type: 3}
     m_FontSize: 35
     m_FontStyle: 1
     m_BestFit: 0

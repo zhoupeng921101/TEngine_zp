@@ -378,20 +378,18 @@ namespace GameLogic
                 int hideTimeToClose = attribute != null ? attribute.HideTimeToClose : 10;
                 bool fromResources = attribute != null && attribute.FromResources;
 
-                // 加载分支：fromResources 走 Resources.Load 同步实例化（LogUI 等内置资源依赖），
-                // 否则走 YooAsset 异步/同步加载。
+                // 加载分支：fromResources 走 UnityEngine.Resources.Load 同步实例化（LogUI 等内置资源依赖，
+                // 非 YooAsset bundle，不受 WebGL 同步加载限制）；否则一律走 YooAsset 异步加载。
+                // 注：isAsync 仅影响调用方是否 await 实例返回（ShowUIAwaitImp），不再切换同步/异步资源加载——
+                // 客户端运行时禁用同步资源加载 API（WebGL 不支持），故 YooAsset 路径恒异步。
                 GameObject panel;
                 if (fromResources)
                 {
                     panel = UnityEngine.Object.Instantiate(Resources.Load<GameObject>(assetName), UIRoot);
                 }
-                else if (isAsync)
-                {
-                    panel = await Resource.LoadGameObjectAsync(assetName, parent: UIRoot);
-                }
                 else
                 {
-                    panel = Resource.LoadGameObject(assetName, parent: UIRoot);
+                    panel = await Resource.LoadGameObjectAsync(assetName, parent: UIRoot);
                 }
 
                 if (panel == null)

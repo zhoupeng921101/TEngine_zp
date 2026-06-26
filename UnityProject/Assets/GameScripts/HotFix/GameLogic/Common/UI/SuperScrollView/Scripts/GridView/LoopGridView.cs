@@ -318,8 +318,15 @@ namespace GameLogic
         }
         private GridItemPool TryCreateItemPool(string itemPrefabName)
         {
+            // 按名加载 item 预制。客户端运行时禁用同步资源加载 API（WebGL 不支持），故此处仅编辑器保留同步加载；
+            // 运行时请改用 AllocOrNewListViewItem(GameObject) 重载、由调用方传入已（异步）加载的预制，不触发同步 LOAD。
             string resPath = itemPrefabName;
+#if UNITY_EDITOR
             GameObject go = GameModule.Resource.LoadGameObject(resPath, parent: _containerTrans);
+#else
+            GameObject go = null;
+            Log.Error($"[LoopGridView] 运行时禁用同步资源加载，按名加载 item 预制 '{resPath}' 失败。请改用 GameObject 重载传入预载好的预制。");
+#endif
             if (go != null)
             {
                 go.SetActive(false);

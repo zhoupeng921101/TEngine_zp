@@ -11,16 +11,6 @@ namespace GameLogic
     public interface IUIResourceLoader
     {
         /// <summary>
-        /// 同步加载游戏物体并实例化。
-        /// </summary>
-        /// <param name="location">资源的定位地址。</param>
-        /// <param name="parent">资源实例父节点。</param>
-        /// <param name="packageName">指定资源包的名称。不传使用默认资源包</param>
-        /// <returns>资源实例。</returns>
-        /// <remarks>会实例化资源到场景，无需主动UnloadAsset，Destroy时自动UnloadAsset。</remarks>
-        public GameObject LoadGameObject(string location, Transform parent = null, string packageName = "");
-
-        /// <summary>
         /// 异步加载游戏物体并实例化。
         /// </summary>
         /// <param name="location">资源定位地址。</param>
@@ -38,19 +28,6 @@ namespace GameLogic
     public class UIResourceLoader : IUIResourceLoader
     {
         private readonly IResourceModule _resourceLoaderImp = ModuleSystem.GetModule<IResourceModule>();
-
-        /// <summary>
-        /// 同步加载游戏物体并实例化。
-        /// </summary>
-        /// <param name="location">资源的定位地址。</param>
-        /// <param name="parent">资源实例父节点。</param>
-        /// <param name="packageName">指定资源包的名称。不传使用默认资源包</param>
-        /// <returns>资源实例。</returns>
-        /// <remarks>会实例化资源到场景，无需主动UnloadAsset，Destroy时自动UnloadAsset。</remarks>
-        public GameObject LoadGameObject(string location, Transform parent = null, string packageName = "")
-        {
-            return _resourceLoaderImp.LoadGameObject(location, parent, packageName);
-        }
 
         /// <summary>
         /// 异步加载游戏物体并实例化。

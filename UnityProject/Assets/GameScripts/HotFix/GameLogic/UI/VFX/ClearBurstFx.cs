@@ -45,11 +45,12 @@ namespace GameLogic
         /// <param name="debrisColor">碎块层主色（被消方块色）。</param>
         public static void SpawnAtLocal(Transform parent, Vector2 localAnchored, Color debrisColor)
         {
-            var go = GameModule.Resource.LoadGameObject(PrefabLocation, parent);
+            // 取预载模板 Instantiate（同步实例化已加载预制，WebGL 合法）；不走同步资源 LOAD。
+            var go = UIPreloader.Instantiate(PrefabLocation, parent);
             if (go == null)
             {
-                // 寻址失败不应静默：预制未进运行时清单 / Effects 收集器未覆盖时在此暴露。
-                Log.Warning($"[ClearBurstFx] LoadGameObject('{PrefabLocation}') 返回 null，特效未播放。检查 AssetBundleCollector 是否覆盖 Effects 目录。");
+                // 模板缺失不应静默：预制未进 UIPreloader 预载清单 / Effects 收集器未覆盖时在此暴露（Instantiate 已记 Error）。
+                Log.Warning($"[ClearBurstFx] 预制 '{PrefabLocation}' 未预载，特效未播放。检查 UIPreloader.GameplayPrefabLocations 与 AssetBundleCollector 是否覆盖 Effects 目录。");
                 return;
             }
 

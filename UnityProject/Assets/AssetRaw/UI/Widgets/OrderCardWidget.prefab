@@ -333,7 +333,6 @@ MonoBehaviour:
   m_DrawOnNull: 0
   m_AdaptiveSize: 0
   spriteAtlas: {fileID: 100100200, guid: 1f0b11651d56f814bb06a92cd794a0a0, type: 3}
-  nowSpriteName: 
 --- !u!1 &8013884075131489719
 GameObject:
   m_ObjectHideFlags: 0
@@ -388,7 +387,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 8013884075131489719}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Script: {fileID: 11500000, guid: 060b935c29aae0145a8fba310b10ccb5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
@@ -409,6 +408,9 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+  m_DrawOnNull: 0
+  m_AdaptiveSize: 0
+  spriteAtlas: {fileID: 100100200, guid: 123240a9379acc64d9097f7e1b5aaa11, type: 3}
 --- !u!1 &8097101289522903189
 GameObject:
   m_ObjectHideFlags: 0

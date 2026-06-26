@@ -335,11 +335,13 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 创建 UIWidgetMono 通过资源定位地址（路径 ①：LoadGameObject 已实例化、组件在 prefab 根）。
+        /// 创建 UIWidgetMono 通过资源定位地址（路径 ①：取预载模板 Instantiate 实例化、组件在 prefab 根）。
+        /// 预制须在 <see cref="UIPreloader"/> 预载清单内；缺失时 Instantiate 记 Error 返 null（暴露漏预载，
+        /// 不回退同步资源加载——WebGL 运行时禁用同步 LOAD）。
         /// </summary>
         public T CreateWidgetByPath<T>(Transform parentTrans, string assetLocation, bool visible = true) where T : UIWidgetMono
         {
-            GameObject goInst = UIModule.Resource.LoadGameObject(assetLocation, parent: parentTrans);
+            GameObject goInst = UIPreloader.Instantiate(assetLocation, parentTrans);
             return CreateWidget<T>(goInst, visible);
         }
 

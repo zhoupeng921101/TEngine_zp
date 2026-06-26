@@ -118,8 +118,10 @@ public class ConfigSystem
     }
 
     /// <summary>
-    /// 加载二进制配置：优先取内存缓存（预载后命中，零 bundle 加载）；
-    /// 未命中则回退同步加载（编辑器 / 非 WebGL 平台合法；WebGL 上若走到此处说明该表未被预载，应补进 <see cref="ConfigLocations"/>）。
+    /// 加载二进制配置：取内存缓存（预载后命中，零资源加载）。
+    /// 运行时唯一数据源是预载缓存；客户端运行时禁用同步资源加载 API，故缓存未命中即抛
+    /// （说明该表未被预载，应补进 <see cref="ConfigLocations"/>）。
+    /// 仅编辑器（含 EditMode 单测，不走启动预载流程）保留同步回退，便于无预载直接读配置。
     /// </summary>
     /// <param name="file">资源定位名（去扩展名的文件名）。</param>
     /// <returns>ByteBuf。</returns>
@@ -130,16 +132,17 @@ public class ConfigSystem
             return new ByteBuf(cached);
         }
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-        Log.Error($"[ConfigSystem] 配置 {file} 未预载，WebGL 将无法同步加载。请将其加入 ConfigSystem.ConfigLocations。");
-#endif
+#if UNITY_EDITOR
+        // 编辑器 / EditMode 单测专用回退：测试不跑启动期预载，直接同步读配置。运行时（含 WebGL）零同步加载。
         TextAsset textAsset = ResourceModule.LoadAsset<TextAsset>(file);
         if (textAsset == null)
         {
-            throw new GameFrameworkException($"[ConfigSystem] 配置加载失败：{file}（资源不存在或 WebGL 同步加载被拒）。");
+            throw new GameFrameworkException($"[ConfigSystem] 配置加载失败：{file}（资源不存在）。");
         }
 
-        byte[] bytes = textAsset.bytes;
-        return new ByteBuf(bytes);
+        return new ByteBuf(textAsset.bytes);
+#else
+        throw new GameFrameworkException($"[ConfigSystem] 配置 {file} 未预载，运行时禁用同步加载。请将其加入 ConfigSystem.ConfigLocations 由启动期异步预载。");
+#endif
     }
 }

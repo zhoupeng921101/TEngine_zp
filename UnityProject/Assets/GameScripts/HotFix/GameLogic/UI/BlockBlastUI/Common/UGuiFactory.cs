@@ -17,9 +17,10 @@ namespace GameLogic
         private static Font _font;
 
         /// <summary>
-        /// 代码创建 Text 使用的字体。优先加载工程 GBK 字体（含中文字形），
-        /// 加载失败回退 Unity 内置字体（无中文，仅兜底防整体无字体）。
-        /// 进程级静态缓存，仅加载一次、随 App 生命周期常驻，不卸载。
+        /// 代码创建 Text 使用的字体。优先取 <see cref="UIPreloader"/> 启动期异步预载的 GBK 字体（含中文字形）；
+        /// 未预载则回退 Unity 内置字体（无中文，仅兜底防整体无字体）。不走同步资源加载——WebGL 运行时禁用同步 LOAD，
+        /// 字体须由 UIPreloader.FontLocations 在玩法窗开前预载驻留。
+        /// 进程级静态缓存，仅取一次、随 App 生命周期常驻。
         /// </summary>
         private static Font DefaultFont
         {
@@ -27,18 +28,11 @@ namespace GameLogic
             {
                 if (_font == null)
                 {
-                    try
-                    {
-                        _font = GameModule.Resource.LoadAsset<Font>(GbkFontLocation);
-                    }
-                    catch (System.Exception e)
-                    {
-                        Log.Warning($"[UGuiFactory] 加载 GBK 字体失败，回退内置字体：{e.Message}");
-                    }
+                    _font = UIPreloader.GetFont(GbkFontLocation);
 
                     if (_font == null)
                     {
-                        Log.Warning("[UGuiFactory] GBK 字体不可用，回退 Unity 内置字体（中文将无字形）。");
+                        Log.Warning("[UGuiFactory] GBK 字体未预载，回退 Unity 内置字体（中文将无字形）。请确认 UIPreloader.FontLocations 含该字体且预载已在文本创建前完成。");
                         _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                         if (_font == null) _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
                     }

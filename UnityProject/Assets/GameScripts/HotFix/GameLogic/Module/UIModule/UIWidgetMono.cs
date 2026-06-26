@@ -71,11 +71,13 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 根据资源名创建（自行加载并实例化）。
+        /// 根据资源名创建（取预载模板 Instantiate 实例化）。
+        /// 预制须在 <see cref="UIPreloader"/> 预载清单内；缺失时 Instantiate 记 Error 返 null
+        /// （不回退同步资源加载——WebGL 运行时禁用同步 LOAD）。
         /// </summary>
         public bool CreateByPath(string resPath, UIBaseMono parentUI, Transform parentTrans = null, bool visible = true)
         {
-            GameObject goInst = UIModule.Resource.LoadGameObject(resPath, parent: parentTrans);
+            GameObject goInst = UIPreloader.Instantiate(resPath, parentTrans);
             if (goInst == null)
             {
                 return false;
