@@ -1,0 +1,52 @@
+<b>粗体标签</b>
+<i>斜体标签</i>
+<u>下划线标签</u>
+<s>删除线标签</s>
+<sup>上标标签</sup>前面后面上标签 5<sup>。</sup>C
+<sub>下标标签，如：</sub>H<sub>2</sub>O
+<size=48>文字大小</size>
+<size=55%>文字大小-百分比</size>
+<size=+18>默认大小上再增加文字大小</size>
+<size=-18>默认大小上减去指定文字大小</size>
+<pos=40>距离左侧的缩进，可以实现类似首行缩进的，文字大小不同这个值缩进程度不同
+<color=yellow>颜色标签写法一</color>
+<#00ff00>颜色标签写法二</color>
+<alpha=#FF>正 <alpha=#CC>在 <alpha=#AA>进 <alpha=#88>行 <alpha=#66>透 <alpha=#44>明度 <alpha=#22>的 <alpha=#00>变化
+<alpha=#FF>
+<align="left">左对齐<sprite=2>也是默认对齐</align>
+<align="center">居中对齐<sprite=2></align>
+<align="right">右对齐<sprite=5></align>
+1. <indent=15%>缩进15%.
+多行有效</indent>
+2. <indent=100>缩进100像素
+多行有效</indent>
+3. <indent=5em>缩进5em
+多行有效</indent>
+4. <indent=15%>缩进15%.
+<cspace=1em>1em字体单位间距</cspace>
+<cspace=10>10像素字体单位间距</cspace>
+<cspace=-4>-10像素缩小间距
+使用 <font="LiberationSans SDF">different font?</font>或者使用<font="YouYuan SDF" material="YouYuan SDF - Outline">不同材质？
+<line-height=50%>50%行间距
+行间距</line-height>
+<line-height=100%>100%行间距
+正常</line-height>
+<line-height=150%>
+150%
+行间距</line-height>
+<line-indent=15%>行缩进只影响单行显示，多行不受影响</line-indent>
+<lowercase>ABCDEFG</lowercase>
+<uppercase>ABCDEFG</uppercase>
+<smallcaps>AbcdeFg</smallcaps>
+设置 <mark=#ff0000aa>标注</mark> 前面是标注，需要透明度
+<noparse><b></noparse> 取消标签的作用，如b加粗没效果
+<style=H1>内置</style><style=H2>的</style><style=C1>样式名</style>
+<width=50%>设定高可用宽度，超出后即使没换行会自动换行的</width>
+<link="https://zhima.blog.csdn.net/">点击这 网站 俩字 跳转，需要额外脚本</link>
+
+
+帮助文档模板
+
+
+<line-height=100%><size=95%><color=#5E3E25><line-height=30%><color=#492D16><size=100%><b>+宠物品质</b></size></color>\n<line-height=100%><color=#492D16><size=30%>------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</size></color>\n<line-height=100%><indent=2%>1、宠物品质分为<color=#ECBD48>S,A,B,C,D</color>。品质越高,宠物被动技能品质越好！</indent>\n\n<line-height=30%><color=#492D16><size=100%><b>+宠物属性</b></size></color>\n<line-height=100%><color=#492D16><size=30%>------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</size></color>\n<line-height=100%><indent=2%>1、宠物属性计算公式:<color=#ECBD48>资质*等级*成长百分比</color>。</indent>\n\n<line-height=30%><color=#492D16><size=100%><b>+宠物成长</b></size></color>\n<line-height=100%><color=#492D16><size=30%>------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</size></color>\n<line-height=100%><indent=2%>1、宠物可通过消耗对应数量的<color=#ECBD48>本体</color>进行成长,成长阶段分为:<color=#ECBD48>幼年,少年,成年,完全,究极</color>。</indent>\n<line-height=100%><indent=2%>2、资质可进行更换,可通过道具锁定已洗练的属性。</indent>\n\n<line-height=30%><color=#492D16><size=100%><b>+宠物技能</b></size></color>\n\n<line-height=100%><color=#492D16><size=30%>------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</size></color>\n<line-height=100%><indent=2%>1、宠物技能分为主动技能和被动技能,主动技能通过成长提升,被动技能通过消耗本体提升</indent>\n<line-height=100%><indent=2%>2、不需要的宠物可通过炼化,转化为被动技能书。注意:炼化时将会在宠物已有的被动技能中<color=#ECBD48>随机炼化成1本技能书</color>。</indent>
+</color></size>
