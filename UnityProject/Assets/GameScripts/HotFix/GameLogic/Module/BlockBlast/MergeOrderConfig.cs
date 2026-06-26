@@ -4,7 +4,7 @@ namespace GameLogic.BlockBlast
 {
     /// <summary>
     /// 合成+订单+体力 Demo 切片的静态配置（仿 08 的 <see cref="MergeElementVisual"/>）。
-    /// 合成 / 订单 / 体力 / 得分驱动元素生成 / 兜底多为硬编码可调常量 + 手编循环订单池。
+    /// 合成 / 订单 / 体力 / 多消元素产出(纯 N 函数) / 兜底多为硬编码可调常量 + 手编循环订单池。
     /// 其中订单数 / 订单刷新间隔 / 体力恢复间隔 / 体力上限四项运行时读 Luban global 键值表（经 <see cref="GlobalConfigMgr"/>，缺键回退默认）。
     /// 改数即调难度。常量默认值取自设计文档 §五配置表；走配置的四项默认值与 global 表初值一致。
     /// 表现（glyph / 纯色）直接复用 <see cref="MergeElementVisual.Glyph"/> / <see cref="MergeElementVisual.ColorOf"/>。
@@ -80,33 +80,30 @@ namespace GameLogic.BlockBlast
         /// </summary>
         public static int ClearToolCost => GlobalConfigMgr.ClearToolEnergyCostValue;
 
-        // ── 得分驱动元素生成 ──────────────────────────────────
-        // 该次消除得分 → 元素数量 k：消得越狠、后续候选块携带的元素越多；无消除→候选块纯方块。
-        // 确定性映射（无随机），逐档可单测。
-
-        /// <summary>每多少分折算 1 个元素。「灵活」旋钮：调小更慷慨、调大更吝啬。</summary>
-        public const int ScorePerElement = 200;
-
-        /// <summary>单次消除产元素数下限（保底）：任何成功消除至少产 1，小消除不空手。</summary>
-        public const int MinElementsPerClear = 1;
-
-        /// <summary>单次消除产元素数上限（封顶）：挡住超高连消刷爆经济。</summary>
-        public const int MaxElementsPerClear = 4;
+        // ── 多消元素产出（纯 N 函数）──────────────────────────
+        // 单次落子清的行列总数 N → 本次多消的全部元素产出 (Lv1, Lv2, Lv3)。纯 N 函数、无随机、与得分无关，
+        // 逐档可单测。落点：Lv1 入候选块预算队列（EnqueueScoreElements），Lv2/Lv3 直发收集区（AddDirect）。
+        // 得分（ClearScore / 显示分 / 连消倍率）独立保留，不再驱动元素数量。
 
         /// <summary>预算队列总积压上限（≈一组候选块容量）：超出则不再入队，避免元素积压远超候选格承接。</summary>
         public const int MaxPendingElements = 12;
 
         /// <summary>
-        /// 该次消除得分 → 元素数量映射：clearScore≤0 产 0（无消除/开局纯方块）；
-        /// 否则 Clamp(CeilDiv(clearScore, ScorePerElement), Min, Max)。单调递增、确定性。
+        /// N（本次落子清的行列总数）→ 本次多消的全部元素产出 (lv1, lv2, lv3)。单一信息源、逐档可单测：
+        /// N=1→(1,0,0)；N=2→(3,0,0)；N=3→(1,1,0)；N=4→(3,1,0)；N=5→(2,2,0)；N≥6→(0,0,1)；N≤0→全 0。
+        /// 全清额外 1 Lv3 不在此表（由 Settle 在此基础上叠加，见 AllClearRewardLevel/Count）。
         /// </summary>
-        public static int ElementsForScore(int clearScore)
+        public static (int lv1, int lv2, int lv3) ElementsForLines(int lines)
         {
-            if (clearScore <= 0) return 0;
-            int k = (clearScore + ScorePerElement - 1) / ScorePerElement; // CeilDiv（clearScore>0）
-            if (k < MinElementsPerClear) k = MinElementsPerClear;
-            if (k > MaxElementsPerClear) k = MaxElementsPerClear;
-            return k;
+            switch (lines)
+            {
+                case 1:  return (1, 0, 0);
+                case 2:  return (3, 0, 0);
+                case 3:  return (1, 1, 0);
+                case 4:  return (3, 1, 0);
+                case 5:  return (2, 2, 0);
+                default: return lines >= 6 ? (0, 0, 1) : (0, 0, 0); // ≥6 封顶 Lv3；≤0 无产出
+            }
         }
 
         // ── 灵力（单货币）+ 祈愿兑体力（去变现续命）─ 设计 11 §四/§7.1 ─────────
@@ -137,29 +134,9 @@ namespace GameLogic.BlockBlast
             return ComboMultPermille[idx];
         }
 
-        // ── 多消里程碑加码 ─ 设计 11 §5.2（单次落子清行列数，直发跳过合成）─
-        // 在「得分驱动基础产出」之上，按单次落子的多消数（lines）额外直发中/高级图案进收集区。
-        // 阈值与产物逐档对齐原稿「3 连击=1 中级…6 连击及以上=1 高级」。
-
-        /// <summary>多消里程碑触发的最小行列数（&lt; 此值无加码）。</summary>
+        // ── 多消弹字阈值 ─ 设计 11 §5.2 ─────────────────────────
+        /// <summary>多消弹字（"Great" 等）展示的最小行列数（&lt; 此值不显多消弹字，走连消弹字）。</summary>
         public const int MultiClearMilestoneMinLines = 3;
-
-        /// <summary>
-        /// 多消里程碑加码：单次落子清 lines 行列时，额外直发的图案（等级,数量）列表。
-        /// 3消→+1 Lv2；4消→+1 Lv2 +1 Lv1；5消→+1 Lv2 +2 Lv1；6+消→+1 Lv3。lines&lt;3 返回空。
-        /// 返回 (level, count) 元组数组，level 直接进收集区对应等级（不经合成级联，由调用方 AddDirect）。
-        /// </summary>
-        public static (int level, int count)[] MultiClearMilestoneBonus(int lines)
-        {
-            if (lines < MultiClearMilestoneMinLines) return System.Array.Empty<(int, int)>();
-            switch (lines)
-            {
-                case 3:  return new[] { (2, 1) };
-                case 4:  return new[] { (2, 1), (1, 1) };
-                case 5:  return new[] { (2, 1), (1, 2) };
-                default: return new[] { (3, 1) }; // 6+ 直达封顶 Lv3
-            }
-        }
 
         /// <summary>多消即时弹字。索引 = 行列数（1 起）；超数组取末项。</summary>
         public static readonly string[] MultiClearLabels =

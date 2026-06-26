@@ -27,23 +27,20 @@ namespace GameLogic.BlockBlast.Tests
             return m;
         }
 
-        // ───────────── 设计 11 §5.2 多消里程碑加码 ─────────────
+        // ───────────── 设计 11 §5.2 多消元素产出（纯 N 函数）─────────────
 
         [Test]
-        public void MultiMilestone_PerTier_MatchesDesignTable()
+        public void ElementsForLines_PerTier_MatchesDesignTable()
         {
-            // 1/2 消无加码
-            Assert.AreEqual(0, MergeOrderConfig.MultiClearMilestoneBonus(1).Length);
-            Assert.AreEqual(0, MergeOrderConfig.MultiClearMilestoneBonus(2).Length);
-            // 3 消 → +1 Lv2
-            CollectionAssert.AreEqual(new[] { (2, 1) }, MergeOrderConfig.MultiClearMilestoneBonus(3));
-            // 4 消 → +1 Lv2 +1 Lv1
-            CollectionAssert.AreEqual(new[] { (2, 1), (1, 1) }, MergeOrderConfig.MultiClearMilestoneBonus(4));
-            // 5 消 → +1 Lv2 +2 Lv1
-            CollectionAssert.AreEqual(new[] { (2, 1), (1, 2) }, MergeOrderConfig.MultiClearMilestoneBonus(5));
-            // 6+ 消 → +1 Lv3
-            CollectionAssert.AreEqual(new[] { (3, 1) }, MergeOrderConfig.MultiClearMilestoneBonus(6));
-            CollectionAssert.AreEqual(new[] { (3, 1) }, MergeOrderConfig.MultiClearMilestoneBonus(9));
+            // 纯 N 函数总产出 (Lv1, Lv2, Lv3)：单消 1 初；双消 3 初；三消 1 初+1 中；
+            // 四消 3 初+1 中；五消 2 初+2 中；6+ 仅 1 高。
+            Assert.AreEqual((1, 0, 0), MergeOrderConfig.ElementsForLines(1));
+            Assert.AreEqual((3, 0, 0), MergeOrderConfig.ElementsForLines(2));
+            Assert.AreEqual((1, 1, 0), MergeOrderConfig.ElementsForLines(3));
+            Assert.AreEqual((3, 1, 0), MergeOrderConfig.ElementsForLines(4));
+            Assert.AreEqual((2, 2, 0), MergeOrderConfig.ElementsForLines(5));
+            Assert.AreEqual((0, 0, 1), MergeOrderConfig.ElementsForLines(6));
+            Assert.AreEqual((0, 0, 1), MergeOrderConfig.ElementsForLines(9));
         }
 
         [Test]
@@ -83,7 +80,7 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void Settle_ComboMultOnlyAffectsDisplayScore_NotElements()
+        public void Settle_ComboMultOnlyAffectsDisplayScore_ElementsByLines()
         {
             var m = FreshState();
             // 让链长推到 5（×2.0）：先连续若干次消除
@@ -91,15 +88,16 @@ namespace GameLogic.BlockBlast.Tests
             int clearedCells = 8;
             int lines = 1;
             int baseScore = BlockScoring.ClearScore(clearedCells, lines);
-            int kExpected = MergeOrderConfig.ElementsForScore(baseScore); // 用未乘连消的基础分
+            int lv1Expected = MergeOrderConfig.ElementsForLines(lines).lv1; // 纯 N 函数，与得分/连消无关
 
             var r = ClearSettlement.Settle(m, lines, clearedCells, false, MergeElement.Butterfly);
 
             Assert.AreEqual(baseScore, r.BaseScore, "基础分不含连消");
             Assert.AreEqual(baseScore * 2000 / 1000, r.DisplayScore, "显示分 = 基础分 ×2.0");
-            Assert.AreEqual(kExpected, r.BaseElementsK, "元素产出用未乘连消的基础分");
-            // 元素入队数 = k（NeededTypes 非空）
-            Assert.AreEqual(kExpected, m.PendingElements.Count);
+            Assert.AreEqual(lv1Expected, r.BaseElementsK, "Lv1 产出按 N 表，不随得分/连消变");
+            Assert.AreEqual(1, r.BaseElementsK, "单消（N=1）产 1 Lv1");
+            // 元素入队数 = Lv1 表值（NeededTypes 非空）
+            Assert.AreEqual(lv1Expected, m.PendingElements.Count);
         }
 
         [Test]
@@ -118,8 +116,8 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsTrue(m.AllClearArmed);
             var r = ClearSettlement.Settle(m, 4, 32, true, MergeElement.Chalice);
             Assert.IsTrue(r.AllClearRewarded);
-            // 全清奖 1 Lv3（叠加 4 消里程碑 +1 Lv2+1 Lv1，互不影响 Lv3 计数）
-            Assert.AreEqual(1, m.InventoryCount(MergeElement.Chalice, 3), "全清发 1 Lv3");
+            // 全清奖额外 1 Lv3（叠加 N=4 表产出 3 Lv1+1 Lv2，均不进 Lv3 计数；1 Lv2 不足 MergeCount 不级联）
+            Assert.AreEqual(1, m.InventoryCount(MergeElement.Chalice, 3), "全清额外发 1 Lv3");
             Assert.AreEqual(1, m.GoddessRating, "全清推进女神 +1");
             Assert.IsFalse(m.AllClearArmed, "发奖后武装位清空");
         }

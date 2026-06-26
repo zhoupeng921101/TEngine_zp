@@ -22,7 +22,7 @@ namespace GameLogic.BlockBlast
         public readonly bool AllClearRewarded;
         /// <summary>全清发奖触发的女神升档（仅 AllClearRewarded 时有意义）。</summary>
         public readonly bool GoddessLeveledUp;
-        /// <summary>得分驱动的基础 Lv1 元素产出数（已入预算队列的 k）。</summary>
+        /// <summary>本手 Lv1 元素产出数（按 N 表，已入预算队列）。</summary>
         public readonly int BaseElementsK;
         /// <summary>本手获得的盲盒数（全清解锁 + 连消阈值解锁，设计 12 §3.4）。供窗口弹「+1 🔮」提示。</summary>
         public readonly int BlindBoxGained;
@@ -47,12 +47,13 @@ namespace GameLogic.BlockBlast
     /// 连消 / 多消 / 全清结算流水线（设计 11 §5.5，顺序固定，可单测）。
     ///
     /// 顺序铁律：连消倍率只乘【显示分】，绝不参与【元素产出】与【全清判定】。
-    /// 这条隔离保证「会连消的玩家拿高分爽感」与「图案经济不被连消通胀」互不污染。
+    /// 元素产出是【纯 N 函数】（本次落子清的行列总数 N），与得分完全解耦。
+    /// 这条隔离保证「会连消的玩家拿高分爽感」与「图案经济不被连消/得分通胀」互不污染。
     ///
     /// 注意：本模块只负责落子后「判定消除之后」的结算副作用——
     /// 扣体力(§7)、IngestElement(逐 Lv1 入收集区)、RefundEnergy 由窗口在调用本模块前完成，
-    /// 因为它们涉及棋盘/overlay 的实际清除。本模块接管：连消链推进、显示分、得分驱动产出入队、
-    /// 多消里程碑直发、全清武装位 + 全清奖 + 女神推进。
+    /// 因为它们涉及棋盘/overlay 的实际清除。本模块接管：连消链推进、显示分、按 N 表的元素产出
+    /// （Lv1 入预算队列 / Lv2·Lv3 直发收集区）、全清武装位 + 全清奖 + 女神推进。
     /// </summary>
     public static class ClearSettlement
     {
@@ -93,14 +94,15 @@ namespace GameLogic.BlockBlast
                 blindBoxGained += 1;
             }
 
-            // —— 步 5：元素产出（用【未乘连消】的 baseScore）——
-            int k = MergeOrderConfig.ElementsForScore(baseScore);
-            m.EnqueueScoreElements(k); // 基础产出 k 个 Lv1 入预算队列（得分驱动，现状逻辑）
+            // —— 步 5：元素产出（纯 N 函数，与得分解耦）——
+            // 按本次落子清的行列数 lines 查表，得本次多消的全部产出 (Lv1, Lv2, Lv3)。
+            // Lv1 入候选块预算队列（附后续候选块）；Lv2/Lv3 直发收集区（跳过逐级合成）。
+            var (lv1, lv2, lv3) = MergeOrderConfig.ElementsForLines(lines);
+            m.EnqueueScoreElements(lv1); // Lv1 入预算队列（队列截断于 MaxPendingElements，N 表 ≤3 远在其下）
 
-            // 多消里程碑加码：lines≥3 额外直发 Lv2/Lv3 进收集区（跳过合成）
             if (milestoneType == MergeElement.None) milestoneType = MergeElement.Star;
-            foreach (var (level, count) in MergeOrderConfig.MultiClearMilestoneBonus(lines))
-                m.AddDirect(milestoneType, level, count);
+            if (lv2 > 0) m.AddDirect(milestoneType, 2, lv2);
+            if (lv3 > 0) m.AddDirect(milestoneType, 3, lv3);
 
             // —— 步 6：全清判定（用棋盘空 + 武装位，与连消倍率无关）——
             bool allClearRewarded = false;
@@ -127,7 +129,7 @@ namespace GameLogic.BlockBlast
             return new SettlementResult(
                 lines, baseScore, displayScore, m.ComboChain,
                 MergeOrderConfig.MultiClearLabelFor(lines),
-                allClearRewarded, goddessLeveledUp, k, blindBoxGained);
+                allClearRewarded, goddessLeveledUp, lv1, blindBoxGained);
         }
     }
 }
