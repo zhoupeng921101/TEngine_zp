@@ -73,11 +73,8 @@ public partial class GameApp
             // 四货币(P2 客户端段):用服务端快照权威值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
             ctx.ApplyServerCurrencySnapshot(view.SoulPower, view.Piety, view.GuardianExp, view.Energy);
 
-            // 云存档下载(P3 客户端段):在 P0 身份确立(OnPlayerIdIssued 已在 LoginAsync 内先触发)、
-            // P2 货币快照已应用(上一行)之后再做,避免次序冲突。下载只覆盖局内/标志/权重,保留本地货币 + playerId。
-            // 即发即忘:DownloadAndResolve 完成后置 IsReady,此后存档边界上传才放行。
-            // 注意:云存档下载不入入口闸,失败不挡门(下载在此发起即返回,闸只认快照已应用)。
-            ctx.CloudSave?.DownloadAndResolve().Forget();
+            // 云存档下载不再在登录侧发起:改由进主游戏请求(EnterMainGame)同包回带驱动(决策②每次进入重新对齐)。
+            // 接线在 MainMenuWindow「开始游戏」入口闸 → ctx.EnterMainGame.EnterAsync()。
 
             // 入口闸信号①:服务端玩家信息快照已应用。
             _snapshotApplied = true;
@@ -102,13 +99,8 @@ public partial class GameApp
             GameLogic.GameContext.Instance.OrderSync?.OnMergeStateReady(state);
         GameLogic.BlockBlast.BlockGameState.OnMergeStateClosed = state =>
             GameLogic.GameContext.Instance.OrderSync?.OnMergeStateClosed(state);
-        // ③ 服务端订单快照推送(登录初推 + 整批刷新到点推):回调内同步把协议对象转框架中立 DTO 再应用
-        //    (协议对象在 Handler.Run 返回后回池,不可跨帧持有,沿 OnPlayerInfoSnapshot 范式)。
-        FantasyClient.FantasyNetwork.OnMergeOrderSnapshotPush += snapshot =>
-        {
-            var data = GameLogic.BlockBlast.Player.OrderRpcGatewayProd.ToSnapshot(snapshot);
-            GameLogic.GameContext.Instance.OrderSync?.OnSnapshotPush(data);
-        };
+        // ③ 服务端订单快照来源:改由进主游戏请求(EnterMainGame)同包回带 → ctx.EnterMainGame 内部喂 OrderSync.OnSnapshotPush。
+        //    登录侧不再单独推订单快照(G2C_MergeOrderSnapshotPush 已退役)。接线在 MainMenuWindow「开始游戏」入口闸。
 
         // 货币聚合上报钩子(P2 客户端段):每次元层落盘(MergeMetaPersistence.SaveAsync,= 一次玩法事件边界)后,
         // 把四货币本地净变化聚合成一笔上报服务端。钩子注册在接线层(本类),使 MergeMetaPersistence 对货币同步无知。

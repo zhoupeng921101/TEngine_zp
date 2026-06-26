@@ -8,7 +8,7 @@ namespace GameLogic
     /// 棋盘格底块 Widget（MergeOrderWindow 棋盘每个已占格一个实例，由窗口池化复用）。
     /// 承载单格皮肤纹理：彩色态按方块类型贴 default_skin 各自纹理、单色态全盘统一贴当前单色 sprite，
     /// 皮肤选取在窗口侧完成（窗口持 _merge.Skin / BlockSkinCatalog），本 widget 只接收已解析的 sprite 定位名。
-    /// 绑定字段 m_img_Skin 由 BlockWidget_Gen.g.cs 的 ScriptGenerator() 负责，本文件不重复定义。
+    /// 绑定字段 m_eximg_Skin 由 BlockWidget_Gen.g.cs 的 ScriptGenerator() 负责，本文件不重复定义。
     /// </summary>
     public partial class BlockWidget
     {

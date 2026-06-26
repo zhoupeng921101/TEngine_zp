@@ -44,8 +44,11 @@ namespace GameLogic
         /// <summary>normal 订单本地视图 ↔ 服务端权威投影器(P1 全栈迁移·客户端段:登录快照/推送应用 + 交付 RPC 编排)。</summary>
         public OrderSync OrderSync { get; private set; }
 
-        /// <summary>云存档同步编排(P3 全栈迁移·客户端段):登录下载冲突解决 + 存档边界节流上传(只搬非货币非身份切片)。</summary>
+        /// <summary>云存档同步编排(P3 全栈迁移·客户端段):进主游戏下载冲突解决 + 存档边界节流上传(只搬非货币非身份切片)。</summary>
         public CloudSaveSync CloudSave { get; private set; }
+
+        /// <summary>进主游戏编排(全栈协议改动·客户端段):进融合主游戏时发一次 C2G_EnterMainGameRequest,把订单快照 + 云存档同包回带统一应用。</summary>
+        public EnterMainGameSync EnterMainGame { get; private set; }
 
         /// <summary>远程 ledger 服务(我的流水查询,设计 46 客户端段)。</summary>
         public RemoteAttrLedgerService AttrLedger { get; private set; }
@@ -83,9 +86,13 @@ namespace GameLogic
             // 登录/刷新推送 → OnSnapshotPush 应用快照;开窗 → OnMergeStateReady 切权威 + 接交付钩子。接线在 GameApp.StartGameLogic。
             OrderSync = new OrderSync(new OrderRpcGatewayProd());
 
-            // 云存档同步(P3 客户端段):生产用 CloudSaveGatewayProd(经 FantasyNetwork.Session 发 C2G_CloudSave*);
-            // 登录(身份+货币快照之后)→ DownloadAndResolve;存档边界 → TryUploadThrottled。接线在 GameApp.StartGameLogic。
+            // 云存档同步(P3 客户端段):生产用 CloudSaveGatewayProd(上传路径仍经 Session 发 C2G_CloudSaveUploadRequest);
+            // 下载冲突解决由进主游戏响应同包回带驱动(EnterMainGame),存档边界 → TryUploadThrottled。接线在 GameApp.StartGameLogic。
             CloudSave = new CloudSaveSync(new CloudSaveGatewayProd());
+
+            // 进主游戏编排(全栈协议改动·客户端段):生产用 EnterMainGameGatewayProd(经 Session 发 C2G_EnterMainGameRequest);
+            // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync、云存档 → CloudSave 统一应用。
+            EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync, CloudSave);
 
             // 远程 ledger 服务(设计 46 客户端段):生产用 RemoteAttrLedgerSource(经 FantasyNetwork.Session 发 C2G_QueryAttrLedger);
             // 服务端独占审计完整性(44 §5.4),客户端不持本地副本,每次打开窗实时拉真协议。
@@ -321,6 +328,16 @@ namespace GameLogic
         public void InitCloudSaveWith(ICloudSaveGateway gateway, System.Func<long> nowMsProvider = null)
         {
             CloudSave = new CloudSaveSync(gateway, nowMsProvider);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定接缝重建 <see cref="EnterMainGame"/>(沿 <see cref="InitCloudSaveWith"/> 范式),
+        /// 关联当前 <see cref="OrderSync"/> / <see cref="CloudSave"/>。EditMode 经它灌入桩 <see cref="IEnterMainGameGateway"/>,
+        /// 断言响应应用 + 每次进入重对齐 + 失败兜底,不连网。
+        /// </summary>
+        public void InitEnterMainGameWith(IEnterMainGameGateway gateway)
+        {
+            EnterMainGame = new EnterMainGameSync(gateway, OrderSync, CloudSave);
         }
 
         /// <summary>

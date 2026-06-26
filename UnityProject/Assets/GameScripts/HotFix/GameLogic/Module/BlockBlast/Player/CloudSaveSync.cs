@@ -45,11 +45,12 @@ namespace GameLogic.BlockBlast.Player
 
         private bool _isReady;
 
-        // 进玩法入口闸(MainMenuWindow 开始游戏)用:等登录下载对齐完成再恢复场景,避免读到旧本地。
+        // 进玩法入口闸(MainMenuWindow 开始游戏)用:等本次进主游戏响应对齐完成再恢复场景,避免读到旧本地。
         // 已就绪时 WhenReady 走快路径返 completed;未就绪时返此 source 的 task,在置 Ready 同处 TrySetResult 唤醒。
         private UniTaskCompletionSource _readySource;
 
-        /// <summary>已下载对齐过(登录下载完成)。下载前不主动上传,避免拿未对齐的本地 version 覆盖云端。</summary>
+        /// <summary>本次进主游戏响应已应用(冲突解决落地)。未就绪前不主动上传,避免拿未对齐的本地 version 覆盖云端。
+        /// 每次进主游戏前经 <see cref="ResetReadyForReentry"/> 复位,响应落地后再置位(决策②每次进入重新对齐)。</summary>
         public bool IsReady
         {
             get => _isReady;
@@ -61,9 +62,9 @@ namespace GameLogic.BlockBlast.Player
         }
 
         /// <summary>
-        /// 进玩法入口闸:等待登录下载对齐完成。已就绪即返 completed task(常态零等待);
+        /// 进玩法入口闸:等待本次进主游戏响应对齐完成。已就绪即返 completed task(常态零等待);
         /// 未就绪返一个在 <see cref="IsReady"/> 置位时完成的 task。
-        /// <see cref="DownloadAndResolve"/> 在所有分支末尾置 IsReady,gateway 自带超时降级不挂,故此 task 必在有限时间完成。
+        /// <see cref="ApplyDownloadResolution"/> 在所有分支末尾置 IsReady,进主游戏 gateway 自带超时降级不挂,故此 task 必在有限时间完成。
         /// 调用方仍应配看门狗超时兜底,避免极端阻塞。
         /// </summary>
         public UniTask WhenReady()
@@ -113,29 +114,39 @@ namespace GameLogic.BlockBlast.Player
             catch { /* ignore：version 落盘失败不阻断玩法 */ }
         }
 
-        // ── 登录下载 + 冲突解决 ──────────────────────────────────
+        // ── 进主游戏下载 + 冲突解决 ──────────────────────────────────
 
         /// <summary>
-        /// 登录后拉云存档并冲突解决(在 P0 身份确立、P2 货币快照已应用之后调,避免次序冲突)。
-        /// - Success 且 ServerVersion > 本地 → 应用服务端 blob(覆盖局内/标志/权重,保留本地货币+playerId)+ 本地 version = ServerVersion。
-        /// - ServerVersion <= 本地 或 NoSnapshot → 保留本地(本地更新或对等),不覆盖。
-        /// - ServiceUnavailable / NotLoggedIn → 用本地,稍后可重试,不崩。
-        /// 完成(任一分支)后置 <see cref="IsReady"/>=true,此后才允许上传。即发即忘,不阻塞登录主流程。
+        /// 自发下载并冲突解决(测试 / 单独下载路径用)。内部发 <see cref="ICloudSaveGateway.DownloadAsync"/> 取响应,
+        /// 再经 <see cref="ApplyDownloadResolution"/> 落地。生产进主游戏路径不走此方法(下载已由 EnterMainGame 响应同包回带,
+        /// 见 <see cref="ApplyDownloadResolution"/>),而由调用方把回带的 {code, version, blob} 直接喂 ApplyDownloadResolution。
         /// </summary>
         public async UniTask DownloadAndResolve()
         {
-            EnsureLoaded();
             CloudDownloadResult result;
             try { result = await _gateway.DownloadAsync(); }
-            catch { IsReady = true; return; } // 防御:gateway 契约不抛,此处兜底
+            catch { ApplyDownloadResolution(CloudDownloadCode.ServiceUnavailable, 0, null); return; } // 防御:gateway 契约不抛,此处兜底
 
-            switch (result.Code)
+            ApplyDownloadResolution(result.Code, result.ServerVersion, result.ServerBlob);
+        }
+
+        /// <summary>
+        /// 应用一份下载冲突解决(来源:进主游戏响应同包回带,或 <see cref="DownloadAndResolve"/> 自发下载)。
+        /// - Success 且 ServerVersion > 本地 → 应用服务端 blob(覆盖局内/标志/权重,保留本地货币+playerId)+ 本地 version = ServerVersion。
+        /// - ServerVersion <= 本地 或 NoSnapshot → 保留本地(本地更新或对等),不覆盖。
+        /// - ServiceUnavailable / NotLoggedIn → 用本地,稍后可重试,不崩。
+        /// 完成(任一分支)后置 <see cref="IsReady"/>=true,此后才允许上传。同步落地,不阻塞调用方主流程。
+        /// </summary>
+        public void ApplyDownloadResolution(CloudDownloadCode code, long serverVersion, byte[] serverBlob)
+        {
+            EnsureLoaded();
+            switch (code)
             {
                 case CloudDownloadCode.Success:
-                    if (result.ServerVersion > _localVersion && result.ServerBlob != null && result.ServerBlob.Length > 0)
+                    if (serverVersion > _localVersion && serverBlob != null && serverBlob.Length > 0)
                     {
-                        if (CloudSaveCodec.ApplyBlob(result.ServerBlob))
-                            SetLocalVersion(result.ServerVersion);
+                        if (CloudSaveCodec.ApplyBlob(serverBlob))
+                            SetLocalVersion(serverVersion);
                         // ApplyBlob 失败(blob 损坏):保留本地,不推进 version,不崩。
                     }
                     // ServerVersion <= 本地:本地更新或对等,保留本地。
@@ -144,11 +155,22 @@ namespace GameLogic.BlockBlast.Player
                 case CloudDownloadCode.ServiceUnavailable:
                 case CloudDownloadCode.NotLoggedIn:
                 default:
-                    // 保留本地,不覆盖;稍后由上传把本地推到云端(或下次登录重试)。
+                    // 保留本地,不覆盖;稍后由上传把本地推到云端(或下次进主游戏重试)。
                     break;
             }
 
             IsReady = true;
+        }
+
+        /// <summary>
+        /// 每次进主游戏前把就绪态复位(决策②:每次进入都重新对齐,不复用上次缓存)。复位后 <see cref="WhenReady"/>
+        /// 重新挂起,直到本次进主游戏响应经 <see cref="ApplyDownloadResolution"/> 落地再置位。
+        /// 防重入由调用方(进主游戏编排)保证;复位只动就绪态,不动本地 version / blob。
+        /// </summary>
+        public void ResetReadyForReentry()
+        {
+            _isReady = false;
+            _readySource = null; // 丢弃上次的完成源,下次 WhenReady 重建一个挂起源
         }
 
         // ── 关键时机上传 + 节流 + Stale 冲突解决 ──────────────────

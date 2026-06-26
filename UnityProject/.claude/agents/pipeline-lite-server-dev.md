@@ -1,7 +1,7 @@
 ---
 name: pipeline-lite-server-dev
 description: 轻型流水线服务端开发角色。基于 boss 的需求级简报在 Fantasy(Fantasy.Net)服务端工程实现功能,dotnet 编译自检后交用户手测。由 pipeline-lite skill spawn,不用于其他场景。
-model: claude-opus-4-7
+model: opus
 effort: high
 color: orange
 ---

@@ -89,7 +89,8 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 「开始游戏」进玩法编排:等云存档就绪(配看门狗超时)→ 关主菜单 + 开融合玩法窗。
+        /// 「开始游戏」进玩法编排:发一次进主游戏请求(EnterMainGame,决策②每次进入重新对齐),服务端一次性原子响应
+        /// 回带订单快照 + 云存档同包应用(配看门狗超时)→ 关主菜单 + 开融合玩法窗。
         /// 由 Button.onClick 经 .Forget() 调用(等价 async void),故全程 try/catch 兜底、异常不外逃;
         /// _entering 防重入保证等待期二次点击只进窗一次。就绪/超时后再 Close+Show,MergeOrderWindow.OnCreate 读到的本地键已是服务端对齐后投影。
         /// </summary>
@@ -101,11 +102,12 @@ namespace GameLogic
 
             try
             {
-                var cloud = GameContext.Instance?.CloudSave;
-                if (cloud != null && !cloud.IsReady)
+                var enter = GameContext.Instance?.EnterMainGame;
+                if (enter != null)
                 {
-                    // 看门狗:就绪与超时谁先到都放行。超时→按本地兜底进入(ResetForMergeOrder 回落本地),绝不卡死。
-                    await UniTask.WhenAny(cloud.WhenReady(), UniTask.Delay(EnterReadyTimeoutMs, ignoreTimeScale: true));
+                    // 看门狗:进主游戏响应应用完成与超时谁先到都放行。超时→按本地兜底进入(ResetForMergeOrder 回落本地),绝不卡死。
+                    // EnterAsync 自带防重入 + 失败降级(请求失败用本地兜底、云存档置 Ready),故此处只需配超时。
+                    await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(EnterReadyTimeoutMs, ignoreTimeScale: true));
                 }
 
                 GameModule.UI.CloseUI<MainMenuWindow>();
@@ -114,7 +116,7 @@ namespace GameLogic
             catch (System.Exception e)
             {
                 // 任何异常都不得让 async void 逃逸崩主菜单:本地兜底放行。
-                Log.Warning($"[MainMenuWindow] 进玩法等待云存档就绪异常,按本地兜底放行:{e.Message}");
+                Log.Warning($"[MainMenuWindow] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
                 GameModule.UI.CloseUI<MainMenuWindow>();
                 GameModule.UI.ShowUIAsync<MergeOrderWindow>();
             }

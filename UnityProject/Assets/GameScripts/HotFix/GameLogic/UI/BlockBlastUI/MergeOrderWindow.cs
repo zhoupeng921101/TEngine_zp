@@ -789,7 +789,7 @@ namespace GameLogic
             int remaining = count;
             for (int i = 0; i < count; i++)
             {
-                FlyToTargetFx.Spawn(root, startLocal, endLocal, flySprite, iconSize, i * Stagger,
+                FlyToTargetFx.Spawn(this, root, startLocal, endLocal, flySprite, iconSize, i * Stagger,
                     () =>
                     {
                         remaining--;
@@ -1391,7 +1391,7 @@ namespace GameLogic
                 Vector2 endLocal = transform.InverseTransformPoint(glyph.position);
 
                 var target = token;
-                FlyToTargetFx.Spawn(transform.GetComponent<RectTransform>(), startLocal, endLocal,
+                FlyToTargetFx.Spawn(this, transform.GetComponent<RectTransform>(), startLocal, endLocal,
                     MergeElementVisual.SpriteName(type, 1), iconSize, idx * Stagger, // 飞行的是 Lv1 原料，取 Lv1 图
                     () =>
                     {

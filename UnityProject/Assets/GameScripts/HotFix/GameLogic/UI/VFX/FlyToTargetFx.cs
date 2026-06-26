@@ -1,14 +1,15 @@
 using System;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace GameLogic
 {
     /// <summary>
-    /// 收集飞行图标（fly-to-target）：一个临时 Image 从起点先轻微弹起（上抛 + 放大起手），
+    /// 收集飞行图标（fly-to-target）：一个临时元素图标从起点先轻微弹起（上抛 + 放大起手），
     /// 再沿缓动飞向终点，到达后自毁并触发到达回调（供目标做一次 punch）。纯表现层，不改数值。
-    /// 生命周期自驱（Update 计时），到时销毁自身 GameObject；sprite 经 <see cref="SetSpriteExtensions"/> 异步加载、
-    /// 引用计数由 SetSpriteObject 随 GameObject 销毁自管，与窗口内其它运行时图标同口径。
+    /// 视觉本体复用棋盘元素 <see cref="ElementWidget"/>（经 owner 窗口的 CreateWidgetByType 创建、SetIcon 贴图），
+    /// 与棋盘 / 候选块上的元素图标同一视觉构建口径；本组件只驱动运动时序（计时插值）。
+    /// 生命周期自驱（Update 计时），到时经 widget 的 UI 销毁路径（<see cref="UIWidgetMono.Destroy"/>）销毁，
+    /// 从 owner 的子组件列表正规摘除，不残留悬空引用。
     ///
     /// 坐标系：起点 / 终点在生成时已换算为「飞行父层本地 anchoredPosition」（父层须为设计居中 overlay，如
     /// MergeOrderWindow 的 m_rect_Content），本组件只在该本地空间内做插值，不再触碰世界坐标，避免父层偏移错算。
@@ -22,6 +23,7 @@ namespace GameLogic
         private const float PopScale = 1.25f; // 弹起段峰值缩放
 
         private RectTransform _rt;
+        private ElementWidget _widget; // 视觉本体；自毁时经其 Destroy() 走 UI 系统正规销毁
         private Vector2 _start;     // 飞行父层本地起点
         private Vector2 _control;   // 弹起后、飞行起算点（起点上抛后的位置）
         private Vector2 _end;       // 飞行父层本地终点
@@ -32,9 +34,11 @@ namespace GameLogic
         private float _delayLeft;
 
         /// <summary>
-        /// 生成一个飞行图标。<paramref name="parent"/> 为飞行父层（设计居中 overlay）；
+        /// 生成一个飞行图标。<paramref name="owner"/> 为创建 widget 的宿主窗口（飞行父层须在其层级内）；
+        /// <paramref name="parent"/> 为飞行父层（设计居中 overlay）；
         /// <paramref name="localStart"/> / <paramref name="localEnd"/> 为该父层本地 anchoredPosition。
         /// </summary>
+        /// <param name="owner">宿主窗口（UIBaseMono，提供 CreateWidgetByType 创建器）。</param>
         /// <param name="parent">飞行父层（如 m_rect_Content）。</param>
         /// <param name="localStart">起点（父层本地坐标）。</param>
         /// <param name="localEnd">终点（父层本地坐标）。</param>
@@ -42,28 +46,34 @@ namespace GameLogic
         /// <param name="size">图标边长（设计像素）。</param>
         /// <param name="startDelay">起飞前延迟（用于多图标错开 stagger）。</param>
         /// <param name="onArrive">到达终点时回调（目标 punch）。可空。</param>
-        public static void Spawn(RectTransform parent, Vector2 localStart, Vector2 localEnd,
+        public static void Spawn(UIBaseMono owner, RectTransform parent, Vector2 localStart, Vector2 localEnd,
             string spriteName, float size, float startDelay, Action onArrive)
         {
-            if (parent == null) return;
+            if (owner == null || parent == null) return;
 
-            var go = new GameObject("flyElem", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-            var rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
+            // 视觉本体：复用棋盘元素 Widget（资源定位名 == 类名 "ElementWidget"，CreateWidgetByType 走 AddressByFileName 加载）。
+            var widget = owner.CreateWidgetByType<ElementWidget>(parent);
+            if (widget == null)
+            {
+                TEngine.Log.Error("[FlyToTargetFx] ElementWidget 加载失败（资源定位名 ElementWidget），飞行图标未创建。");
+                return;
+            }
+
+            var rt = widget.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
+            // 固定 size 摆根；ElementWidget 图标子节点拉伸填满根，不走 setNativeSize（m_AdaptiveSize=false），
+            // 故飞行 size 与 pop/fly 缩放不被原生尺寸覆盖。
             rt.sizeDelta = new Vector2(size, size);
             rt.anchoredPosition = localStart;
             rt.localScale = Vector3.one;
             rt.SetAsLastSibling(); // 飞行图标置于 overlay 顶层，避免被其它 overlay 内容遮挡
 
-            var img = go.GetComponent<Image>();
-            img.color = Color.white;
-            img.raycastTarget = false;
-            if (!string.IsNullOrEmpty(spriteName)) img.SetSprite(spriteName);
+            if (!string.IsNullOrEmpty(spriteName)) widget.SetIcon(spriteName);
 
-            var fx = go.AddComponent<FlyToTargetFx>();
+            var fx = widget.gameObject.AddComponent<FlyToTargetFx>();
             fx._rt = rt;
+            fx._widget = widget;
             fx._start = localStart;
             fx._control = localStart + new Vector2(0f, PopRiseY); // 弹起：本地 Y 上正，向上抛
             fx._end = localEnd;
@@ -72,12 +82,10 @@ namespace GameLogic
             fx._delaying = startDelay > 0f;
             fx._delayLeft = startDelay;
 
-            // 延迟起飞期间先隐藏，避免在起点闪现一个静止图标。
-            if (fx._delaying) img.enabled = false;
-            fx._image = img;
+            // 延迟起飞期间先隐藏图标（仅关图标组件，保持根节点 active 使本组件 Update 仍计时），
+            // 避免在起点闪现一个静止图标。
+            if (fx._delaying) widget.SetIconVisible(false);
         }
-
-        private Image _image;
 
         private void Update()
         {
@@ -88,7 +96,7 @@ namespace GameLogic
                 _delayLeft -= dt;
                 if (_delayLeft > 0f) return;
                 _delaying = false;
-                if (_image != null) _image.enabled = true;
+                if (_widget != null) _widget.SetIconVisible(true);
             }
 
             _t += dt;
@@ -112,12 +120,16 @@ namespace GameLogic
                 return;
             }
 
-            // 到达：精确落到终点 → 回调 → 自毁。
+            // 到达：精确落到终点 → 回调 → 自毁（经 widget 的 UI 销毁路径，从 owner 子组件列表正规摘除）。
             _rt.anchoredPosition = _end;
             var cb = _onArrive;
             _onArrive = null;
             cb?.Invoke();
-            UnityEngine.Object.Destroy(gameObject);
+
+            var w = _widget;
+            _widget = null;
+            if (w != null) w.Destroy();
+            else UnityEngine.Object.Destroy(gameObject);
         }
     }
 }

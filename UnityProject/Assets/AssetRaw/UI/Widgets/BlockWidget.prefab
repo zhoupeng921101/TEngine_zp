@@ -49,7 +49,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe8f8d5fb6b55b4459138fb9948af537, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameLogic::GameLogic.BlockWidget
-  m_img_Skin: {fileID: 3830576955435213558}
+  m_eximg_Skin: {fileID: 3830576955435213558}
 --- !u!1 &8497448907714296990
 GameObject:
   m_ObjectHideFlags: 0

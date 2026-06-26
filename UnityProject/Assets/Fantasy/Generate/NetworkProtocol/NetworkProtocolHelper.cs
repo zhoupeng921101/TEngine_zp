@@ -46,6 +46,17 @@ namespace Fantasy
 			return (G2C_CloudSaveDownloadResponse)await session.Call(C2G_CloudSaveDownloadRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_EnterMainGameResponse> C2G_EnterMainGameRequest(this Session session, C2G_EnterMainGameRequest C2G_EnterMainGameRequest_request)
+		{
+			return (G2C_EnterMainGameResponse)await session.Call(C2G_EnterMainGameRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_EnterMainGameResponse> C2G_EnterMainGameRequest(this Session session)
+		{
+			using var C2G_EnterMainGameRequest_request = Fantasy.C2G_EnterMainGameRequest.Create();
+			return (G2C_EnterMainGameResponse)await session.Call(C2G_EnterMainGameRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_LoginGameResponse> C2G_LoginGameRequest(this Session session, C2G_LoginGameRequest C2G_LoginGameRequest_request)
 		{
 			return (G2C_LoginGameResponse)await session.Call(C2G_LoginGameRequest_request);
@@ -92,18 +103,6 @@ namespace Fantasy
 			using var C2G_DeliverOrderRequest_request = Fantasy.C2G_DeliverOrderRequest.Create();
 			C2G_DeliverOrderRequest_request.Slot = slot;
 			return (G2C_DeliverOrderResponse)await session.Call(C2G_DeliverOrderRequest_request);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void G2C_MergeOrderSnapshotPush(this Session session, G2C_MergeOrderSnapshotPush G2C_MergeOrderSnapshotPush_message)
-		{
-			session.Send(G2C_MergeOrderSnapshotPush_message);
-		}
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static void G2C_MergeOrderSnapshotPush(this Session session, MergeOrderSnapshot snapshot)
-		{
-			using var G2C_MergeOrderSnapshotPush_message = Fantasy.G2C_MergeOrderSnapshotPush.Create();
-			G2C_MergeOrderSnapshotPush_message.Snapshot = snapshot;
-			session.Send(G2C_MergeOrderSnapshotPush_message);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void C2G_TestEmptyMessage(this Session session, C2G_TestEmptyMessage C2G_TestEmptyMessage_message)
@@ -624,6 +623,17 @@ namespace Fantasy
 			C2G_TestEnumMessage_message.Message = message;
 			C2G_TestEnumMessage_message.State = state;
 			session.Send(C2G_TestEnumMessage_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_ClearPlayerDataResponse> C2G_ClearPlayerDataRequest(this Session session, C2G_ClearPlayerDataRequest C2G_ClearPlayerDataRequest_request)
+		{
+			return (G2C_ClearPlayerDataResponse)await session.Call(C2G_ClearPlayerDataRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_ClearPlayerDataResponse> C2G_ClearPlayerDataRequest(this Session session)
+		{
+			using var C2G_ClearPlayerDataRequest_request = Fantasy.C2G_ClearPlayerDataRequest.Create();
+			return (G2C_ClearPlayerDataResponse)await session.Call(C2G_ClearPlayerDataRequest_request);
 		}
 
    }
