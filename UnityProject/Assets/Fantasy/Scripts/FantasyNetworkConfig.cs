@@ -7,19 +7,29 @@ namespace FantasyClient
     /// <summary>
     /// Fantasy 网络配置（运行时可改 + PlayerPrefs 持久化）。
     /// 连接地址 = Host:Port，协议在 KCP / WebSocket 间切换；三者经本地存储跨启动保留。
-    /// 局域网联调时通过 <see cref="GameLogic.UI.ServerConfigWindow"/> 修改后重连即生效（连接前由
-    /// <see cref="FantasyNetwork.Boot"/> 现读 <see cref="ServerAddress"/> / <see cref="Protocol"/>）。
+    /// 默认连接目标按运行平台分流（编译期符号）：编辑器连本机 127.0.0.1:20000(KCP)；
+    /// WebGL 连外网 121.199.24.31:20001(WebSocket)；其余平台（Standalone / Android / iOS）连外网 121.199.24.31:20000(KCP)。
+    /// 这三者只是 PlayerPrefs 缺省值——经 <see cref="GameLogic.UI.ServerConfigWindow"/> 手动改并 <see cref="Save"/> 落盘后，
+    /// 存盘值优先生效、不被平台默认覆盖；连接前由 <see cref="FantasyNetwork.Boot"/> 现读 <see cref="ServerAddress"/> / <see cref="Protocol"/>。
     /// </summary>
     public static class FantasyNetworkConfig
     {
-#if FANTASY_WEBGL
-        // WebGL（浏览器）只能用 WebSocket，默认连示例服务器的 WebSocket Gate(20001)。
+        // 外网正式服地址；编辑器除外的所有运行平台默认连此。
+        private const string RemoteHost = "121.199.24.31";
+
+#if UNITY_EDITOR
+        // 编辑器内运行（含 Play Mode，无论当前 BuildTarget）始终连本机 KCP Gate(20000)，便于单机联调。
         public const string DefaultHost = "127.0.0.1";
+        public const int DefaultPort = 20000;
+        public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.KCP;
+#elif FANTASY_WEBGL
+        // WebGL（浏览器）只能用 WebSocket，连外网 WebSocket Gate(20001)。
+        public const string DefaultHost = RemoteHost;
         public const int DefaultPort = 20001;
         public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.WebSocket;
 #else
-        // 原生 / 编辑器默认走 KCP，连示例服务器的 KCP Gate(20000)。
-        public const string DefaultHost = "127.0.0.1";
+        // 真机 / 发布包（Standalone / Android / iOS）走 KCP，连外网 KCP Gate(20000)。
+        public const string DefaultHost = RemoteHost;
         public const int DefaultPort = 20000;
         public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.KCP;
 #endif
@@ -42,7 +52,7 @@ namespace FantasyClient
             _loaded = true;
         }
 
-        /// <summary>服务器主机（局域网 IP，如 192.168.x.x）。set 改内存值，须调 <see cref="Save"/> 才落盘。</summary>
+        /// <summary>服务器主机（IP 或域名，如外网 121.199.24.31 / 本机 127.0.0.1）。set 改内存值，须调 <see cref="Save"/> 才落盘。</summary>
         public static string Host
         {
             get { EnsureLoaded(); return _host; }
@@ -63,10 +73,28 @@ namespace FantasyClient
             set { EnsureLoaded(); _protocol = value; }
         }
 
-        /// <summary>Fantasy 连接接口所需地址，格式 IP:Port（WebSocket 传输层自动拼成 ws://IP:Port）。</summary>
+        /// <summary>Fantasy 连接接口所需地址，格式 IP:Port（传输层据此拼成 ws://IP:Port 或 wss://IP:Port，scheme 由 <see cref="UseSsl"/> 决定）。</summary>
         public static string ServerAddress
         {
             get { EnsureLoaded(); return $"{_host}:{_port}"; }
+        }
+
+        /// <summary>
+        /// WebSocket 是否启用 TLS(wss)。WebGL 下按宿主页面协议自动判定：https 页面返回 true（浏览器禁止 https 页内连明文 ws），
+        /// http 页面返回 false；其余平台默认 false（明文 ws）。由 <see cref="FantasyNetwork.Connect"/> 作 isHttps 入参传入传输层，
+        /// 决定连接 scheme（ws:// / wss://）。wss 还要求服务端在域名上配好 TLS（证书不能绑裸 IP）。
+        /// </summary>
+        public static bool UseSsl
+        {
+            get
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                var url = Application.absoluteURL;
+                return !string.IsNullOrEmpty(url) && url.StartsWith("https");
+#else
+                return false;
+#endif
+            }
         }
 
         /// <summary>把当前 Host / Port / Protocol 写入本地存储，下次启动自动带出。</summary>
@@ -79,7 +107,7 @@ namespace FantasyClient
             PlayerPrefs.Save();
         }
 
-        /// <summary>恢复为本机默认（127.0.0.1 + 平台默认端口 / 协议）并落盘，便于单机调试与联调来回切。</summary>
+        /// <summary>恢复为当前平台默认 Host / 端口 / 协议并落盘（编辑器为 127.0.0.1，其余平台为外网），便于改过地址后一键还原。</summary>
         public static void ResetToDefault()
         {
             EnsureLoaded();

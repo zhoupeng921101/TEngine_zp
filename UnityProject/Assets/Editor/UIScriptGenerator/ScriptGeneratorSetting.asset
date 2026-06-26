@@ -17,7 +17,7 @@ MonoBehaviour:
   impCodePath: Assets/GameScripts/HotFix/GameLogic/UI
   _namespace: GameLogic
   _widgetName: item
-  defaultUIFont: {fileID: 0}
+  defaultUIFont: {fileID: 12800000, guid: e8b091bf0c6bc8241b04ad57411d9f35, type: 3}
   CodeStyle: 1
   uiGenTypes:
   - uiTypeName: UIWindowMono

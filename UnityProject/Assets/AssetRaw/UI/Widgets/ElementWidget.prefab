@@ -49,7 +49,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 271c5e3f134491d4594102a4214b4d6b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameLogic::GameLogic.ElementWidget
-  m_img_Icon: {fileID: 5339684593262480326}
+  m_eximg_Icon: {fileID: 5339684593262480326}
 --- !u!1 &3708710908310334830
 GameObject:
   m_ObjectHideFlags: 0
@@ -128,4 +128,3 @@ MonoBehaviour:
   m_DrawOnNull: 0
   m_AdaptiveSize: 0
   spriteAtlas: {fileID: 100100200, guid: 1f0b11651d56f814bb06a92cd794a0a0, type: 3}
-  nowSpriteName: 

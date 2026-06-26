@@ -11,6 +11,14 @@
       "port": 8081
     },
     {
+      "name": "webgl-test",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:\\Users\\pc\\AppData\\Local\\Temp\\claude\\D--work-TEngine-block-UnityProject\\3c590a29-3bc7-49ee-8248-b04d6634bb9a\\scratchpad\\webgl-server.js"
+      ],
+      "port": 8085
+    },
+    {
       "name": "design-docs",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["-y", "http-server", "design-docs", "-p", "8082", "-c-1"],

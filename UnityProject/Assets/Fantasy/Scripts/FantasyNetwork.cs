@@ -159,14 +159,14 @@ namespace FantasyClient
 
         private static void Connect()
         {
-            Log.Info($"[Fantasy] 连接服务器 {_address} ({FantasyNetworkConfig.Protocol}) ...");
+            Log.Info($"[Fantasy] 连接服务器 {_address} ({FantasyNetworkConfig.Protocol}, ssl={FantasyNetworkConfig.UseSsl}) ...");
             Session = Scene.Connect(
                 _address,
                 FantasyNetworkConfig.Protocol,
                 OnConnectComplete,
                 OnConnectFail,
                 OnConnectDisconnect,
-                false, 5000, FantasyNetworkConfig.EnableNetworkJsonLog);
+                FantasyNetworkConfig.UseSsl, 5000, FantasyNetworkConfig.EnableNetworkJsonLog);
         }
 
         private static void OnConnectComplete()

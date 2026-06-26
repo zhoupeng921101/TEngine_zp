@@ -153,7 +153,7 @@ namespace GameLogic
         {
             _state = BlockGameState.Instance;
             _board = new BinaryBoard();
-
+    
             if (!DynamicWeightDiff.Instance.IsInitialized())
             {
                 try { GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight(); }
