@@ -1,24 +1,47 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TEngine;
 
 namespace GameLogic
 {
     /// <summary>
-    /// 纯几何 UGUI 构建工厂。所有元素用纯色 Image / 内置字体 Text 代码创建，无 atlas 依赖。
+    /// 纯几何 UGUI 构建工厂。所有元素用纯色 Image / GBK 字体 Text 代码创建，无 atlas 依赖。
     /// 统一坐标系：固定尺寸 1080×1920 原生面板（居中、pivot 中心、localScale=1）下，
     /// 元素一律 center 锚点 + center pivot，按"元素中心的设计坐标"（左上原点、Y 下正）定位。
     /// </summary>
     public static class UGuiFactory
     {
+        // GBK 字体的 YooAsset location（AssetRaw/Fonts/GBK.ttf，按文件名寻址）
+        private const string GbkFontLocation = "GBK";
+
         private static Font _font;
+
+        /// <summary>
+        /// 代码创建 Text 使用的字体。优先加载工程 GBK 字体（含中文字形），
+        /// 加载失败回退 Unity 内置字体（无中文，仅兜底防整体无字体）。
+        /// 进程级静态缓存，仅加载一次、随 App 生命周期常驻，不卸载。
+        /// </summary>
         private static Font DefaultFont
         {
             get
             {
                 if (_font == null)
                 {
-                    _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    if (_font == null) _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                    try
+                    {
+                        _font = GameModule.Resource.LoadAsset<Font>(GbkFontLocation);
+                    }
+                    catch (System.Exception e)
+                    {
+                        Log.Warning($"[UGuiFactory] 加载 GBK 字体失败，回退内置字体：{e.Message}");
+                    }
+
+                    if (_font == null)
+                    {
+                        Log.Warning("[UGuiFactory] GBK 字体不可用，回退 Unity 内置字体（中文将无字形）。");
+                        _font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                        if (_font == null) _font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                    }
                 }
                 return _font;
             }

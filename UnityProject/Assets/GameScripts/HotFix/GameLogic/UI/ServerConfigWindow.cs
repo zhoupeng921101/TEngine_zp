@@ -33,6 +33,17 @@ namespace GameLogic.UI
         // 选中协议：0=KCP，1=WebSocket（编辑态工作副本，「连接并保存」时才写入配置）。
         private int _protocolSel;
 
+        // 诊断面板：懒建的全窗覆盖层（点「诊断连接」首次构建，之后复用显隐）。
+        // 结构：Dim 遮罩 + 滚动结果区（多行报告文本）+ 复制 / 关闭按钮。
+        private GameObject _diagPanel;
+        private Text _diagText;
+        private bool _diagRunning;
+        // 探测目标外网正式服（与 FantasyNetworkConfig.RemoteHost 同址；诊断主动测外网，不只测当前生效地址）。
+        private const string DiagRemoteHost = "121.199.24.31";
+        private const int DiagWsPort = 20001;   // WS/TCP Gate
+        private const int DiagKcpPort = 20000;  // KCP/UDP Gate
+        private const int DiagTimeoutMs = 3000; // 短超时，避免点一下卡死
+
         // 清空玩家数据按钮 + 二次确认态：首点 _clearArmed 置 true 并改文字提示，再点才真发请求；
         // 期间禁重入（_clearing）。开窗 OnRefresh 复位 _clearArmed，避免上次开窗的「已确认」态残留。
         private Button _btnClearData;
@@ -75,6 +86,11 @@ namespace GameLogic.UI
 
             UGuiFactory.CreateText(content, "Title", Cx, 440, 880, 100, "服务器配置", 64,
                 new Color32(0xff, 0xe0, 0x66, 0xFF));
+
+            // 诊断入口（排障工具）：置于标题下方角落，点开全窗诊断报告覆盖层。连不上的玩家也能在此自查链路。
+            var btnDiag = UGuiFactory.CreateButton(content, "BtnDiag", 820, 530, 280, 80,
+                "诊断连接", 36, new Color32(0x33, 0x88, 0x66, 0xFF), Color.white, out _, out _);
+            btnDiag.onClick.AddListener(OpenDiagnostics);
 
             // ── IP 行 ──
             UGuiFactory.CreateText(content, "HostLabel", 300, 600, 280, 64, "服务器 IP", 40,
@@ -310,6 +326,271 @@ namespace GameLogic.UI
         }
 
         private void Close() => GameModule.UI.CloseUI<ServerConfigWindow>();
+
+        // ── 连接诊断（运行时排障，发布包内可用）────────────────────────────
+        //
+        // 点「诊断连接」打开全窗覆盖层，报告运行环境 / 平台默认 / 实际生效目标 / 双协议外网可达性 + 人话结论。
+        // 探测走 FantasyNetworkDiagnostics：每次创建独立临时 Scene 连接尝试、用后即弃，不碰主连接与自动重连。
+        // KCP（UDP）可达性走真实 KCP 握手判定，不用 TCP 测 UDP 端口（TCP 连 UDP 必失败 = 假阴性）。
+
+        /// <summary>打开诊断覆盖层并立即跑一轮探测。</summary>
+        private void OpenDiagnostics()
+        {
+            if (_diagPanel == null)
+            {
+                BuildDiagPanel();
+            }
+            _diagPanel.SetActive(true);
+            RunDiagnostics().Forget();
+        }
+
+        private void CloseDiagnostics()
+        {
+            if (_diagPanel != null)
+            {
+                _diagPanel.SetActive(false);
+            }
+        }
+
+        /// <summary>懒建诊断覆盖层：Dim 遮罩 + 可滚动结果文本 + 重测 / 关闭按钮。</summary>
+        private void BuildDiagPanel()
+        {
+            var content = transform.Find("Content") ?? transform;
+
+            _diagPanel = UGuiFactory.CreateNode(content, "DiagPanel").gameObject;
+            var panelRt = (RectTransform)_diagPanel.transform;
+            panelRt.anchorMin = panelRt.anchorMax = panelRt.pivot = new Vector2(0.5f, 0.5f);
+            panelRt.sizeDelta = new Vector2(1080, 1920);
+            panelRt.anchoredPosition = Vector2.zero;
+
+            // 不透明遮罩盖住背后配置窗，拦截穿透点击。
+            var dim = UGuiFactory.CreateImage(panelRt, "DiagDim", Cx, 960, 1080, 1920, new Color(0.06f, 0.07f, 0.10f, 0.98f));
+            dim.raycastTarget = true;
+
+            UGuiFactory.CreateText(panelRt, "DiagTitle", Cx, 200, 880, 100, "连接诊断报告", 56,
+                new Color32(0xff, 0xe0, 0x66, 0xFF));
+
+            // 可滚动结果区：ScrollRect + RectMask2D 视口 + ContentSizeFitter 自适应高度的文本。
+            var frame = UGuiFactory.CreateImage(panelRt, "DiagScrollFrame", Cx, 940, 960, 1180, new Color(0.13f, 0.15f, 0.20f, 1f));
+            var frameRt = frame.rectTransform;
+            var scroll = frame.gameObject.AddComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
+            var vpRt = viewport.GetComponent<RectTransform>();
+            vpRt.SetParent(frameRt, false);
+            vpRt.anchorMin = Vector2.zero;
+            vpRt.anchorMax = Vector2.one;
+            vpRt.offsetMin = new Vector2(20, 20);
+            vpRt.offsetMax = new Vector2(-20, -20);
+            viewport.GetComponent<Image>().color = new Color(0, 0, 0, 0.001f); // 近乎透明，仅作 Mask 的 graphic
+            scroll.viewport = vpRt;
+
+            var contentGo = new GameObject("DiagContent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text),
+                typeof(ContentSizeFitter));
+            var cRt = contentGo.GetComponent<RectTransform>();
+            cRt.SetParent(vpRt, false);
+            cRt.anchorMin = new Vector2(0, 1);
+            cRt.anchorMax = new Vector2(1, 1);
+            cRt.pivot = new Vector2(0.5f, 1f);
+            cRt.anchoredPosition = Vector2.zero;
+            cRt.offsetMin = new Vector2(0, cRt.offsetMin.y);
+            cRt.offsetMax = new Vector2(0, cRt.offsetMax.y);
+            var fitter = contentGo.GetComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            _diagText = contentGo.GetComponent<Text>();
+            _diagText.font = UIFont;
+            _diagText.fontSize = 32;
+            _diagText.color = new Color32(0xdd, 0xee, 0xff, 0xFF);
+            _diagText.alignment = TextAnchor.UpperLeft;
+            _diagText.supportRichText = false;
+            _diagText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _diagText.verticalOverflow = VerticalWrapMode.Overflow;
+            _diagText.text = "";
+            scroll.content = cRt;
+
+            var btnRetest = UGuiFactory.CreateButton(panelRt, "DiagRetest", 360, 1620, 460, 110,
+                "重新诊断", 44, new Color32(0x33, 0x88, 0x66, 0xFF), Color.white, out _, out _);
+            btnRetest.onClick.AddListener(() => RunDiagnostics().Forget());
+
+            var btnBack = UGuiFactory.CreateButton(panelRt, "DiagBack", 720, 1620, 460, 110,
+                "返回", 44, new Color32(0x55, 0x5b, 0x6b, 0xFF), Color.white, out _, out _);
+            btnBack.onClick.AddListener(CloseDiagnostics);
+        }
+
+        /// <summary>跑一轮诊断：收集环境 / 配置信息 + 双协议对外网（及当前生效地址）探测，汇总成报告文本。</summary>
+        private async UniTaskVoid RunDiagnostics()
+        {
+            if (_diagRunning) return;
+            _diagRunning = true;
+            try
+            {
+#if FANTASY_UNITY
+                var sb = new System.Text.StringBuilder(1024);
+
+                // ① 运行环境
+                sb.AppendLine("【运行环境】");
+                sb.AppendLine($"  编辑器内运行：{(Application.isEditor ? "是" : "否")}");
+                sb.AppendLine($"  运行平台：{Application.platform}");
+                sb.AppendLine($"  本编译分支平台默认：{FantasyClient.FantasyNetworkConfig.DefaultProtocol} " +
+                              $"{FantasyClient.FantasyNetworkConfig.DefaultHost}:{FantasyClient.FantasyNetworkConfig.DefaultPort}");
+                sb.AppendLine();
+
+                // ② 实际生效目标（PlayerPrefs 解析后）+ 是否等于平台默认
+                string effHost = FantasyClient.FantasyNetworkConfig.Host;
+                int effPort = FantasyClient.FantasyNetworkConfig.Port;
+                var effProto = FantasyClient.FantasyNetworkConfig.Protocol;
+                bool sameAsDefault = effHost == FantasyClient.FantasyNetworkConfig.DefaultHost
+                                     && effPort == FantasyClient.FantasyNetworkConfig.DefaultPort
+                                     && effProto == FantasyClient.FantasyNetworkConfig.DefaultProtocol;
+                sb.AppendLine("【实际生效目标】");
+                sb.AppendLine($"  当前会连：{effProto} {effHost}:{effPort}");
+                if (sameAsDefault)
+                {
+                    sb.AppendLine("  与平台默认一致。");
+                }
+                else
+                {
+                    sb.AppendLine("  ⚠ 当前用的是存盘地址，非平台默认！");
+                    sb.AppendLine("    （若连不上，多半是旧存盘地址顶掉了平台默认，下方点『返回』再『恢复默认』。）");
+                }
+                sb.AppendLine();
+
+                _diagText.text = sb.ToString() + "正在探测，请稍候…";
+
+                // ③ 双协议对外网可达性探测（主动测外网，不只测当前生效地址）
+                sb.AppendLine($"【外网可达性探测（{DiagRemoteHost}）】");
+                var wsRemote = await ProbeAsync(DiagRemoteHost, DiagWsPort, Fantasy.Network.NetworkProtocolType.WebSocket);
+                sb.AppendLine($"  WS  (TCP {DiagWsPort})：{DescribeProbe(wsRemote)}");
+                var kcpRemote = await ProbeAsync(DiagRemoteHost, DiagKcpPort, Fantasy.Network.NetworkProtocolType.KCP);
+                sb.AppendLine($"  KCP (UDP {DiagKcpPort})：{DescribeProbe(kcpRemote)}");
+                sb.AppendLine();
+
+                // 也测当前生效地址（若与外网不同，便于对比）
+                FantasyClient.DiagResult effProbe = default;
+                bool effProbed = false;
+                if (effHost != DiagRemoteHost)
+                {
+                    sb.AppendLine($"【当前生效地址探测（{effHost}:{effPort}）】");
+                    effProbe = await ProbeAsync(effHost, effPort, effProto);
+                    effProbed = true;
+                    sb.AppendLine($"  {effProto}：{DescribeProbe(effProbe)}");
+                    sb.AppendLine();
+                }
+
+                // ④ 结论文本
+                sb.AppendLine("【结论】");
+                foreach (var line in BuildVerdict(wsRemote, kcpRemote, effHost, effPort, effProto, sameAsDefault, effProbed, effProbe))
+                {
+                    sb.AppendLine("  " + line);
+                }
+
+                _diagText.text = sb.ToString();
+#else
+                _diagText.text = "网络模块未启用（FANTASY_UNITY 未定义），无法诊断。";
+                await UniTask.CompletedTask;
+#endif
+            }
+            finally
+            {
+                _diagRunning = false;
+            }
+        }
+
+#if FANTASY_UNITY
+        /// <summary>把 FantasyNetworkDiagnostics 的回调式探测包成可 await 的 UniTask（单次完成）。</summary>
+        private UniTask<FantasyClient.DiagResult> ProbeAsync(string host, int port, Fantasy.Network.NetworkProtocolType protocol)
+        {
+            var tcs = new UniTaskCompletionSource<FantasyClient.DiagResult>();
+            FantasyClient.FantasyNetworkDiagnostics.TestConnect(host, port, protocol, DiagTimeoutMs,
+                result => tcs.TrySetResult(result));
+            return tcs.Task;
+        }
+
+        /// <summary>把探测结果翻成人话（含耗时）。</summary>
+        private static string DescribeProbe(FantasyClient.DiagResult r)
+        {
+            switch (r.Outcome)
+            {
+                case FantasyClient.DiagOutcome.Success:
+                    return $"可达（握手成功，{r.ElapsedMs}ms）";
+                case FantasyClient.DiagOutcome.Refused:
+                    return $"连接被拒绝（端口快速拒收，{r.ElapsedMs}ms）";
+                case FantasyClient.DiagOutcome.Timeout:
+                    return $"超时不可达（{r.ElapsedMs}ms，端口被丢弃/未监听/网络不通）";
+                default:
+                    return $"探测异常（{r.Error}）";
+            }
+        }
+
+        /// <summary>据探测结果给人话结论与下一步建议。</summary>
+        private static System.Collections.Generic.List<string> BuildVerdict(
+            FantasyClient.DiagResult wsRemote, FantasyClient.DiagResult kcpRemote,
+            string effHost, int effPort, Fantasy.Network.NetworkProtocolType effProto,
+            bool sameAsDefault, bool effProbed, FantasyClient.DiagResult effProbe)
+        {
+            var list = new System.Collections.Generic.List<string>();
+
+            if (Application.isEditor)
+            {
+                list.Add("编辑器默认连本机 127.0.0.1，属预期（本机需自起服务端）。");
+            }
+
+            bool wsOk = wsRemote.Outcome == FantasyClient.DiagOutcome.Success;
+            bool kcpOk = kcpRemote.Outcome == FantasyClient.DiagOutcome.Success;
+
+            if (wsOk && !kcpOk)
+            {
+                list.Add("外网 WS 通、KCP 不通：疑似服务端 UDP 20000 未放行。");
+                list.Add("→ 检查云安全组 UDP 入方向规则（放行 UDP 20000）；或改用 WebSocket 协议连 20001。");
+            }
+            else if (wsOk && kcpOk)
+            {
+                list.Add("外网 WS 与 KCP 均可达：服务端两路 Gate 都正常。");
+            }
+            else if (!wsOk && !kcpOk)
+            {
+                list.Add("外网 WS 与 KCP 均不可达：服务端可能未启动，或本机网络/出口被限。");
+            }
+            else // !wsOk && kcpOk
+            {
+                list.Add("外网 KCP 通、WS 不通：检查服务端 TCP 20001 是否监听 / 放行。");
+            }
+
+            // 存盘地址陷阱（嫌疑 2）
+            if (!sameAsDefault)
+            {
+                if (effHost == "127.0.0.1" || effHost == "localhost")
+                {
+                    list.Add("当前连的是存盘的本机地址 127.0.0.1（非平台默认外网）：");
+                    list.Add("→ 点『返回』再点『恢复默认』，改用平台默认外网地址。");
+                }
+                else
+                {
+                    list.Add($"当前生效地址（{effHost}:{effPort}）是存盘值、非平台默认：");
+                    list.Add("→ 若连不上，点『返回』再点『恢复默认』回到平台默认。");
+                }
+            }
+
+            // 当前生效地址自身探测结论
+            if (effProbed)
+            {
+                if (effProbe.Outcome == FantasyClient.DiagOutcome.Success)
+                {
+                    list.Add($"当前生效地址 {effProto} {effHost}:{effPort} 探测可达。");
+                }
+                else
+                {
+                    list.Add($"当前生效地址 {effProto} {effHost}:{effPort} 探测不可达（{DescribeProbe(effProbe)}）。");
+                }
+            }
+
+            return list;
+        }
+#endif
 
         /// <summary>
         /// 创建一个 legacy InputField（含文本 + 占位文本）。UGuiFactory 无输入框工厂，故就地构建。

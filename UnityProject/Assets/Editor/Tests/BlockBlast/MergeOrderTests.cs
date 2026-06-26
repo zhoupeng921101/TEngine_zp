@@ -346,27 +346,28 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
-        public void ElementsForScore_MapsPerTier()
+        public void ElementsForLines_MapsPerTier()
         {
-            // 负/0 分 → 0；逐档：110→1、200→1、280→2、500→3、780→4；超高连消封顶 4；保底 1
-            Assert.AreEqual(0, MergeOrderConfig.ElementsForScore(-50));
-            Assert.AreEqual(0, MergeOrderConfig.ElementsForScore(0));
-            Assert.AreEqual(1, MergeOrderConfig.ElementsForScore(1), "任何正得分保底 1");
-            Assert.AreEqual(1, MergeOrderConfig.ElementsForScore(110));
-            Assert.AreEqual(1, MergeOrderConfig.ElementsForScore(200));
-            Assert.AreEqual(2, MergeOrderConfig.ElementsForScore(280));
-            Assert.AreEqual(3, MergeOrderConfig.ElementsForScore(500));
-            Assert.AreEqual(4, MergeOrderConfig.ElementsForScore(780));
-            Assert.AreEqual(4, MergeOrderConfig.ElementsForScore(2000), "封顶 MaxElementsPerClear");
+            // 纯 N 函数：N≤0 全 0；逐档 (Lv1,Lv2,Lv3)。
+            Assert.AreEqual((0, 0, 0), MergeOrderConfig.ElementsForLines(0));
+            Assert.AreEqual((0, 0, 0), MergeOrderConfig.ElementsForLines(-3));
+            Assert.AreEqual((1, 0, 0), MergeOrderConfig.ElementsForLines(1));
+            Assert.AreEqual((3, 0, 0), MergeOrderConfig.ElementsForLines(2));
+            Assert.AreEqual((1, 1, 0), MergeOrderConfig.ElementsForLines(3));
+            Assert.AreEqual((3, 1, 0), MergeOrderConfig.ElementsForLines(4));
+            Assert.AreEqual((2, 2, 0), MergeOrderConfig.ElementsForLines(5));
+            Assert.AreEqual((0, 0, 1), MergeOrderConfig.ElementsForLines(6), "≥6 封顶 1 Lv3");
+            Assert.AreEqual((0, 0, 1), MergeOrderConfig.ElementsForLines(9), "≥6 仍 1 Lv3");
         }
 
         [Test]
-        public void HigherScore_YieldsMoreElements()
+        public void ElementsForLines_DecoupledFromScore()
         {
-            // 四消得分 > 单消得分 → 元素数更多（同 NeededTypes 下）
-            int single = MergeOrderConfig.ElementsForScore(BlockScoring.ClearScore(8, 1));   // 单消 ≈110 → 1
-            int quad = MergeOrderConfig.ElementsForScore(BlockScoring.ClearScore(30, 4));     // 四消 ≈780 → 4
-            Assert.Greater(quad, single, "得分越高产元素越多");
+            // 元素产出只看 N，不看得分：同 N 不同得分，产出相同。
+            Assert.AreEqual(MergeOrderConfig.ElementsForLines(1), MergeOrderConfig.ElementsForLines(1));
+            // N 升档时 Lv1 不再单调随分递增（双消 3 个 > 三消 1 个），口径已从得分驱动改纯 N 表。
+            Assert.AreEqual(3, MergeOrderConfig.ElementsForLines(2).lv1, "双消 3 Lv1");
+            Assert.AreEqual(1, MergeOrderConfig.ElementsForLines(3).lv1, "三消仅 1 Lv1（+1 Lv2）");
         }
 
         [Test]

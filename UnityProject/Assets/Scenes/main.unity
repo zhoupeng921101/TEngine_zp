@@ -362,6 +362,10 @@ PrefabInstance:
       value: UIRoot
       objectReference: {fileID: 0}
     - target: {fileID: 2425705316150093153, guid: 4f5fbbbb040049d41a5f897d5a956bf6, type: 3}
+      propertyPath: m_MatchWidthOrHeight
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2425705316150093153, guid: 4f5fbbbb040049d41a5f897d5a956bf6, type: 3}
       propertyPath: m_ReferenceResolution.x
       value: 1080
       objectReference: {fileID: 0}

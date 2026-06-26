@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 4c60b1c877f34ae4cbfe5e47e27cc737
+guid: 165c25d2858806e4eb4dd219cac9c680
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 4340143670946724112
-    second: box1_0
+      213: 261092019087575110
+    second: "\u5F85\u9009\u533A\u80CC\u666F_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -48,11 +48,11 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 1
   spriteExtrude: 1
-  spriteMeshType: 0
+  spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
-  spriteBorder: {x: 24, y: 24, z: 24, w: 24}
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
@@ -109,17 +109,30 @@ TextureImporter:
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: box1_0
+      name: "\u5F85\u9009\u533A\u80CC\u666F_0"
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1002
-        height: 435
+        width: 896
+        height: 313
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +141,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 01970f47ca94b3c30800000000000000
-      internalID: 4340143670946724112
+      spriteID: 648876bdec59f9300800000000000000
+      internalID: 261092019087575110
       vertices: []
       indices: 
       edges: []
@@ -148,7 +161,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      box1_0: 4340143670946724112
+      "\u5F85\u9009\u533A\u80CC\u666F_0": 261092019087575110
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -20,12 +20,17 @@ public partial class GameApp
     private static List<Assembly> _hotfixAssembly;
 
 #if FANTASY_UNITY
-    // 入口闸（强制联网入口）：登录成功 + 服务端玩家信息快照应用后，才放行主菜单。
-    // 两信号来自独立网络消息（OnLoggedIn 来自登录 RPC 回包；OnPlayerInfoSnapshot 来自 push），到达顺序不保证，
-    // 故各置一标志位、每个信号到达时检查「两者俱备」。云存档下载（P3）尽力而为、不入闸：登录已成功即服务器可达，
-    // 下载失败有本地兜底，不挡门。_mainMenuOpened 守卫确保主菜单只开一次。
+    // 入口闸（强制联网入口）：登录成功 + 服务端玩家信息快照应用 + 启动期异步预载完成「三者俱备」后，才放行玩法窗。
+    // 三信号到达顺序不保证（OnLoggedIn 来自登录 RPC 回包；OnPlayerInfoSnapshot 来自 push；_preloadDone 由 PreloadThenStart 末尾置位），
+    // 故各置一标志位、每个信号到达时检查「三者俱备」。云存档下载（P3）尽力而为、不入闸：登录已成功即服务器可达，
+    // 下载失败有本地兜底，不挡门。_mainMenuOpened 守卫确保玩法窗只开一次。
+    //
+    // _preloadDone 入闸的根由（修复异步预载引入的时序回归）：闸窗（ConnectingWindow）在 StartGameLogic 同步路径立即摆上、
+    // 网络登录与预载并行；若登录 + 快照先于预载完成放行、而玩法窗内 widget 此刻尚未预载驻留，WebGL 上 widget 同步加载会报错。
+    // 把预载完成纳入闸条件，保证玩法窗只在 widget 必已驻留后才开。
     private static bool _loginSucceeded;
     private static bool _snapshotApplied;
+    private static bool _preloadDone;
     private static bool _mainMenuOpened;
 #endif
 
@@ -157,7 +162,57 @@ public partial class GameApp
         settings.SetMusic(settings.Audio.MusicOn);
         settings.SetSound(settings.Audio.SoundOn);
 
-        // Block Blast：预热动态权重表（ConfigSystem 懒加载，失败则退化随机），打开主菜单
+        // 闸窗立即摆上（同步路径，不等预载）：网络登录与异步预载并行，登录回调回来时闸窗必已在栈，
+        // CloseUI 才能命中（修复回归：闸窗曾被推到 await 之后才 show，导致登录先到时 CloseUI 落空、闸窗后摆且无人关）。
+        // InitDynamicWeight 读配置、必须留在配置预载之后，故不与闸窗一起摆，仍在 PreloadThenStart 内。
+#if FANTASY_UNITY
+        ShowConnectingGate();
+#else
+        // 网络模块未启用(无 Fantasy 栈,无登录流程):退回旧行为直接开主菜单,避免闸永不满足而卡死。
+        GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+#endif
+
+        // 配置 / UI 预制依赖配置的启动尾段移到异步：WebGL 禁止同步加载未驻留 bundle，故先 await 预载
+        // 全部配置二进制 + 玩法 UI 预制到内存 / 资源池，再做 InitDynamicWeight（读配置表），并置预载完成信号入闸。
+        PreloadThenStart().Forget();
+    }
+
+    /// <summary>
+    /// 异步启动尾段：先预载配置二进制（ConfigSystem）+ 玩法 UI/特效预制（UIPreloader），
+    /// 使后续 InitDynamicWeight（读配置表）与玩法窗内同步实例化 widget 全部命中内存缓存 / 资源池，
+    /// 在 WebGL 下不触发任何 bundle 同步加载。预载失败不阻断启动（逐项记 Error，尽力放行）。
+    /// 末尾置入口闸第三信号 _preloadDone 并触发放行检查：保证玩法窗只在 widget 必已预载驻留后才开。
+    /// </summary>
+    private static async UniTaskVoid PreloadThenStart()
+    {
+        try
+        {
+            await ConfigSystem.Instance.PreloadAsync();
+        }
+        catch (System.Exception e)
+        {
+            Log.Error($"[GameApp] 配置预载异常，部分表可能落回同步加载（WebGL 将报错）：{e}");
+        }
+
+        try
+        {
+            await GameLogic.UIPreloader.PreloadGameplayWidgetsAsync();
+        }
+        catch (System.Exception e)
+        {
+            Log.Error($"[GameApp] UI 预制预载异常，玩法窗内 widget 可能落回同步加载（WebGL 将报错）：{e}");
+        }
+
+        try
+        {
+            await GameLogic.UIPreloader.PreloadFontsAsync();
+        }
+        catch (System.Exception e)
+        {
+            Log.Error($"[GameApp] UI 字体预载异常，UGuiFactory 文本可能落回同步加载（WebGL 将报错、回退内置字体）：{e}");
+        }
+
+        // Block Blast：预热动态权重表（ConfigSystem 已预载，读缓存不触发 bundle 加载；失败则退化随机）
         try
         {
             GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight();
@@ -166,24 +221,37 @@ public partial class GameApp
         {
             Log.Warning($"[GameApp] 权重表初始化失败，动态难度退化为随机：{e.Message}");
         }
+
 #if FANTASY_UNITY
-        // 强制联网入口:先开「连接中/重试」闸窗遮住背后,登录成功 + 快照应用前不开主菜单(见 TryOpenMainMenu)。
-        // 登录失败由 FantasyNetwork.OnLoginFailed 驱动 ConnectingWindow 切重试态、阻断进入。
-        GameModule.UI.ShowUIAsync<GameLogic.UI.ConnectingWindow>();
-#else
-        // 网络模块未启用(无 Fantasy 栈,无登录流程):退回旧行为直接开主菜单,避免闸永不满足而卡死。
-        GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+        // 入口闸第三信号：预载完成。置位后触发放行检查——若登录 + 快照已先到，此刻补齐预载即放行开玩法窗（widget 已驻留）。
+        _preloadDone = true;
+        TryOpenMainMenu();
 #endif
     }
 
 #if FANTASY_UNITY
     /// <summary>
-    /// 入口闸放行检查:登录成功 + 服务端快照应用「两者俱备」时,关闭连接闸窗、打开主菜单(只开一次)。
-    /// 由两个独立网络信号回调各自调用一次;先到者不满足条件直接返回,后到者补齐时放行。
+    /// 摆上连接闸窗（守卫：闸已放行 _mainMenuOpened==true 时不再摆，避免重复闸窗盖死已开的玩法窗且无人关）。
+    /// 冷启动与清档软重启都经此摆窗；两处调用前均已复位 _mainMenuOpened=false，正常路径守卫不触发，仅防意外重入。
+    /// </summary>
+    private static void ShowConnectingGate()
+    {
+        if (_mainMenuOpened)
+        {
+            Log.Warning("[GameApp] 闸已放行(_mainMenuOpened),跳过重复摆连接闸窗,避免盖死玩法窗。");
+            return;
+        }
+        GameModule.UI.ShowUIAsync<GameLogic.UI.ConnectingWindow>();
+    }
+
+    /// <summary>
+    /// 入口闸放行检查:登录成功 + 服务端快照应用 + 启动期预载完成「三者俱备」时,关闭连接闸窗、打开玩法窗(只开一次)。
+    /// 由三个独立信号回调各自调用一次;先到者不满足条件直接返回,后到者补齐时放行。
+    /// 预载入闸保证玩法窗内 widget 必已预载驻留(WebGL 同步实例化不报错)。
     /// </summary>
     private static void TryOpenMainMenu()
     {
-        if (_mainMenuOpened || !_loginSucceeded || !_snapshotApplied)
+        if (_mainMenuOpened || !_loginSucceeded || !_snapshotApplied || !_preloadDone)
         {
             return;
         }
@@ -191,7 +259,7 @@ public partial class GameApp
         GameModule.UI.CloseUI<GameLogic.UI.ConnectingWindow>();
         EnterMergeOrder().Forget();
         // GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
-        Log.Info("[GameApp] 入口闸放行:登录成功 + 快照就绪,打开主菜单。");
+        Log.Info("[GameApp] 入口闸放行:登录成功 + 快照就绪 + 预载完成,打开玩法窗。");
     }
     
     private static async UniTaskVoid EnterMergeOrder()
@@ -239,8 +307,10 @@ public partial class GameApp
         Log.Info("[GameApp] 清档后软重启:复位入口闸 + 释放内存单例 + 重连重登。");
 
         // ① 复位入口闸:静态标志位不归零则重登后 TryOpenMainMenu 永远早返回、不再放行。
+        //    _preloadDone 也复位:软重启重跑预载、由 PreloadThenStart 末尾重新置位入闸(否则闸第三信号永缺、永不放行)。
         _loginSucceeded = false;
         _snapshotApplied = false;
+        _preloadDone = false;
         _mainMenuOpened = false;
 
         // ② 关所有窗口:本配置窗 + 玩法窗等由重登后入口流程重开;先关再重启,避免旧窗叠新窗。
@@ -252,10 +322,15 @@ public partial class GameApp
         if (GameLogic.BlockBlast.DynamicWeightDiff.IsValid) GameLogic.BlockBlast.DynamicWeightDiff.Instance.Release();
 
         // ④ 重连重登:Shutdown 复位静态网络态(_initialized/Scene),Boot 走完整初始化 → 登录 → 快照 → 入口流程。
-        //    重登重新开「连接中」闸窗遮背后,登录成功 + 快照应用前不放行(沿强制联网入口语义)。
+        //    闸窗立即摆上(同步,与网络登录 + 预载并行);登录 + 快照 + 预载三者俱备前不放行(沿强制联网入口语义)。
         FantasyClient.FantasyNetwork.Shutdown();
         FantasyClient.FantasyNetwork.Boot();
-        GameModule.UI.ShowUIAsync<GameLogic.UI.ConnectingWindow>();
+        ShowConnectingGate();
+
+        // ⑤ 重跑预载并重置闸第三信号:配置已预载进字节缓存(幂等去重,直接命中)、widget 预制重新确保驻留资源池
+        //    (CloseAll 销毁的是 widget 实例,预制模板由预载的 spawned 注册独立持有;重跑以保证软重启后驻留不依赖该假设),
+        //    末尾置 _preloadDone=true + TryOpenMainMenu 放行。
+        PreloadThenStart().Forget();
     }
 #endif
 
