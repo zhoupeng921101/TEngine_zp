@@ -129,6 +129,15 @@ namespace GameLogic.BlockBlast
         /// </summary>
         private bool _serverOrdersDirty;
 
+        /// <summary>
+        /// 服务端 delta-push 已更新四货币字段(Energy/Piety/Soul/Exp)、尚未被 UI 绘制的脏标记。
+        /// <c>MetaCurrencySync.ApplyDeltaPush</c> 经 <see cref="MarkCurrencyPushed"/> 置位,冻结 UI 的每秒轮询经
+        /// <see cref="ConsumeCurrencyPushed"/> 读取(返 true 触发其货币 HUD 重绘)后清零。
+        /// 仿 <see cref="_serverOrdersDirty"/> 范式:push 异步晚于交付同步流程到达,故在 push 命中点置脏、由既有轮询消费,
+        /// 不给冻结 UI 加订阅/回调,亦不引入跨窗静态污染(纯实例字段,默认 false,单测不触发即恒 false)。
+        /// </summary>
+        private bool _currencyPushedDirty;
+
         /// <summary>已完成单数。</summary>
         public int CompletedOrders;
 
@@ -552,6 +561,26 @@ namespace GameLogic.BlockBlast
             if (snapshot.LastOrderRefreshMs > 0) LastOrderRefreshTime = snapshot.LastOrderRefreshMs / 1000L;
 
             _serverOrdersDirty = true; // 通知冻结 UI 下一拍重绘订单区
+        }
+
+        /// <summary>
+        /// 标记四货币被服务端 delta-push 更新过(置 <see cref="_currencyPushedDirty"/>),使冻结 UI 的每秒轮询下一拍重绘货币 HUD。
+        /// 由 <c>MetaCurrencySync.ApplyDeltaPush</c> 写入四货币字段后调用。仅置脏、不改值(值已由 ApplyDeltaPush set)。
+        /// </summary>
+        public void MarkCurrencyPushed()
+        {
+            _currencyPushedDirty = true;
+        }
+
+        /// <summary>
+        /// 读取并清零货币 push 脏标记(set-and-clear,仿 <see cref="ApplyOrderRefresh"/> 服务端权威分支)。
+        /// 返回 true 表示自上次绘制以来有 delta-push 更新过四货币,UI 据此触发货币 HUD 重绘。
+        /// </summary>
+        public bool ConsumeCurrencyPushed()
+        {
+            if (!_currencyPushedDirty) return false;
+            _currencyPushedDirty = false;
+            return true;
         }
 
         /// <summary>激活订单所需的去重元素类型集合（注入类型池来源 = 此并集）。</summary>

@@ -71,15 +71,22 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>
         /// 重对齐基线到给定 state 当前值(不上报、不改 state)。用于玩法窗 ImportMeta 之后:本地从缓存读出的四货币
         /// 是「上次离线时的服务端权威快照」,把基线钉到它,使首次 ReportPending 只上报「本会话开窗后的真实增量」,
-        /// 不把缓存值当成新产出重报。已 Ready 后调用才有意义(未 Ready 时 ApplySnapshot 会接管)。
+        /// 不把缓存值当成新产出重报。
+        ///
+        /// 未 Ready(登录快照未到)直接跳过:此时活态 Energy 只是本地缓存值,尚无服务端权威值可锚。
+        /// 对齐交由随后到达的 <see cref="ApplySnapshot"/> 接管——它同时设基线 + 覆盖窗已开的活态字段。
         /// </summary>
         public void RebindBaseline(MergeOrderState state)
         {
-            if (state == null) return;
+            if (state == null || !IsReady) return;
             _baseSoul = state.Soul;
             _basePiety = state.Piety;
             _baseExp = state.Exp;
             _baseEnergy = state.Energy;
+            // 开窗时 ApplyTimeRegen 可能已把离线/在窗恢复累计进 RegenSinceReport,而该恢复量已包含在上面钉入的
+            // Energy 基线里。若不清零,首次 ReportPending 会再把它并入基线(_baseEnergy += RegenSinceReport),
+            // 使基线超出活态值、算出等额负 delta(又一次虚假扣体力)。基线已含恢复 → 此处一并清零,二者同源对齐。
+            state.RegenSinceReport = 0;
         }
 
         /// <summary>
@@ -152,17 +159,23 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>
         /// 应用服务端主动推送(G2C_PropertyDeltaPush)到四货币之一:按 type 直接 set 本地字段 + 基线为权威 NewAmount。
         /// type 非四货币(Coin/Diamond/Stamina/All)直接忽略(那些由 PlayerAttrService 处理)。state 为 null 仅更基线。
+        ///
+        /// 命中四货币且 state 非空时置「货币 push 脏标记」(<see cref="MergeOrderState.MarkCurrencyPushed"/>):push 异步晚于
+        /// 交付同步流程到达,本地字段虽已 set 但冻结 UI 不会自动重绘(每秒轮询仅在时基恢复改变了体力时才刷)。置脏后由
+        /// 玩法窗每秒轮询经 <see cref="MergeOrderState.ConsumeCurrencyPushed"/> 触发货币 HUD 重绘,使交付奖励(体力 +8、虔诚币等)即时显示。
         /// </summary>
         public void ApplyDeltaPush(MergeOrderState state, AttrType type, long newAmount)
         {
+            bool hit = false;
             switch (type)
             {
-                case AttrType.SoulPower:   _baseSoul = newAmount;   if (state != null) state.Soul = (int)newAmount; break;
-                case AttrType.Piety:       _basePiety = newAmount;  if (state != null) state.Piety = (int)newAmount; break;
-                case AttrType.GuardianExp: _baseExp = newAmount;    if (state != null) state.Exp = (int)newAmount; break;
-                case AttrType.Energy:      _baseEnergy = newAmount; if (state != null) state.Energy = (int)newAmount; break;
+                case AttrType.SoulPower:   _baseSoul = newAmount;   if (state != null) state.Soul = (int)newAmount; hit = true; break;
+                case AttrType.Piety:       _basePiety = newAmount;  if (state != null) state.Piety = (int)newAmount; hit = true; break;
+                case AttrType.GuardianExp: _baseExp = newAmount;    if (state != null) state.Exp = (int)newAmount; hit = true; break;
+                case AttrType.Energy:      _baseEnergy = newAmount; if (state != null) state.Energy = (int)newAmount; hit = true; break;
                 // 其它 type:非本类职责,忽略
             }
+            if (hit && state != null) state.MarkCurrencyPushed();
         }
     }
 }

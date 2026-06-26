@@ -1,6 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TEngine;
+using Cysharp.Threading.Tasks;
+using Log = TEngine.Log;
+#if FANTASY_UNITY
+using Fantasy; // C2G_ClearPlayerDataRequest 扩展方法 + ClearPlayerDataResultCode 所在命名空间
+#endif
 
 namespace GameLogic.UI
 {
@@ -27,6 +32,16 @@ namespace GameLogic.UI
 
         // 选中协议：0=KCP，1=WebSocket（编辑态工作副本，「连接并保存」时才写入配置）。
         private int _protocolSel;
+
+        // 清空玩家数据按钮 + 二次确认态：首点 _clearArmed 置 true 并改文字提示，再点才真发请求；
+        // 期间禁重入（_clearing）。开窗 OnRefresh 复位 _clearArmed，避免上次开窗的「已确认」态残留。
+        private Button _btnClearData;
+        private Text _btnClearDataLabel;
+        private bool _clearArmed;
+        private bool _clearing;
+
+        private static readonly Color DangerColor = new Color32(0xcc, 0x33, 0x33, 0xFF);
+        private static readonly Color DangerArmedColor = new Color32(0xff, 0x55, 0x33, 0xFF);
 
         private static readonly Color PanelColor = new Color32(0x22, 0x26, 0x33, 0xF2);
         private static readonly Color FieldColor = new Color32(0x3a, 0x40, 0x52, 0xFF);
@@ -86,16 +101,21 @@ namespace GameLogic.UI
             _textStatus = UGuiFactory.CreateText(content, "Status", Cx, 1010, 840, 60, "", 30,
                 new Color32(0x88, 0xaa, 0xcc, 0xFF));
 
-            // ── 操作按钮 ──
-            var btnConnect = UGuiFactory.CreateButton(content, "BtnConnect", Cx, 1160, 680, 110,
+            // ── 操作按钮（紧凑排布，腾出清档按钮位，不压窗）──
+            var btnConnect = UGuiFactory.CreateButton(content, "BtnConnect", Cx, 1120, 680, 96,
                 "连接并保存", 46, new Color32(0x44, 0x77, 0xff, 0xFF), Color.white, out _, out _);
             btnConnect.onClick.AddListener(OnConnect);
 
-            var btnReset = UGuiFactory.CreateButton(content, "BtnReset", Cx, 1290, 680, 100,
+            var btnReset = UGuiFactory.CreateButton(content, "BtnReset", Cx, 1230, 680, 90,
                 "恢复默认 (127.0.0.1)", 38, new Color32(0x77, 0x88, 0x99, 0xFF), Color.white, out _, out _);
             btnReset.onClick.AddListener(OnResetDefault);
 
-            var btnClose = UGuiFactory.CreateButton(content, "BtnClose", Cx, 1410, 680, 100,
+            // 危险操作：清空玩家数据（始终可见，调试窗任何包都显示）。红系底色，二次确认才发。
+            _btnClearData = UGuiFactory.CreateButton(content, "BtnClearData", Cx, 1340, 680, 90,
+                ClearLabelIdle, 40, DangerColor, Color.white, out _, out _btnClearDataLabel);
+            _btnClearData.onClick.AddListener(OnClearPlayerData);
+
+            var btnClose = UGuiFactory.CreateButton(content, "BtnClose", Cx, 1450, 680, 90,
                 "关闭", 42, new Color32(0x55, 0x5b, 0x6b, 0xFF), Color.white, out _, out _);
             btnClose.onClick.AddListener(Close);
         }
@@ -114,6 +134,7 @@ namespace GameLogic.UI
 #endif
             RefreshProtocolTabs();
             RefreshStatus();
+            DisarmClear(); // 复位二次确认态：上次开窗若停在「已确认」态，本次开窗回到初始未确认。
         }
 
         private void SelectProtocol(int sel)
@@ -167,7 +188,7 @@ namespace GameLogic.UI
             FantasyClient.FantasyNetwork.Shutdown();
             FantasyClient.FantasyNetwork.Boot();
             _textStatus.text = $"正在连接 {FantasyClient.FantasyNetworkConfig.Protocol} {FantasyClient.FantasyNetworkConfig.ServerAddress} …";
-            Log.Info($"[ServerConfig] 切换服务器并重连：{FantasyClient.FantasyNetworkConfig.Protocol} {FantasyClient.FantasyNetworkConfig.ServerAddress}");
+            TEngine.Log.Info($"[ServerConfig] 切换服务器并重连：{FantasyClient.FantasyNetworkConfig.Protocol} {FantasyClient.FantasyNetworkConfig.ServerAddress}");
 #else
             _textStatus.text = "网络模块未启用，无法连接";
 #endif
@@ -180,6 +201,112 @@ namespace GameLogic.UI
             FantasyClient.FantasyNetworkConfig.ResetToDefault();
 #endif
             OnRefresh();
+        }
+
+        // ── 清空玩家数据（清档·客户端段）────────────────────────────────
+
+        private const string ClearLabelIdle = "清空玩家数据";
+        private const string ClearLabelArmed = "再点一次确认清空";
+
+        /// <summary>清档按钮点击：两段式。首点仅武装确认；再点（已武装）才真正发请求。</summary>
+        private void OnClearPlayerData()
+        {
+            if (_clearing) return; // 在途防重入
+
+            if (!_clearArmed)
+            {
+                _clearArmed = true;
+                if (_btnClearDataLabel != null) _btnClearDataLabel.text = ClearLabelArmed;
+                if (_btnClearData != null) _btnClearData.image.color = DangerArmedColor;
+                _textStatus.text = "清档不可恢复：再点一次确认，或点其它按钮取消。";
+                return;
+            }
+
+            // 已武装：执行。立即解除武装态并进入在途态，防连点重发。
+            DisarmClear();
+            _clearing = true;
+            ClearPlayerDataFlow().Forget();
+        }
+
+        /// <summary>解除二次确认态：按钮文字 / 颜色回到初始。不动在途态 <see cref="_clearing"/>。</summary>
+        private void DisarmClear()
+        {
+            _clearArmed = false;
+            if (_btnClearDataLabel != null) _btnClearDataLabel.text = ClearLabelIdle;
+            if (_btnClearData != null && _btnClearData.image != null) _btnClearData.image.color = DangerColor;
+        }
+
+        /// <summary>
+        /// 清档主流程（仿 <see cref="GameLogic.BlockBlast.Player.EnterMainGameGatewayProd"/> 范式）：
+        /// guard 连接+登录 → 发 <c>C2G_ClearPlayerDataRequest</c>（无参，身份从会话取）→ 按结果码处理。
+        /// Success：清本地玩法投影缓存 → 断开网络 → 全量重启（重载场景 0，重走登录/快照/进主游戏），
+        /// 使客户端从已重置的服务端快照重建为新手态，而非沿用旧内存/本地视图。
+        /// 任何往返失败/超时不抛，走状态文字提示重试，不误清本地。
+        /// </summary>
+        private async UniTaskVoid ClearPlayerDataFlow()
+        {
+#if FANTASY_UNITY
+            try
+            {
+                var session = FantasyClient.FantasyNetwork.Session;
+                if (session == null
+                    || !FantasyClient.FantasyNetwork.IsConnected
+                    || !FantasyClient.FantasyNetwork.IsLoggedIn)
+                {
+                    _textStatus.text = "请先连接并登录后再清空（未登录无法清服务端数据）。";
+                    return;
+                }
+
+                _textStatus.text = "正在清空玩家数据…";
+
+                G2C_ClearPlayerDataResponse response;
+                try
+                {
+                    response = await session.C2G_ClearPlayerDataRequest();
+                }
+                catch
+                {
+                    _textStatus.text = "清档请求失败，请重试。";
+                    return;
+                }
+                if (response == null)
+                {
+                    _textStatus.text = "清档无响应，请重试。";
+                    return;
+                }
+
+                switch (response.ResultCode)
+                {
+                    case ClearPlayerDataResultCode.Success:
+                        // ① 清本地玩法投影缓存（务必在重连重登前，否则重登从本地缓存复活旧数据，尤其棋盘 blob）。
+                        GameLogic.BlockBlast.Player.PlayerDataLocalReset.ClearAll();
+                        _textStatus.text = "已清空，正在重连…";
+                        TEngine.Log.Info("[ServerConfig] 玩家数据已清空，本地缓存已清，软重启重登。");
+                        // ② 软重启重登：复位入口闸 + 关所有窗 + 释放内存单例 + Shutdown/Boot 重连。
+                        //    使客户端从已重置的服务端快照重建为新手态（详见 GameApp.RestartAfterDataReset）。
+                        //    本窗将随 CloseAll 销毁，故此后不再触本窗 UI。
+                        GameApp.RestartAfterDataReset();
+                        break;
+                    case ClearPlayerDataResultCode.NotLoggedIn:
+                        _textStatus.text = "未登录，请先连接。";
+                        break;
+                    case ClearPlayerDataResultCode.ServiceUnavailable:
+                        _textStatus.text = "服务繁忙，请重试。";
+                        break;
+                    default:
+                        _textStatus.text = "清档返回未知结果，请重试。";
+                        break;
+                }
+            }
+            finally
+            {
+                _clearing = false;
+            }
+#else
+            _textStatus.text = "网络模块未启用（FANTASY_UNITY 未定义）。";
+            _clearing = false;
+            await UniTask.CompletedTask;
+#endif
         }
 
         private void Close() => GameModule.UI.CloseUI<ServerConfigWindow>();

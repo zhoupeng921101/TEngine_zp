@@ -95,8 +95,16 @@ public partial class GameApp
         // normal 订单服务端权威投影(P1 客户端段):
         // ① 活态就绪/退出钩子 → 交 OrderSync 切权威(置 ServerAuthoritativeOrders)+ 接交付 RPC + 应用已缓存快照
         //    (覆盖 blob 旧 normal 订单)/ 解绑旧活态。开关在 OrderSync.OnMergeStateReady 内置位,无静态、不污染单测。
+        // 同钩子内重对齐四货币对账基线(P2):开窗新建 state 后 ImportMeta 从本地缓存读出四货币,而对账基线仍停在
+        //   登录快照值(state=null 时只记基线、未随活态对齐)。二者不一致(缓存被清/旧档/离线漂移)时,首次
+        //   ReportPending 会把(缓存值-基线)当玩法变更上报、服务端据此冲穿余额(体力重进归零的根因)。把基线钉到
+        //   开窗后的活态值,使首刀只上报「本次开窗后的真实增量」。未 Ready(登录快照未到)由 RebindBaseline 内部跳过。
         GameLogic.BlockBlast.BlockGameState.OnMergeStateReady = state =>
-            GameLogic.GameContext.Instance.OrderSync?.OnMergeStateReady(state);
+        {
+            var c = GameLogic.GameContext.Instance;
+            c.OrderSync?.OnMergeStateReady(state);
+            c.MetaCurrency?.RebindBaseline(state);
+        };
         GameLogic.BlockBlast.BlockGameState.OnMergeStateClosed = state =>
             GameLogic.GameContext.Instance.OrderSync?.OnMergeStateClosed(state);
         // ③ 服务端订单快照来源:改由进主游戏请求(EnterMainGame)同包回带 → ctx.EnterMainGame 内部喂 OrderSync.OnSnapshotPush。
@@ -181,8 +189,73 @@ public partial class GameApp
         }
         _mainMenuOpened = true;
         GameModule.UI.CloseUI<GameLogic.UI.ConnectingWindow>();
-        GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+        EnterMergeOrder().Forget();
+        // GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
         Log.Info("[GameApp] 入口闸放行:登录成功 + 快照就绪,打开主菜单。");
+    }
+    
+    private static async UniTaskVoid EnterMergeOrder()
+    {
+        try
+        {
+            var enter = GameContext.Instance?.EnterMainGame;
+            if (enter != null)
+            {
+                // 看门狗:进主游戏响应应用完成与超时谁先到都放行。超时→按本地兜底进入(ResetForMergeOrder 回落本地),绝不卡死。
+                // EnterAsync 自带防重入 + 失败降级(请求失败用本地兜底、云存档置 Ready),故此处只需配超时。
+                await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(8000, ignoreTimeScale: true));
+            }
+
+            GameModule.UI.CloseUI<MainMenuWindow>();
+            GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+        }
+        catch (System.Exception e)
+        {
+            // 任何异常都不得让 async void 逃逸崩主菜单:本地兜底放行。
+            Log.Warning($"[MainMenuWindow] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
+            GameModule.UI.CloseUI<MainMenuWindow>();
+            GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+        }
+        // 不重置 _entering / 按钮 interactable:成功路径下本窗已 Close 销毁,无需还原。
+    }
+    
+#endif
+
+#if FANTASY_UNITY
+    /// <summary>
+    /// 清档后重连重登(清档·客户端段)。服务端玩家数据已清 + 本地玩法投影缓存已清后调用,使客户端从已重置的
+    /// 服务端快照重建为新手态,而非沿用旧的内存视图 / 已开窗口。
+    ///
+    /// 不走整场景重载(SceneManager.LoadScene):本类的网络事件订阅(OnLoggedIn/OnPlayerInfoSnapshot 等)在
+    /// StartGameLogic 内以 += 挂载且无解绑,重载会让 StartGameLogic 再跑一遍、订阅翻倍。改为「原地软重启」:
+    ///   ① 复位入口闸标志位,使重登后 TryOpenMainMenu 能再次放行、重走进主游戏流程;
+    ///   ② 关掉所有已开窗口(含本配置窗 / 玩法窗),由重登后的入口流程重新开;
+    ///   ③ 释放持有内存态的轻量单例(GameContext / BlockGameState / DynamicWeightDiff),
+    ///      下次 .Instance 访问时 OnInit 从已清缓存 + 服务端快照重建;
+    ///   ④ Shutdown + Boot 重连:复用既有网络事件订阅(不重复挂),重登触发快照覆盖货币 + 入口流程重进。
+    /// </summary>
+    public static void RestartAfterDataReset()
+    {
+        Log.Info("[GameApp] 清档后软重启:复位入口闸 + 释放内存单例 + 重连重登。");
+
+        // ① 复位入口闸:静态标志位不归零则重登后 TryOpenMainMenu 永远早返回、不再放行。
+        _loginSucceeded = false;
+        _snapshotApplied = false;
+        _mainMenuOpened = false;
+
+        // ② 关所有窗口:本配置窗 + 玩法窗等由重登后入口流程重开;先关再重启,避免旧窗叠新窗。
+        GameModule.UI.CloseAll();
+
+        // ③ 释放持内存态的轻量单例(SimpleSingleton 的静态 _instance 跨场景 / 重连存活,须显式释放才会重建)。
+        if (GameLogic.GameContext.IsValid) GameLogic.GameContext.Instance.Release();
+        if (GameLogic.BlockBlast.BlockGameState.IsValid) GameLogic.BlockBlast.BlockGameState.Instance.Release();
+        if (GameLogic.BlockBlast.DynamicWeightDiff.IsValid) GameLogic.BlockBlast.DynamicWeightDiff.Instance.Release();
+
+        // ④ 重连重登:Shutdown 复位静态网络态(_initialized/Scene),Boot 走完整初始化 → 登录 → 快照 → 入口流程。
+        //    重登重新开「连接中」闸窗遮背后,登录成功 + 快照应用前不放行(沿强制联网入口语义)。
+        FantasyClient.FantasyNetwork.Shutdown();
+        FantasyClient.FantasyNetwork.Boot();
+        GameModule.UI.ShowUIAsync<GameLogic.UI.ConnectingWindow>();
     }
 #endif
 

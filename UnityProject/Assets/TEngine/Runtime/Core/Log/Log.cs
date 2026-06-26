@@ -1077,6 +1077,7 @@ namespace TEngine
         [Conditional("ENABLE_DEBUG_AND_ABOVE_LOG")]
         [Conditional("ENABLE_INFO_AND_ABOVE_LOG")]
         [Conditional("ENABLE_WARNING_AND_ABOVE_LOG")]
+        [HideInCallstack]
         public static void Warning(string message)
         {
             GameFrameworkLog.Warning(message);

@@ -246,6 +246,17 @@ namespace GameLogic
                 MarkAndFlushSave();
             }
 
+            // 货币 delta-push 到达后重绘 HUD：服务端发奖(交付体力 +8 / 虔诚币等)经 G2C_PropertyDeltaPush →
+            // MetaCurrencySync.ApplyDeltaPush 已 set 本地字段并置脏,但 push 异步晚于交付同步流程,且当时基恢复未改变体力时
+            // 上方 ApplyTimeRegen 分支走不到 RefreshEnergy → HUD 滞留旧值。此处消费脏标记即时刷新体力与虔诚币(本窗仅展示这两项；
+            // Soul/Exp 字段已由 ApplyDeltaPush 更新、本窗无对应 HUD,无需重绘)。不落盘:推送值即服务端权威,无本地净变化可上报。
+            if (_merge.ConsumeCurrencyPushed())
+            {
+                RefreshEnergy();
+                RefreshClearTool(); // 体力变 → 消除道具 gate 态须刷新(同 ApplyTimeRegen 分支)
+                RefreshPiety();
+            }
+
             // 倒计时每秒刷新（在恢复 / 刷新轮询之后，用同一 now 与已推进的记录时刻，显示新周期剩余）。
             RefreshCountdowns(now);
         }
@@ -1622,6 +1633,11 @@ namespace GameLogic
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<MergeOrderWindow>();
             GameModule.UI.ShowUIAsync<MainMenuWindow>();
+        }
+
+        private partial void OnClick_ConfigOfConnectionBtn()
+        {
+            GameModule.UI.ShowUIAsync<GameLogic.UI.ServerConfigWindow>();
         }
     }
 }
