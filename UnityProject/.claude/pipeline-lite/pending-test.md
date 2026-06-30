@@ -180,3 +180,116 @@
 - 测什么:服务端权威发牌节律与既有 golden gen-core trace 是否逐位一致(复现 dev 自检)。
 - 怎么测:命令行 `cd D:\work\TEngine_block\Fantasy` 后 `dotnet run --project experiments/BlockBlastGenCore/BlockBlastGenCore.csproj -- --verify-server-cadence`。
 - 预期结果:6 个 seed(1337/1/7/42/99/12345)逐条 `与 golden 逐字符一致 ✓ 行数=256`,末行 `[OK] 服务端权威发牌节律与 golden 逐位一致(全 seed)`。若任一 seed 报发散,会打印 `首个发散行=N` 与 golden/server 两行对照,原样回报。
+
+---
+
+## 待测条目(M3·客户端段:切换服务端权威发牌 + 本地预测对账)
+
+> 本轮把现网客户端游戏循环从「本地权威发牌」直接切换为「服务端权威 + 客户端用同一份生成核心做乐观预测 + 服务端响应对账」。新增客户端发牌网络对接层(3 RPC 封装)+ 预测/对账引擎(纯逻辑可单测)+ 玩法窗接线;本地权威发牌旧路已短路(ServerDeal 注入后本地发牌入口全程不走)。
+> 新增文件:`Module/BlockBlast/Player/IBlockGameGateway.cs`、`BlockGameGatewayProd.cs`、`BlockGameResults.cs`、`ServerDealSync.cs`、`Module/BlockBlast/BlockGenWeightConfig.cs`、测试 `Editor/Tests/BlockBlast/ServerDealSyncTests.cs`。
+> 改动文件:`DynamicWeightDiff.cs`(加 RestoreState)、`BlockGameState.cs`(加 ServerDeal 投影 + RefillPieces 短路)、`GameContext.cs`、`GameApp.cs`、`MergeOrderWindow.cs`。
+> CT1/CT2/CT3 在 Unity 内即可手测;CT4 真往返需用户起服(MongoDB + 服务端,前置同 ST2:先停遗留 Main 进程)。
+
+### [ ] CT1 · 改动后客户端工程编译通过
+
+- 测什么:本轮所有新增/改动文件能否随客户端工程编译通过(含热更区 GameLogic + 测试程序集 BlockBlast.Tests)。
+- 怎么测:Unity 编辑器内等脚本编译完成,看 Console 有无红色 error;打开 Window → General → Test Runner(EditMode)能否列出 `ServerDealSyncTests`(列得出即说明 GameLogic + 测试程序集都编译成功)。
+- 预期结果:无编译错误;EditMode 列表出现 `ServerDealSyncTests`,含 `Prediction_MatchesServer_NoReconcileCorrection`、`Reconcile_OverwritesWhenServerDiverges`、`Reconcile_IdempotentReplay_NoSpuriousCorrectionOnAgreement`、`Snapshot_LoadsAuthoritativeStateAndMarksCorrected` 四条。既有 `BlockBlast.Tests` 用例仍正常列出。
+
+### [ ] CT2 · 预测与服务端口径逐位一致(核心 happy path,纯单测)
+
+- 测什么:客户端预测发牌器(同服务端 seed + 服务端镜像权重配置)驱动一局 240 步脚本对局,每步与就地模拟的服务端权威态对账,断言「对账永不触发覆盖」(预测逐位等于权威);终局 step/score/盘面/候选与服务端一致。
+- 怎么测:Test Runner → EditMode,运行 `ServerDealSyncTests.Prediction_MatchesServer_NoReconcileCorrection`。
+- 预期结果:PASS(绿)。若 FAIL,失败信息会指出在第几步出现 `预测应与服务端逐位一致、对账不应覆盖`——把该步号 + 预测 step/score 原样回报(说明客户端镜像权重配置 `BlockGenWeightConfig.ServerMirror()` 与服务端 `DefaultWeightConfig()` 或发牌节律有偏,需 boss 核对两端配置)。
+
+### [ ] CT3 · 对账分支与快照恢复正确(异常路径,纯单测)
+
+- 测什么:① 故意构造与预测分歧的服务端响应(分数 +999、盘面清零、候选换值)→ 对账应以服务端权威整体覆盖;② 幂等响应且与预测一致 → 不误判覆盖;③ 快照恢复用服务端全态加载并标记需整屏重绘。
+- 怎么测:Test Runner → EditMode,运行 `ServerDealSyncTests` 的 `Reconcile_OverwritesWhenServerDiverges`、`Reconcile_IdempotentReplay_NoSpuriousCorrectionOnAgreement`、`Snapshot_LoadsAuthoritativeStateAndMarksCorrected` 三条。
+- 预期结果:三条均 PASS(绿)。
+
+### [ ] CT4 · 实机往返:开局/落子/重连走服务端权威,对账正确(起服手测)
+
+- 测什么:玩法窗开窗走 C2G_GameStart、落子走 C2G_Place(只传输入)、对账分支生效;形状全程服务端权威;幂等(快速重复/乱序)对账正确。
+- 怎么测:前置同 ST2(停遗留 `Main` 进程 → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`,需 MongoDB 可达)。客户端 Play 模式正常登录进主菜单 →「开始游戏」进玩法窗:
+  - 进窗瞬间手牌可能短暂为空(GameStart RPC 在飞),随即填入服务端首批 3 块——观察服务端日志 `[BlockBlast] GameStart playerId=... gameId=... seed=... initialTrio=[...]`。
+  - 拖块落子若干手:盘面/分数随之更新,三块用完自动补 3 块;每次落子服务端日志应有 Place 推进(step 递增),无红色异常日志。
+  - 观察 Console:正常情况下不应出现 `[MergeOrderWindow] C2G_Place 异常` / `GameNotFound` 之类告警(出现即回报)。
+- 预期结果:开局走 GameStart 拿到服务端首批;落子走 Place 只传 candidateIndex + 落点(协议无 shapeId 字段,形状服务端权威);整体手感与改动前一致;Console 无红、无 Place 失败告警。
+- 已知行为变化(请用户知悉,非 bug):**每次开窗 = 服务端新局**(GameStart 发新 gameId、空盘、step=0),原「本地无尽局内态续存(重开恢复上次盘面/分数)」在服务端权威下被新局取代;盘面/分数以服务端为准。体力/订单/合成区等经济仍本地续存(它们不属服务端发牌权威)。若用户期望「重开仍恢复上次对局」,这是服务端对局生命周期策略问题(GameSession 是否跨开窗持久),需 boss 与服务端确认——本轮按 boss 方案「开局走 GameStart」实现为每次新局。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(M3b·服务端段:GameSession 按 playerId 持久续存 + 续局语义 + 发牌器全态可序列化)
+
+> 服务端工程 `Fantasy/`(分支 `block`)。本轮把 `GameSession` 从「每次开窗新建的瞬态实体」改为「按 playerId 持久续存」:局内盘面/分数/步号/候选 + 发牌器全运行态(RNG 游标 + 5 调度标量 + LastAlgo/LastTier)落 MongoDB(集合 `block_blast_session`,_id=playerId),开窗走「续局语义」(有持久 Doc 则恢复、无则新建)。这根治上一轮 CT4 标注的「每次开窗=新局」——续局后盘面/分数恢复、后续发牌与中断前逐位接续。
+> 发牌器扩展纯加性(`XorShift128PlusRng` 加导出/导入游标、`DynamicWeightDiff` 加 ExportFullState/ImportFullState),不改生成语义;协议 `BlockGenState` 增 RNG 游标(RngS0/RngS1)+ LastAlgo/LastTierId 两字段,`G2C_GameStartResponse` 增 Resumed/Score/Board。
+> dev 已自检:`dotnet build examples/Server/Server.sln` 0 错误(整 sln 3 个既有示例历史 nullable 告警,非本轮引入;本轮新增文件 0 告警);协议导出成功且客户端生成物已同步进 UnityProject(`Assets/Fantasy/Generate/NetworkProtocol/OuterMessage.cs` 含 RngS0/Resumed);权威性回归 `--verify-server-cadence` 6 seed 仍逐字符一致;续局忠实性 `--verify-resume` 全 seed × 6 切点逐位接续。
+> SST3/SST4 是纯命令行(任何装 .NET 8 SDK 的机器可跑);SST1/SST2 需用户在能起服(且本机可达 MongoDB)的环境手测。前置同 ST2/CT4:起服 / 跑 `Server.sln` 前先停遗留 `Main` 进程(占 `examples/Bin/Debug/net8.0/` dll 锁)。
+
+### [ ] SST1 · 服务端整解决方案编译通过(0 错)
+
+- 测什么:新增持久层(GameSessionDoc / GameSessionServiceComponent + System / GameSessionPersistHelper)+ 续局 Rehydrate/BuildDoc + 协议新字段 + 发牌器全态加性扩展后,整个服务端解决方案能否干净编译,且源生成器把新组件 System 与改动的 Handler 正确注册。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后 `dotnet build examples/Server/Server.sln`。
+- 预期结果:`已成功生成`;本轮新增 BlockBlast 持久文件 0 警告 0 错误(整 sln 仍有 3 个既有示例历史 nullable 告警,非本轮)。若报 MSB3027/MSB3021「文件被 Main(...) 锁定」,遗留进程未停干净,停掉重试。
+
+### [ ] SST2 · 续局往返:重开窗/重连恢复上次盘面+分数+后续发牌接续(起服手测)
+
+- 测什么:同一 playerId 第一次开窗新建对局并落几子后,关闭玩法窗(或断线重连/重登)再次开窗,服务端按 playerId 从持久 Doc 恢复对局——盘面/分数/步号/候选恢复到中断前,且续局后的补牌与不中断时一致。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需 MongoDB 可达)。客户端登录后:
+  - 第一次开窗:服务端日志应为 `[BlockBlast] EnterGame NEW playerId=... gameId=... seed=... initialTrio=[...]`,响应 `Resumed=false`、step=0、空盘。
+  - 落若干子(让 step 推进、分数增长,最好触发一次补牌);每子服务端有 Place 推进日志。
+  - 关闭玩法窗再开(或断线重连后再开窗):服务端日志应为 `[BlockBlast] EnterGame RESUME playerId=... gameId=<同一 gameId> step=<上次的步号> score=<上次分数> candidates=[...]`,响应 `Resumed=true`、step/score/board/candidateQueue 全是中断前的值(非 0 态)。
+  - 续局后再落子:补牌的 shapeId 应与「不中断一气玩到这步」相同(发牌逐位接续;此点严格性由 SST4 纯命令行自检兜底,手测只需观察续局后发牌正常、无重置)。
+- 预期结果:首次 `Resumed=false` 新建、续局 `Resumed=true` 恢复;续局 gameId 与首次相同;盘面/分数/候选恢复到中断前;续局后发牌正常接续,无「盘面被清空/分数归零/重新发首批」的回归。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] SST3 · 权威性回归复跑(发牌器全态加性扩展未伤确定性,纯命令行)
+
+- 测什么:对发牌器加了 RNG 游标导出/导入 + 全态导出/导入后,服务端权威发牌节律与既有 golden 是否仍逐位一致(确认加性扩展零回归)。
+- 怎么测:`cd D:\work\TEngine_block\Fantasy` 后 `dotnet run --project experiments/BlockBlastGenCore/BlockBlastGenCore.csproj -- --verify-server-cadence`。
+- 预期结果:6 个 seed 逐条 `与 golden 逐字符一致 ✓ 行数=256`,末行 `[OK] 服务端权威发牌节律与 golden 逐位一致(全 seed)`。任一 seed 发散会打印 `首个发散行=N` 与对照,原样回报。
+
+### [ ] SST4 · 续局忠实性自检(续存正确性核心,纯命令行)
+
+- 测什么:模拟「建局→落 N 子→序列化发牌器全态到 Doc→从 Doc 重建→续落 M 子」,续接段的 trio/盘面/分数与「不中断一气跑完 N+M 子」逐位一致——证明 ExportFullState/ImportFullState + RNG 游标复位忠实,续局后发牌与中断前逐位接续。
+- 怎么测:`cd D:\work\TEngine_block\Fantasy` 后 `dotnet run --project experiments/BlockBlastGenCore/BlockBlastGenCore.csproj -- --verify-resume`。
+- 预期结果:6 seed × 6 切点(N,M ∈ {(1,50),(3,50),(4,50),(10,60),(37,80),(120,120)},含补批边界 N=3/4 与跨补批切点)逐条 `续局逐位接续 ✓`,末行 `[OK] 续局重建后发牌与中断前逐位接续(全 seed × 全切点)`。任一发散会打印 `首个发散行=N` 与 oneShot/resumed 两行对照,原样回报。
+
+---
+
+## 待测条目(M3b·客户端段:消费续局语义 + RNG 游标完全复位)
+
+> 客户端接上 M3b 服务端段:开窗 `C2G_GameStart` 已是续局语义,客户端按 `Resumed` 决定恢复上次对局或新局;服务端 genState 回带 PRNG 游标(RngS0/RngS1)+ LastAlgo/LastTierId,客户端经 `DynamicWeightDiff.ImportFullState` 把预测发牌器完全复位(含游标),根治 M3「真发散后游标无法复位、退化服务端推送」局限。
+> CT5–CT7 是纯客户端单测(EditMode,任意能打开本工程的机器可跑);CT8 需起 Mongo + 服务端真往返(与 SST2 同环境,可合并一次手测)。
+
+### [ ] CT5 · 改动后客户端工程编译通过
+
+- 测什么:`GenStateView` / `GameStartResult` 加字段、`BlockGameGatewayProd` 映射新协议字段、`ServerDealSync` 改用 ImportFullState 完全复位、`BlockGameState.ProjectServerCandidates` 改幂等后,客户端 HotFix 程序集能否干净编译。
+- 怎么测:用 Unity 打开本工程(`D:\work\TEngine_block\UnityProject`),等 Editor 编译完成;看 Console 是否有红色编译错误。或菜单栏触发一次脚本重编译(改任意脚本存盘 / Assets > Reimport)。
+- 预期结果:Console 无编译错误(0 error)。本轮改动文件:`Player/BlockGameResults.cs`、`Player/BlockGameGatewayProd.cs`、`Player/ServerDealSync.cs`、`BlockGameState.cs`、`Editor/Tests/BlockBlast/ServerDealSyncTests.cs`。
+
+### [ ] CT6 · ServerDealSync 单测全绿(含新增续局 / 游标复位用例,核心 happy path + 续存正确性)
+
+- 测什么:既有预测对账单测仍绿(改 ImportFullState 未伤 happy path 逐位一致),且新增 4 个用例覆盖「全态 ImportFullState 后游标与服务端逐位一致」「真发散后完全复位续局再不发散」「Resumed=true 恢复盘面/分数/步号/候选并标记重绘」「Resumed=false 新建空盘 score0」。
+- 怎么测:Unity 菜单 `Window > General > Test Runner` → EditMode → 跑 `GameLogic.BlockBlast.Tests.ServerDealSyncTests` 整个 fixture(或全量 EditMode)。
+- 预期结果:`ServerDealSyncTests` 全部用例通过,含新增:`Snapshot_FullStateImport_GenCursorMatchesServer`、`AfterTrueDivergence_FullStateImport_SubsequentDealsReconverge`、`ApplyGameStart_Resumed_RestoresBoardScoreStepAndMarksCorrected`、`ApplyGameStart_NotResumed_StartsFreshEmptyBoardScoreZero`。同时既有 `Prediction_MatchesServer_NoReconcileCorrection` / `Reconcile_*` / `Snapshot_LoadsAuthoritativeStateAndMarksCorrected` 仍绿(无回归)。
+- 已知风险/复核重点:Test Runner 的 filter 偶发失效 + 失败列表截断(见 dev 经验 unitymcp-run-tests-filter),若只跑单 fixture 没看到预期 7+ 条,改跑全量 EditMode 并按名核对上面 4 条新用例确实出现且为绿,而非被过滤掉当成「通过」。
+
+### [ ] CT7 · 既有 BlockBlast EditMode 单测全绿(改动未波及发牌核心 / 经济层)
+
+- 测什么:`ProjectServerCandidates` 改为对 PendingElements 幂等(只对新填槽出队)、`GenStateView` 加字段后,DynamicWeightDiff / 经济相关既有单测无回归。
+- 怎么测:Test Runner → EditMode → 跑全量 BlockBlast 相关 fixture(`DynamicWeightDiffTests`、`MetaCurrencySyncTests`、`PlayerAttrServiceTests` 等 `Assets/Editor/Tests/BlockBlast/` 下全部)。
+- 预期结果:全部通过,无新增失败。
+
+### [ ] CT8 · 实机往返:开窗 Resumed 恢复上次对局 + 后续发牌接续(起服手测,与 SST2 合并)
+
+- 测什么:客户端开窗发 `C2G_GameStart`(续局语义),按响应 `Resumed` 决定恢复或新局;续局时整屏重绘到中断前盘面/分数/候选并可继续落子(发牌接续);本地 cosmetic(颜色 / 元素 overlay)/ 经济层(体力 / 合成区 / 订单)与服务端权威盘占用一致、不双花元素预算。
+- 怎么测:前置同 SST2(停遗留 `Main` → 起服 + MongoDB 可达 → 客户端登录)。
+  1. 首次进玩法窗:盘面空、分数 0、手牌为服务端首批候选(`Resumed=false` 新局)。
+  2. 落若干子(分数增长、最好触发一次补牌、若有元素玩法则让合成区 / 订单状态变化)。
+  3. 关闭玩法窗再开(或断线重连后再开窗):盘面 / 分数 / 步号 / 手牌候选恢复到中断前(不是空盘 0 分新局);合成区 / 订单 / 体力等本地经济也与关窗前一致。
+  4. 续局后继续落子:补牌正常(无「重新发首批 / 盘面被清 / 分数归零」),元素 overlay 跟随服务端盘占用(占用格才可能带元素,空格无元素)。
+- 预期结果:`Resumed=true` 时恢复上次对局可继续玩;`Resumed=false` 时全新空局;续局后发牌逐位接续(严格性由 CT6/SST4 单测兜底,手测只需观察无重置 / 无明显发牌异常);元素预算不因重投影被重复消耗(同一格元素不凭空增减)。
+- 已知风险/复核重点:① 续局后手牌候选的 shapeId 应与关窗前一致(服务端候选权威);若 shapeId 对得上但元素 overlay 丢失/翻倍,重点查 `ProjectServerCandidates` 幂等是否生效(同 shapeId 槽应原样保留、不重新出队 PendingElements)。② RTT 期间(GameStart 在飞)先显本地兜底盘,回包后才重绘到服务端态——若网络慢会看到短暂本地盘→服务端盘的切换,属预期。③ 若服务端判为新局(Resumed=false)但本地有旧局内存档,开窗瞬间可能先显旧本地盘,随即被服务端空盘覆盖,属预期(服务端盘权威)。

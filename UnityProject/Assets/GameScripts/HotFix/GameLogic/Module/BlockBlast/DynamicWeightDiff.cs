@@ -477,5 +477,103 @@ namespace GameLogic.BlockBlast
             _dynamicWeight = dynamicWeight;
             _preDynamicWeight = preDynamicWeight;
         }
+
+        /// <summary>
+        /// 把跨手累积调度态整体注入(对账用):服务端权威响应回带 <c>BlockGenState</c> 的标量向量
+        /// (dynamicWeight/preDynamicWeight/refillIndex/bcInWindow/bcCooldown)后,客户端预测发牌器据此对齐到权威态。
+        /// 纯状态注入、不改生成语义(GetCurrentTier / OfferTrio / AddWeight 全程只读这些字段),也不触持久化。
+        /// </summary>
+        /// <remarks>
+        /// 不含 PRNG 游标:<c>BlockGenState</c> 不携带 xorshift 内部字,故无从恢复随机流游标。确定性下
+        /// 预测与服务端逐位一致 → 游标天然同步、对账只是覆盖标量(无可见跳变);真发散时本次对齐标量 + 候选队列后,
+        /// 下一批预测若仍偏(游标已错位)会再次被服务端响应里的候选队列覆盖纠正——候选队列在每个响应里都权威回带。
+        /// 故正确性靠「每次响应都以服务端候选队列为准」保证,本方法只负责把后续预测的调度判据钉到权威值。
+        /// </remarks>
+        public void RestoreState(int dynamicWeight, int preDynamicWeight, int refillIndex,
+            bool bcInWindow, int bcCooldown)
+        {
+            _dynamicWeight = dynamicWeight;
+            _preDynamicWeight = preDynamicWeight;
+            _refillIndex = refillIndex;
+            _bcInWindow = bcInWindow;
+            _bcCooldown = bcCooldown;
+        }
+
+        // ─── 全运行态导出 / 导入(续局持久化用) ─────────────────────────
+        // RestoreState 只对齐 5 个调度标量,不含 PRNG 游标 → 仅够「确定性下对账钉判据」。
+        // 续局(中断后从持久态精确续接发牌序列)还需:① RNG 游标(两个 ulong)② LastAlgo/LastTierId。
+        // 下面两个方法把「全运行态」= RNG 游标 + 5 标量 + LastAlgo/LastTierId 一次性导出 / 导入,
+        // 使重建实例与中断时刻的实例逐位接续。纯状态搬运,不改生成语义(OfferTrio/AddWeight 全程只读这些字段)。
+
+        /// <summary>发牌器全运行态快照:协议 / 持久化的中立载体。</summary>
+        public readonly struct FullState
+        {
+            public readonly ulong RngS0;
+            public readonly ulong RngS1;
+            public readonly int DynamicWeight;
+            public readonly int PreDynamicWeight;
+            public readonly int RefillIndex;
+            public readonly bool BcInWindow;
+            public readonly int BcCooldown;
+            /// <summary>LastAlgo 序号;-1 = null(未激活/未发牌)。</summary>
+            public readonly int LastAlgo;
+            /// <summary>LastTierId;int.MinValue = null。</summary>
+            public readonly int LastTierId;
+
+            public FullState(ulong rngS0, ulong rngS1, int dynamicWeight, int preDynamicWeight,
+                int refillIndex, bool bcInWindow, int bcCooldown, int lastAlgo, int lastTierId)
+            {
+                RngS0 = rngS0;
+                RngS1 = rngS1;
+                DynamicWeight = dynamicWeight;
+                PreDynamicWeight = preDynamicWeight;
+                RefillIndex = refillIndex;
+                BcInWindow = bcInWindow;
+                BcCooldown = bcCooldown;
+                LastAlgo = lastAlgo;
+                LastTierId = lastTierId;
+            }
+
+            public const int LastAlgoNull = -1;
+            public const int LastTierNull = int.MinValue;
+        }
+
+        /// <summary>
+        /// 导出全运行态。RNG 游标取自本实例所持随机源(必须是 <see cref="XorShift128PlusRng"/>,
+        /// 续局路径恒以 portable RNG 构造);非 portable 源(客户端历史时间种子兜底)游标置 0,
+        /// 此时续局不适用(只有确定性 portable RNG 能逐位接续)。
+        /// </summary>
+        public FullState ExportFullState()
+        {
+            ulong s0 = 0, s1 = 0;
+            if (_rng is XorShift128PlusRng portable)
+            {
+                var st = portable.ExportState();
+                s0 = st.s0;
+                s1 = st.s1;
+            }
+            return new FullState(
+                s0, s1,
+                _dynamicWeight, _preDynamicWeight, _refillIndex, _bcInWindow, _bcCooldown,
+                LastAlgo.HasValue ? (int)LastAlgo.Value : FullState.LastAlgoNull,
+                LastTierId ?? FullState.LastTierNull);
+        }
+
+        /// <summary>
+        /// 导入全运行态的「标量 + LastAlgo/LastTierId」部分(RNG 游标由调用方在构造本实例时经
+        /// <see cref="XorShift128PlusRng(ulong,ulong)"/> 复位,故本方法不触 RNG)。
+        /// 续局重建步骤:new DynamicWeightDiff(new XorShift128PlusRng(s0,s1)) → Init(同配置) → ImportFullState(state)。
+        /// 纯状态注入,不改生成语义、不触持久化。
+        /// </summary>
+        public void ImportFullState(in FullState state)
+        {
+            _dynamicWeight = state.DynamicWeight;
+            _preDynamicWeight = state.PreDynamicWeight;
+            _refillIndex = state.RefillIndex;
+            _bcInWindow = state.BcInWindow;
+            _bcCooldown = state.BcCooldown;
+            LastAlgo = state.LastAlgo == FullState.LastAlgoNull ? (AlgorithmKind?)null : (AlgorithmKind)state.LastAlgo;
+            LastTierId = state.LastTierId == FullState.LastTierNull ? (int?)null : state.LastTierId;
+        }
     }
 }

@@ -36,6 +36,22 @@ namespace GameLogic.BlockBlast
             if (_s0 == 0 && _s1 == 0) _s1 = 0x9E3779B97F4A7C15UL;
         }
 
+        /// <summary>
+        /// 从已导出的内部状态字直接重建 PRNG(续局 / 对账游标复位用)。
+        /// 与 seed 构造路径互补:seed 构造从头扩散初值,本构造直接落在某个已推进过的游标位置,
+        /// 使重建实例的后续取值与导出时刻的源实例逐位接续(同 (s0,s1) → 同 NextULong 序列)。
+        /// </summary>
+        public XorShift128PlusRng(ulong s0, ulong s1)
+        {
+            _s0 = s0;
+            _s1 = s1;
+            // 防御:全零状态会令 xorshift128+ 永久退化为 0,与构造路径同口径兜底。
+            if (_s0 == 0 && _s1 == 0) _s1 = 0x9E3779B97F4A7C15UL;
+        }
+
+        /// <summary>导出当前内部状态字(游标),供持久化 / 协议回带后用 <see cref="XorShift128PlusRng(ulong,ulong)"/> 复位。</summary>
+        public (ulong s0, ulong s1) ExportState() => (_s0, _s1);
+
         private static ulong SplitMix64(ref ulong z)
         {
             z = unchecked(z + 0x9E3779B97F4A7C15UL);

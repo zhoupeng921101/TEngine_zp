@@ -50,6 +50,9 @@ namespace GameLogic
         /// <summary>进主游戏编排(全栈协议改动·客户端段):进融合主游戏时发一次 C2G_EnterMainGameRequest,把订单快照 + 云存档同包回带统一应用。</summary>
         public EnterMainGameSync EnterMainGame { get; private set; }
 
+        /// <summary>服务端权威发牌预测/对账引擎(M3 客户端段:开局 C2G_GameStart / 落子 C2G_Place 预测对账 / 重连 C2G_GameSnapshot)。</summary>
+        public ServerDealSync ServerDeal { get; private set; }
+
         /// <summary>远程 ledger 服务(我的流水查询,设计 46 客户端段)。</summary>
         public RemoteAttrLedgerService AttrLedger { get; private set; }
 
@@ -93,6 +96,10 @@ namespace GameLogic
             // 进主游戏编排(全栈协议改动·客户端段):生产用 EnterMainGameGatewayProd(经 Session 发 C2G_EnterMainGameRequest);
             // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync、云存档 → CloudSave 统一应用。
             EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync, CloudSave);
+
+            // 服务端权威发牌预测/对账引擎(M3 客户端段):生产用 BlockGameGatewayProd(经 Session 发 C2G_GameStart/Place/GameSnapshot);
+            // 开窗经 OnMergeStateReady 注入到 BlockGameState.ServerDeal,接线在 GameApp.StartGameLogic。
+            ServerDeal = new ServerDealSync(new BlockGameGatewayProd());
 
             // 远程 ledger 服务(设计 46 客户端段):生产用 RemoteAttrLedgerSource(经 FantasyNetwork.Session 发 C2G_QueryAttrLedger);
             // 服务端独占审计完整性(44 §5.4),客户端不持本地副本,每次打开窗实时拉真协议。

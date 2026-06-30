@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GameLogic.BlockBlast.Algorithms;
 using GameLogic.BlockBlast.Core;
+using GameLogic.BlockBlast.Player;
 
 namespace GameLogic.BlockBlast
 {
@@ -54,6 +55,21 @@ namespace GameLogic.BlockBlast
         /// <see cref="RefillPieces"/> 的客户端发牌路径可复现。生产不调用(走 <see cref="Dynamic"/> 惰性默认)。
         /// </summary>
         internal void InjectDynamic(DynamicWeightDiff dyn) => _dynamic = dyn;
+
+        // ─── 服务端权威发牌(M3:直接切换,不留本地权威发牌旧路)──────────────
+        // 发牌单一事实源上服务端:盘面占用 / 分数 / 步号 / 候选 shapeId / 发牌器态全由 ServerDealSync 持有
+        // (用服务端 seed 做乐观预测、服务端响应对账)。BlockGameState 降为 cosmetic 投影层:把权威 shapeId 序列
+        // 叠上客户端本地颜色 + MergeElement(服务端不管形状以外的装饰)。颜色随机仍走本地 RandomSource(M1a 颜色流)。
+
+        /// <summary>服务端权威发牌预测/对账引擎(开窗时由接线层注入;为 null = 未启用服务端发牌——纯逻辑单测/无 Fantasy 栈,退本地发牌)。</summary>
+        public ServerDealSync ServerDeal;
+
+        /// <summary>
+        /// 是否处于服务端权威发牌模式。<see cref="ServerDeal"/> 一经注入即为 true(直接切换、不留本地权威发牌旧路):
+        /// 本地发牌入口全程短路,候选 / 盘面只从服务端投影。建局(C2G_GameStart)未回前 <see cref="ServerDealSync.CandidateQueue"/>
+        /// 为空 → 投影出空手牌(短暂),回包后填入;不退回本地时间种子发牌(避免显示与服务端不一致的本地形状)。
+        /// </summary>
+        public bool ServerAuthoritativeDealing => ServerDeal != null;
 
         /// <summary>
         /// 玩法窗活态就绪钩子(P1 全栈迁移·客户端段)。<see cref="ResetForMergeOrder"/> 末尾(局内存档加载之后)以新建的
@@ -238,6 +254,14 @@ namespace GameLogic.BlockBlast
                 if (OperaArr[i] != null) { allEmpty = false; break; }
             }
             if (!allEmpty) return;
+
+            // 服务端权威发牌(M3):候选 shapeId 由服务端 ServerDealSync 持有,不本地发。
+            // 整批消耗后从服务端预测态投影下一批(乐观预测已在 PredictPlace 推进候选队列;此处只把 shapeId 叠 cosmetic)。
+            if (ServerAuthoritativeDealing)
+            {
+                ProjectServerCandidates();
+                return;
+            }
 
             // 走动态调度
             var dyn = Dynamic;
@@ -424,6 +448,102 @@ namespace GameLogic.BlockBlast
             ElementArr[r][c] = MergeElement.None;
             output?.Add(el);
             return 1;
+        }
+
+        // ─── 服务端权威态 → cosmetic 投影(M3)──────────────────────
+        // 服务端只回带「盘面占用位掩码 + 分数 + 候选 shapeId + 发牌器态」。投影即把这套权威态叠上客户端本地
+        // 装饰(颜色 / MergeElement),写进 SaveArr / OperaArr / Score,使表现层逻辑(RenderBoard / RenderSlots)零改动复用。
+
+        /// <summary>
+        /// 把服务端预测态的候选队列(<see cref="ServerDealSync.CandidateQueue"/>)投影成 <see cref="OperaArr"/>:
+        /// shapeId 服务端权威,颜色本地随机(cosmetic),MergeElement 经 <see cref="DistributePendingElementsAcrossTrio"/> 分摊。
+        /// 候选值 0(已消耗)对应空槽 null。
+        ///
+        /// 幂等保证(续局 / 对账覆盖安全):本方法对 <see cref="MergeOrderState.PendingElements"/> 是<b>幂等</b>的——
+        /// 只对「本次新填入的槽」(此前为空 / shapeId 变化)分摊元素并出队;此前已持同 shapeId 的槽<b>原样保留</b>
+        /// (颜色 + 元素 overlay),不重掷颜色、不重复出队。这样:
+        ///   - 整批续发(三槽全空 → 全填新 shapeId):三槽都算新填,整批分摊一次(与服务端整批续发同节律);
+        ///   - 续局重投影(本地已从 <c>MergeIngamePersistence</c> 恢复出手牌 + 元素 + PendingElements):服务端候选与
+        ///     恢复手牌同 shapeId(同一局),全槽保留 → 不二次出队,经济层(元素预算队列)与盘面不双花;
+        ///   - 对账覆盖(罕见真发散):仅真正变化的槽重填,其余保留。
+        /// </summary>
+        public void ProjectServerCandidates()
+        {
+            if (ServerDeal == null) return;
+            var queue = ServerDeal.CandidateQueue;
+            var prev = OperaArr;
+            var next = new PendingPiece[3];
+            var newlyFilled = new List<PendingPiece>(3);
+            for (int i = 0; i < 3; i++)
+            {
+                int shapeId = (queue != null && i < queue.Count) ? queue[i] : 0;
+                var old = (prev != null && i < prev.Length) ? prev[i] : null;
+                if (shapeId <= 0)
+                {
+                    next[i] = null; // 已消耗 / 空槽
+                }
+                else if (old != null && old.ShapeId == shapeId)
+                {
+                    next[i] = old; // 同 shapeId:保留原 piece(颜色 + 元素 overlay),不重掷、不重新分摊
+                }
+                else
+                {
+                    var p = BuildPiece(shapeId); // 新填:本地随机颜色,元素待下面分摊
+                    next[i] = p;
+                    newlyFilled.Add(p);
+                }
+            }
+            OperaArr = next;
+            // 仅对新填槽分摊 PendingElements(出队);全保留时 newlyFilled 为空 → 不触队列,幂等。
+            if (newlyFilled.Count > 0) DistributePendingElementsAcrossTrio(newlyFilled);
+        }
+
+        /// <summary>
+        /// 把服务端权威盘面占用(<see cref="ServerDealSync.Board"/> 8 行位掩码)投影进 <see cref="SaveArr"/>:
+        /// 新占用格分配本地随机颜色(cosmetic),空出格清为 -1(同步清 <see cref="ElementArr"/> overlay),
+        /// 保持已占用格原色不变(避免每帧重染闪烁)。同步分数 + 重算 <paramref name="board"/> 位掩码。
+        /// </summary>
+        public void ProjectServerBoard(BinaryBoard board)
+        {
+            if (ServerDeal == null) return;
+            var rows = ServerDeal.Board?.RowBinary;
+            if (SaveArr == null) SaveArr = MakeEmptyBoard();
+            for (int r = 0; r < 8; r++)
+            {
+                int mask = (rows != null && r < rows.Length) ? rows[r] : 0;
+                for (int c = 0; c < 8; c++)
+                {
+                    bool occupied = ((mask >> (8 - c - 1)) & 1) != 0;
+                    if (occupied)
+                    {
+                        if (SaveArr[r][c] == -1) SaveArr[r][c] = (int)RandomColor(); // 新占格分配色
+                    }
+                    else
+                    {
+                        SaveArr[r][c] = -1;
+                        if (MergeOrderMode && ElementArr != null) ElementArr[r][c] = MergeElement.None;
+                    }
+                }
+            }
+            Score = ServerDeal.Score;
+            if (Score > HighScore) HighScore = Score;
+            if (board != null) board.ConvertFromArr(SaveArr);
+        }
+
+        /// <summary>
+        /// 开服务端权威新局(M3):清盘 + 清槽 + 清分 + 从服务端首批候选投影手牌。
+        /// 前置:接线层已对 <see cref="ServerDeal"/> 调过 <see cref="ServerDealSync.ApplyGameStart"/>(建局成功)。
+        /// 不本地发牌(候选来自服务端);颜色 / 元素本地装饰。
+        /// </summary>
+        public void StartServerGame(BinaryBoard board)
+        {
+            SaveArr = MakeEmptyBoard();
+            if (MergeOrderMode) ElementArr = MakeEmptyElementArr();
+            OperaArr = new PendingPiece[3];
+            Score = ServerDeal != null ? ServerDeal.Score : 0;
+            Combo = 0;
+            ProjectServerCandidates();
+            if (board != null) board.ConvertFromArr(SaveArr);
         }
 
         /// <summary>

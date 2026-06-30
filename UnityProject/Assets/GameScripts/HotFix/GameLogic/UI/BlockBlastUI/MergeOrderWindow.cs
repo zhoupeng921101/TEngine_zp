@@ -195,6 +195,43 @@ namespace GameLogic
             // UIWindow 非 MonoBehaviour，OnApplicationPause / Quit 不在本类触发；订阅 TEngine 驱动器（UpdateDriver，MonoBehaviour）
             // 转播的应用暂停事件，效果等价。退出 / 销毁路径另由 OnDestroy 的 FlushSaveIfDirty 兜底。
             Utility.Unity.AddOnApplicationPauseListener(OnAppPause);
+
+            // 服务端权威发牌(M3):开局走 C2G_GameStart 拿权威 {gameId, seed, 首批 trio, step=0, genState},
+            // 客户端建服务端 seed 驱动的预测发牌器、以服务端初值投影盘面/候选。RPC 在飞期间先显上面 ResetForMergeOrder
+            // 建好的本地兜底盘面;成功回包经 OnAuthoritativeChanged → ReprojectServerState 重绘。失败(断网/未登录)保留本地兜底。
+            // 对账(落子/快照后服务端覆盖)统一经同一回调重绘。
+            var deal = _state.ServerDeal;
+            if (deal != null)
+            {
+                deal.OnAuthoritativeChanged = ReprojectServerState;
+                StartServerGameThenProject(deal).Forget();
+            }
+        }
+
+        /// <summary>
+        /// 服务端权威开局:发 C2G_GameStart,成功则 ServerDealSync 已应用权威初态,经 OnAuthoritativeChanged 投影重绘;
+        /// 失败保留本地兜底盘面(不阻断手感)。async void 经 .Forget() 调,全程吞异常不外逃。
+        /// </summary>
+        private async UniTaskVoid StartServerGameThenProject(GameLogic.BlockBlast.Player.ServerDealSync deal)
+        {
+            try { await deal.StartGameAsync(); }
+            catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] C2G_GameStart 异常,保留本地兜底:{e.Message}"); }
+        }
+
+        /// <summary>
+        /// 以服务端权威态(ServerDealSync)整体重投影 cosmetic 层 + 重绘:盘面占用 → SaveArr(新占格染色)、
+        /// 候选 → OperaArr(三槽全空才整批投影)、分数同步。建局成功 / 落子对账覆盖 / 快照恢复后由 OnAuthoritativeChanged 触发。
+        /// </summary>
+        private void ReprojectServerState()
+        {
+            if (_state == null || !_state.ServerAuthoritativeDealing) return;
+            // 整体以服务端权威态重投影:盘面占用 + 分数,候选队列(0→空槽)。本回调只在建局/对账覆盖/快照恢复时触发
+            // (happy path 对账一致不触发),故罕见的候选重投影带来的颜色重掷可接受,换取候选与权威 shapeId 严格对齐。
+            _state.ProjectServerBoard(_board);
+            _state.ProjectServerCandidates();
+            RenderBoard();
+            RenderSlots();
+            RefreshEnergy();
         }
 
         /// <summary>
@@ -1139,6 +1176,17 @@ namespace GameLogic
         /// </summary>
         private void PlaceAndResolve(int slotIdx, BlockShape shape, int col, int row)
         {
+            // 服务端权威发牌(M3):落子前先用服务端 seed 驱动的预测发牌器乐观推进(候选队列/盘面/分数/步号),
+            // 再发 C2G_Place 上报输入(只传 candidateIndex=slot + 落点,不传形状)、收响应对账。baseStep 取推进前的权威步号。
+            // 本地 cosmetic/经济结算照常(下方):同 shapeId 同落点同计分,与预测逐位一致,故对账多为同值确认、无可见跳变。
+            var deal = _state.ServerDeal;
+            int serverBaseStep = -1;
+            if (deal != null && deal.HasGame)
+            {
+                serverBaseStep = deal.Step;
+                deal.PredictPlace(slotIdx, col, row); // 推进预测态(供整批消耗后 RefillPieces→ProjectServerCandidates 取下一批)
+            }
+
             _state.PlacePiece(slotIdx, _board, col, row);  // 含元素转移（门控）
             _merge.SpendPlaceCost();
 
@@ -1243,7 +1291,8 @@ namespace GameLogic
             // （女神升档 / 盲盒 / 皮肤），故每次落子结算后标脏 + 落盘。
             MarkAndFlushSave();
 
-            // 补充候选块（全空才补）
+            // 补充候选块（全空才补）。服务端权威模式下 RefillPieces 内部短路到 ProjectServerCandidates,
+            // 从上面 PredictPlace 已推进的预测候选队列投影下一批(不本地发牌)。
             bool allEmpty = true;
             for (int i = 0; i < 3; i++) if (_state.OperaArr[i] != null) { allEmpty = false; break; }
             if (allEmpty)
@@ -1252,10 +1301,36 @@ namespace GameLogic
                 RenderSlots();
             }
 
+            // 服务端权威发牌(M3):本地乐观结算完毕,发 C2G_Place 上报输入并对账。对账若覆盖(预测与权威不一致)
+            // 经 OnAuthoritativeChanged → ReprojectServerState 整屏重绘。失败码(GameNotFound/未登录/断网)按本地兜底续玩。
+            if (deal != null && serverBaseStep >= 0)
+                SendPlaceAndReconcile(deal, serverBaseStep, slotIdx, col, row).Forget();
+
             // 无尽模型（设计 49 §一 / §二）：无通关、无 GameOver，故此处无结束判定。
             // 卡死（手持块无处可放）：玩法窗保持可交互，玩家用消除道具清一行一列（设计 49 §3.1）。
             // 体力归零（付不起落子）：等时基恢复 / 订单补 / 用消除道具（设计 49 §3.2）。
             // 两条兜底保证任何状态在有限时间内可恢复操作（设计 49 §3.3）。
+        }
+
+        /// <summary>
+        /// 发 C2G_Place 上报落子输入并对账(M3)。乐观预测已在 PlaceAndResolve 同步完成,本方法只负责网络往返:
+        /// 服务端权威若与预测一致 → 确认(无重绘);不一致 → ServerDealSync 内部覆盖预测态并触发 OnAuthoritativeChanged
+        /// → ReprojectServerState 重绘。失败码(对局丢失/断网)记日志、不强制重置,玩家可继续(下次开窗重新 GameStart)。
+        /// async void 经 .Forget() 调,全程吞异常不外逃。
+        /// </summary>
+        private async UniTaskVoid SendPlaceAndReconcile(
+            GameLogic.BlockBlast.Player.ServerDealSync deal, int baseStep, int slotIdx, int col, int row)
+        {
+            try
+            {
+                var result = await deal.PlaceAsync(baseStep, slotIdx, col, row);
+                if (result != null && result.Code == GameLogic.BlockBlast.Player.DealResultCode.GameNotFound)
+                    Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning($"[MergeOrderWindow] C2G_Place 异常,保留本地态:{e.Message}");
+            }
         }
 
         /// <summary>
@@ -1619,9 +1694,12 @@ namespace GameLogic
             if (_glowMatCol != null) Object.Destroy(_glowMatCol);
             // 解除应用暂停事件订阅，避免销毁后的窗口仍被回调（驱动器是常驻 MonoBehaviour，不解订阅会泄漏引用）。
             Utility.Unity.RemoveOnApplicationPauseListener(OnAppPause);
+            // 服务端权威发牌(M3):解除对账重绘回调,避免销毁后到达的对账/快照回包仍调进已死窗口。
+            // ServerDealSync 实例常驻 GameContext(寿命长于本窗),其 OnAuthoritativeChanged 指向本窗方法,须显式置空。
+            if (_state?.ServerDeal != null) _state.ServerDeal.OnAuthoritativeChanged = null;
             // 跨会话存档兜底（设计 14 §3.4 ③）：离开前脏则强制落盘，须在 ExitMergeOrder 丢弃 MergeState 之前落盘。
             FlushSaveIfDirty();
-            // 离开必定关闭门控，确保后续 Classic / 08 行为无残留。
+            // 离开必定关闭门控，确保后续 Classic / 08 行为无残留（含 ExitMergeOrder→OnMergeStateClosed→ServerDeal.Close + 清引用）。
             if (_state != null) _state.ExitMergeOrder();
         }
 

@@ -115,9 +115,18 @@ public partial class GameApp
             var c = GameLogic.GameContext.Instance;
             c.OrderSync?.OnMergeStateReady(state);
             c.MetaCurrency?.RebindBaseline(state);
+            // 服务端权威发牌(M3):把 ServerDealSync 注入玩法态,使发牌入口(开局/落子/补牌)切服务端权威。
+            // 实际建局 RPC(C2G_GameStart)由 MergeOrderWindow.OnCreate 发起,本步只接好引用;开窗即清旧局标志,避免读到上局。
+            GameLogic.BlockBlast.BlockGameState.Instance.ServerDeal = c.ServerDeal;
+            c.ServerDeal?.Close();
         };
         GameLogic.BlockBlast.BlockGameState.OnMergeStateClosed = state =>
-            GameLogic.GameContext.Instance.OrderSync?.OnMergeStateClosed(state);
+        {
+            var c = GameLogic.GameContext.Instance;
+            c.OrderSync?.OnMergeStateClosed(state);
+            c.ServerDeal?.Close();
+            GameLogic.BlockBlast.BlockGameState.Instance.ServerDeal = null;
+        };
         // ③ 服务端订单快照来源:改由进主游戏请求(EnterMainGame)同包回带 → ctx.EnterMainGame 内部喂 OrderSync.OnSnapshotPush。
         //    登录侧不再单独推订单快照(G2C_MergeOrderSnapshotPush 已退役)。接线在 MainMenuWindow「开始游戏」入口闸。
 
