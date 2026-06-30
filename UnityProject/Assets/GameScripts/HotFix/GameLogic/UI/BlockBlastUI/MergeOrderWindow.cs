@@ -9,13 +9,14 @@ using GameLogic.BlockBlast.Core;
 namespace GameLogic
 {
     /// <summary>
-    /// 融合主玩法窗口（设计 29 + 无尽模型 设计 49）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
+    /// 融合主玩法窗口（设计 29）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
     /// 棋盘 / 拖拽 / ghost / 落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 订单卡横滑列表（手动交付，可交付优先）/
     /// 合成区面板 / 消除道具按钮。全程 MergeOrderMode=on（OnCreate 开启，OnDestroy 关闭）。唯一主玩法入口（设计 29 §4.2）。
     ///
-    /// 无尽模型（设计 49）：无「局」、订单无限、无 GameOver（卡死与体力归零都不结束、不弹面板，窗口保持可交互）。
-    /// 两条兜底：体力时基恢复（含离线，进盘后由 <see cref="BlockGameState.ResetForMergeOrder"/> 补算）+
-    /// 消除道具（主动清一行一列、代价体力、只受体力门控）。
+    /// 终局：以<b>服务端 GameOver 信号</b>为准（落子对账 <c>C2G_Place</c> 回带 GameOver/FinalScore/BestScore，服务端判 jam 终局并删档、
+    /// 权威分入榜），客户端不靠本地判 jam。收到 GameOver=true → 弹结算面板（最终分 / 服务端权威最佳分）+ 停止落子；
+    /// 「再来一局」关本窗重开 = 新局（服务端已删档，GameStart 走 Resumed=false）。订单无限、体力时基恢复（含离线）+
+    /// 消除道具（主动清一行一列、代价体力、只受体力门控）仍是局内常态机制。
     /// </summary>
     [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
     public sealed partial class MergeOrderWindow : UIWindowMono
@@ -88,6 +89,14 @@ namespace GameLogic
 
         /// <summary>消除道具「等待玩家指定棋盘格」模式（点过按钮、未点格前为 true）。</summary>
         private bool _clearToolArming;
+
+        /// <summary>
+        /// 终局态(服务端落子对账回 GameOver=true 后置位):落子被拒、结算面板已弹出。
+        /// 终局判定<b>以服务端信号为准</b>(<see cref="GameLogic.BlockBlast.Player.ServerDealSync.GameOver"/>),
+        /// 不靠本地判 jam。结算面板挂在本字段引用的运行时节点,「再来一局」关本窗重开 = 新局(服务端已删档,GameStart 走新建)。
+        /// </summary>
+        private bool _gameOver;
+        private RectTransform _gameOverPanel;
 
         /// <summary>
         /// 消除道具提示条自动隐藏倒计时（秒，&gt;0 时由 OnUpdate 递减到 0 后隐藏）。
@@ -880,7 +889,7 @@ namespace GameLogic
             RefreshClearTool(); // 体力随交付变化，按钮 gate 态须刷新
 
             MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：交付改元层(含体力) → 标脏 + 落盘
-            // 无尽模型（设计 49）：交付后该槽置空、不补单；全部交付完则上面 TryRefreshIfAllDelivered 整批补回。无通关终点、不触发任何结算面板。
+            // 订单交付后该槽置空、不补单；全部交付完则上面 TryRefreshIfAllDelivered 整批补回。订单本身无终点，交付不触发结算（结算只由服务端 jam 终局信号触发）。
         }
 
         /// <summary>
@@ -1113,8 +1122,9 @@ namespace GameLogic
         // ── 拖拽回调（与 GameWindow 同构） ──
         private void OnPieceBegin(int slotIdx)
         {
+            // 终局后停止落子（服务端 GameOver=true，本局已删档，结算面板已弹出）。配合 OnPieceEnd 的锁，终局后落子整体无效。
             // 交付飞行进行中：忽略落子拖拽（不进入拖拽态、不显示 ghost）。配合 OnPieceEnd 的锁，飞行期间落子整体无效。
-            if (_deliverFlying) { _draggingShapeId = -1; return; }
+            if (_gameOver || _deliverFlying) { _draggingShapeId = -1; return; }
             CancelClearToolArming(); // 拖拽落子打断指定格模式（玩家改主意去落子）
             var piece = _state.OperaArr[slotIdx];
             _draggingShapeId = piece?.ShapeId ?? -1;
@@ -1133,6 +1143,13 @@ namespace GameLogic
             ClearGhost();
             int shapeId = _draggingShapeId;
             _draggingShapeId = -1;
+
+            // 终局后停止落子（服务端 GameOver=true）：候选块归位、不落子、不弹提示，玩家在结算面板操作。
+            if (_gameOver)
+            {
+                _slotContainers[slotIdx]?.GetComponent<BlockPieceDragger>()?.ResetToOrigin();
+                return;
+            }
 
             // 交付飞行进行中：忽略落子结算（否则飞行途中落子消除会改库存，破坏「飞达才扣库存」语义）。
             // 候选块归位、不落子、不弹提示（玩家短暂等飞行结束即可再落）。
@@ -1171,8 +1188,8 @@ namespace GameLogic
 
         /// <summary>
         /// 落子 → 扣体力 → 消除返体力 + 元素入合成区（自动升级）→ 结算（连消 / 多消 / 全清 / 女神 / 盲盒 / 皮肤）→ 刷新 → 落盘。
-        /// 无尽模型（设计 49）：无通关、无 GameOver——卡死与体力归零都不结束、不弹面板，窗口保持可交互
-        /// （卡死用消除道具，体力归零靠时基恢复 + 订单补，两条兜底见设计 49 §三）。
+        /// 终局判定不在本地做：本步乐观推进 + 经济结算照常，是否终局由随后的 <see cref="SendPlaceAndReconcile"/> 读服务端
+        /// 对账信号（GameOver）决定 —— 终局则弹结算 + 停止落子。体力归零 / 卡死靠时基恢复 + 消除道具兜底，不在此结束。
         /// </summary>
         private void PlaceAndResolve(int slotIdx, BlockShape shape, int col, int row)
         {
@@ -1303,13 +1320,10 @@ namespace GameLogic
 
             // 服务端权威发牌(M3):本地乐观结算完毕,发 C2G_Place 上报输入并对账。对账若覆盖(预测与权威不一致)
             // 经 OnAuthoritativeChanged → ReprojectServerState 整屏重绘。失败码(GameNotFound/未登录/断网)按本地兜底续玩。
+            // 终局检测在 SendPlaceAndReconcile 内（读服务端对账回带的 GameOver）：终局 → 弹结算 + 停止落子。
+            // 卡死但未终局（服务端未判 jam）：玩家用消除道具清一行一列；体力归零：等时基恢复 / 订单补 / 用消除道具。
             if (deal != null && serverBaseStep >= 0)
                 SendPlaceAndReconcile(deal, serverBaseStep, slotIdx, col, row).Forget();
-
-            // 无尽模型（设计 49 §一 / §二）：无通关、无 GameOver，故此处无结束判定。
-            // 卡死（手持块无处可放）：玩法窗保持可交互，玩家用消除道具清一行一列（设计 49 §3.1）。
-            // 体力归零（付不起落子）：等时基恢复 / 订单补 / 用消除道具（设计 49 §3.2）。
-            // 两条兜底保证任何状态在有限时间内可恢复操作（设计 49 §3.3）。
         }
 
         /// <summary>
@@ -1326,6 +1340,9 @@ namespace GameLogic
                 var result = await deal.PlaceAsync(baseStep, slotIdx, col, row);
                 if (result != null && result.Code == GameLogic.BlockBlast.Player.DealResultCode.GameNotFound)
                     Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+                // 终局以服务端信号为准:对账后 deal.GameOver=true 即走结算 + 停止落子(本局服务端已删档)。
+                if (deal.GameOver)
+                    ShowGameOverSettlement(deal.FinalScore, deal.BestScore);
             }
             catch (System.Exception e)
             {
@@ -1513,9 +1530,73 @@ namespace GameLogic
             return needed.Count > 0 ? needed[0] : MergeElement.None;
         }
 
-        // 无尽模型（设计 49）：本窗无通关结算窗 / GameOver 面板，卡死与体力归零都不结束、玩法窗持续可交互。
-        // 「累计游戏 N 局」活动（设计 47/48 AccumulatePlayCount）依赖「局」终点，本窗不触发。
-        // MergeOrderWinWindow / GameOverWindow 不被本窗引用（Classic GameWindow 仍用 GameOverWindow）。
+        /// <summary>
+        /// 终局结算面板（服务端 GameOver=true 触发）：全屏半透明遮罩盖住棋盘 + 居中卡片显示最终分 / 最佳分 +
+        /// 「再来一局」「返回」按钮。终局判定<b>以服务端信号为准</b>（落子对账回带 GameOver/FinalScore/BestScore），
+        /// 不靠本地判 jam。最佳分取服务端权威 <paramref name="bestScore"/>，客户端只投影展示（不新增本地权威分存储）。
+        /// 运行时构建（无独立 prefab）：遮罩 raycastTarget=true 吃掉穿透点击 = 停止棋盘交互的第二道防线（第一道为 _gameOver 门控）。
+        /// 「再来一局」关本窗重开 → OnCreate 走 C2G_GameStart，服务端已删档故回 Resumed=false = 新局（空盘）。
+        /// </summary>
+        private void ShowGameOverSettlement(int finalScore, long bestScore)
+        {
+            if (_gameOver) return; // 幂等:重复 GameOver 信号(理论不应有)只弹一次面板
+            _gameOver = true;
+
+            // 最高分展示 = 服务端 BestScore 的本地投影(不新增本地权威分):服务端入榜后回带的最佳分若更高,
+            // 更新本地 HighScore 显示缓存;随后退出/重开经 FlushSaveIfDirty 落元层,主菜单 BEST 与服务端一致。
+            // BestScore=0(入榜服务不可用)时不抹掉既有本地展示值。long→int:本游戏分值范围内不溢出。
+            if (bestScore > _state.HighScore) _state.HighScore = (int)bestScore;
+
+            float cx = BlockLayout.DesignWidth / 2f;
+            float cy = BlockLayout.DesignHeight / 2f;
+
+            // 全屏遮罩(吃掉点击,挡住棋盘交互)。raycastTarget 必须 true,故不用 UGuiFactory.CreateText(其 raycastTarget=false)。
+            var panel = UGuiFactory.CreateImage(transform, "GameOverPanel", cx, cy,
+                BlockLayout.DesignWidth, BlockLayout.DesignHeight, new Color(0f, 0f, 0f, 0.72f));
+            panel.raycastTarget = true;
+            _gameOverPanel = panel.rectTransform;
+
+            // 居中卡片背景
+            UGuiFactory.CreateImage(_gameOverPanel, "Card", cx, cy, 760, 760, new Color32(0x2a, 0x24, 0x3a, 0xFF));
+
+            UGuiFactory.CreateText(_gameOverPanel, "Title", cx, cy + 250, 700, 120, "游戏结束", 80,
+                new Color32(0xff, 0xe4, 0x4a, 0xFF));
+            UGuiFactory.CreateText(_gameOverPanel, "FinalLabel", cx, cy + 60, 700, 80, "本局得分", 48,
+                new Color32(0xcc, 0xcc, 0xdd, 0xFF));
+            UGuiFactory.CreateText(_gameOverPanel, "FinalScore", cx, cy - 20, 700, 110, finalScore.ToString(), 96,
+                new Color32(0xff, 0xff, 0xff, 0xFF));
+            UGuiFactory.CreateText(_gameOverPanel, "BestScore", cx, cy - 130, 700, 80, $"最佳分  {bestScore}", 48,
+                new Color32(0xaa, 0xbb, 0xdd, 0xFF));
+
+            // 再来一局:关本窗重开 → 新局(服务端已删档,GameStart 走新建)。
+            var againBtn = UGuiFactory.CreateButton(_gameOverPanel, "AgainBtn", cx, cy - 270, 520, 120,
+                "再来一局", 56, new Color32(0x4a, 0xc0, 0x6a, 0xFF), Color.white, out _, out _);
+            againBtn.onClick.AddListener(RestartForNewGame);
+
+            // 返回主菜单(复用退出路径:落盘元层 + 关门控 + 关窗 + 回主菜单)。
+            var backBtn = UGuiFactory.CreateButton(_gameOverPanel, "BackBtn", cx, cy - 410, 520, 110,
+                "返回", 50, new Color32(0x55, 0x4a, 0x6a, 0xFF), Color.white, out _, out _);
+            backBtn.onClick.AddListener(BackToMainMenuFromSettlement);
+        }
+
+        /// <summary>「再来一局」:关本窗 + 重开本窗。重开触发 OnCreate → C2G_GameStart,服务端已删本局档故回 Resumed=false = 新局。</summary>
+        private void RestartForNewGame()
+        {
+            // 元层(最高分/女神/盲盒等)落盘后丢弃 MergeState,与退出同口径,避免重开 OnCreate 的 ResetForMergeOrder 读到脏态。
+            FlushSaveIfDirty();
+            _state.ExitMergeOrder();
+            GameModule.UI.CloseUI<MergeOrderWindow>();
+            GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+        }
+
+        /// <summary>结算面板「返回」:复用退出路径回主菜单(落盘 + 关门控 + 关窗 + 回主菜单)。</summary>
+        private void BackToMainMenuFromSettlement()
+        {
+            FlushSaveIfDirty();
+            _state.ExitMergeOrder();
+            GameModule.UI.CloseUI<MergeOrderWindow>();
+            GameModule.UI.ShowUIAsync<MainMenuWindow>();
+        }
 
         // ── ghost 落点高亮（与 GameWindow 同构） ──
         private void UpdateGhost(RectTransform container)

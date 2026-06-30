@@ -240,6 +240,93 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         [Test]
+        public void Reconcile_GameOver_ExposesFinalAndBestScore_AndMarksGameOver()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            Assert.IsFalse(deal.GameOver, "建局后不应处于终局态");
+
+            PickPlacement(deal.CandidateQueue, deal.Board, out int slot, out int x, out int y);
+            int baseStep = deal.Step;
+            deal.PredictPlace(slot, x, y);
+
+            // 服务端终局响应:本步是 jam 终局,回带 GameOver=true + 权威最终分/最佳分。
+            // 与预测一致的盘面/分数(取预测当前态),只叠加终局字段——验证终局字段被正确暴露,且非"覆盖才记终局"。
+            var terminal = new PlaceResult(DealResultCode.Ok, deal.Step, deal.Score, 0, -1,
+                BoardRows(deal.Board),
+                new GenStateView(new List<int>(deal.CandidateQueue), 0, 0, 0, false, 0),
+                gameOver: true, finalScore: 4242, bestScore: 9999L);
+
+            deal.ReconcilePlace(terminal);
+
+            Assert.IsTrue(deal.GameOver, "服务端 GameOver=true 应置终局态");
+            Assert.AreEqual(4242, deal.FinalScore, "应暴露服务端权威最终分");
+            Assert.AreEqual(9999L, deal.BestScore, "应暴露服务端权威最佳分");
+        }
+
+        [Test]
+        public void AfterGameOver_PredictAndPlaceRejected()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            // 先正常落一步并令服务端回终局。
+            PickPlacement(deal.CandidateQueue, deal.Board, out int slot, out int x, out int y);
+            int baseStep = deal.Step;
+            deal.PredictPlace(slot, x, y);
+            var terminal = new PlaceResult(DealResultCode.Ok, deal.Step, deal.Score, 0, -1,
+                BoardRows(deal.Board),
+                new GenStateView(new List<int>(deal.CandidateQueue), 0, 0, 0, false, 0),
+                gameOver: true, finalScore: 100, bestScore: 100L);
+            deal.ReconcilePlace(terminal);
+            Assert.IsTrue(deal.GameOver);
+
+            int stepBefore = deal.Step;
+            int scoreBefore = deal.Score;
+
+            // 终局后预测被拒:Accepted=false 且不改态。
+            var rejected = deal.PredictPlace(0, 0, 0);
+            Assert.IsFalse(rejected.Accepted, "终局后 PredictPlace 应拒绝");
+            Assert.AreEqual(stepBefore, deal.Step, "终局后预测被拒不应推进 step");
+            Assert.AreEqual(scoreBefore, deal.Score, "终局后预测被拒不应改分");
+
+            // 终局后落子被拒:短路回 GameNotFound,不发 RPC。
+            var place = deal.PlaceAsync(stepBefore, 0, 0, 0).GetAwaiter().GetResult();
+            Assert.AreEqual(DealResultCode.GameNotFound, place.Code, "终局后 PlaceAsync 应短路回 GameNotFound");
+        }
+
+        [Test]
+        public void NewGameAfterGameOver_ResetsTerminalState()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            PickPlacement(deal.CandidateQueue, deal.Board, out int slot, out int x, out int y);
+            deal.PredictPlace(slot, x, y);
+            deal.ReconcilePlace(new PlaceResult(DealResultCode.Ok, deal.Step, deal.Score, 0, -1,
+                BoardRows(deal.Board),
+                new GenStateView(new List<int>(deal.CandidateQueue), 0, 0, 0, false, 0),
+                gameOver: true, finalScore: 100, bestScore: 100L));
+            Assert.IsTrue(deal.GameOver);
+
+            // 下次开窗(新局):SimGateway 默认 Resumed=false → ApplyGameStart 复位终局态,可再落子。
+            bool started = deal.StartGameAsync().GetAwaiter().GetResult();
+            Assert.IsTrue(started, "终局后再 GameStart 应成功(新局)");
+            Assert.IsFalse(deal.GameOver, "新局应复位终局态");
+            Assert.AreEqual(0, deal.FinalScore, "新局应复位 FinalScore");
+            Assert.AreEqual(0L, deal.BestScore, "新局应复位 BestScore");
+
+            // 新局可正常预测落子。
+            Assert.IsTrue(PickPlacement(deal.CandidateQueue, deal.Board, out int s2, out int x2, out int y2));
+            var predicted = deal.PredictPlace(s2, x2, y2);
+            Assert.IsTrue(predicted.Accepted, "新局应可正常落子");
+        }
+
+        [Test]
         public void Snapshot_LoadsAuthoritativeStateAndMarksCorrected()
         {
             var gateway = new SimGateway(Seed);

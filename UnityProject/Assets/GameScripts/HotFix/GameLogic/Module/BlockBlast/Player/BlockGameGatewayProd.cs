@@ -64,7 +64,10 @@ namespace GameLogic.BlockBlast.Player
                 response.EliminatedLines,
                 response.NewCandidate,
                 CopyInts(response.Board),
-                CopyGen(response.GeneratorState));
+                CopyGen(response.GeneratorState),
+                response.GameOver,
+                response.FinalScore,
+                response.BestScore);
 #else
             await UniTask.CompletedTask;
             return PlaceResult.Fail(DealResultCode.ServiceUnavailable);

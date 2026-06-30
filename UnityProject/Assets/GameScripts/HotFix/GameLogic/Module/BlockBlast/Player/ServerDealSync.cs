@@ -64,6 +64,20 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>上一次对账是否发生了服务端覆盖(预测与权威不一致)。供宿主决定是否整屏重绘。</summary>
         public bool LastReconcileCorrected { get; private set; }
 
+        /// <summary>
+        /// 本局是否已终局(服务端落子对账回 <c>GameOver=true</c> 后置位)。终局以<b>服务端信号为准</b>,
+        /// 客户端不靠本地判 jam 自行结算。置位后 <see cref="PredictPlace"/> / <see cref="PlaceAsync"/> 一律拒绝,
+        /// 避免对已删档的对局继续上报落子。下次 <see cref="StartGameAsync"/> 服务端回 <c>Resumed=false</c> 新建,
+        /// <see cref="ApplyGameStart"/> 复位本标志,自然进入新局。
+        /// </summary>
+        public bool GameOver { get; private set; }
+
+        /// <summary>终局权威最终分(<see cref="GameOver"/>=true 时有效;= 终局 Score)。供宿主结算展示。</summary>
+        public int FinalScore { get; private set; }
+
+        /// <summary>终局后该榜当前最佳分(服务端权威,客户端只投影展示;入榜服务不可用时为 0)。</summary>
+        public long BestScore { get; private set; }
+
         // ─── 建局 ────────────────────────────────────────────────
 
         /// <summary>
@@ -108,6 +122,10 @@ namespace GameLogic.BlockBlast.Player
             }
 
             HasGame = true;
+            // 新建/续局都是一局活态的开始:复位终局态(上一局若已终局,服务端已删档、本次走新建)。
+            GameOver = false;
+            FinalScore = 0;
+            BestScore = 0;
             // 续局须整屏重绘到恢复盘面;新建是空盘(宿主开局已建本地兜底空盘,重绘无害)。
             LastReconcileCorrected = result.Resumed;
         }
@@ -136,6 +154,8 @@ namespace GameLogic.BlockBlast.Player
         {
             var outcome = new PredictOutcome { Step = Step, Score = Score, ShapeId = -1 };
             if (!HasGame) return outcome;
+            // 终局后拒绝再落子:本局服务端已删档,继续预测会让本地态偏离权威(且无对应可上报的对局)。
+            if (GameOver) return outcome;
             if (candidateIndex < 0 || candidateIndex >= CandidateQueue.Count) return outcome;
 
             int shapeId = CandidateQueue[candidateIndex];
@@ -202,6 +222,13 @@ namespace GameLogic.BlockBlast.Player
                     // 这三类服务端都回带当前权威态;以服务端为准对齐。
                     bool diverged = IsDivergent(result);
                     OverwriteFromPlace(result);
+                    // 终局以服务端信号为准:本步若是 jam 终局,记权威最终分/最佳分并置终局态(后续落子被拒)。
+                    if (result.GameOver)
+                    {
+                        GameOver = true;
+                        FinalScore = result.FinalScore;
+                        BestScore = result.BestScore;
+                    }
                     LastReconcileCorrected = diverged;
                     return diverged;
                 default:
@@ -236,6 +263,10 @@ namespace GameLogic.BlockBlast.Player
             }
 
             HasGame = true;
+            // 快照恢复的是一局活态对局(服务端仍持有该对局);复位终局态。
+            GameOver = false;
+            FinalScore = 0;
+            BestScore = 0;
             LastReconcileCorrected = true; // 恢复后宿主须整屏重绘
         }
 
@@ -405,6 +436,8 @@ namespace GameLogic.BlockBlast.Player
         public async UniTask<PlaceResult> PlaceAsync(int baseStep, int candidateIndex, int posX, int posY)
         {
             if (!HasGame) return PlaceResult.Fail(DealResultCode.GameNotFound);
+            // 终局后拒发:本局服务端已删档,再上报落子会被回 GameNotFound,直接短路省一次往返。
+            if (GameOver) return PlaceResult.Fail(DealResultCode.GameNotFound);
             var result = await _gateway.PlaceAsync(GameId, baseStep, candidateIndex, posX, posY);
             bool corrected = ReconcilePlace(result);
             if (corrected) OnAuthoritativeChanged?.Invoke();

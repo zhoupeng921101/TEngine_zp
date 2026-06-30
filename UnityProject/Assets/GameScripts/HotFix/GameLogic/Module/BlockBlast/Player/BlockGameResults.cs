@@ -117,9 +117,19 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>权威棋盘 8 行位掩码。</summary>
         public readonly List<int> Board;
         public readonly GenStateView Gen;
+        /// <summary>
+        /// 终局信号:服务端判定当前候选无任一放置顺序可放(jam),本局已结束并删档。
+        /// 为 true 时本步是最后一步,客户端须走结算 + 停止落子;下次 C2G_GameStart 走新建(Resumed=false)。
+        /// </summary>
+        public readonly bool GameOver;
+        /// <summary>终局权威最终分(<see cref="GameOver"/>=true 时有效;= 终局时 Score)。</summary>
+        public readonly int FinalScore;
+        /// <summary>终局入榜后该榜当前最佳分(<see cref="GameOver"/>=true 且入榜服务可用时有效;否则 0)。服务端权威,客户端只投影展示。</summary>
+        public readonly long BestScore;
 
         public PlaceResult(DealResultCode code, int step, int score, int eliminatedLines,
-            int newCandidate, List<int> board, GenStateView gen)
+            int newCandidate, List<int> board, GenStateView gen,
+            bool gameOver = false, int finalScore = 0, long bestScore = 0)
         {
             Code = code;
             Step = step;
@@ -128,6 +138,9 @@ namespace GameLogic.BlockBlast.Player
             NewCandidate = newCandidate;
             Board = board ?? new List<int>();
             Gen = gen;
+            GameOver = gameOver;
+            FinalScore = finalScore;
+            BestScore = bestScore;
         }
 
         public static PlaceResult Fail(DealResultCode code)

@@ -257,6 +257,36 @@
 - 怎么测:`cd D:\work\TEngine_block\Fantasy` 后 `dotnet run --project experiments/BlockBlastGenCore/BlockBlastGenCore.csproj -- --verify-resume`。
 - 预期结果:6 seed × 6 切点(N,M ∈ {(1,50),(3,50),(4,50),(10,60),(37,80),(120,120)},含补批边界 N=3/4 与跨补批切点)逐条 `续局逐位接续 ✓`,末行 `[OK] 续局重建后发牌与中断前逐位接续(全 seed × 全切点)`。任一发散会打印 `首个发散行=N` 与 oneShot/resumed 两行对照,原样回报。
 
+> SST3/SST4 是「C# 对象直比」自检(不过真 Bson / Mongo)。下面 ST2-INT 是补上真环境那层的自动集成验证,已由 dev 跑通。
+
+---
+
+## 待测条目(ST2-INT·服务端段:真 Bson + 真 Mongo 往返集成验证,dev 已自动验)
+
+> 目的:补 SST3/SST4 之上缺的那层——SST3/SST4 是 C# 对象直比,不过真网络序列化 / 真 Bson / 真 Mongo 读写。本条做一个可重复运行的 headless 集成往返,驱动真实生产代码路径(`GameSessionHelper.Init/Place/BuildDoc/Rehydrate` + `GameSessionPersistHelper.Save/Load`)对 live MongoDB(`fantasy_main1`,集合 `block_blast_session`)做端到端往返,证明整条链在真 Bson + 真 Mongo 下确实转、续局逐位接续、游标 ulong↔int64↔Bson 无损。
+> 实现路径:in-process 集成(非 headless 网络客户端)。新增非生产测试项目 `experiments/BlockBlastMongoRoundtrip/`(引用真实生产程序集 Entity + Hotfix,连真 Mongo),用专用测试 playerId `st2_test_player_roundtrip`,跑完自清理写入的测试 Doc(不污染库)。
+> 覆盖层:**Bson 序列化 + Mongo 读写 + BuildDoc/Rehydrate/Init/Place/Save/Load 生产逻辑(均覆盖)**;**未过**真 socket / OuterMessage proto wire(该层是源生成、低风险,本步不强求过 socket——proto 往返由 M3/CT 客户端段单测 + ST2 起服手测覆盖)。
+> dev 已自动跑通:85 个断言全 PASS,exit code 0,可重复(连跑两次均绿、自清理生效)。以下为用户(或后续会话)复跑入口。
+
+### [ ] ST2-INT · 真 Mongo 往返集成验证复跑(纯命令行,需本机 MongoDB 可达)
+
+- 测什么:建局(Resumed=false / 初始 trio / step0 / 空盘)→ 落 8 子(每步真落盘)→ 从 Mongo 读回原始 Bson 文档核对游标/步号/分数 → 重连续局(Load Doc → Rehydrate,Resumed=true,恢复态与中断前逐字段一致含 RNG 游标)→ 续落至棋盘自然 jam(全程与「不中断一气跑」逐位接续)→ 二次重连恢复 → Place step 幂等三分支(==/</>)+ 非法落点行为。
+- 怎么测:确保本机 MongoDB 在跑(`127.0.0.1:27017`),`cd D:\work\TEngine_block\Fantasy` 后:
+  `dotnet run --project experiments/BlockBlastMongoRoundtrip/BlockBlastMongoRoundtrip.csproj -c Debug`
+- 预期结果:逐条 `[PASS] ...`(共 80+ 条),关键行包括:
+  - `[PASS] 建局 Resumed=false` / `建局 step=0` / `建局棋盘全空` / `建局初始 trio 满 3 非空`
+  - `[PASS] GameSessionDoc 已真实写入 Mongo(_id=playerId 可读回)`
+  - `[PASS] Bson RngS0 == 内存游标 (...)` / `Bson RngS1 == 内存游标 (...)`
+  - `[PASS] 游标 ulong↔int64↔Bson 往返无损 (...)`
+  - `[PASS] 续局 Resumed=true` / `续局恢复态 == 中断前(board/score/step/候选/genState 含游标)`
+  - 多条 `[PASS] 续落第 N 步后 resumed≡golden(逐位接续)` + `续落终态 resumed≡golden(整段逐位接续)`
+  - `[PASS] 二次重连恢复态 == golden(续落后持久态可恢复)`
+  - 幂等三分支 + `非法落点返 IllegalPlacement` 全 PASS
+  - 末行 `[OK] ST2 全部断言通过:真 Bson + 真 Mongo 往返,续局逐位接续,游标无损`;`[cleanup] 测试 Doc 已删除`。
+  - exit code 0(`echo $?` / `echo %ERRORLEVEL%` 应为 0)。
+- 若 MongoDB 不可达:输出 `[BLOCKED] MongoDB 不可达`,exit code 2——属环境问题,在有库环境复跑。
+- 测试数据隔离与清理:只读写 _id=`st2_test_player_roundtrip`,跑完(含异常路径)在 finally 删除;下一次复跑的 `[PASS] 建局前 Load 返 null(无残留对局)` 即证上次已清干净,不污染玩家数据。
+
 ---
 
 ## 待测条目(M3b·客户端段:消费续局语义 + RNG 游标完全复位)
@@ -293,3 +323,92 @@
   4. 续局后继续落子:补牌正常(无「重新发首批 / 盘面被清 / 分数归零」),元素 overlay 跟随服务端盘占用(占用格才可能带元素,空格无元素)。
 - 预期结果:`Resumed=true` 时恢复上次对局可继续玩;`Resumed=false` 时全新空局;续局后发牌逐位接续(严格性由 CT6/SST4 单测兜底,手测只需观察无重置 / 无明显发牌异常);元素预算不因重投影被重复消耗(同一格元素不凭空增减)。
 - 已知风险/复核重点:① 续局后手牌候选的 shapeId 应与关窗前一致(服务端候选权威);若 shapeId 对得上但元素 overlay 丢失/翻倍,重点查 `ProjectServerCandidates` 幂等是否生效(同 shapeId 槽应原样保留、不重新出队 PendingElements)。② RTT 期间(GameStart 在飞)先显本地兜底盘,回包后才重绘到服务端态——若网络慢会看到短暂本地盘→服务端盘的切换,属预期。③ 若服务端判为新局(Resumed=false)但本地有旧局内存档,开窗瞬间可能先显旧本地盘,随即被服务端空盘覆盖,属预期(服务端盘权威)。
+
+---
+
+## 待测条目(M4a·服务端段:终局判定 + 权威分入榜 + GameSession 终结)
+
+> 服务端工程 `Fantasy/`(分支 `block`)。本轮接「终局」:`C2G_Place` 成功落子续发后,服务端用 `BinaryBoard.CheckPutAllBlocks` 判当前候选是否无任一放置顺序可放(jam)→ jam=本局结束;终局时用 `GameSession.Score`(服务端权威)服务端侧直提到现有排行榜(in-process 调 `RankDecisionHelper.Submit`,周榜 1 + 总榜 2),并删持久 Doc 终结本局(下次进入走新建,不复活已结束局)。`G2C_PlaceResponse` 增 `GameOver`(bool)/`FinalScore`(int)/`BestScore`(int64,总榜入榜后最佳)三字段供 M4b 客户端段消费。
+> 入榜路径=**优选(服务端直提)**:身份用会话 `Account.Name`(与客户端 `C2G_RankSubmitScore` 上报同键 → 服务端代提与客户端自报落同一行、myRank 一致),分用服务端权威 `Score`,过 rank 自身入榜门槛/最佳分比较/反作弊。形状服务端权威 + 分服务端权威 → 选块与报分作弊面全闭,无退路、无残留缝。
+> Doc 终结=**删档**(`GameSessionPersistHelper.Delete`):删 Doc 后下次进入对局 `Load` 返 null → 新建分支(`Resumed=false`),复用既有「无档=新建」语义,不在 Doc/GameStart 增 ended 态。
+> dev 已自检:`dotnet build examples/Server/Server.sln` 0 错误(整 sln 仍有 3 个既有示例历史 nullable 告警,非本轮;本轮新增/改动 BlockBlast 文件 0 告警);协议导出成功且客户端生成物已自动同步进 UnityProject(`Assets/Fantasy/Generate/NetworkProtocol/OuterMessage.cs` 的 `G2C_PlaceResponse` 含 `GameOver`/`FinalScore`/`BestScore`,导出工具直写客户端目录、无需手工拷贝);权威性回归 `--verify-server-cadence` 6 seed 仍逐字符一致、续局 `--verify-resume` 全 seed×6 切点仍逐位接续(终局改动未伤既有);新增终局逻辑自检 `--verify-gameover`(真 Mongo)全 PASS——游戏自然到 jam(43 步、finalScore=1805)、`IsGameOver` 在 jam 前 false 在 jam true、删档后 Load 返 null 且再进入走新建空盘。
+> MST3/MST4/MST5 是纯命令行(MST3/5 需本机 MongoDB 可达,MST4 不需);MST1 任意装 .NET 8 SDK 机器可跑;MST2 需起服 + Mongo + 客户端手测。前置同既往:起服 / 跑 `Server.sln` 前先停遗留 `Main` 进程(占 `examples/Bin/Debug/net8.0/` dll 锁)。
+
+### [ ] MST1 · 服务端整解决方案编译通过(0 错)
+
+- 测什么:终局判定(`GameSessionHelper.IsGameOver`)+ 终局结算分支(`C2G_PlaceRequestHandler.SettleGameOver`,含 in-process rank 直提)+ 删档(`GameSessionPersistHelper.Delete`)+ 协议 `G2C_PlaceResponse` 三新字段后,整个服务端解决方案能否干净编译。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后 `dotnet build examples/Server/Server.sln`。
+- 预期结果:`已成功生成`;本轮改动 BlockBlast 文件 0 警告 0 错误(整 sln 仍有 3 个既有示例 nullable 告警:`ProductsController.cs` / `UsersController.cs` / `C2G_SubscribeSphereEventRequestHandler.cs`,非本轮引入)。若报 MSB3027/MSB3021「文件被 Main(...) 锁定」,遗留进程未停干净,停掉重试。
+
+### [ ] MST2 · 实机往返:玩到 jam 触发终局 + 入榜 + 终结后再开走新局(起服手测)
+
+- 测什么:玩到棋盘 jam(三候选无处可放)时服务端判终局、回带 GameOver=true/FinalScore=权威分;终局用权威分提交排行榜(周榜 1 + 总榜 2);终结后同 playerId 再开窗走新建(空盘新局,不复活已结束局)。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需 MongoDB 可达)。客户端登录后进玩法窗,落子直到棋盘满到无处可放(可故意往角落乱放制造 jam):
+  - 触发 jam 那一手的 Place 响应:`GameOver=true`、`FinalScore=<当前权威分>`、`BestScore=<总榜入榜后最佳>`;服务端日志 `[BlockBlast] GameOver playerId=... gameId=... step=... finalScore=... totalBest=... board=[...]`。
+  - 入榜:若 finalScore ≥ 100,周榜(rankId=1)应被刷新;总榜(rankId=2,入榜要求 0)恒被纳入。可随后用客户端查榜(`C2G_RankQueryRequest`,rankId=1 或 2)看自己名次/分数是否含本局 finalScore;或服务端日志 `排行榜上报 account=... rankId=1/2 score=... result=... best=...`。
+  - 终结联动:终局后同一 playerId 再次开窗(`C2G_GameStart`)→ 服务端日志应为 `[BlockBlast] EnterGame NEW ...`、响应 `Resumed=false`、空盘 step=0(**不是**恢复到刚才的 jam 盘)。
+- 预期结果:jam 那手回带 GameOver=true + 正确 finalScore;入榜后查榜能看到本局分(达门槛的榜);终局后再开是全新空局,已结束的 jam 局不被复活。Console/服务端无红色异常。
+- 入榜身份核对(重要):服务端代提用的账号键 = 客户端 `C2G_RankSubmitScore`/`C2G_RankQuery` 用的同一个 `Account.Name`,故服务端代提的分与客户端查榜看到的「我的分」应是同一行——若查榜看不到本局分,核对会话是否已登录(`GateAccountFlagComponent` 在)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] MST3 · 终局逻辑自检复跑(终局判定 + 删档终结 + 终结后走新建,真 Mongo)
+
+- 测什么:复现 dev 自检——建局落子贪心推进到 jam,断言 `IsGameOver` 在 jam 前为 false、jam 时为 true、终局权威分 > 0;`Delete` 删档后 `Load` 返 null;终结后再进入对局走新建(Resumed=false、空盘、step0)。
+- 怎么测:确保本机 MongoDB 在跑(`127.0.0.1:27017`),`cd D:\work\TEngine_block\Fantasy` 后:
+  `dotnet run --project experiments/BlockBlastMongoRoundtrip/BlockBlastMongoRoundtrip.csproj -- --verify-gameover`
+- 预期结果:逐条 `[PASS]`,含 `建局态 IsGameOver=false` / `游戏自然推进到 jam(落子 N 步)` / `jam 态 IsGameOver=true` / `终局权威最终分 > 0` / `终结删档后 Load 返 null(已结束局不被复活)` / `终结后再进入对局 Resumed=false(走新建)` / `新局空盘`;末行 `[OK]`,`[cleanup] 测试 Doc 已删除`,exit code 0。MongoDB 不可达则 `[BLOCKED]` + exit 2(有库环境复跑)。说明:入榜(需完整 Scene + RankServiceComponent)不在本逻辑自检内,复用已验的 rank 核心,入榜真验走 MST2 起服手测。
+
+### [ ] MST4 · 权威性回归复跑(终局改动未伤既有发牌确定性,纯命令行)
+
+- 测什么:加终局判定/入榜/删档/协议字段后,服务端权威发牌节律与既有 golden 仍逐位一致 + 续局仍逐位接续(确认本轮零回归)。
+- 怎么测:`cd D:\work\TEngine_block\Fantasy` 后依次:
+  - `dotnet run --project experiments/BlockBlastGenCore/BlockBlastGenCore.csproj -- --verify-server-cadence`
+  - `dotnet run --project experiments/BlockBlastGenCore/BlockBlastGenCore.csproj -- --verify-resume`
+- 预期结果:cadence 6 seed 逐条 `与 golden 逐字符一致 ✓ 行数=256` + 末行 `[OK] 服务端权威发牌节律与 golden 逐位一致(全 seed)`;resume 6 seed × 6 切点逐条 `续局逐位接续 ✓` + 末行 `[OK] 续局重建后发牌与中断前逐位接续(全 seed × 全切点)`。任一发散打印 `首个发散行=N` 与对照,原样回报。
+
+### [ ] MST5 · 真 Mongo 往返集成验证仍绿(终局改动未伤既有续局往返,纯命令行)
+
+- 测什么:既有 ST2-INT 真 Bson + 真 Mongo 续局往返(建局/落子/读回 Bson/续局/二次重连/幂等三分支)在本轮改动后仍全绿(默认模式,不带 `--verify-gameover`)。
+- 怎么测:本机 MongoDB 可达,`cd D:\work\TEngine_block\Fantasy` 后:
+  `dotnet run --project experiments/BlockBlastMongoRoundtrip/BlockBlastMongoRoundtrip.csproj -c Debug`
+- 预期结果:全部 `[PASS]`,末行 `[OK] ST2 全部断言通过:真 Bson + 真 Mongo 往返,续局逐位接续,游标无损`,exit code 0。
+
+---
+
+## 待测条目(M4b·客户端段:消费服务端终局信号 + 结算页 + 新局)
+
+> 客户端接上 M4a 服务端终局:落子对账(`C2G_Place`)回带 `GameOver`/`FinalScore`/`BestScore` 三字段被客户端消费——网关 + DTO 拷字段、`ServerDealSync` 暴露终局态并在终局后拒绝再落子、玩法窗收到 `GameOver=true` 弹结算面板(最终分 + 服务端权威最佳分)并停止落子,结算面板「再来一局」关本窗重开 = 新局(服务端已删档,GameStart 走 Resumed=false)。终局判定**以服务端信号为准**,客户端不本地判 jam 自结算。最佳分以服务端 `BestScore` 投影展示(不新增本地权威分存储)。
+> 改动文件:`Player/BlockGameResults.cs`(PlaceResult 加 GameOver/FinalScore/BestScore)、`Player/BlockGameGatewayProd.cs`(从 G2C_PlaceResponse 拷三字段)、`Player/ServerDealSync.cs`(暴露终局态 + 终局后拒落子 + 新局/快照复位)、`UI/BlockBlastUI/MergeOrderWindow.cs`(对账检测终局→弹结算+门控落子;运行时构建结算面板,无独立 prefab)、`Editor/Tests/BlockBlast/ServerDealSyncTests.cs`(加 3 个终局用例)。
+> MCT1–MCT3 是纯客户端单测(EditMode,任意能打开本工程的机器可跑);MCT4 需起 Mongo + 服务端真往返(可与 MST2 合并一次手测)。
+
+### [ ] MCT1 · 改动后客户端工程编译通过
+
+- 测什么:本轮所有改动文件能否随客户端工程干净编译(含热更区 GameLogic + 测试程序集 BlockBlast.Tests)。PlaceResult 构造函数加了 3 个可选尾参,既有 7 参调用点(网关 fail / sim gateway)应不受影响。
+- 怎么测:用 Unity 打开本工程(`D:\work\TEngine_block\UnityProject`),等 Editor 编译完成;看 Console 是否有红色编译错误。或菜单栏触发一次脚本重编译(改任意脚本存盘 / Assets > Reimport)。打开 `Window > General > Test Runner`(EditMode)能否正常列出 `ServerDealSyncTests`(列得出即说明 GameLogic + 测试程序集都编译成功)。
+- 预期结果:Console 无编译错误(0 error);EditMode 列表出现 `ServerDealSyncTests`,且新增 3 条用例可见:`Reconcile_GameOver_ExposesFinalAndBestScore_AndMarksGameOver`、`AfterGameOver_PredictAndPlaceRejected`、`NewGameAfterGameOver_ResetsTerminalState`。
+
+### [ ] MCT2 · ServerDealSync 终局态单测全绿(终局信号暴露 + 终局后拒落子 + 新局复位,核心 + 异常路径)
+
+- 测什么:① 落子对账回 `GameOver=true` 时,`ServerDealSync.GameOver` 置位且 `FinalScore`/`BestScore` 暴露服务端权威值;② 终局后 `PredictPlace` 被拒(Accepted=false、不改 step/score)、`PlaceAsync` 短路回 `GameNotFound`(不发 RPC);③ 终局后再 `StartGameAsync`(新局,SimGateway 默认 Resumed=false)复位终局态(GameOver=false、FinalScore/BestScore 归 0)且可正常落子。
+- 怎么测:Test Runner → EditMode → 跑 `GameLogic.BlockBlast.Tests.ServerDealSyncTests` 整个 fixture(或全量 EditMode)。
+- 预期结果:`ServerDealSyncTests` 全部用例通过,含新增 3 条(见 MCT1)。同时既有 happy-path / 对账 / 快照 / 续局用例仍绿(`Prediction_MatchesServer_NoReconcileCorrection`、`Reconcile_*`、`Snapshot_*`、`ApplyGameStart_*` 无回归)。
+- 已知风险/复核重点:Test Runner 的 filter 偶发失效 + 失败列表截断(见 dev 经验 unitymcp-run-tests-filter)。若只跑单 fixture 没看到预期条数,改跑全量 EditMode 并按名核对上面 3 条新用例确实出现且为绿,而非被过滤掉当成「通过」。
+
+### [ ] MCT3 · 既有 BlockBlast EditMode 单测全绿(终局字段加性扩展未波及发牌核心 / 经济层)
+
+- 测什么:PlaceResult 加 3 字段(尾部可选参,默认 false/0)、ServerDealSync 加终局态字段后,DynamicWeightDiff / 经济 / 其它 BlockBlast 既有单测无回归。
+- 怎么测:Test Runner → EditMode → 跑 `Assets/Editor/Tests/BlockBlast/` 下全部 fixture(Run All,或至少 `DynamicWeightDiffTests`、`MetaCurrencySyncTests`、`MergeOrderTests`、`BlockGameStateTests`)。
+- 预期结果:全部通过,无新增失败。
+
+### [ ] MCT4 · 实机往返:玩到 jam 终局 → 结算页(最终分 + 最佳分)→ 停止落子 → 再开走新局(起服手测,与 MST2 合并)
+
+- 测什么:落子触发服务端终局(GameOver=true)→ 客户端弹结算面板显示最终分 + 服务端权威最佳分、棋盘停止响应落子;结算面板「再来一局」开新局(空盘、Resumed=false);最佳分展示取服务端 BestScore。
+- 怎么测:前置同 MST2(停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`,需 MongoDB 可达 → 客户端 Play 登录进主菜单 →「开始游戏」进玩法窗)。
+  1. 落子直到棋盘 jam(三候选无处可放,可故意往角落乱放制造 jam)。
+  2. 触发 jam 那一手:观察是否弹出结算面板(半透明遮罩 + 居中卡片),卡片显示「游戏结束」「本局得分 <数字>」「最佳分 <数字>」,以及「再来一局」「返回」两个按钮。最终分应等于服务端权威分(与服务端日志 `[BlockBlast] GameOver ... finalScore=...` 一致)。
+  3. 结算面板弹出后,尝试拖动棋盘下方候选块往棋盘落:应无法落子(块归位、不消除、不计分)——落子已被停止。
+  4. 点「再来一局」:本窗关闭后重新打开,棋盘应为全新空盘、分数 0、手牌为服务端新批候选(Resumed=false 新局);服务端日志 `[BlockBlast] EnterGame NEW ...`。
+  5. 点「返回」(可另起一局测):回到主菜单,主菜单 BEST 显示的最高分应已反映本局(若本局分更高);该值取自服务端 BestScore 投影。
+- 预期结果:jam 触发结算面板正确显示最终分 + 最佳分;结算后棋盘停止落子;「再来一局」= 空盘新局(非恢复 jam 盘);「返回」回主菜单且 BEST 反映服务端最佳分;Console 无红色异常。
+- 已知风险/复核重点:① 结算面板是运行时代码构建(非 prefab),用 `UGuiFactory` 在 1080×1920 设计坐标系居中——若面板位置 / 文字错位 / 遮罩没盖住棋盘,回报(布局参数需调,非逻辑 bug)。② 终局信号在落子对账的异步回包里到达(`SendPlaceAndReconcile`),触发 jam 那手落下后到弹面板有一个 RTT 的延迟,期间棋盘短暂可交互——若延迟内又落了一子,该子会正常上报但服务端对已删档局回 GameNotFound,本地态保留、下次开窗重建(不致命,但用户若观察到「终局后还能再落一子」属此时序,回报以便评估是否需落子后即时本地禁手)。③ 若服务端 BestScore 回 0(入榜服务不可用),结算页「最佳分 0」属预期(不抹本地既有展示;`ShowGameOverSettlement` 仅在 BestScore > 本地 HighScore 时才更新本地投影)。④ `FinalScore` 是服务端权威分,与客户端本地乐观结算的显示分在 happy path 下应一致(预测逐位对账);若两者不一致,说明该局曾发生过对账覆盖,以服务端 FinalScore 为准。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
