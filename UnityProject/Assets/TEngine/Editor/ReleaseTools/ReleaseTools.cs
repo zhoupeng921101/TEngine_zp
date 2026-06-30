@@ -162,6 +162,49 @@ namespace TEngine
 
         #region AssetBundle 构建
 
+        /// <summary>
+        /// 计算 AssetBundle 构建产物目录（{OutputRoot}/{BuildTarget}/DefaultPackage/{PackageVersion}）。
+        /// 精确版本目录不存在时，回退到该包下最近修改的版本目录。
+        /// </summary>
+        public static string GetAssetBundleOutputDirectory(BuildConfig config)
+        {
+            string outputRoot = config.OutputRoot;
+            if (!Path.IsPathRooted(outputRoot))
+            {
+                outputRoot = Path.Combine(Application.dataPath + "/../", outputRoot);
+                outputRoot = Path.GetFullPath(outputRoot).Replace('\\', '/');
+            }
+
+            string packageDir = $"{outputRoot}/{config.BuildTarget}/DefaultPackage";
+            string versionDir = $"{packageDir}/{config.PackageVersion}";
+            if (Directory.Exists(versionDir))
+            {
+                return versionDir;
+            }
+
+            if (Directory.Exists(packageDir))
+            {
+                string latest = null;
+                System.DateTime latestTime = System.DateTime.MinValue;
+                foreach (var dir in Directory.GetDirectories(packageDir))
+                {
+                    System.DateTime t = Directory.GetLastWriteTime(dir);
+                    if (t > latestTime)
+                    {
+                        latestTime = t;
+                        latest = dir;
+                    }
+                }
+
+                if (latest != null)
+                {
+                    return latest.Replace('\\', '/');
+                }
+            }
+
+            return versionDir;
+        }
+
         private static YooAsset.Editor.BuildResult BuildInternalWithConfig(BuildConfig config)
         {
             Debug.Log($"开始构建 : {config.BuildTarget}");

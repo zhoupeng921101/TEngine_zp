@@ -81,9 +81,11 @@ namespace FantasyClient
         }
 
         /// <summary>
-        /// WebSocket 是否启用 TLS(wss)。WebGL 下按宿主页面协议自动判定：https 页面返回 true（浏览器禁止 https 页内连明文 ws），
-        /// http 页面返回 false；其余平台默认 false（明文 ws）。由 <see cref="FantasyNetwork.Connect"/> 作 isHttps 入参传入传输层，
-        /// 决定连接 scheme（ws:// / wss://）。wss 还要求服务端在域名上配好 TLS（证书不能绑裸 IP）。
+        /// WebSocket 是否启用 TLS(wss)。WebGL 下默认 true(加密)，仅宿主页面显式 http:// 时才降级明文 ws；其余平台默认 false(明文 ws)。
+        /// 由 <see cref="FantasyNetwork.Connect"/> 作 isHttps 入参传入传输层，决定连接 scheme(ws:// / wss://)。
+        /// Application.absoluteURL 在部分浏览器(Chrome/Firefox 等)返回空字符串，不能据其降级明文——空 URL 时默认 wss，
+        /// 与正式部署恒在 https 域名一致；浏览器禁止 https 页内连明文 ws(混合内容策略)，降级 ws 会被拦。
+        /// wss 还要求服务端在域名上配好 TLS(证书不能绑裸 IP)。
         /// </summary>
         public static bool UseSsl
         {
@@ -91,7 +93,8 @@ namespace FantasyClient
             {
 #if UNITY_WEBGL && !UNITY_EDITOR
                 var url = Application.absoluteURL;
-                return !string.IsNullOrEmpty(url) && url.StartsWith("https");
+                // 默认加密：空/取不到 URL 时走 wss；仅页面显式 http:// 时才用明文 ws(本地 http 调试场景)。
+                return string.IsNullOrEmpty(url) || url.StartsWith("https");
 #else
                 return false;
 #endif

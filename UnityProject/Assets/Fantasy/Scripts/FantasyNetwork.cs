@@ -159,7 +159,13 @@ namespace FantasyClient
 
         private static void Connect()
         {
-            Log.Info($"[Fantasy] 连接服务器 {_address} ({FantasyNetworkConfig.Protocol}, ssl={FantasyNetworkConfig.UseSsl}) ...");
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // WebGL 下补打宿主页 absoluteURL：部分浏览器返回空导致旧逻辑误降级明文 ws，此值用于 console 核实 ssl 判定来源。
+            var hostUrl = UnityEngine.Application.absoluteURL;
+#else
+            var hostUrl = string.Empty;
+#endif
+            Log.Info($"[Fantasy] 连接服务器 {_address} ({FantasyNetworkConfig.Protocol}, ssl={FantasyNetworkConfig.UseSsl}, url={hostUrl}) ...");
             Session = Scene.Connect(
                 _address,
                 FantasyNetworkConfig.Protocol,
@@ -257,10 +263,14 @@ namespace FantasyClient
             var response = await Session.C2G_LoginGameRequest(accountName, localPlayerId);
             if (response.ErrorCode != 0)
             {
-                Log.Error($"[Fantasy] ❌ 登录失败 ErrorCode={response.ErrorCode}");
+                Log.Error($"[Fantasy] ❌ 登录失败 ErrorCode={response.ErrorCode} Msg={response.ErrorMessage}");
                 // 入口失败通知:登录被服务端拒绝(连接仍在),让入口 UI 切到重试态、阻断进入。
                 // 此路径无自动重连(自动重连只覆盖连接断开),需用户经 UI 手动 RetryLogin。
-                OnLoginFailed?.Invoke($"登录被拒绝（错误码 {response.ErrorCode}）");
+                // 文案优先用服务端回带的具体中文原因(ErrorMessage);为空时回退错误码兜底。
+                string loginFailReason = string.IsNullOrEmpty(response.ErrorMessage)
+                    ? $"登录被拒绝（错误码 {response.ErrorCode}）"
+                    : response.ErrorMessage;
+                OnLoginFailed?.Invoke(loginFailReason);
                 return response.ErrorCode;
             }
 

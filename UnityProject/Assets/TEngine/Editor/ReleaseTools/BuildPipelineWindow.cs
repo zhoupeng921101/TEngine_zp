@@ -83,6 +83,15 @@ namespace TEngine
         private List<string> _buildLogs = new List<string>();
         private Vector2 _logScrollPosition;
 
+        // 部署设置（构建后经 Git Bash + ssh/scp 增量上传；地址可在面板填写）
+        private bool _showDeploySettings = true;
+        private string _deployHost;
+        private string _deployUser;
+        private string _deployPort;
+        private string _deployKey;
+        private string _deployAbRemoteDir;
+        private string _deployPlayerRemoteDir;
+
         [MenuItem("TEngine/Build/打包工具窗口", false, 0)]
         public static void ShowWindow()
         {
@@ -109,6 +118,7 @@ namespace TEngine
                 DrawAdvancedSettings();
                 DrawDllSettings();
                 DrawPlayerSettings();
+                DrawDeploySettings();
                 DrawActionButtons();
                 DrawBuildLog();
             }
@@ -380,6 +390,56 @@ namespace TEngine
 
         #endregion
 
+        #region 部署设置
+
+        private void DrawDeploySettings()
+        {
+            _showDeploySettings = EditorGUILayout.BeginFoldoutHeaderGroup(_showDeploySettings,
+                new GUIContent("部署设置", "构建后经 Git Bash + ssh/scp 增量上传到远程服务器"));
+
+            if (_showDeploySettings)
+            {
+                EditorGUILayout.BeginVertical("HelpBox");
+                {
+                    EditorGUILayout.HelpBox(
+                        "默认连接参数取自 Fantasy 服务端部署脚本，仅作占位。请改成 AB / Player 实际部署服务器的地址、用户、私钥后再部署。",
+                        MessageType.Info);
+
+                    _deployHost = EditorGUILayout.TextField(
+                        new GUIContent("服务器地址", "SSH 主机 IP 或 ~/.ssh/config 别名"), _deployHost);
+                    _deployUser = EditorGUILayout.TextField(
+                        new GUIContent("用户名", "SSH 用户名，默认 root"), _deployUser);
+                    _deployPort = EditorGUILayout.TextField(
+                        new GUIContent("SSH 端口", "默认 22"), _deployPort);
+
+                    EditorGUILayout.BeginHorizontal();
+                    _deployKey = EditorGUILayout.TextField(
+                        new GUIContent("私钥路径", "SSH 私钥(.pem)文件路径；留空则用本机默认 ssh 配置"), _deployKey);
+                    if (GUILayout.Button("浏览", GUILayout.Width(50)))
+                    {
+                        string selected = EditorUtility.OpenFilePanel("选择 SSH 私钥文件", "", "");
+                        if (!string.IsNullOrEmpty(selected))
+                        {
+                            _deployKey = selected;
+                        }
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    EditorGUILayout.Space(3);
+                    EditorGUILayout.LabelField("上传地址（远程目录，可填写）", EditorStyles.boldLabel);
+                    _deployAbRemoteDir = EditorGUILayout.TextField(
+                        new GUIContent("AB 上传地址", "AssetBundle 远程目标目录"), _deployAbRemoteDir);
+                    _deployPlayerRemoteDir = EditorGUILayout.TextField(
+                        new GUIContent("Player 上传地址", "Player 远程目标目录"), _deployPlayerRemoteDir);
+                }
+                EditorGUILayout.EndVertical();
+            }
+            EditorGUILayout.EndFoldoutHeaderGroup();
+            GUILayout.Space(5);
+        }
+
+        #endregion
+
         #region 操作按钮
 
         private void DrawActionButtons()
@@ -387,7 +447,7 @@ namespace TEngine
             EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
             GUILayout.Space(5);
 
-            // 主按钮行
+            // 主按钮行在
             EditorGUILayout.BeginHorizontal();
             {
                 var abStyle = new GUIStyle(GUI.skin.button)
@@ -403,7 +463,7 @@ namespace TEngine
                 }
 
                 if (GUILayout.Button("构建 Player", abStyle, GUILayout.Height(35)))
-                {
+                { 
                     SaveSettings();
                     ExecuteBuildPlayerOnly();
                 }
@@ -424,6 +484,32 @@ namespace TEngine
                 _config.BuildPlayer = true;
                 ExecuteBuild(buildPlayer: true);
             }
+
+            GUILayout.Space(5);
+
+            // 一键部署按钮（构建 + 上传到远程）
+            var deployStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(1f, 0.6f, 0.2f) },
+            };
+
+            EditorGUILayout.BeginHorizontal();
+            {
+                if (GUILayout.Button("一键部署 AB", deployStyle, GUILayout.Height(35)))
+                {
+                    SaveSettings();
+                    ExecuteDeployAssetBundle();
+                }
+
+                if (GUILayout.Button("一键部署 Player", deployStyle, GUILayout.Height(35)))
+                {
+                    SaveSettings();
+                    ExecuteDeployPlayer();
+                }
+            }
+            EditorGUILayout.EndHorizontal();
 
             GUILayout.Space(5);
         }
@@ -541,6 +627,240 @@ namespace TEngine
             Repaint();
         }
 
+        #endregion
+
+        #region 部署执行
+
+        private void ExecuteDeployAssetBundle()
+        {
+            _buildLogs.Clear();
+            AddLog("========== 一键部署 AssetBundle ==========");
+
+            if (string.IsNullOrWhiteSpace(_config.PackageVersion))
+            {
+                _config.PackageVersion = BuildConfig.GetDefaultPackageVersion();
+                AddLog($"版本号为空，自动生成: {_config.PackageVersion}");
+            }
+
+            try
+            {
+                Application.logMessageReceived += OnBuildLogReceived;
+
+                var cfg = CloneConfig(_config);
+                cfg.BuildPlayer = false;
+                ReleaseTools.BuildWithConfig(cfg, buildPlayer: false);
+                AddLog("AB 构建完成，准备上传...");
+
+                string localDir = ReleaseTools.GetAssetBundleOutputDirectory(cfg);
+                RunDeployScript(localDir, _deployAbRemoteDir, "AB");
+            }
+            catch (Exception e)
+            {
+                AddLog($"[错误] {e.Message}");
+                Debug.LogException(e);
+            }
+            finally
+            {
+                Application.logMessageReceived -= OnBuildLogReceived;
+            }
+
+            _showBuildLog = true;
+            Repaint();
+        }
+
+        private void ExecuteDeployPlayer()
+        {
+            _buildLogs.Clear();
+            AddLog("========== 一键部署 Player ==========");
+            AddLog($"平台: {_config.PlayerPlatform} | 输出: {_config.PlayerOutputPath}");
+
+            try
+            {
+                Application.logMessageReceived += OnBuildLogReceived;
+
+                ReleaseTools.BuildImp(
+                    BuildConfig.GetBuildTargetGroup(_config.PlayerPlatform),
+                    _config.PlayerPlatform,
+                    _config.PlayerOutputPath);
+                AddLog("Player 构建完成，准备上传...");
+
+                string localDir = _config.PlayerOutputPath;
+                if (System.IO.File.Exists(localDir))
+                {
+                    localDir = System.IO.Path.GetDirectoryName(localDir);
+                }
+                RunDeployScript(localDir, _deployPlayerRemoteDir, "Player");
+            }
+            catch (Exception e)
+            {
+                AddLog($"[错误] {e.Message}");
+                Debug.LogException(e);
+            }
+            finally
+            {
+                Application.logMessageReceived -= OnBuildLogReceived;
+            }
+
+            _showBuildLog = true;
+            Repaint();
+        }
+
+        /// <summary>
+        /// 调用 deploy/upload.sh（经 Git Bash），把本地产物目录增量上传到远程目录。
+        /// 连接参数经环境变量注入子进程，私钥内容不进任何文件。
+        /// </summary>
+        private void RunDeployScript(string localDir, string remoteDir, string tag)
+        {
+            if (string.IsNullOrWhiteSpace(remoteDir))
+            {
+                AddLog($"[错误] {tag} 上传地址为空，已取消上传。");
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_deployHost))
+            {
+                AddLog("[错误] 服务器地址为空，已取消上传。");
+                return;
+            }
+
+            localDir = System.IO.Path.GetFullPath(localDir);
+            if (!System.IO.Directory.Exists(localDir))
+            {
+                AddLog($"[错误] 本地产物目录不存在: {localDir}");
+                return;
+            }
+
+            string bash = FindGitBash();
+            if (bash == null)
+            {
+                AddLog("[错误] 未找到 Git Bash，请安装 Git for Windows: https://git-scm.com/download/win");
+                return;
+            }
+
+            string scriptPath = System.IO.Path.GetFullPath(Application.dataPath + "/../deploy/upload.sh");
+            if (!System.IO.File.Exists(scriptPath))
+            {
+                AddLog($"[错误] 上传脚本不存在: {scriptPath}");
+                return;
+            }
+
+            string user = string.IsNullOrWhiteSpace(_deployUser) ? "root" : _deployUser;
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = bash,
+                Arguments = $"-l \"{ToGitBashPath(scriptPath)}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
+            };
+            psi.EnvironmentVariables["LOCAL_DIR"] = ToGitBashPath(localDir);
+            psi.EnvironmentVariables["REMOTE_DIR"] = remoteDir;
+            psi.EnvironmentVariables["SERVER_HOST"] = _deployHost;
+            psi.EnvironmentVariables["SERVER_USER"] = user;
+            psi.EnvironmentVariables["SSH_PORT"] = string.IsNullOrWhiteSpace(_deployPort) ? "22" : _deployPort;
+            psi.EnvironmentVariables["SSH_KEY"] = string.IsNullOrWhiteSpace(_deployKey) ? "" : ToGitBashPath(_deployKey);
+
+            AddLog($"上传 {tag} → {user}@{_deployHost}:{remoteDir}");
+
+            var buffer = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            using (var p = new System.Diagnostics.Process { StartInfo = psi })
+            {
+                p.OutputDataReceived += (s, e) => { if (e.Data != null) buffer.Enqueue(e.Data); };
+                p.ErrorDataReceived += (s, e) => { if (e.Data != null) buffer.Enqueue("[sh] " + e.Data); };
+                p.Start();
+                p.BeginOutputReadLine();
+                p.BeginErrorReadLine();
+                p.WaitForExit();
+
+                while (buffer.TryDequeue(out var line))
+                {
+                    AddLog(line);
+                }
+
+                AddLog(p.ExitCode == 0 ? $"==> {tag} 部署成功" : $"[错误] {tag} 部署失败 (exit={p.ExitCode})");
+            }
+        }
+
+        private static string FindGitBash()
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "where",
+                    Arguments = "git",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
+                };
+                using (var p = System.Diagnostics.Process.Start(psi))
+                {
+                    if (p != null)
+                    {
+                        string output = p.StandardOutput.ReadToEnd();
+                        p.WaitForExit();
+                        foreach (var raw in output.Split('\n'))
+                        {
+                            string git = raw.Trim();
+                            if (git.EndsWith("git.exe", StringComparison.OrdinalIgnoreCase))
+                            {
+                                string gitRoot = System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(git));
+                                if (!string.IsNullOrEmpty(gitRoot))
+                                {
+                                    string bash = System.IO.Path.Combine(gitRoot, "bin", "bash.exe");
+                                    if (System.IO.File.Exists(bash))
+                                    {
+                                        return bash;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // 忽略 where 调用异常，落到下面的候选路径
+            }
+
+            string[] candidates =
+            {
+                @"C:\Program Files\Git\bin\bash.exe",
+                @"C:\Program Files (x86)\Git\bin\bash.exe",
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + @"\Programs\Git\bin\bash.exe",
+            };
+            foreach (var candidate in candidates)
+            {
+                if (System.IO.File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Windows 路径转 Git Bash 路径（D:\a\b → /d/a/b）；已是 /x/ 形式则原样返回。
+        /// </summary>
+        private static string ToGitBashPath(string winPath)
+        {
+            if (string.IsNullOrEmpty(winPath))
+            {
+                return winPath;
+            }
+
+            winPath = winPath.Replace('\\', '/');
+            if (winPath.Length >= 2 && winPath[1] == ':')
+            {
+                char drive = char.ToLowerInvariant(winPath[0]);
+                winPath = "/" + drive + winPath.Substring(2);
+            }
+            return winPath;
+        }
+
         private void OnBuildLogReceived(string condition, string stackTrace, LogType type)
         {
             string prefix = type switch
@@ -611,6 +931,15 @@ namespace TEngine
 
             _config.PlayerOutputPath = EditorPrefs.GetString("TEngine_BP_PlayerOutput",
                 BuildConfig.GetDefaultPlayerOutputPath(_config.PlayerPlatform));
+
+            _deployHost = EditorPrefs.GetString("TEngine_BP_DeployHost", "121.199.24.31");
+            _deployUser = EditorPrefs.GetString("TEngine_BP_DeployUser", "root");
+            _deployPort = EditorPrefs.GetString("TEngine_BP_DeployPort", "22");
+            _deployKey = EditorPrefs.GetString("TEngine_BP_DeployKey", "/d/work/TEngine_block/Fantasy/蛙蛙.pem");
+            _deployAbRemoteDir = EditorPrefs.GetString("TEngine_BP_DeployAbDir",
+                "/workspace/lulukeji/tarot-block/cdn/tarot-block/WebGL");
+            _deployPlayerRemoteDir = EditorPrefs.GetString("TEngine_BP_DeployPlayerDir",
+                "/workspace/lulukeji/tarot-block/WebGL");
         }
 
         private void SaveSettings()
@@ -633,6 +962,13 @@ namespace TEngine
             EditorPrefs.SetBool("TEngine_BP_BuildPlayer", _config.BuildPlayer);
             EditorPrefs.SetInt("TEngine_BP_PlayerPlatform", _playerPlatformIndex);
             EditorPrefs.SetString("TEngine_BP_PlayerOutput", _config.PlayerOutputPath);
+
+            EditorPrefs.SetString("TEngine_BP_DeployHost", _deployHost ?? "");
+            EditorPrefs.SetString("TEngine_BP_DeployUser", _deployUser ?? "");
+            EditorPrefs.SetString("TEngine_BP_DeployPort", _deployPort ?? "");
+            EditorPrefs.SetString("TEngine_BP_DeployKey", _deployKey ?? "");
+            EditorPrefs.SetString("TEngine_BP_DeployAbDir", _deployAbRemoteDir ?? "");
+            EditorPrefs.SetString("TEngine_BP_DeployPlayerDir", _deployPlayerRemoteDir ?? "");
         }
 
         private int GetActivePlatformIndex()

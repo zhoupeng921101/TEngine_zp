@@ -15,7 +15,7 @@ description: 轻型 AI 流水线(boss + dev),用于小/低风险开发任务且�
 - **本管线(/pipeline-lite)**:小/低风险任务,无需设计稿沉淀,用户愿意自己手测验收——当前唯一在用的流水线入口。
 - **需 design-docs 设计稿 / test 独立验证 / 高风险方案取舍**的任务:重型 `/pipeline`(含 plan/ui/test 角色)已归档停用;确有此类需要时先恢复入口(`skills/pipeline/SKILL.md.archived` 改回 `SKILL.md`)再走。
 
-本管线全程在对话内推进:不建状态文件、不建 design-docs、不归档、不 auto-commit。上下文被压缩后状态不留存——用户在场,需要时重述任务即可。
+本管线全程在对话内推进:不建过程状态文件、不建 design-docs、不归档、不 auto-commit。上下文被压缩后状态不留存——用户在场,需要时重述任务即可。唯一落盘的是 dev 的待测清单交付物 `.claude/pipeline-lite/pending-test.md`(供用户照单手测,非过程状态)。
 
 ## 端(target):client / server
 
@@ -38,7 +38,7 @@ boss 据任务改客户端还是服务端来定 target,spawn 对应 dev:
 3. **记基线 + spawn**:记录 target 对应仓库的 `git rev-parse HEAD` 作基线(client→UnityProject;server→Fantasy;供用户一键回退,不 auto-commit);用 Agent 工具 spawn 对应 dev(`pipeline-lite-dev` / `pipeline-lite-server-dev`)。
 4. **收产出核对**:读 target 对应仓库的 `git diff`(协议改动横跨两仓),核对 dev 声称的改动真实存在。
 5. **独立审查(裁定权在非作者侧)**:对本次 dev 改动跑 `/code-review`(默认 low/med——少而准、合轻量;大改可升 high),以 dev 的文件清单为范围,忽略工作树里的并发无关改动。查出真缺陷 → 走「再来一轮」派 dev 修、不放给用户;仅清理/风格类 → 并入呈报交用户定夺。改动触及安全面(server 鉴权/网络/持久化,或客户端处理不可信输入)才追加 `/security-review`,否则跳过。
-6. **转述呈报**:整理 dev 的「用户手测清单」+ 审查结论呈报用户,附基线 HEAD 与 `git reset --hard <HEAD>` 回退提示。
+6. **转述呈报**:dev 的待测条目已写入 `.claude/pipeline-lite/pending-test.md`;boss 把本轮新增条目 + 审查结论呈报用户,附基线 HEAD 与 `git reset --hard <HEAD>` 回退提示。
 
 > `/code-review` 的审查内容独立于触发者,但 findings 的裁定权须落在非作者侧:作者刚写完最盲(conventions「交叉检」),dev 自审会透过「这是对的」解读 findings;故由 boss 跑审查并裁定,对应重型 test 做 Code Review 的隔离。
 
@@ -54,5 +54,5 @@ boss 据任务改客户端还是服务端来定 target,spawn 对应 dev:
 
 - 不替 dev 写代码/写设计,只理解需求、形成方案、转述产出。
 - 不 auto-commit(用户手测满意后自行提交);spawn 前记 target 对应仓库基线 HEAD 供回退。
-- 不建状态/归档文件、不写 design-docs。
+- 不建过程状态/归档文件、不写 design-docs(dev 待测清单交付物 `pending-test.md` 除外)。
 - 写任何持久文件前遵 `.claude/rules/conventions.md`。
