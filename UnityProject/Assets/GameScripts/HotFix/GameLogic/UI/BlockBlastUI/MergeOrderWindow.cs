@@ -154,15 +154,15 @@ namespace GameLogic
             _state = BlockGameState.Instance;
             _board = new BinaryBoard();
     
-            if (!DynamicWeightDiff.Instance.IsInitialized())
+            if (!_state.Dynamic.IsInitialized())
             {
                 try { GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight(); }
                 catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] 权重表加载失败，退化随机：{e.Message}"); }
             }
             // 隐患 B（设计 29 §5.3 / 开关 #3）：dynamicWeight 每次进盘重置。
             // Reset() 清 _dynamicWeight / _preDynamicWeight / _refillIndex，消除跨局 / 跨模式 / 跨 app 重启的累积，从中位公平起步。
-            DynamicWeightDiff.Instance.Reset();
-            DynamicWeightDiff.Instance.BeginGame();
+            _state.Dynamic.Reset();
+            _state.Dynamic.BeginGame();
 
             // 纵深防御(单入口下非必需,异常路径留证):正常经 MainMenuWindow 入口闸进窗时云存档已就绪。
             // 此处只读断言不 await、不转圈;若未就绪说明绕过了入口闸,ResetForMergeOrder 可能读到旧本地。

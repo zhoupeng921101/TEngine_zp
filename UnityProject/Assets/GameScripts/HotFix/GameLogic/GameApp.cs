@@ -51,6 +51,12 @@ public partial class GameApp
     
     private static void StartGameLogic()
     {
+        // 注册本地持久化默认 provider 工厂(PlayerPrefs):Persistence 入口自身 0 Unity 依赖
+        // (PlayerPrefsProvider 隔离在独立文件),Unity 依赖由此处注册侧持有。须早于任何
+        // Persistence.Provider 访问(BlockSkinState / DynamicWeightDiff 等),故置 StartGameLogic 起始。
+        GameLogic.BlockBlast.Persistence.DefaultProviderFactory =
+            () => new GameLogic.BlockBlast.PlayerPrefsProvider();
+
 #if FANTASY_UNITY
         // 重置入口闸标志位:静态字段跨「编辑器内反复 Play」不归零,不重置会让二次进入直接卡住或跳过闸。
         _loginSucceeded = false;
@@ -298,8 +304,8 @@ public partial class GameApp
     /// StartGameLogic 内以 += 挂载且无解绑,重载会让 StartGameLogic 再跑一遍、订阅翻倍。改为「原地软重启」:
     ///   ① 复位入口闸标志位,使重登后 TryOpenMainMenu 能再次放行、重走进主游戏流程;
     ///   ② 关掉所有已开窗口(含本配置窗 / 玩法窗),由重登后的入口流程重新开;
-    ///   ③ 释放持有内存态的轻量单例(GameContext / BlockGameState / DynamicWeightDiff),
-    ///      下次 .Instance 访问时 OnInit 从已清缓存 + 服务端快照重建;
+    ///   ③ 释放持有内存态的轻量单例(GameContext / BlockGameState;DynamicWeightDiff 作为 BlockGameState
+    ///      的逐局实例字段随之释放),下次 .Instance 访问时 OnInit 从已清缓存 + 服务端快照重建;
     ///   ④ Shutdown + Boot 重连:复用既有网络事件订阅(不重复挂),重登触发快照覆盖货币 + 入口流程重进。
     /// </summary>
     public static void RestartAfterDataReset()
@@ -317,9 +323,9 @@ public partial class GameApp
         GameModule.UI.CloseAll();
 
         // ③ 释放持内存态的轻量单例(SimpleSingleton 的静态 _instance 跨场景 / 重连存活,须显式释放才会重建)。
+        //    DynamicWeightDiff 现为 BlockGameState 的逐局实例字段,随 BlockGameState 释放一并丢弃,无独立单例可释。
         if (GameLogic.GameContext.IsValid) GameLogic.GameContext.Instance.Release();
         if (GameLogic.BlockBlast.BlockGameState.IsValid) GameLogic.BlockBlast.BlockGameState.Instance.Release();
-        if (GameLogic.BlockBlast.DynamicWeightDiff.IsValid) GameLogic.BlockBlast.DynamicWeightDiff.Instance.Release();
 
         // ④ 重连重登:Shutdown 复位静态网络态(_initialized/Scene),Boot 走完整初始化 → 登录 → 快照 → 入口流程。
         //    闸窗立即摆上(同步,与网络登录 + 预载并行);登录 + 快照 + 预载三者俱备前不放行(沿强制联网入口语义)。

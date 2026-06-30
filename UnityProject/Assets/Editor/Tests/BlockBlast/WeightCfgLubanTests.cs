@@ -72,11 +72,10 @@ namespace GameLogic.BlockBlast.Tests
         public void DynamicWeightDiff_InitFromLubanTable_Works()
         {
             Persistence.Provider = new InMemoryPersistenceProvider();
-            RandomSource.SetSeed(2026);
-            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
 
             var entries = LoadEntriesFromBytes();
-            var dyn = DynamicWeightDiff.Instance;
+            // 去单例化后:用固定随机源 + 内存持久化 new 一个逐局调度器实例。
+            var dyn = new DynamicWeightDiff(new XorShift128PlusRng(2026), new InMemoryPersistenceProvider());
             dyn.Init(entries);
             dyn.BeginGame();
 
@@ -85,8 +84,6 @@ namespace GameLogic.BlockBlast.Tests
             var res = dyn.OfferTrio(board, 5000);
             Assert.AreEqual(3, res.Ids.Length);
             foreach (int id in res.Ids) Assert.IsNotNull(BlockShapeMap.Get(id));
-
-            dyn.Release();
         }
     }
 }

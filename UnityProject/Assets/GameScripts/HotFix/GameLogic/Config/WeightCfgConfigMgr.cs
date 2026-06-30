@@ -48,12 +48,12 @@ namespace GameLogic.Config
         }
 
         /// <summary>
-        /// 一键初始化：把 Luban 权重表灌入 DynamicWeightDiff 单例。
+        /// 一键初始化：把 Luban 权重表灌入本局发牌调度器(BlockGameState 的逐局实例)。
         /// 在 GameApp 启动（ConfigSystem 就绪后）调用一次。
         /// </summary>
         public static void InitDynamicWeight()
         {
-            DynamicWeightDiff.Instance.Init(LoadEntries());
+            BlockGameState.Instance.Dynamic.Init(LoadEntries());
         }
     }
 }

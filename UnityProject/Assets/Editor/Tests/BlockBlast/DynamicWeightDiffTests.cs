@@ -11,20 +11,17 @@ namespace GameLogic.BlockBlast.Tests
     {
         private InMemoryPersistenceProvider _provider;
 
+        /// <summary>固定 seed 的可移植随机源,使各用例随机走确定性序列。</summary>
+        private static IRandomSource NewRng() => new XorShift128PlusRng(54321);
+
+        /// <summary>建一个用本用例内存持久化通道 + 确定性随机源的逐局调度器实例。</summary>
+        private DynamicWeightDiff NewDyn() => new DynamicWeightDiff(NewRng(), _provider);
+
         [SetUp]
         public void SetUp()
         {
             _provider = new InMemoryPersistenceProvider();
             Persistence.Provider = _provider;
-            RandomSource.SetSeed(54321);
-            // 确保单例干净
-            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
         }
 
         private static List<WeightConfigEntry> MockTwoTiers()
@@ -56,7 +53,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void Init_LoadsConfigAndRegistersOverrides()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             Assert.IsTrue(dyn.IsInitialized());
             // FirstRound override 应已注册
@@ -67,7 +64,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void OfferTrio_BelowActivation_UsesRandomNoDie()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             dyn.BeginGame();
             var board = new BinaryBoard();
@@ -88,7 +85,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void AddWeight_AccumulatesAndClamps()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             // FILL: basic=+40。第一次走 basic（pre=0，sameDirection=0*40>0=false）。
             dyn.AddWeight(AlgorithmKind.Fill);
@@ -107,7 +104,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void AddWeight_Clamps_WithinFactorRange()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             // tier 范围合并是 [-100, 200]
             for (int i = 0; i < 50; i++) dyn.AddWeight(AlgorithmKind.ClearAll); // +60/+30
@@ -119,7 +116,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void Reset_ZerosWeights()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             dyn.AddWeight(AlgorithmKind.Fill);
             Assert.AreNotEqual(0, dyn.DynamicWeight);
@@ -130,21 +127,42 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void SaveAndLoad_RoundTrips()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             dyn.AddWeight(AlgorithmKind.Fill);
             int w1 = dyn.DynamicWeight;
-            // 释放后重新拿单例，需要走 Init 再 Load
-            dyn.Release();
-            var dyn2 = DynamicWeightDiff.Instance;
-            dyn2.Init(MockTwoTiers());  // Init 内部会调 Load
+            // 另起一个实例(共享同一内存持久化通道),Init 内部会调 Load → 恢复持久化的调度态
+            var dyn2 = new DynamicWeightDiff(NewRng(), _provider);
+            dyn2.Init(MockTwoTiers());
             Assert.AreEqual(w1, dyn2.DynamicWeight, "持久化的 dynamicWeight 应能恢复");
+        }
+
+        [Test]
+        public void Load_ReadsLegacyJsonFormat()
+        {
+            // 旧客户端用 UnityEngine.JsonUtility 落 {"dynamicWeight":N,"preDynamicWeight":M}。
+            // 升级后须能读旧格式(零回归),避免首次启动调度态被清。
+            _provider.Set("block_blast_dynamic_v1", "{\"dynamicWeight\":123,\"preDynamicWeight\":-45}");
+            var dyn = NewDyn();
+            dyn.Init(MockTwoTiers());  // Init 内部 Load
+            Assert.AreEqual(123, dyn.DynamicWeight, "应能解析旧 JSON 的 dynamicWeight");
+        }
+
+        [Test]
+        public void NoPersistence_SaveLoadAreNoops()
+        {
+            // 服务端用法:不注入持久化,Save/Load 应安全空操作,不抛、不读写存储。
+            var dyn = new DynamicWeightDiff(NewRng(), null);
+            dyn.Init(MockTwoTiers());
+            dyn.AddWeight(AlgorithmKind.Fill);  // 内部 Save 应被跳过
+            Assert.AreEqual(40, dyn.DynamicWeight);
+            Assert.AreEqual(0, _provider.Count, "无持久化通道时不应写入注入的 provider");
         }
 
         [Test]
         public void ForceAlgorithm_OverridesPickedAlgo()
         {
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = NewDyn();
             dyn.Init(MockTwoTiers());
             dyn.BeginGame();
             dyn.ForceAlgorithm = AlgorithmKind.Add3;

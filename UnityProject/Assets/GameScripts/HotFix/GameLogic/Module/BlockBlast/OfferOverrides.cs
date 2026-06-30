@@ -27,6 +27,8 @@ namespace GameLogic.BlockBlast
         public int RefillIndex;
         /// <summary>上一次 offer 用的算法（可为 null）。</summary>
         public AlgorithmKind? LastAlgo;
+        /// <summary>本局随机源(逐局实例显式贯穿,override 取随机也走它,不依赖进程级全局态)。</summary>
+        public IRandomSource Rng;
     }
 
     /// <summary>一条优先级覆盖 —— 对应原版 OfferBase 子类。</summary>
@@ -108,7 +110,7 @@ namespace GameLogic.BlockBlast
         public TriggerTiming Trigger => TriggerTiming.FirstRound;
         public int Priority => 2;
         public bool CheckIsCanWork(OfferContext ctx) => ctx.RefillIndex == 0;
-        public int[] OfferNewBlocks(OfferContext ctx) => Algorithms.BlockAlgorithms.GenerateTrio(AlgorithmKind.Fill, ctx.Board);
+        public int[] OfferNewBlocks(OfferContext ctx) => Algorithms.BlockAlgorithms.GenerateTrio(AlgorithmKind.Fill, ctx.Board, ctx.Rng);
     }
 
     /// <summary>
@@ -120,7 +122,7 @@ namespace GameLogic.BlockBlast
         public TriggerTiming Trigger => TriggerTiming.EmptyBoard;
         public int Priority => 3;
         public bool CheckIsCanWork(OfferContext ctx) => ctx.Board.IsEmpty();
-        public int[] OfferNewBlocks(OfferContext ctx) => Algorithms.BlockAlgorithms.GenerateTrio(AlgorithmKind.RandomNoDie, ctx.Board);
+        public int[] OfferNewBlocks(OfferContext ctx) => Algorithms.BlockAlgorithms.GenerateTrio(AlgorithmKind.RandomNoDie, ctx.Board, ctx.Rng);
     }
 
     /// <summary>默认注册（在 DynamicWeightDiff.Init 时调用一次）。</summary>

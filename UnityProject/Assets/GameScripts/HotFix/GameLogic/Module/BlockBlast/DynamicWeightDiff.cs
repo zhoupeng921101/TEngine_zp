@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using GameLogic.BlockBlast.Algorithms;
 using GameLogic.BlockBlast.Core;
 
@@ -8,8 +9,13 @@ namespace GameLogic.BlockBlast
     /// <summary>
     /// 主分发器：按 weightcfg 选 tier、按 tier 内 odds 抽算法、调用算法生成 trio。
     /// 模仿原游戏 main_bundle.js 中的 DynamicWeightDiff。
+    ///
+    /// 逐局实例(无单例):每实例自持随机源 <see cref="IRandomSource"/> + 全部跨手调度态,
+    /// 两局各 new 各跑、互不干扰,可被服务端多局并发安全使用。生成路径上无进程级可变状态。
+    /// 调度态持久化经构造注入的 <see cref="IPersistenceProvider"/>(可为 null = 不持久,服务端用),
+    /// 序列化用运行时中立编码(无 Unity 依赖):生成核心闭包 0 Unity 依赖,服务端无需 stub 即可链接。
     /// </summary>
-    public sealed class DynamicWeightDiff : SimpleSingleton<DynamicWeightDiff>
+    public sealed class DynamicWeightDiff
     {
         private const string StorageKey = "block_blast_dynamic_v1";
 
@@ -17,6 +23,12 @@ namespace GameLogic.BlockBlast
         private const int BoardClearScoreThreshold = 15000;
         private const int BoardClearCooldownMin = 1;
         private const int BoardClearCooldownMax = 2;
+
+        /// <summary>本局随机源:所有发牌随机经此实例取值,不走进程级全局态。</summary>
+        private readonly IRandomSource _rng;
+
+        /// <summary>调度态持久化通道(可为 null = 不持久,如服务端逐局态无须落客户端存储)。</summary>
+        private readonly IPersistenceProvider _persistence;
 
         private List<WeightConfigEntry> _weightConfig = new List<WeightConfigEntry>();
         private bool _initialized;
@@ -37,6 +49,26 @@ namespace GameLogic.BlockBlast
         private bool _bcInWindow;
         /// <summary>清屏冷却：窗口结束后强制走普通调度的回合数。</summary>
         private int _bcCooldown;
+
+        /// <summary>
+        /// 构造逐局实例。
+        /// </summary>
+        /// <param name="rng">本局随机源。null 时退回基于时间种子的 System.Random(保留客户端历史默认行为)。</param>
+        /// <param name="persistence">调度态持久化通道。null = 不持久(服务端逐局态);客户端传 <see cref="Persistence.Provider"/>。</param>
+        public DynamicWeightDiff(IRandomSource rng = null, IPersistenceProvider persistence = null)
+        {
+            _rng = rng ?? new SystemRandomSource(new Random());
+            _persistence = persistence;
+        }
+
+        /// <summary>把 System.Random 适配成 IRandomSource(保留客户端默认时间种子路径,与去单例化前一致)。</summary>
+        private sealed class SystemRandomSource : IRandomSource
+        {
+            private readonly Random _r;
+            public SystemRandomSource(Random r) => _r = r;
+            public double NextDouble() => _r.NextDouble();
+            public int Next(int minInclusive, int maxExclusive) => _r.Next(minInclusive, maxExclusive);
+        }
 
         public bool IsInitialized() => _initialized;
 
@@ -94,13 +126,13 @@ namespace GameLogic.BlockBlast
                 else if (_bcInWindow && boardEmpty)
                 {
                     _bcInWindow = false;
-                    _bcCooldown = RandomSource.Range(BoardClearCooldownMin, BoardClearCooldownMax + 1);
+                    _bcCooldown = _rng.Next(BoardClearCooldownMin, BoardClearCooldownMax + 1);
                     result = OfferTrioInner(board, score);
                 }
                 else
                 {
                     _bcInWindow = true;
-                    var ids = Algorithms.BlockAlgorithms.BoardClearGreedyTrio(board);
+                    var ids = Algorithms.BlockAlgorithms.BoardClearGreedyTrio(board, _rng);
                     LastAlgo = AlgorithmKind.Fill;  // 复用 FILL 标签做权重反馈
                     LastTierId = -3;                 // -3 表示"清屏窗口接管"
                     _refillIndex++;
@@ -173,7 +205,7 @@ namespace GameLogic.BlockBlast
             int total = 0;
             for (int i = 0; i < odds.Length; i++) total += odds[i];
             if (total <= 0) return AlgorithmKind.RandomNoDie;
-            double r = RandomSource.NextDouble() * total;
+            double r = _rng.NextDouble() * total;
             for (int i = 0; i < odds.Length; i++)
             {
                 if (odds[i] > 0 && r < odds[i]) return (AlgorithmKind)i;
@@ -199,7 +231,7 @@ namespace GameLogic.BlockBlast
             for (int i = 0; i < ids.Length; i++)
             {
                 replaced[i] = BlockShapeMap.EarlyGameBlockedIds.Contains(ids[i])
-                    ? pool[RandomSource.Index(pool.Count)]
+                    ? pool[_rng.Index(pool.Count)]
                     : ids[i];
             }
             if (board.CheckPutAllBlocks(replaced)) return replaced;
@@ -207,9 +239,9 @@ namespace GameLogic.BlockBlast
             {
                 var t = new[]
                 {
-                    pool[RandomSource.Index(pool.Count)],
-                    pool[RandomSource.Index(pool.Count)],
-                    pool[RandomSource.Index(pool.Count)],
+                    pool[_rng.Index(pool.Count)],
+                    pool[_rng.Index(pool.Count)],
+                    pool[_rng.Index(pool.Count)],
                 };
                 if (board.CheckPutAllBlocks(t)) return t;
             }
@@ -242,7 +274,7 @@ namespace GameLogic.BlockBlast
                 var candidates = new List<int>();
                 foreach (int c in pool) if (!used.Contains(c)) candidates.Add(c);
                 if (candidates.Count == 0) break;
-                RandomSource.Shuffle(candidates);
+                _rng.Shuffle(candidates);
                 int picked = -1;
                 foreach (int c in candidates)
                 {
@@ -265,7 +297,7 @@ namespace GameLogic.BlockBlast
                 var algo = ForceAlgorithm.Value;
                 LastAlgo = algo;
                 LastTierId = -1;
-                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board);
+                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board, _rng);
                 _refillIndex++;
                 return new OfferResult { Ids = ids, Algo = algo, TierId = -1 };
             }
@@ -278,6 +310,7 @@ namespace GameLogic.BlockBlast
                 Score = score,
                 RefillIndex = _refillIndex,
                 LastAlgo = LastAlgo,
+                Rng = _rng,
             };
             var hit = OfferRegistry.Instance.Dispatch(ctx.Trigger, ctx);
             if (hit != null)
@@ -296,7 +329,7 @@ namespace GameLogic.BlockBlast
                 var algo = AlgorithmKind.RandomNoDie;
                 LastAlgo = algo;
                 LastTierId = null;
-                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board);
+                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board, _rng);
                 _refillIndex++;
                 return new OfferResult { Ids = ids, Algo = algo, TierId = null };
             }
@@ -306,13 +339,13 @@ namespace GameLogic.BlockBlast
                 var algo = AlgorithmKind.RandomNoDie;
                 LastAlgo = algo;
                 LastTierId = null;
-                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board);
+                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board, _rng);
                 _refillIndex++;
                 return new OfferResult { Ids = ids, Algo = algo, TierId = null };
             }
             {
                 var algo = PickAlgorithmFromTier(tier);
-                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board);
+                var ids = Algorithms.BlockAlgorithms.GenerateTrio(algo, board, _rng);
                 LastAlgo = algo;
                 LastTierId = tier.Id;
                 _refillIndex++;
@@ -356,38 +389,89 @@ namespace GameLogic.BlockBlast
             Save();
         }
 
-        [Serializable]
-        private sealed class Persist
-        {
-            public int dynamicWeight;
-            public int preDynamicWeight;
-        }
-
         public void Save()
         {
+            if (_persistence == null) return;
             try
             {
-                var data = new Persist { dynamicWeight = _dynamicWeight, preDynamicWeight = _preDynamicWeight };
-                Persistence.Provider.Set(StorageKey, UnityEngine.JsonUtility.ToJson(data));
+                _persistence.Set(StorageKey, Encode(_dynamicWeight, _preDynamicWeight));
             }
             catch { /* ignore */ }
         }
 
         public void Load()
         {
+            if (_persistence == null) return;
             try
             {
-                if (!Persistence.Provider.TryGet(StorageKey, out string raw) || string.IsNullOrEmpty(raw)) return;
-                var d = UnityEngine.JsonUtility.FromJson<Persist>(raw);
-                if (d == null) return;
-                _dynamicWeight = d.dynamicWeight;
-                _preDynamicWeight = d.preDynamicWeight;
+                if (!_persistence.TryGet(StorageKey, out string raw) || string.IsNullOrEmpty(raw)) return;
+                if (TryDecode(raw, out int dw, out int pre))
+                {
+                    _dynamicWeight = dw;
+                    _preDynamicWeight = pre;
+                }
             }
             catch { /* ignore */ }
         }
 
+        // ─── 运行时中立序列化 ──────────────────────────────────────
+        // 调度态 = 两个 int。用 "dw=<n>;pre=<n>" 文本编码,无 Unity / 无反射 JSON,
+        // 跨运行时一致且生成核心闭包 0 Unity 依赖。
+
+        private static string Encode(int dynamicWeight, int preDynamicWeight)
+            => "dw=" + dynamicWeight.ToString(CultureInfo.InvariantCulture)
+             + ";pre=" + preDynamicWeight.ToString(CultureInfo.InvariantCulture);
+
+        private static bool TryDecode(string raw, out int dynamicWeight, out int preDynamicWeight)
+        {
+            dynamicWeight = 0;
+            preDynamicWeight = 0;
+            // 旧客户端用 UnityEngine.JsonUtility 落 {"dynamicWeight":N,"preDynamicWeight":M}。
+            // 升级后兼容读旧格式,避免首次启动调度态被清(零回归);新写出统一用中立 dw=/pre= 编码。
+            if (raw.IndexOf("dynamicWeight", StringComparison.Ordinal) >= 0)
+                return TryDecodeLegacyJson(raw, out dynamicWeight, out preDynamicWeight);
+
+            bool any = false;
+            foreach (var part in raw.Split(';'))
+            {
+                int eq = part.IndexOf('=');
+                if (eq <= 0) continue;
+                string key = part.Substring(0, eq);
+                string val = part.Substring(eq + 1);
+                if (!int.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) continue;
+                if (key == "dw") { dynamicWeight = n; any = true; }
+                else if (key == "pre") { preDynamicWeight = n; any = true; }
+            }
+            return any;
+        }
+
+        /// <summary>读旧 JsonUtility 格式(扫 "key":number,不依赖 JSON 库,无 Unity)。</summary>
+        private static bool TryDecodeLegacyJson(string raw, out int dynamicWeight, out int preDynamicWeight)
+        {
+            dynamicWeight = ReadJsonInt(raw, "dynamicWeight");
+            preDynamicWeight = ReadJsonInt(raw, "preDynamicWeight");
+            return true;
+        }
+
+        private static int ReadJsonInt(string raw, string key)
+        {
+            string token = "\"" + key + "\"";
+            int idx = raw.IndexOf(token, StringComparison.Ordinal);
+            if (idx < 0) return 0;
+            int colon = raw.IndexOf(':', idx + token.Length);
+            if (colon < 0) return 0;
+            int i = colon + 1;
+            while (i < raw.Length && (raw[i] == ' ' || raw[i] == '\t')) i++;
+            int start = i;
+            if (i < raw.Length && (raw[i] == '-' || raw[i] == '+')) i++;
+            while (i < raw.Length && raw[i] >= '0' && raw[i] <= '9') i++;
+            string num = raw.Substring(start, i - start);
+            return int.TryParse(num, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? n : 0;
+        }
+
         // 测试钩子
         internal int InternalRefillIndex => _refillIndex;
+        internal int InternalPreDynamicWeight => _preDynamicWeight;
         internal void InternalSetWeight(int dynamicWeight, int preDynamicWeight)
         {
             _dynamicWeight = dynamicWeight;

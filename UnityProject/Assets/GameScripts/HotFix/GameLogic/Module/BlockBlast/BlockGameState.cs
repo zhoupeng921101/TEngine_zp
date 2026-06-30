@@ -40,6 +40,22 @@ namespace GameLogic.BlockBlast
         public MergeOrderState MergeState;
 
         /// <summary>
+        /// 本局发牌调度器(逐局实例,替代旧的进程级单例)。客户端一次只跑一局,故挂在 BlockGameState 上、
+        /// 与本局同生命周期;服务端多局并发各自 new 各自的实例。随机源用基于时间种子的 System.Random
+        /// (保留去单例化前的默认行为),持久化经 <see cref="Persistence.Provider"/>(沿用旧存储键 + 调度态)。
+        /// </summary>
+        private DynamicWeightDiff _dynamic;
+
+        /// <summary>本局发牌调度器实例(首次访问时按客户端默认随机源 + 本地持久化创建)。</summary>
+        public DynamicWeightDiff Dynamic => _dynamic ??= new DynamicWeightDiff(null, Persistence.Provider);
+
+        /// <summary>
+        /// 注入逐局发牌调度器(测试钩子)。确定性 harness 用固定随机源 new 一个实例注入,使经
+        /// <see cref="RefillPieces"/> 的客户端发牌路径可复现。生产不调用(走 <see cref="Dynamic"/> 惰性默认)。
+        /// </summary>
+        internal void InjectDynamic(DynamicWeightDiff dyn) => _dynamic = dyn;
+
+        /// <summary>
         /// 玩法窗活态就绪钩子(P1 全栈迁移·客户端段)。<see cref="ResetForMergeOrder"/> 末尾(局内存档加载之后)以新建的
         /// <see cref="MergeState"/> 触发。接线层(OrderSync 经 GameApp)据此把活态切服务端权威 + 接交付 RPC + 应用已缓存订单快照
         /// (覆盖 blob 旧 normal 订单)。null(纯逻辑单测/无网络)→ 不触发,保持本地行为零回归(沿 MergeMetaPersistence.OnSaved 范式)。
@@ -224,7 +240,7 @@ namespace GameLogic.BlockBlast
             if (!allEmpty) return;
 
             // 走动态调度
-            var dyn = DynamicWeightDiff.Instance;
+            var dyn = Dynamic;
             if (board != null && dyn.IsInitialized())
             {
                 var off = dyn.OfferTrio(board, Score);
@@ -313,7 +329,7 @@ namespace GameLogic.BlockBlast
             // 4) 动态难度反馈
             if (piece.HasAlgo)
             {
-                DynamicWeightDiff.Instance.AddWeight(piece.Algo);
+                Dynamic.AddWeight(piece.Algo);
             }
         }
 

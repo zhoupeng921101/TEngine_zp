@@ -26,15 +26,14 @@ namespace GameLogic.BlockBlast.Tests
             // InMemory Provider 隔离真实 PlayerPrefs（整合用例触达 ResetForMergeOrder → Load）。
             Persistence.Provider = new InMemoryPersistenceProvider();
             RandomSource.SetSeed(20260622);
+            // DynamicWeightDiff 现为 BlockGameState 的逐局实例字段,随 BlockGameState 释放,无独立单例可释。
             if (BlockGameState.IsValid) BlockGameState.Instance.Release();
-            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
         }
 
         [TearDown]
         public void TearDown()
         {
             if (BlockGameState.IsValid) BlockGameState.Instance.Release();
-            if (DynamicWeightDiff.IsValid) DynamicWeightDiff.Instance.Release();
         }
 
         // ───────────── A1 初始 = 彩色 ─────────────

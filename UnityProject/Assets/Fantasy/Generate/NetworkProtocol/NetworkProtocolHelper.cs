@@ -22,6 +22,45 @@ namespace Fantasy
 			return (G2C_ActivityIncrementResponse)await session.Call(C2G_ActivityIncrement_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_GameStartResponse> C2G_GameStartRequest(this Session session, C2G_GameStartRequest C2G_GameStartRequest_request)
+		{
+			return (G2C_GameStartResponse)await session.Call(C2G_GameStartRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_GameStartResponse> C2G_GameStartRequest(this Session session)
+		{
+			using var C2G_GameStartRequest_request = Fantasy.C2G_GameStartRequest.Create();
+			return (G2C_GameStartResponse)await session.Call(C2G_GameStartRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_PlaceResponse> C2G_PlaceRequest(this Session session, C2G_PlaceRequest C2G_PlaceRequest_request)
+		{
+			return (G2C_PlaceResponse)await session.Call(C2G_PlaceRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_PlaceResponse> C2G_PlaceRequest(this Session session, long gameId, int baseStep, int candidateIndex, int posX, int posY)
+		{
+			using var C2G_PlaceRequest_request = Fantasy.C2G_PlaceRequest.Create();
+			C2G_PlaceRequest_request.GameId = gameId;
+			C2G_PlaceRequest_request.BaseStep = baseStep;
+			C2G_PlaceRequest_request.CandidateIndex = candidateIndex;
+			C2G_PlaceRequest_request.PosX = posX;
+			C2G_PlaceRequest_request.PosY = posY;
+			return (G2C_PlaceResponse)await session.Call(C2G_PlaceRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_GameSnapshotResponse> C2G_GameSnapshotRequest(this Session session, C2G_GameSnapshotRequest C2G_GameSnapshotRequest_request)
+		{
+			return (G2C_GameSnapshotResponse)await session.Call(C2G_GameSnapshotRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_GameSnapshotResponse> C2G_GameSnapshotRequest(this Session session, long gameId)
+		{
+			using var C2G_GameSnapshotRequest_request = Fantasy.C2G_GameSnapshotRequest.Create();
+			C2G_GameSnapshotRequest_request.GameId = gameId;
+			return (G2C_GameSnapshotResponse)await session.Call(C2G_GameSnapshotRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_CloudSaveUploadResponse> C2G_CloudSaveUploadRequest(this Session session, C2G_CloudSaveUploadRequest C2G_CloudSaveUploadRequest_request)
 		{
 			return (G2C_CloudSaveUploadResponse)await session.Call(C2G_CloudSaveUploadRequest_request);

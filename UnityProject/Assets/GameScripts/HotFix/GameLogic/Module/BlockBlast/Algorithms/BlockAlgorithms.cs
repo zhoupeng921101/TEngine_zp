@@ -7,6 +7,10 @@ namespace GameLogic.BlockBlast.Algorithms
     /// 8 种算法实现 + 主分发器。每种返回 3 个 shapeId。
     /// FILL / DIFF / STRAIGHT_DEATH_DIFF 用 bit-aware 启发式（先识别棋盘模式定向选块），
     /// 其余继续走 Monte-Carlo 采样。
+    ///
+    /// 全部随机经显式传入的 <see cref="IRandomSource"/> 取值,无进程级全局随机态:同一份算法
+    /// 可被服务端多局并发各持各的随机源安全调用。形状派生的只读查找表(难块池)为不可变常量,
+    /// 非每局可变态,故仍为静态共享。
     /// </summary>
     public static class BlockAlgorithms
     {
@@ -20,60 +24,55 @@ namespace GameLogic.BlockBlast.Algorithms
         private const int SamplesAllCombination    = 150;
 
         /// <summary>从 39 个白名单 ID 中均匀随机抽一个。</summary>
-        public static int UniformRandomShape()
-            => BlockShapeMap.CommonShapeIds[RandomSource.Index(BlockShapeMap.CommonShapeIds.Count)];
+        public static int UniformRandomShape(IRandomSource rng)
+            => BlockShapeMap.CommonShapeIds[rng.Index(BlockShapeMap.CommonShapeIds.Count)];
 
-        public static int[] SampleTrio()
-            => new[] { UniformRandomShape(), UniformRandomShape(), UniformRandomShape() };
+        public static int[] SampleTrio(IRandomSource rng)
+            => new[] { UniformRandomShape(rng), UniformRandomShape(rng), UniformRandomShape(rng) };
 
         // ─── 难块子池：cells>=5 或 max(w,h)>=4 ────────────────────────
-        private static int[] _hardShapeIds;
-        private static int[] HardShapeIds
+        // 形状派生的不可变常量(非每局随机态),进程级共享只读,无并发可变问题。
+        private static readonly int[] HardShapeIds = BuildHardShapeIds();
+
+        private static int[] BuildHardShapeIds()
         {
-            get
+            var list = new List<int>();
+            foreach (int id in BlockShapeMap.CommonShapeIds)
             {
-                if (_hardShapeIds == null)
-                {
-                    var list = new List<int>();
-                    foreach (int id in BlockShapeMap.CommonShapeIds)
-                    {
-                        int cells = BlockShapeMap.GetCellCount(id);
-                        var sh = BlockShapeMap.Get(id);
-                        int maxDim = sh == null ? 0 : (sh.Width > sh.Height ? sh.Width : sh.Height);
-                        if (cells >= 5 || maxDim >= 4) list.Add(id);
-                    }
-                    _hardShapeIds = list.ToArray();
-                }
-                return _hardShapeIds;
+                int cells = BlockShapeMap.GetCellCount(id);
+                var sh = BlockShapeMap.Get(id);
+                int maxDim = sh == null ? 0 : (sh.Width > sh.Height ? sh.Width : sh.Height);
+                if (cells >= 5 || maxDim >= 4) list.Add(id);
             }
+            return list.ToArray();
         }
 
-        private static int HardShape()
+        private static int HardShape(IRandomSource rng)
         {
             var pool = HardShapeIds;
-            return pool[RandomSource.Index(pool.Length)];
+            return pool[rng.Index(pool.Length)];
         }
 
         /// <summary>难题倾向采样：70% 难块、30% 普通块。</summary>
-        private static int[] SampleHardBiasedTrio()
+        private static int[] SampleHardBiasedTrio(IRandomSource rng)
         {
-            int Pick() => RandomSource.NextDouble() < 0.7 ? HardShape() : UniformRandomShape();
+            int Pick() => rng.NextDouble() < 0.7 ? HardShape(rng) : UniformRandomShape(rng);
             return new[] { Pick(), Pick(), Pick() };
         }
 
         /// <summary>公共后备：随机无死亡。</summary>
-        public static int[] FallbackTrio(BinaryBoard board)
+        public static int[] FallbackTrio(BinaryBoard board, IRandomSource rng)
         {
             for (int i = 0; i < 50; i++)
             {
-                var t = SampleTrio();
+                var t = SampleTrio(rng);
                 if (board.CheckPutAllBlocks(t)) return t;
             }
             return new[] { 1, 1, 1 };
         }
 
         // ─── #0 FILL ────────────────────────────────────────────────
-        public static int[] FillTrio(BinaryBoard board, int samplesCount = SamplesFill)
+        public static int[] FillTrio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesFill)
         {
             // 1) 找近完成行
             var rowCandidates = BoardAnalysis.RowsMissingRange(board, 1, 3);
@@ -116,16 +115,16 @@ namespace GameLogic.BlockBlast.Algorithms
                     if (keyShapes.Count >= 3)
                     {
                         var shuffled = new List<int>(keyShapes);
-                        RandomSource.Shuffle(shuffled);
+                        rng.Shuffle(shuffled);
                         t = new[] { shuffled[0], shuffled[1], shuffled[2] };
                     }
                     else if (keyShapes.Count == 2)
                     {
-                        t = new[] { keyShapes[0], keyShapes[1], UniformRandomShape() };
+                        t = new[] { keyShapes[0], keyShapes[1], UniformRandomShape(rng) };
                     }
                     else
                     {
-                        t = new[] { keyShapes[0], UniformRandomShape(), UniformRandomShape() };
+                        t = new[] { keyShapes[0], UniformRandomShape(rng), UniformRandomShape(rng) };
                     }
                     if (!board.CheckPutAllBlocks(t)) continue;
                     var result = BoardEvaluator.FindBest(board, t, (_rows, cleared) => cleared, 24);
@@ -148,7 +147,7 @@ namespace GameLogic.BlockBlast.Algorithms
                 int bestCleared = 0;
                 for (int i = 0; i < samplesCount; i++)
                 {
-                    var t = SampleTrio();
+                    var t = SampleTrio(rng);
                     if (!board.CheckPutAllBlocks(t)) continue;
                     var result = BoardEvaluator.FindBest(board, t, (_rows, cleared) => cleared, 24);
                     if (result != null && result.Cleared > 0)
@@ -161,7 +160,7 @@ namespace GameLogic.BlockBlast.Algorithms
                         if (bestCleared >= 16) break;
                     }
                 }
-                return bestTrio ?? FallbackTrio(board);
+                return bestTrio ?? FallbackTrio(board, rng);
             }
         }
 
@@ -189,16 +188,16 @@ namespace GameLogic.BlockBlast.Algorithms
         }
 
         // ─── #1 RANDOM_NO_DIE ───────────────────────────────────────
-        public static int[] RandomNoDieTrio(BinaryBoard board) => FallbackTrio(board);
+        public static int[] RandomNoDieTrio(BinaryBoard board, IRandomSource rng) => FallbackTrio(board, rng);
 
         // ─── #2 ADD3 熵增 ────────────────────────────────────────────
-        public static int[] Add3Trio(BinaryBoard board, int samplesCount = SamplesAdd3)
+        public static int[] Add3Trio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesAdd3)
         {
             int[] bestTrio = null;
             double bestEntropy = double.NegativeInfinity;
             for (int i = 0; i < samplesCount; i++)
             {
-                var t = SampleTrio();
+                var t = SampleTrio(rng);
                 var result = BoardEvaluator.FindBest(board, t, (rows, _) => BoardEvaluator.Entropy(rows), 16);
                 if (result == null) continue;
                 if (bestTrio == null || result.Score > bestEntropy)
@@ -207,29 +206,29 @@ namespace GameLogic.BlockBlast.Algorithms
                     bestEntropy = result.Score;
                 }
             }
-            return bestTrio ?? FallbackTrio(board);
+            return bestTrio ?? FallbackTrio(board, rng);
         }
 
         // ─── #3 EASY_DIFF ──────────────────────────────────────────
-        public static int[] EasyDiffTrio(BinaryBoard board, int samplesCount = SamplesEasyDiff)
+        public static int[] EasyDiffTrio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesEasyDiff)
         {
             const int targetMin = 5, targetMax = 30;
             int[] bestTrio = null;
             double bestDist = double.PositiveInfinity;
             for (int i = 0; i < samplesCount; i++)
             {
-                var t = SampleTrio();
+                var t = SampleTrio(rng);
                 int solCount = BoardEvaluator.CountSolutions(board, t, targetMax + 1);
                 if (solCount < 1) continue;
                 double idealMid = (targetMin + targetMax) / 2.0;
                 double dist = System.Math.Abs(solCount - idealMid);
                 if (bestTrio == null || dist < bestDist) { bestTrio = t; bestDist = dist; }
             }
-            return bestTrio ?? FallbackTrio(board);
+            return bestTrio ?? FallbackTrio(board, rng);
         }
 
         // ─── #4 DIFF 困难难题 ──────────────────────────────────────
-        public static int[] HardDiffTrio(BinaryBoard board, int samplesCount = SamplesDiff)
+        public static int[] HardDiffTrio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesDiff)
         {
             var rect = BoardAnalysis.LargestEmptyRect(board);
             int[] bestTrio = null;
@@ -239,12 +238,12 @@ namespace GameLogic.BlockBlast.Algorithms
             // 1) 锚点
             if (rect.W >= 3 || rect.H >= 3)
             {
-                var anchorCandidates = PickAnchorShapes(rect.W, rect.H);
+                var anchorCandidates = PickAnchorShapes(rect.W, rect.H, rng);
                 int anchorTries = (samplesCount / 2) < 60 ? (samplesCount / 2) : 60;
                 for (int i = 0; i < anchorTries; i++)
                 {
                     int anchor = anchorCandidates[i % anchorCandidates.Count];
-                    var t = new[] { anchor, UniformRandomShape(), UniformRandomShape() };
+                    var t = new[] { anchor, UniformRandomShape(rng), UniformRandomShape(rng) };
                     int c = BoardEvaluator.CountSolutions(board, t, countLimit);
                     if (c < 1) continue;
                     if (bestTrio == null || c < bestCount) { bestTrio = t; bestCount = c; }
@@ -255,18 +254,18 @@ namespace GameLogic.BlockBlast.Algorithms
             // 2) hard-biased 采样
             for (int i = 0; i < samplesCount; i++)
             {
-                var t = SampleHardBiasedTrio();
+                var t = SampleHardBiasedTrio(rng);
                 int c = BoardEvaluator.CountSolutions(board, t, countLimit);
                 if (c < 1) continue;
                 if (bestTrio == null || c < bestCount) { bestTrio = t; bestCount = c; }
                 if (bestCount == 1) break;
                 if (bestCount <= 3 && i > samplesCount / 2) break;
             }
-            return bestTrio ?? FallbackTrio(board);
+            return bestTrio ?? FallbackTrio(board, rng);
         }
 
         // ─── #5 STRAIGHT_DEATH_DIFF ────────────────────────────────
-        public static int[] StraightDeathTrio(BinaryBoard board, int samplesCount = SamplesStraightDeath)
+        public static int[] StraightDeathTrio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesStraightDeath)
         {
             var rect = BoardAnalysis.LargestEmptyRect(board);
             int[] bestTrio = null;
@@ -276,13 +275,13 @@ namespace GameLogic.BlockBlast.Algorithms
             // 1) 双锚点
             if (rect.W >= 3 && rect.H >= 3)
             {
-                var anchorCandidates = PickAnchorShapes(rect.W, rect.H);
+                var anchorCandidates = PickAnchorShapes(rect.W, rect.H, rng);
                 int anchorTries = (samplesCount / 2) < 80 ? (samplesCount / 2) : 80;
                 for (int i = 0; i < anchorTries; i++)
                 {
                     int a1 = anchorCandidates[i % anchorCandidates.Count];
                     int a2 = anchorCandidates[(i + 1) % anchorCandidates.Count];
-                    var t = new[] { a1, a2, UniformRandomShape() };
+                    var t = new[] { a1, a2, UniformRandomShape(rng) };
                     int c = BoardEvaluator.CountSolutions(board, t, countLimit);
                     if (c == 1) return t;
                     if (c < 1) continue;
@@ -293,34 +292,34 @@ namespace GameLogic.BlockBlast.Algorithms
             // 2) hard-biased 采样
             for (int i = 0; i < samplesCount; i++)
             {
-                var t = SampleHardBiasedTrio();
+                var t = SampleHardBiasedTrio(rng);
                 int c = BoardEvaluator.CountSolutions(board, t, countLimit);
                 if (c == 1) return t;
                 if (c < 1) continue;
                 if (bestTrio == null || c < bestCount) { bestTrio = t; bestCount = c; }
             }
-            return bestTrio ?? FallbackTrio(board);
+            return bestTrio ?? FallbackTrio(board, rng);
         }
 
         /// <summary>给定 w×h，返回能塞进去的、面积大的形状候选（按面积降序，取前 10）。</summary>
-        private static List<int> PickAnchorShapes(int w, int h)
+        private static List<int> PickAnchorShapes(int w, int h, IRandomSource rng)
         {
             var fitting = BoardAnalysis.ShapesFittingRect(w, h);
-            if (fitting.Count == 0) return new List<int> { UniformRandomShape() };
+            if (fitting.Count == 0) return new List<int> { UniformRandomShape(rng) };
             fitting.Sort((a, b) => BlockShapeMap.GetCellCount(b) - BlockShapeMap.GetCellCount(a));
             if (fitting.Count > 10) fitting = fitting.GetRange(0, 10);
             return fitting;
         }
 
         // ─── #6 CLEAR_ALL 清盘 Plus ────────────────────────────────
-        public static int[] ClearAllTrio(BinaryBoard board, int samplesCount = SamplesClearAll)
+        public static int[] ClearAllTrio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesClearAll)
         {
             int filled = BoardEvaluator.FilledCount(board.RowBinary);
-            if (filled < 10) return FallbackTrio(board);
+            if (filled < 10) return FallbackTrio(board, rng);
 
             for (int i = 0; i < samplesCount; i++)
             {
-                var t = SampleTrio();
+                var t = SampleTrio(rng);
                 if (!board.CheckPutAllBlocks(t)) continue;
                 if (BoardEvaluator.TrioCells(t) < filled) continue;
                 var result = BoardEvaluator.FindBest(board, t,
@@ -332,17 +331,17 @@ namespace GameLogic.BlockBlast.Algorithms
                     }, 32);
                 if (result != null && result.Score >= 10000) return t;
             }
-            return FillTrio(board, 50); // 退而求其次：能消除就行
+            return FillTrio(board, rng, 50); // 退而求其次：能消除就行
         }
 
         // ─── #7 ALL_COMBINATION ────────────────────────────────────
-        public static int[] AllCombinationTrio(BinaryBoard board, int samplesCount = SamplesAllCombination)
+        public static int[] AllCombinationTrio(BinaryBoard board, IRandomSource rng, int samplesCount = SamplesAllCombination)
         {
             int[] bestTrio = null;
             int bestCleared = 0;
             for (int i = 0; i < samplesCount; i++)
             {
-                var t = SampleTrio();
+                var t = SampleTrio(rng);
                 if (!board.CheckPutAllBlocks(t)) continue;
                 var result = BoardEvaluator.FindBest(board, t, (_rows, cleared) => cleared, 48);
                 if (result != null && result.Cleared > 0)
@@ -355,14 +354,14 @@ namespace GameLogic.BlockBlast.Algorithms
                     if (bestCleared >= 24) break;
                 }
             }
-            return bestTrio ?? FillTrio(board, 50);
+            return bestTrio ?? FillTrio(board, rng, 50);
         }
 
         // ─── BOARD_CLEAR_GREEDY 清屏窗口专用 ───────────────────────
-        public static int[] BoardClearGreedyTrio(BinaryBoard board, int samplesCount = 240)
+        public static int[] BoardClearGreedyTrio(BinaryBoard board, IRandomSource rng, int samplesCount = 240)
         {
             int filledNow = BoardEvaluator.FilledCount(board.RowBinary);
-            if (filledNow == 0) return FallbackTrio(board);
+            if (filledNow == 0) return FallbackTrio(board, rng);
 
             var keys = CollectClearKeys(board);
             var winningSet = new HashSet<int>();
@@ -372,8 +371,12 @@ namespace GameLogic.BlockBlast.Algorithms
                 allSet.Add(k.Id);
                 if (k.Winning) winningSet.Add(k.Id);
             }
+            // 喂给 RNG 索引前按 shapeId 升序排成稳定序:HashSet 枚举序非契约,
+            // 跨运行时一致是偶然。排序后「取到哪个块」只依赖稳定序 + RNG,构造上确定。
             var winning = new List<int>(winningSet);
+            winning.Sort();
             var allKeys = new List<int>(allSet);
+            allKeys.Sort();
 
             // Phase 1: 格子少时尝试一次性清盘
             if (filledNow <= 24)
@@ -382,9 +385,9 @@ namespace GameLogic.BlockBlast.Algorithms
                 for (int i = 0; i < tries; i++)
                 {
                     int[] t;
-                    double r = RandomSource.NextDouble();
-                    if (winning.Count > 0 && r < 0.8) t = SampleWinningTrio(winning);
-                    else t = SampleTrio();
+                    double r = rng.NextDouble();
+                    if (winning.Count > 0 && r < 0.8) t = SampleWinningTrio(winning, rng);
+                    else t = SampleTrio(rng);
                     if (!board.CheckPutAllBlocks(t)) continue;
                     if (BoardEvaluator.TrioCells(t) < filledNow) continue;
                     var rr = BoardEvaluator.FindBest(board, t,
@@ -404,14 +407,14 @@ namespace GameLogic.BlockBlast.Algorithms
             for (int i = 0; i < samplesCount; i++)
             {
                 int[] t;
-                double r = RandomSource.NextDouble();
-                if (winning.Count > 0 && r < 0.75) t = SampleWinningTrio(winning);
+                double r = rng.NextDouble();
+                if (winning.Count > 0 && r < 0.75) t = SampleWinningTrio(winning, rng);
                 else if (allKeys.Count > 0 && r < 0.9)
                 {
-                    int k = allKeys[RandomSource.Index(allKeys.Count)];
-                    t = new[] { k, UniformRandomShape(), UniformRandomShape() };
+                    int k = allKeys[rng.Index(allKeys.Count)];
+                    t = new[] { k, UniformRandomShape(rng), UniformRandomShape(rng) };
                 }
-                else t = SampleTrio();
+                else t = SampleTrio(rng);
                 if (!board.CheckPutAllBlocks(t)) continue;
                 var result = BoardEvaluator.FindBest(board, t,
                     (rows, cleared) => cleared * 100.0 - BoardEvaluator.FilledCount(rows), 48);
@@ -422,7 +425,7 @@ namespace GameLogic.BlockBlast.Algorithms
                     bestScore = result.Score;
                 }
             }
-            return bestTrio ?? FillTrio(board, 50);
+            return bestTrio ?? FillTrio(board, rng, 50);
         }
 
         private readonly struct ClearKey
@@ -524,40 +527,40 @@ namespace GameLogic.BlockBlast.Algorithms
 
         /// <summary>小补丁池：1×1 / 1×2 / 2×1 —— 在 winning key 旁减少冗余格数。</summary>
         private static readonly int[] SmallFillers = { 1, 2, 3 };
-        private static int SmallFiller() => SmallFillers[RandomSource.Index(SmallFillers.Length)];
+        private static int SmallFiller(IRandomSource rng) => SmallFillers[rng.Index(SmallFillers.Length)];
 
         /// <summary>
         /// k 的分布：50% k=1, 30% k=2, 20% k=3。
         /// winning 钥匙允许有放回采样（譬如棋盘 3 行各缺 3 格 → winning=[5]，trio 可以 [5,5,5]）。
         /// </summary>
-        private static int[] SampleWinningTrio(IReadOnlyList<int> winning)
+        private static int[] SampleWinningTrio(IReadOnlyList<int> winning, IRandomSource rng)
         {
-            double r = RandomSource.NextDouble();
+            double r = rng.NextDouble();
             int k = r < 0.5 ? 1 : r < 0.8 ? 2 : 3;
             var trio = new int[3];
             int idx = 0;
             for (int j = 0; j < k; j++)
             {
-                trio[idx++] = winning[RandomSource.Index(winning.Count)];
+                trio[idx++] = winning[rng.Index(winning.Count)];
             }
-            while (idx < 3) trio[idx++] = SmallFiller();
+            while (idx < 3) trio[idx++] = SmallFiller(rng);
             return trio;
         }
 
         // ─── 主分发器 ──────────────────────────────────────────────
-        public static int[] GenerateTrio(AlgorithmKind algo, BinaryBoard board)
+        public static int[] GenerateTrio(AlgorithmKind algo, BinaryBoard board, IRandomSource rng)
         {
             switch (algo)
             {
-                case AlgorithmKind.Fill:              return FillTrio(board);
-                case AlgorithmKind.RandomNoDie:       return RandomNoDieTrio(board);
-                case AlgorithmKind.Add3:              return Add3Trio(board);
-                case AlgorithmKind.EasyDiff:          return EasyDiffTrio(board);
-                case AlgorithmKind.Diff:              return HardDiffTrio(board);
-                case AlgorithmKind.StraightDeathDiff: return StraightDeathTrio(board);
-                case AlgorithmKind.ClearAll:          return ClearAllTrio(board);
-                case AlgorithmKind.AllCombination:    return AllCombinationTrio(board);
-                default:                              return RandomNoDieTrio(board);
+                case AlgorithmKind.Fill:              return FillTrio(board, rng);
+                case AlgorithmKind.RandomNoDie:       return RandomNoDieTrio(board, rng);
+                case AlgorithmKind.Add3:              return Add3Trio(board, rng);
+                case AlgorithmKind.EasyDiff:          return EasyDiffTrio(board, rng);
+                case AlgorithmKind.Diff:              return HardDiffTrio(board, rng);
+                case AlgorithmKind.StraightDeathDiff: return StraightDeathTrio(board, rng);
+                case AlgorithmKind.ClearAll:          return ClearAllTrio(board, rng);
+                case AlgorithmKind.AllCombination:    return AllCombinationTrio(board, rng);
+                default:                              return RandomNoDieTrio(board, rng);
             }
         }
     }
