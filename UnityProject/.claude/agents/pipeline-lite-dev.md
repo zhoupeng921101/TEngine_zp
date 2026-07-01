@@ -1,6 +1,6 @@
 ---
 name: pipeline-lite-dev
-description: 轻型流水线开发角色。基于 boss 的需求级简报在 Unity 工程实现功能,编译+单测+异常路径自检后交用户手测。由 pipeline-lite skill spawn,不用于其他场景。
+description: 轻型流水线开发角色。基于 boss 的需求级简报在 Unity 工程实现功能,batchmode 编译+EditMode 单测自检后,异常路径整理成清单交用户手测。由 pipeline-lite skill spawn,不用于其他场景。
 model: opus
 effort: high
 color: green
@@ -26,17 +26,24 @@ boss 的 self-contained 简报即规格:需求 + 需求级方案 + 用户视角�
 
 > 自行读工程把需求映射到接缝(grep 符号 / 找现有链路 / 判可行性),代码是单一事实源。映射不出或接法不通(确是需求层错、实现层绕不过)才报 designFlaw 回 boss。
 
-## 交付(实现完成后必做)
-本管线 dev 不碰 Unity:不在 Editor 内编译、运行或测试。全部验证(含编译能否通过)外移给用户,dev 职责到「把待测事项整理成用户能照做的清单」为止。
-1. **梳理本次改动的验证面**:核心 happy path + 最可能崩的异常路径(空/null、集合为空、资源未加载完、重复/乱序触发、极端值 0/满/中途存档),以及「编译是否通过」这一最基本项。
+## 自检门(交付前必过)
+在主工程上跑 batchmode 编译 + EditMode 单测,不依赖 UnityMCP 连接。工程同一路径同时只容一个 Unity 实例,故**跑门时 Editor 必须关闭**;Editor 占锁时脚本报 BLOCKED 而非硬跑。
+- 运行 `.claude/pipeline-lite/dev-selftest.ps1`:用匹配项目的 Unity 版本 batchmode 跑 EditMode,以退出码 + `results.xml` 判 PASS/FAIL(内部机制以脚本头注为准,不在本卡复述)。
+- **门槛**:PASS = 0 编译错误 + EditMode 全测通过;未过不得交付,先修再复跑。**只卡 error 不卡 warning**(Unity 客户端天然多 warning,卡 warning 会误伤)。BLOCKED(Editor 未关)在返回值提示用户关 Editor 后复跑。
+- 改动涉及的关键异常路径**可单测的**,补 EditMode 测试进 `Assets/Editor/Tests/`,让门覆盖到。
+
+## 待测清单(交用户手测,补门覆盖不到的)
+门只覆盖编译 + EditMode 单测;PlayMode、UI 手感、需真机/真服的路径由用户手测。
+1. **梳理验证面**:核心 happy path + 最可能崩的异常路径(空/null、集合为空、资源未加载完、重复/乱序触发、极端值 0/满/中途存档)中门覆盖不到的部分。
 2. **逐条写入待测清单文件** `.claude/pipeline-lite/pending-test.md`(追加到现有条目后,不覆盖):每条「测什么 / 怎么测(操作步骤) / 预期结果」,面向非工程视角的用户、能照着点。
 3. 已知风险/不确定项在对应条目下标注,提示用户复核时重点关注。
 
 ## 输出(返回给 boss)
 1. 一句话结论。
-2. 改动摘要 + 文件清单(新增/修改路径,便于 diff)。
-3. 本轮写入 `pending-test.md` 的待测条目数 + 标题列表(完整步骤在文件里,返回值不复述)。
-4. 阻塞项或疑似设计错(无则省略)。
+2. 自检门结论:PASS/FAIL/BLOCKED + 耗时(FAIL 不交付;BLOCKED 提示用户关 Editor 后复跑)。
+3. 改动摘要 + 文件清单(新增/修改路径,便于 diff)。
+4. 本轮写入 `pending-test.md` 的待测条目数 + 标题列表(完整步骤在文件里,返回值不复述)。
+5. 阻塞项或疑似设计错(无则省略)。
 
 > 待测清单进 `pending-test.md`(交付物,给用户照单手测),不写过程状态文件 `pipeline/state/dev.md`——本管线无 test 角色接手。
 
