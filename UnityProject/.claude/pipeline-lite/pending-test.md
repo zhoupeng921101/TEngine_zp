@@ -906,7 +906,7 @@
 ## 待测条目(死代码清理·经典棋盘本地存档退役)
 
 > 本轮删经典时代遗留的本地持久化死代码:`BlockGameState.Save/Load` + `SaveData/PendingPieceData` 嵌套类 + `StorageKey`(键 `block_blast_save_v1`)已删,`MainMenuWindow.OnCreate` 里残留的 `state.Load()`(返回值未用)已删。经典 GameWindow 入口早已下线、无活写者,唯一读者是那句 vestigial 调用。
-> 动态权重持久化(键 `block_blast_dynamic_v1`)本轮**未删**:核查发现它在现构建仍有活写盘路径(`MergeOrderWindow` 每次开窗经 `_state.Dynamic.Reset()` 写盘、`Dynamic.Init` 读盘),不属死代码,保留不动。
+> 动态权重持久化(键 `block_blast_dynamic_v1`)已于后续「动态权重机退役」轮删除(见下节),`PlayerDataLocalReset` 对该键的防御性字面清除保留。
 > `PlayerDataLocalReset` 对两键的防御性字面清除保留(清老玩家机上旧档)。
 > 无行为变化预期——纯删死代码;安全网为 batchmode 编译 0 error + 全量 EditMode 单测通过(dev 自检门已过:total=604 passed=586 failed=0 skipped=18,CS 错误=0)。以下为门覆盖不到的实机 UI 路径手测。
 
@@ -927,3 +927,31 @@
 - 测什么:经典棋盘本地存档删除后,融合主玩法(MergeOrderWindow,唯一玩法入口)开局 / 落子 / 消除 / 补牌 / 计分 / 退出重进全链路正常。局内现场续存已是服务端权威切片,不依赖被删的 `block_blast_save_v1`。
 - 怎么测:Play 模式登录 → 主菜单「开始游戏」进玩法窗,玩几手(落子、凑行列消除、三块用完自动补 3 块、分数增长);退出玩法窗回主菜单,再进一次玩法窗。
 - 预期结果:开局 / 落子 / 消除 / 补牌 / 计分全部正常,Console 无红;退出重进不因经典本地存档缺失而报错或卡住(局内续存以服务端为准,不受本轮删除影响)。
+
+---
+
+## 待测条目(死代码清理·动态权重机退役)
+
+> 本轮删「客户端旧动态权重机」整套:`BlockGameState.Dynamic`/`_dynamic`/`InjectDynamic` + `RefillPieces` 内的 Dynamic 发牌分支 + `PlacePiece` 的 `Dynamic.AddWeight` 反馈 + `MergeOrderWindow.OnCreate` 的 `Dynamic.Reset()/BeginGame()`/`InitDynamicWeight` + `WeightCfgConfigMgr` 整类(及 GameApp/MergeOrderWindow 两处调用)+ `DynamicWeightDiff` 本地持久化层(`Save/Load/StorageKey(block_blast_dynamic_v1)`/`_persistence`/ctor persistence 参数/中立编码+旧 JSON 兼容读)。发牌单一事实源在服务端(`ServerDealSync` 自持 persistence=null 的独立发牌器),旧机器在服务端权威发牌下从不影响玩法(候选经投影不带算法标签→`HasAlgo` 恒 false→`AddWeight` 从不触发;`RefillPieces` 命中服务端权威短路、不走 Dynamic 分支)。
+> `DynamicWeightDiff` 的发牌逻辑(OfferTrio/AddWeight/OfferTrioInner/清屏窗口/去重/RestoreState/ImportFullState 等)与其确定性测试(`GenCoreDeterminismHarnessTests`)全部保留——服务端权威发牌与客户端预测对账仍靠它。
+> `PlayerDataLocalReset` 对 `block_blast_dynamic_v1` 的防御性字面 `Remove` 保留(清历史遗留档)。
+> 行为变化仅限退化兜底:无 Fantasy 栈 / 建局 RPC 未回 / 断网时,`RefillPieces` 本地兜底从「Dynamic 动态加权发牌」降为「随机无死亡 + 形状去重」(仍产出可玩手牌)。正常服务端权威流程(建局 RPC 成功后)零影响——首手本地兜底一到服务端 GameStart 回包即被 `ProjectServerCandidates` 覆盖。
+> 安全网:dev 自检门已过(batchmode 编译 0 CS error + EditMode 全通过:total=595 passed=577 failed=0 skipped=18)。以下为门覆盖不到的实机 UI 路径手测。
+
+### [ ] DW1 · 服务端权威发牌全链路无回归(在线正常流程)
+
+- 测什么:删动态权重机后,融合主玩法在服务端在线情况下发牌 / 落子 / 消除 / 补牌 / 计分全链路正常,与改动前逐手表现一致(发牌本就走服务端权威,不受本轮删除影响)。
+- 怎么测:连真服 + 起服,Play 模式登录 → 主菜单「开始游戏」进玩法窗(MergeOrderWindow);玩若干手:落子、凑行列消除、三块用完自动补下一批 3 块、分数增长;用一次消除道具清一行一列;退出玩法窗回主菜单再进一次。
+- 预期结果:开局首批候选、落子、消除、补牌、计分、消除道具全部正常;Console 无红色 error/异常;退出重进正常(续局切片以服务端为准)。与本轮改动前对比无可感知差异。
+
+### [ ] DW2 · 断网 / 未起服兜底进玩法窗仍可玩(退化兜底路径)
+
+- 测什么:建局 RPC 不可用(断网 / 未登录 / 服务不可用)时进玩法窗,本地兜底发牌从原「动态加权」降为「随机无死亡 + 形状去重」后,仍能开出可放置的 3 块、可正常落子(不卡死、不空手牌、不报空引用)。
+- 怎么测:制造服务端不可用场景(断开网络 / 不起服 / 用未登录状态),Play 模式进入玩法窗;观察首屏 3 个候选块是否正常出现且可拖放落子;落子后三块用完能否补出新的 3 块。
+- 预期结果:首屏正常出现 3 个候选块(纯随机去重,不再带动态难度调度);可正常落子、消除、补牌;Console 无红色 error、无 NullReference。注意:此兜底路径不追求「动态难度」,只保证可玩(手牌形状分布可能与在线服务端权威序列不同,属预期)。
+
+### [ ] DW3 · 清档后 block_blast_dynamic_v1 仍被防御性清除(历史遗留键不复活)
+
+- 测什么:动态权重本地持久化写路径已删(不再有任何代码写 `block_blast_dynamic_v1`),但 `PlayerDataLocalReset.ClearAll` 仍防御性删除该键——老玩家机器上历史遗留的旧档在清档时被清掉,不残留。
+- 怎么测:若老版本机器上本地曾写过 `block_blast_dynamic_v1`(或人工在 PlayerPrefs 注入该键模拟),触发清档流程(服务端清档成功后调 ClearAll)。
+- 预期结果:清档后该键被删除,不复活;新版本运行期间也不会再新写入该键(全程无写者)。此条为防御性回归确认,无库/无老档环境可标注「无历史档,略过」。

@@ -6,7 +6,7 @@ namespace GameLogic.Config
     /// <summary>
     /// 数值底层货币表配置管理器。
     /// 桥接 Luban 生成的 <c>GameConfig.num.TbNum</c> → POCO <see cref="NumericEntry"/>，
-    /// 让业务侧不直接依赖 Luban 类型；按 num_id 查元数据。仿 <see cref="WeightCfgConfigMgr"/>。
+    /// 让业务侧不直接依赖 Luban 类型；按 num_id 查元数据。
     /// </summary>
     /// <remarks>
     /// 加法式：注册表只持有元数据，不读写 <c>MergeOrderState</c>；数量值仍由各现有字段持有。

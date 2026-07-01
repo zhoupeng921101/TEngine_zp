@@ -79,10 +79,10 @@ namespace GameLogic.BlockBlast
                 ? (IRandomSource)new XorShift128PlusRng(seed)
                 : new SystemRandomSource(seed);
 
-            // (a2) 逐局实例:持久化走内存(InMemory),避免污染本地 PlayerPrefs;Init 内部走 Load(此处空盘)。
-            var dyn = new DynamicWeightDiff(rng, new InMemoryPersistenceProvider());
+            // (a2) 逐局实例:发牌态不落任何存储(与服务端逐局态一致),同 seed 同基线两遍逐位对齐。
+            var dyn = new DynamicWeightDiff(rng);
             dyn.ForceAlgorithm = null;
-            dyn.Init(cfg);     // 内部:_weightConfig / _initialized / Load() / RegisterDefaults()
+            dyn.Init(cfg);     // 内部:_weightConfig / _initialized / RegisterDefaults()
             dyn.Reset();       // _dynamicWeight=0 / _preDynamicWeight=0 / _refillIndex=0
             dyn.BeginGame();   // _refillIndex=0 / _bcInWindow=false / _bcCooldown=0
             dyn.LastAlgo = null;

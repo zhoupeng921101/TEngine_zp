@@ -165,16 +165,6 @@ namespace GameLogic
         {
             _state = BlockGameState.Instance;
             _board = new BinaryBoard();
-    
-            if (!_state.Dynamic.IsInitialized())
-            {
-                try { GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight(); }
-                catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] 权重表加载失败，退化随机：{e.Message}"); }
-            }
-            // 隐患 B（设计 29 §5.3 / 开关 #3）：dynamicWeight 每次进盘重置。
-            // Reset() 清 _dynamicWeight / _preDynamicWeight / _refillIndex，消除跨局 / 跨模式 / 跨 app 重启的累积，从中位公平起步。
-            _state.Dynamic.Reset();
-            _state.Dynamic.BeginGame();
 
             // 进入即重置（隐患 A，设计 29 §5.3）：ResetForMergeOrder 将 BlockGameState.Score / Combo 清零（局内瞬态，不进盘）。
             // 元层进度（灵力 / 虔诚币 / 女神 / 神庙 / 盲盒 / HighScore 等）经存档加载覆盖，与局内瞬态分层不重叠。

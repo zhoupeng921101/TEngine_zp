@@ -196,7 +196,6 @@ public partial class GameApp
 
         // 闸窗立即摆上（同步路径，不等预载）：网络登录与异步预载并行，登录回调回来时闸窗必已在栈，
         // CloseUI 才能命中（修复回归：闸窗曾被推到 await 之后才 show，导致登录先到时 CloseUI 落空、闸窗后摆且无人关）。
-        // InitDynamicWeight 读配置、必须留在配置预载之后，故不与闸窗一起摆，仍在 PreloadThenStart 内。
 #if FANTASY_UNITY
         ShowConnectingGate();
 #else
@@ -205,13 +204,13 @@ public partial class GameApp
 #endif
 
         // 配置 / UI 预制依赖配置的启动尾段移到异步：WebGL 禁止同步加载未驻留 bundle，故先 await 预载
-        // 全部配置二进制 + 玩法 UI 预制到内存 / 资源池，再做 InitDynamicWeight（读配置表），并置预载完成信号入闸。
+        // 全部配置二进制 + 玩法 UI 预制到内存 / 资源池，并置预载完成信号入闸。
         PreloadThenStart().Forget();
     }
 
     /// <summary>
     /// 异步启动尾段：先预载配置二进制（ConfigSystem）+ 玩法 UI/特效预制（UIPreloader），
-    /// 使后续 InitDynamicWeight（读配置表）与玩法窗内同步实例化 widget 全部命中内存缓存 / 资源池，
+    /// 使玩法窗内同步实例化 widget 全部命中内存缓存 / 资源池，
     /// 在 WebGL 下不触发任何 bundle 同步加载。预载失败不阻断启动（逐项记 Error，尽力放行）。
     /// 末尾置入口闸第三信号 _preloadDone 并触发放行检查：保证玩法窗只在 widget 必已预载驻留后才开。
     /// </summary>
@@ -242,16 +241,6 @@ public partial class GameApp
         catch (System.Exception e)
         {
             Log.Error($"[GameApp] UI 字体预载异常，UGuiFactory 文本可能落回同步加载（WebGL 将报错、回退内置字体）：{e}");
-        }
-
-        // Block Blast：预热动态权重表（ConfigSystem 已预载，读缓存不触发 bundle 加载；失败则退化随机）
-        try
-        {
-            GameLogic.Config.WeightCfgConfigMgr.InitDynamicWeight();
-        }
-        catch (System.Exception e)
-        {
-            Log.Warning($"[GameApp] 权重表初始化失败，动态难度退化为随机：{e.Message}");
         }
 
 #if FANTASY_UNITY

@@ -15,7 +15,6 @@ namespace GameLogic.BlockBlast.Tests
             _provider = new InMemoryPersistenceProvider();
             Persistence.Provider = _provider;
             RandomSource.SetSeed(99999);
-            // DynamicWeightDiff 现为 BlockGameState 的逐局实例字段,随 BlockGameState 释放,无独立单例可释。
             if (BlockGameState.IsValid) BlockGameState.Instance.Release();
         }
 

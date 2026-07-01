@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using GameLogic.BlockBlast.Algorithms;
 using GameLogic.BlockBlast.Core;
 
@@ -11,14 +10,12 @@ namespace GameLogic.BlockBlast
     /// 模仿原游戏 main_bundle.js 中的 DynamicWeightDiff。
     ///
     /// 逐局实例(无单例):每实例自持随机源 <see cref="IRandomSource"/> + 全部跨手调度态,
-    /// 两局各 new 各跑、互不干扰,可被服务端多局并发安全使用。生成路径上无进程级可变状态。
-    /// 调度态持久化经构造注入的 <see cref="IPersistenceProvider"/>(可为 null = 不持久,服务端用),
-    /// 序列化用运行时中立编码(无 Unity 依赖):生成核心闭包 0 Unity 依赖,服务端无需 stub 即可链接。
+    /// 两局各 new 各跑、互不干扰,可被服务端多局并发安全使用。生成路径上无进程级可变状态、无持久化,
+    /// 生成核心闭包 0 Unity 依赖,服务端无需 stub 即可链接。跨手调度态经 <see cref="RestoreState"/> /
+    /// <see cref="ImportFullState"/> 由服务端权威态注入对账,不落任何本地存储。
     /// </summary>
     public sealed class DynamicWeightDiff
     {
-        private const string StorageKey = "block_blast_dynamic_v1";
-
         /// <summary>清屏窗口阈值：低于此分数启用窗口/冷却循环。</summary>
         private const int BoardClearScoreThreshold = 15000;
         private const int BoardClearCooldownMin = 1;
@@ -26,9 +23,6 @@ namespace GameLogic.BlockBlast
 
         /// <summary>本局随机源:所有发牌随机经此实例取值,不走进程级全局态。</summary>
         private readonly IRandomSource _rng;
-
-        /// <summary>调度态持久化通道(可为 null = 不持久,如服务端逐局态无须落客户端存储)。</summary>
-        private readonly IPersistenceProvider _persistence;
 
         private List<WeightConfigEntry> _weightConfig = new List<WeightConfigEntry>();
         private bool _initialized;
@@ -51,14 +45,12 @@ namespace GameLogic.BlockBlast
         private int _bcCooldown;
 
         /// <summary>
-        /// 构造逐局实例。
+        /// 构造逐局实例。发牌调度态不落任何本地存储(服务端权威发牌下,跨手态经服务端 genState 对账注入)。
         /// </summary>
-        /// <param name="rng">本局随机源。null 时退回基于时间种子的 System.Random(保留客户端历史默认行为)。</param>
-        /// <param name="persistence">调度态持久化通道。null = 不持久(服务端逐局态);客户端传 <see cref="Persistence.Provider"/>。</param>
-        public DynamicWeightDiff(IRandomSource rng = null, IPersistenceProvider persistence = null)
+        /// <param name="rng">本局随机源。null 时退回基于时间种子的 System.Random(客户端本地兜底路径默认行为)。</param>
+        public DynamicWeightDiff(IRandomSource rng = null)
         {
             _rng = rng ?? new SystemRandomSource(new Random());
-            _persistence = persistence;
         }
 
         /// <summary>把 System.Random 适配成 IRandomSource(保留客户端默认时间种子路径,与去单例化前一致)。</summary>
@@ -82,7 +74,6 @@ namespace GameLogic.BlockBlast
         {
             _weightConfig = cfg == null ? new List<WeightConfigEntry>() : new List<WeightConfigEntry>(cfg);
             _initialized = true;
-            Load();
             OfferOverridesRegistration.RegisterDefaults();
         }
 
@@ -378,7 +369,6 @@ namespace GameLogic.BlockBlast
             if (min == int.MaxValue) { min = -9999; max = 9999; }
             if (_dynamicWeight < min) _dynamicWeight = min;
             if (_dynamicWeight > max) _dynamicWeight = max;
-            Save();
         }
 
         public void Reset()
@@ -386,87 +376,6 @@ namespace GameLogic.BlockBlast
             _dynamicWeight = 0;
             _preDynamicWeight = 0;
             _refillIndex = 0;
-            Save();
-        }
-
-        public void Save()
-        {
-            if (_persistence == null) return;
-            try
-            {
-                _persistence.Set(StorageKey, Encode(_dynamicWeight, _preDynamicWeight));
-            }
-            catch { /* ignore */ }
-        }
-
-        public void Load()
-        {
-            if (_persistence == null) return;
-            try
-            {
-                if (!_persistence.TryGet(StorageKey, out string raw) || string.IsNullOrEmpty(raw)) return;
-                if (TryDecode(raw, out int dw, out int pre))
-                {
-                    _dynamicWeight = dw;
-                    _preDynamicWeight = pre;
-                }
-            }
-            catch { /* ignore */ }
-        }
-
-        // ─── 运行时中立序列化 ──────────────────────────────────────
-        // 调度态 = 两个 int。用 "dw=<n>;pre=<n>" 文本编码,无 Unity / 无反射 JSON,
-        // 跨运行时一致且生成核心闭包 0 Unity 依赖。
-
-        private static string Encode(int dynamicWeight, int preDynamicWeight)
-            => "dw=" + dynamicWeight.ToString(CultureInfo.InvariantCulture)
-             + ";pre=" + preDynamicWeight.ToString(CultureInfo.InvariantCulture);
-
-        private static bool TryDecode(string raw, out int dynamicWeight, out int preDynamicWeight)
-        {
-            dynamicWeight = 0;
-            preDynamicWeight = 0;
-            // 旧客户端用 UnityEngine.JsonUtility 落 {"dynamicWeight":N,"preDynamicWeight":M}。
-            // 升级后兼容读旧格式,避免首次启动调度态被清(零回归);新写出统一用中立 dw=/pre= 编码。
-            if (raw.IndexOf("dynamicWeight", StringComparison.Ordinal) >= 0)
-                return TryDecodeLegacyJson(raw, out dynamicWeight, out preDynamicWeight);
-
-            bool any = false;
-            foreach (var part in raw.Split(';'))
-            {
-                int eq = part.IndexOf('=');
-                if (eq <= 0) continue;
-                string key = part.Substring(0, eq);
-                string val = part.Substring(eq + 1);
-                if (!int.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n)) continue;
-                if (key == "dw") { dynamicWeight = n; any = true; }
-                else if (key == "pre") { preDynamicWeight = n; any = true; }
-            }
-            return any;
-        }
-
-        /// <summary>读旧 JsonUtility 格式(扫 "key":number,不依赖 JSON 库,无 Unity)。</summary>
-        private static bool TryDecodeLegacyJson(string raw, out int dynamicWeight, out int preDynamicWeight)
-        {
-            dynamicWeight = ReadJsonInt(raw, "dynamicWeight");
-            preDynamicWeight = ReadJsonInt(raw, "preDynamicWeight");
-            return true;
-        }
-
-        private static int ReadJsonInt(string raw, string key)
-        {
-            string token = "\"" + key + "\"";
-            int idx = raw.IndexOf(token, StringComparison.Ordinal);
-            if (idx < 0) return 0;
-            int colon = raw.IndexOf(':', idx + token.Length);
-            if (colon < 0) return 0;
-            int i = colon + 1;
-            while (i < raw.Length && (raw[i] == ' ' || raw[i] == '\t')) i++;
-            int start = i;
-            if (i < raw.Length && (raw[i] == '-' || raw[i] == '+')) i++;
-            while (i < raw.Length && raw[i] >= '0' && raw[i] <= '9') i++;
-            string num = raw.Substring(start, i - start);
-            return int.TryParse(num, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) ? n : 0;
         }
 
         // 测试钩子

@@ -38,22 +38,6 @@ namespace GameLogic.BlockBlast
         /// <summary>该模式的新系统状态（合成区/订单/体力/保底）。仅 MergeOrderMode 时非空。</summary>
         public MergeOrderState MergeState;
 
-        /// <summary>
-        /// 本局发牌调度器(逐局实例,替代旧的进程级单例)。客户端一次只跑一局,故挂在 BlockGameState 上、
-        /// 与本局同生命周期;服务端多局并发各自 new 各自的实例。随机源用基于时间种子的 System.Random
-        /// (保留去单例化前的默认行为),持久化经 <see cref="Persistence.Provider"/>(沿用旧存储键 + 调度态)。
-        /// </summary>
-        private DynamicWeightDiff _dynamic;
-
-        /// <summary>本局发牌调度器实例(首次访问时按客户端默认随机源 + 本地持久化创建)。</summary>
-        public DynamicWeightDiff Dynamic => _dynamic ??= new DynamicWeightDiff(null, Persistence.Provider);
-
-        /// <summary>
-        /// 注入逐局发牌调度器(测试钩子)。确定性 harness 用固定随机源 new 一个实例注入,使经
-        /// <see cref="RefillPieces"/> 的客户端发牌路径可复现。生产不调用(走 <see cref="Dynamic"/> 惰性默认)。
-        /// </summary>
-        internal void InjectDynamic(DynamicWeightDiff dyn) => _dynamic = dyn;
-
         // ─── 服务端权威发牌(M3:直接切换,不留本地权威发牌旧路)──────────────
         // 发牌单一事实源上服务端:盘面占用 / 分数 / 步号 / 候选 shapeId / 发牌器态全由 ServerDealSync 持有
         // (用服务端 seed 做乐观预测、服务端响应对账)。BlockGameState 降为 cosmetic 投影层:把权威 shapeId 序列
@@ -239,9 +223,8 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 当 OperaArr 全空时补满 3 个。
-        /// - board=null：纯加权随机
-        /// - score &lt; ActivationScore：随机无死亡（加形状去重）
-        /// - 分数 ≥ ActivationScore 且 DynamicWeightDiff 已初始化：动态调度
+        /// - 服务端权威发牌(<see cref="ServerAuthoritativeDealing"/>)：候选从服务端预测态投影。
+        /// - 否则(无 Fantasy 栈 / 建局 RPC 未回 / 断网兜底)：随机无死亡 + 形状去重的本地兜底。
         /// 兜底退到 3 个 1×1。
         /// </summary>
         public void RefillPieces(BinaryBoard board)
@@ -261,22 +244,7 @@ namespace GameLogic.BlockBlast
                 return;
             }
 
-            // 走动态调度
-            var dyn = Dynamic;
-            if (board != null && dyn.IsInitialized())
-            {
-                var off = dyn.OfferTrio(board, Score);
-                for (int i = 0; i < 3; i++)
-                {
-                    var p = BuildPiece(off.Ids[i]);
-                    p.SetAlgo(off.Algo);
-                    OperaArr[i] = p;
-                }
-                DistributePendingElementsAcrossTrio(OperaArr);
-                return;
-            }
-
-            // 旧行为：随机无死亡 + 形状去重
+            // 本地兜底：随机无死亡 + 形状去重
             List<PendingPiece> chosen = null;
             for (int attempt = 0; attempt < 50; attempt++)
             {
@@ -347,12 +315,6 @@ namespace GameLogic.BlockBlast
 
             // 3) 清空槽位
             OperaArr[slotIdx] = null;
-
-            // 4) 动态难度反馈
-            if (piece.HasAlgo)
-            {
-                Dynamic.AddWeight(piece.Algo);
-            }
         }
 
         /// <summary>

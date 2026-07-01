@@ -13,8 +13,9 @@ namespace GameLogic.BlockBlast
         public BlockColor Color;
 
         /// <summary>
-        /// 该 piece 由哪个动态调度算法 offer 出来。落子时回写到 DynamicWeightDiff.AddWeight。
-        /// HasAlgo=false 表示首发或调试注入，跳过权重反馈。
+        /// 该 piece 由哪个发牌调度算法 offer 出来（算法标签）。服务端权威发牌下客户端候选经
+        /// <see cref="BlockGameState.ProjectServerCandidates"/> 投影、不带算法标签，故客户端 piece 恒 HasAlgo=false；
+        /// 本对字段仅作局内叠加层切片 DTO(<see cref="IngamePieceData"/>) 的往返保真载体。
         /// </summary>
         public bool HasAlgo;
         public AlgorithmKind Algo;
