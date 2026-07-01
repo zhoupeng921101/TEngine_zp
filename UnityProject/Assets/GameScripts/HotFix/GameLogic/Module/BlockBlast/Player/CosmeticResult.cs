@@ -110,4 +110,38 @@ namespace GameLogic.BlockBlast.Player
         public static UnlockCosmeticResult Rejected(int kind, UnlockCosmeticOutcome outcome)
             => new UnlockCosmeticResult(false, outcome, kind, System.Array.Empty<int>());
     }
+
+    /// <summary>
+    /// 批量解锁上报 RPC 结果(客户端侧)。一次携带多项 (kind,id),服务端逐项 sanity + $addToSet 幂等后回带两个 kind 的
+    /// **最终解锁集**(解锁是集合幂等操作,客户端投影以最终集覆盖,不需逐项结果码)。<see cref="AvatarIds"/>/<see cref="FrameIds"/>
+    /// 仅 <see cref="Success"/> 下是服务端权威最终集;失败码(RateLimited / NotLoggedIn / ServiceUnavailable / NetworkDown)下为空、不用于对齐。
+    /// </summary>
+    public readonly struct UnlockCosmeticBatchResult
+    {
+        /// <summary>是否整批成功(等价 <see cref="Outcome"/> = Success)。</summary>
+        public readonly bool Success;
+        /// <summary>整体结果码(成功时 = Success)。</summary>
+        public readonly UnlockCosmeticOutcome Outcome;
+        /// <summary>服务端处理后头像最终解锁集(仅 Success 可信;失败为空)。</summary>
+        public readonly IReadOnlyList<int> AvatarIds;
+        /// <summary>服务端处理后头像框最终解锁集(仅 Success 可信;失败为空)。</summary>
+        public readonly IReadOnlyList<int> FrameIds;
+
+        public UnlockCosmeticBatchResult(bool success, UnlockCosmeticOutcome outcome,
+            IReadOnlyList<int> avatarIds, IReadOnlyList<int> frameIds)
+        {
+            Success = success;
+            Outcome = outcome;
+            AvatarIds = avatarIds ?? System.Array.Empty<int>();
+            FrameIds = frameIds ?? System.Array.Empty<int>();
+        }
+
+        /// <summary>成功:回带处理后两个 kind 的最终解锁集。</summary>
+        public static UnlockCosmeticBatchResult Ok(IReadOnlyList<int> avatarIds, IReadOnlyList<int> frameIds)
+            => new UnlockCosmeticBatchResult(true, UnlockCosmeticOutcome.Success, avatarIds, frameIds);
+
+        /// <summary>拒绝 / 失败:两集合不可信(空),调用方不对齐。</summary>
+        public static UnlockCosmeticBatchResult Rejected(UnlockCosmeticOutcome outcome)
+            => new UnlockCosmeticBatchResult(false, outcome, System.Array.Empty<int>(), System.Array.Empty<int>());
+    }
 }

@@ -20,10 +20,14 @@ namespace GameLogic.BlockBlast.Tests
         {
             public EquipCosmeticResult EquipResult = EquipCosmeticResult.Ok(0, 0);
             public UnlockCosmeticResult UnlockResult = UnlockCosmeticResult.Ok(1, System.Array.Empty<int>());
+            public UnlockCosmeticBatchResult BatchResult = UnlockCosmeticBatchResult.Ok(System.Array.Empty<int>(), System.Array.Empty<int>());
             public readonly List<(int kind, int id)> EquipCalls = new();
             public readonly List<(int kind, int id)> UnlockCalls = new();
-            // 按 id 预设 unlock 响应(bootstrap 多 id 场景);未预设则用 UnlockResult。
+            // 按 id 预设 unlock 响应(单条 ReportUnlock 场景);未预设则用 UnlockResult。
             public readonly Dictionary<int, UnlockCosmeticResult> UnlockById = new();
+            // 批量解锁(bootstrap)记录:调用次数 + 携带项。
+            public int BatchCallCount;
+            public readonly List<(int kind, int id)> BatchItems = new();
 
             public async UniTask<EquipCosmeticResult> EquipAsync(int kind, int id)
             {
@@ -37,6 +41,14 @@ namespace GameLogic.BlockBlast.Tests
                 UnlockCalls.Add((kind, id));
                 await UniTask.CompletedTask;
                 return UnlockById.TryGetValue(id, out var r) ? r : UnlockResult;
+            }
+
+            public async UniTask<UnlockCosmeticBatchResult> UnlockBatchAsync(IReadOnlyList<(int kind, int id)> items)
+            {
+                BatchCallCount++;
+                if (items != null) BatchItems.AddRange(items);
+                await UniTask.CompletedTask;
+                return BatchResult;
             }
         }
 
@@ -191,8 +203,8 @@ namespace GameLogic.BlockBlast.Tests
             int reported = svc.BootstrapUnlocksAsync(p, all).GetAwaiter().GetResult();
 
             Assert.AreEqual(1, reported, "只报差集里的 id 2");
-            Assert.AreEqual(1, gw.UnlockCalls.Count);
-            Assert.AreEqual((AvatarType.Avatar, 2), gw.UnlockCalls[0]);
+            Assert.AreEqual(1, gw.BatchCallCount, "差集合成一次批量上报");
+            CollectionAssert.AreEquivalent(new[] { (AvatarType.Avatar, 2) }, gw.BatchItems, "批量只含差集 id 2");
         }
 
         // ── E10:bootstrap 首登服务端空集 → 补报默认头像 1 + 框 101 ──
@@ -211,8 +223,9 @@ namespace GameLogic.BlockBlast.Tests
             int reported = svc.BootstrapUnlocksAsync(p, null).GetAwaiter().GetResult();
 
             Assert.AreEqual(2, reported, "补报默认头像 1 + 框 101");
-            CollectionAssert.Contains(gw.UnlockCalls, (AvatarType.Avatar, PlayerInfo.DefaultAvatarId));
-            CollectionAssert.Contains(gw.UnlockCalls, (AvatarType.Frame, PlayerInfo.DefaultFrameId));
+            Assert.AreEqual(1, gw.BatchCallCount, "两 kind 差集合成一次批量上报");
+            CollectionAssert.Contains(gw.BatchItems, (AvatarType.Avatar, PlayerInfo.DefaultAvatarId));
+            CollectionAssert.Contains(gw.BatchItems, (AvatarType.Frame, PlayerInfo.DefaultFrameId));
         }
 
         // ── E11:bootstrap 服务端已含全部应解锁 → 零上报 ──
@@ -227,7 +240,7 @@ namespace GameLogic.BlockBlast.Tests
             int reported = svc.BootstrapUnlocksAsync(p, null).GetAwaiter().GetResult();
 
             Assert.AreEqual(0, reported, "应解锁集已全在服务端 → 零上报");
-            Assert.AreEqual(0, gw.UnlockCalls.Count);
+            Assert.AreEqual(0, gw.BatchCallCount, "无差集 → 不发批量请求");
         }
     }
 }

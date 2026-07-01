@@ -104,6 +104,18 @@ namespace Fantasy
 			return (G2C_UnlockCosmeticResponse)await session.Call(C2G_UnlockCosmeticRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_UnlockCosmeticBatchResponse> C2G_UnlockCosmeticBatchRequest(this Session session, C2G_UnlockCosmeticBatchRequest C2G_UnlockCosmeticBatchRequest_request)
+		{
+			return (G2C_UnlockCosmeticBatchResponse)await session.Call(C2G_UnlockCosmeticBatchRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_UnlockCosmeticBatchResponse> C2G_UnlockCosmeticBatchRequest(this Session session, List<UnlockCosmeticItem> items)
+		{
+			using var C2G_UnlockCosmeticBatchRequest_request = Fantasy.C2G_UnlockCosmeticBatchRequest.Create();
+			C2G_UnlockCosmeticBatchRequest_request.Items = items;
+			return (G2C_UnlockCosmeticBatchResponse)await session.Call(C2G_UnlockCosmeticBatchRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_EnterMainGameResponse> C2G_EnterMainGameRequest(this Session session, C2G_EnterMainGameRequest C2G_EnterMainGameRequest_request)
 		{
 			return (G2C_EnterMainGameResponse)await session.Call(C2G_EnterMainGameRequest_request);
@@ -616,6 +628,19 @@ namespace Fantasy
 			G2C_PropertyDeltaPush_message.NewAmount = newAmount;
 			G2C_PropertyDeltaPush_message.Reason = reason;
 			session.Send(G2C_PropertyDeltaPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_PropertyBatchChangeResponse> C2G_PropertyBatchChangeRequest(this Session session, C2G_PropertyBatchChangeRequest C2G_PropertyBatchChangeRequest_request)
+		{
+			return (G2C_PropertyBatchChangeResponse)await session.Call(C2G_PropertyBatchChangeRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_PropertyBatchChangeResponse> C2G_PropertyBatchChangeRequest(this Session session, List<PropertyChangeItem> items, string reason)
+		{
+			using var C2G_PropertyBatchChangeRequest_request = Fantasy.C2G_PropertyBatchChangeRequest.Create();
+			C2G_PropertyBatchChangeRequest_request.Items = items;
+			C2G_PropertyBatchChangeRequest_request.Reason = reason;
+			return (G2C_PropertyBatchChangeResponse)await session.Call(C2G_PropertyBatchChangeRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_QueryAttrLedgerResponse> C2G_QueryAttrLedger(this Session session, C2G_QueryAttrLedger C2G_QueryAttrLedger_request)

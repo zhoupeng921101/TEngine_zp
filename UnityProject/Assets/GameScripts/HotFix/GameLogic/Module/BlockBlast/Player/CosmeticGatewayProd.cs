@@ -1,6 +1,7 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 #if FANTASY_UNITY
-using Fantasy; // 协议消息 + NetworkProtocolHelper 扩展方法 C2G_EquipCosmeticRequest / C2G_UnlockCosmeticRequest 所在命名空间
+using Fantasy; // 协议消息 + NetworkProtocolHelper 扩展方法 C2G_EquipCosmeticRequest / C2G_UnlockCosmeticRequest / C2G_UnlockCosmeticBatchRequest 所在命名空间
 #endif
 
 namespace GameLogic.BlockBlast.Player
@@ -88,6 +89,53 @@ namespace GameLogic.BlockBlast.Player
 #endif
         }
 
+        public async UniTask<UnlockCosmeticBatchResult> UnlockBatchAsync(IReadOnlyList<(int kind, int id)> items)
+        {
+#if FANTASY_UNITY
+            if (items == null || items.Count == 0)
+            {
+                // 无待上报项:不发请求,返 Rejected(调用方不对齐,避免用空集覆盖本地投影)。
+                return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.ServiceUnavailable);
+            }
+
+            var session = FantasyClient.FantasyNetwork.Session;
+            if (session == null || !FantasyClient.FantasyNetwork.IsConnected)
+            {
+                return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.NetworkDown);
+            }
+            if (!FantasyClient.FantasyNetwork.IsLoggedIn)
+            {
+                return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.NotLoggedIn);
+            }
+
+            var protoItems = new List<UnlockCosmeticItem>(items.Count);
+            for (int i = 0; i < items.Count; i++)
+            {
+                protoItems.Add(new UnlockCosmeticItem { Kind = items[i].kind, Id = items[i].id });
+            }
+
+            G2C_UnlockCosmeticBatchResponse response;
+            try
+            {
+                response = await session.C2G_UnlockCosmeticBatchRequest(protoItems);
+            }
+            catch
+            {
+                return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.ServiceUnavailable);
+            }
+
+            if (response == null)
+            {
+                return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.ServiceUnavailable);
+            }
+
+            return MapUnlockBatch(response);
+#else
+            await UniTask.CompletedTask;
+            return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.ServiceUnavailable);
+#endif
+        }
+
 #if FANTASY_UNITY
         /// <summary>把换装协议响应转客户端 <see cref="EquipCosmeticResult"/>(含服务端权威当前头像 / 框 id)。</summary>
         private static EquipCosmeticResult MapEquip(G2C_EquipCosmeticResponse response)
@@ -131,6 +179,24 @@ namespace GameLogic.BlockBlast.Player
                     return UnlockCosmeticResult.Rejected(kind, UnlockCosmeticOutcome.ServiceUnavailable);
                 default:
                     return UnlockCosmeticResult.Rejected(kind, UnlockCosmeticOutcome.ServiceUnavailable);
+            }
+        }
+
+        /// <summary>把批量解锁协议响应转客户端 <see cref="UnlockCosmeticBatchResult"/>(Success 回带两个 kind 的最终集,复制为独立数组)。</summary>
+        private static UnlockCosmeticBatchResult MapUnlockBatch(G2C_UnlockCosmeticBatchResponse response)
+        {
+            switch ((UnlockCosmeticResultCode)response.ResultCode)
+            {
+                case UnlockCosmeticResultCode.Success:
+                    return UnlockCosmeticBatchResult.Ok(CopyIds(response.UnlockedAvatarIds), CopyIds(response.UnlockedFrameIds));
+                case UnlockCosmeticResultCode.RateLimited:
+                    return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.RateLimited);
+                case UnlockCosmeticResultCode.NotLoggedIn:
+                    return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.NotLoggedIn);
+                case UnlockCosmeticResultCode.ServiceUnavailable:
+                    return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.ServiceUnavailable);
+                default:
+                    return UnlockCosmeticBatchResult.Rejected(UnlockCosmeticOutcome.ServiceUnavailable); // InvalidKind/InvalidId/SetFull 不作整批码(逐项跳过),兜底
             }
         }
 

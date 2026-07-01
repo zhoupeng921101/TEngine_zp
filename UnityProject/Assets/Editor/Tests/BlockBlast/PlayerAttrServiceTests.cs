@@ -32,6 +32,14 @@ namespace GameLogic.BlockBlast.Tests
                 await UniTask.CompletedTask;
                 return NextResult;
             }
+
+            // PlayerAttrService(金币/钻石/体力)只走单条链路,不发批量;桩满足接口即可。
+            public async UniTask<IReadOnlyList<BatchChangeResultItem>> SendBatchChangeRequestAsync(
+                IReadOnlyList<BatchChangeItem> items, string reason)
+            {
+                await UniTask.CompletedTask;
+                return System.Array.Empty<BatchChangeResultItem>();
+            }
         }
 
         // ── CV1:ApplySnapshot 初值 + IsReady + 事件 ──

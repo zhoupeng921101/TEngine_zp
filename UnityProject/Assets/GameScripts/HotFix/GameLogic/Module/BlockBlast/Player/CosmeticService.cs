@@ -89,7 +89,8 @@ namespace GameLogic.BlockBlast.Player
 
         /// <summary>
         /// 登录 bootstrap:把「客户端按等级算出的应解锁集」与「服务端快照集(已写入 <paramref name="p"/>)」做差,
-        /// 对缺的每个 id 发一次 UnlockCosmetic 上报。只报差集(幂等 + 省流量)。返回实际发起上报的 id 数(供日志/断言)。
+        /// 对缺的 id 合成一批、一次 <c>C2G_UnlockCosmeticBatch</c> 上报($addToSet 幂等,重登再报无害;只报差集省流量)。
+        /// Success 用回带的两个 kind 最终集覆盖本地投影。返回实际上报的 id 数(供日志/断言;0 = 无缺不发)。
         /// <paramref name="allEntries"/> 为全部头像/框定义(<c>AvatarConfigMgr.All()</c>);null/空则只兜默认 id。
         /// 默认头像/框(<see cref="PlayerInfo.DefaultAvatarId"/> / <see cref="PlayerInfo.DefaultFrameId"/>)也纳入应解锁集,
         /// 保证首登服务端空集时被补齐上报。
@@ -114,26 +115,31 @@ namespace GameLogic.BlockBlast.Player
                 }
             }
 
-            int reported = 0;
-            reported += await ReportMissing(p, AvatarType.Avatar, wantAvatars);
-            reported += await ReportMissing(p, AvatarType.Frame, wantFrames);
-            return reported;
+            // 收集两个 kind 里、服务端集合(本地投影)尚缺的 id,合成一批一次上报(N 条单发 → 1 条批量往返)。
+            var missing = new List<(int kind, int id)>();
+            CollectMissing(p, AvatarType.Avatar, wantAvatars, missing);
+            CollectMissing(p, AvatarType.Frame, wantFrames, missing);
+            if (missing.Count == 0) return 0; // 无缺:不发空请求
+
+            var result = await _gateway.UnlockBatchAsync(missing);
+            if (result.Success)
+            {
+                // 服务端回带两个 kind 的最终解锁集 → 覆盖本地投影(权威)。失败不动本地(下次 bootstrap 重报补齐)。
+                ApplyUnlockedSet(p, AvatarType.Avatar, result.AvatarIds);
+                ApplyUnlockedSet(p, AvatarType.Frame, result.FrameIds);
+            }
+            return missing.Count;
         }
 
-        /// <summary>对 want 集里、服务端集合(本地投影)尚缺的每个 id 发一次上报。返回发起数。</summary>
-        private async UniTask<int> ReportMissing(PlayerInfo p, int kind, List<int> want)
+        /// <summary>把 want 集里、服务端集合(本地投影)尚缺的 id 收进 <paramref name="into"/>(不发 RPC)。</summary>
+        private static void CollectMissing(PlayerInfo p, int kind, List<int> want, List<(int kind, int id)> into)
         {
-            int reported = 0;
             for (int i = 0; i < want.Count; i++)
             {
                 int id = want[i];
                 if (SetContains(SetOf(p, kind), id)) continue; // 服务端已含,不重报
-                var result = await _gateway.UnlockAsync(kind, id);
-                reported++;
-                if (result.Success)
-                    ApplyUnlockedSet(p, kind, result.UnlockedIds);
+                into.Add((kind, id));
             }
-            return reported;
         }
 
         // ── 本地投影集合读写 ────────────────────────────────────

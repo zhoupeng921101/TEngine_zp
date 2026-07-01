@@ -9,7 +9,7 @@ namespace GameLogic.BlockBlast.Tests
     /// <summary>
     /// 四货币对账器 <see cref="MetaCurrencySync"/> EditMode 单测(P2 全栈迁移·客户端段)。
     /// 纯逻辑、不依赖 UnityEngine / 不连网 — 用桩 <see cref="IRpcGateway"/> 注入响应,断言:
-    /// 登录覆盖、聚合上报(每货币每事件一笔)、对账方向(NewAmount 覆盖)、delta=0 不发、
+    /// 登录覆盖、批量聚合上报(一次事件多属性收敛成一次批量往返、每属性一项)、对账方向(NewAmount 覆盖)、delta=0 不发、
     /// 体力预测恢复排除、未 Ready 不报、服务不可用不漂移、推送覆盖;
     /// 消除道具 / 落子体力「服务端派生」防双扣(ExcludeEnergySpend 抬基线,零体力上报,同手 Soul/Piety/Exp 仍上报)。
     /// 同步驱动 UniTask 用 GetAwaiter().GetResult()(桩 await CompletedTask 同步完成,沿 PlayerAttrServiceTests 范式)。
@@ -24,12 +24,31 @@ namespace GameLogic.BlockBlast.Tests
             public readonly Dictionary<AttrType, ChangeResult> Results = new Dictionary<AttrType, ChangeResult>();
             public readonly List<(AttrType type, long delta, string reason)> Calls = new();
             public ChangeResult Default = ChangeResult.Ok(0);
+            /// <summary>批量 RPC 调用次数(断言「一次玩法事件多属性收敛成一次批量往返」)。</summary>
+            public int BatchCallCount;
 
             public async UniTask<ChangeResult> SendChangeRequestAsync(AttrType type, long delta, string reason)
             {
                 Calls.Add((type, delta, reason));
                 await UniTask.CompletedTask;
                 return Results.TryGetValue(type, out var r) ? r : Default;
+            }
+
+            // 批量:每项记进同一 Calls(复用既有 CountOf / delta 断言),按 Results/Default 逐项回带结果。
+            public async UniTask<IReadOnlyList<BatchChangeResultItem>> SendBatchChangeRequestAsync(
+                IReadOnlyList<BatchChangeItem> items, string reason)
+            {
+                BatchCallCount++;
+                var outp = new List<BatchChangeResultItem>(items.Count);
+                for (int i = 0; i < items.Count; i++)
+                {
+                    var it = items[i];
+                    Calls.Add((it.Type, it.Delta, reason));
+                    var r = Results.TryGetValue(it.Type, out var rr) ? rr : Default;
+                    outp.Add(new BatchChangeResultItem(it.Type, r.Reason, r.NewBalance));
+                }
+                await UniTask.CompletedTask;
+                return outp;
             }
 
             public int CountOf(AttrType type) => Calls.FindAll(c => c.type == type).Count;
@@ -134,6 +153,8 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(15L, soulCall.delta, "Soul 上报净 delta=+15");
             var pietyCall = gw.Calls.Find(c => c.type == AttrType.Piety);
             Assert.AreEqual(50L, pietyCall.delta, "Piety 上报净 delta=+50");
+
+            Assert.AreEqual(1, gw.BatchCallCount, "同一事件多属性收敛成一次批量 RPC(而非逐属性单发)");
         }
 
         // ── T5:对账方向 — 成功响应 NewAmount 覆盖本地视图 + 基线(权威即使与乐观不同) ──

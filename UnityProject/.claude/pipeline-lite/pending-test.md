@@ -955,3 +955,91 @@
 - 测什么:动态权重本地持久化写路径已删(不再有任何代码写 `block_blast_dynamic_v1`),但 `PlayerDataLocalReset.ClearAll` 仍防御性删除该键——老玩家机器上历史遗留的旧档在清档时被清掉,不残留。
 - 怎么测:若老版本机器上本地曾写过 `block_blast_dynamic_v1`(或人工在 PlayerPrefs 注入该键模拟),触发清档流程(服务端清档成功后调 ClearAll)。
 - 预期结果:清档后该键被删除,不复活;新版本运行期间也不会再新写入该键(全程无写者)。此条为防御性回归确认,无库/无老档环境可标注「无历史档,略过」。
+
+---
+
+## 待测条目(批量属性变更协议·服务端段)
+
+> 服务端工程 `Fantasy/`(分支 `block`,基线 HEAD 55fcfbd)。本轮新增批量属性变更 RPC:客户端一次玩法事件改多个属性时,把 N 条 `C2G_PropertyChangeRequest` 收敛成 1 条 `C2G_PropertyBatchChangeRequest`(携带 N 项 `(Type, Delta)`),减少往返。语义是传输层聚合、逐项独立裁决(非全或无):服务端对每一项调用与单条链路同一套 `PlayerPropertyServiceHelper.ChangeProperty(serverAuthoritative:false)`,复用限界信任 / 频率闸 / 夹界 / 推送,逐项收集结果回包,一项失败不回滚不阻断其它项。单条 `C2G_PropertyChangeRequest` 链路保留不动。
+> 新增协议(供客户端 dev 对接):
+>   - `C2G_PropertyBatchChangeRequest`(IRequest → G2C_PropertyBatchChangeResponse):`repeated PropertyChangeItem Items = 1` / `string Reason = 2`。
+>   - `PropertyChangeItem`:`PropertyType Type = 1` / `int64 Delta = 2`。
+>   - `G2C_PropertyBatchChangeResponse`(IResponse):`repeated PropertyBatchChangeResultItem Results = 1`。
+>   - `PropertyBatchChangeResultItem`:`PropertyType Type = 1` / `PropertyChangeResultCode ResultCode = 2` / `int64 NewAmount = 3`。
+> 结果匹配:Results 顺序与请求 Items 一一对应,同时逐项回带 Type 供客户端按 Type 匹配(双保险)。每项落账 reason = `"{批次 Reason}_{Type}"`(与单条链路口径一致)。Items 空 → Results 空(no-op 合法回)。
+> handler 位置:`examples/Server/APP/Hotfix/Game Examples/Gate/Player/C2G_PropertyBatchChangeRequestHandler.cs`(运行在 Gate Scene,身份从会话取,同单条 handler 范式)。
+> dev 已自检:Entity + Hotfix 两工程 `dotnet build` 各 0 警告 0 错误;协议导出成功,服务端生成物(`Entity/Generate/NetworkProtocol/*`)与客户端镜像(`UnityProject/Assets/Fantasy/Generate/NetworkProtocol/*`)逐位一致(OuterOpcode/OuterMessage/OuterEnum diff 全 IDENTICAL);新增 message 使字母序在其后的 RPC opcode 整体前移 1(双端同样重生,已 diff 确认前移一致、无跨端错位)。新 RPC opcode:`C2G_PropertyBatchChangeRequest=268445482` / `G2C_PropertyBatchChangeResponse=402663210`。
+> 整 sln 级 `dotnet build Server.sln` 因遗留 `Main` 进程占 `examples/Bin/Debug/net8.0/` 的 dll/pdb 报 MSB3027/MSB3021 文件锁(编译本身已过,仅最后拷贝步失败)——以 Entity/Hotfix 两工程 0 错为准;起服前先停遗留 `Main`。
+> BST1/BST2 需用户在能起服(且本机可达 MongoDB)的环境手测。
+
+### [ ] BST1 · 服务端整解决方案编译通过(0 错)
+
+- 测什么:新增批量协议生成物 + `C2G_PropertyBatchChangeRequestHandler` 后,服务端能否干净编译,且源生成器把新 handler 正确注册。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后 `dotnet build examples/Server/Server.sln`。若因文件锁报 MSB3027,改分别构建两工程:`dotnet build examples/Server/APP/Entity/Entity.csproj` 与 `dotnet build examples/Server/APP/Hotfix/Hotfix.csproj`。
+- 预期结果:`已成功生成`;本轮新增文件 0 警告 0 错误(整 sln 仍有若干既有示例历史 nullable 告警,非本轮引入)。两工程分别构建时各 `0 个警告 0 个错误`。
+
+### [ ] BST2 · 批量变更环路往返:逐项独立裁决(起服 Log 验)
+
+- 测什么:一条 `C2G_PropertyBatchChangeRequest` 携带多项 `(Type, Delta)`,服务端逐项独立裁决、逐项回结果、逐项成功起推送;一项失败不阻断其它项;Items 空为 no-op。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需 MongoDB 可达,登录链路依赖)。客户端登录后发:
+  - 正常多项:`C2G_PropertyBatchChangeRequest{ Reason="test_batch", Items=[ {Coin, +100}, {Diamond, +5}, {GoddessLevel, +1} ] }` → 响应 `Results` 3 项、顺序对应请求、各 `ResultCode=Success(0)`、各 `NewAmount` 为变更后余额;服务端日志每项 `PlayerProperty 变更成功 ... reason='test_batch_Coin'`(reason 带 Type 后缀);每项成功各起一条 delta-push。
+  - 混合成败(逐项独立,非全或无):构造某项必失败,如 `Items=[ {Coin, +100}(成功), {Coin? 换成会溢出/余额不足的一项,如 SoulPower 扣一个超过当前余额的负 delta}(失败) ]`(注意同一 batch 内每种 Type 只放一项)→ 成功项照常写库 + 推送,失败项回对应 `NotEnough(4)` / `OverLimit(5)` 且 `NewAmount` = 当前实际余额,失败不回滚成功项、不中断循环。
+  - 空批:`Items=[]` → 响应 `Results` 为空,无写库无推送(no-op 合法回),无异常日志。
+  - 未登录:未走登录链路直接发本 RPC → 服务端日志 `收到 PropertyBatchChangeRequest 但会话未登录...全批空回`,响应 `Results` 空。
+- 预期结果:各项按 `(Type, Delta)` 独立裁决,结果顺序与请求 Items 一致且逐项回带 Type;成功项写库并推送、失败项各记结果码不影响其它项;空批 / 未登录均为空 Results 合法回;服务端无异常红日志;框架 RPC ErrorCode 始终 0(所有结果以逐项 ResultCode 表达)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(批量属性变更协议·客户端段)
+
+> 客户端工程(分支 `block_claude`)。`MetaCurrencySync.ReportPending` 从「4 货币 + 6 计数器逐个非零 delta 串行单发 `C2G_PropertyChangeRequest`」改为「本次所有非零项收集成一批,一次 `SendBatchChangeRequestAsync`(→ `C2G_PropertyBatchChangeRequest`)上报,逐项按 Type 对账」。全清等一次多属性事件从 N 条往返收敛成 1 条。`IRpcGateway` 新增 `SendBatchChangeRequestAsync`(单条 `SendChangeRequestAsync` 保留,PlayerAttrService 金币/钻石/体力仍走单条)。体力预测恢复排除 / ExcludeEnergySpend / ApplyDeltaPush / RebindBaseline / _reporting 防重入 / 触发时机(OnSaved 落盘边界)均不变。EditMode 自检门覆盖聚合/对账/排除/失败重报等纯逻辑;以下为需连真服 + 抓包/日志观测的路径。
+
+### [ ] BCT1 · 客户端编译 + EditMode 自检门通过
+
+- 测什么:批量对接改动(ChangeResult 加 BatchChangeItem/BatchChangeResultItem、IRpcGateway/RpcGatewayProd 加批量方法、MetaCurrencySync 改批量、两处测试桩加批量方法)能否随工程编译 + EditMode 全绿。
+- 怎么测:关 Editor 跑 `.claude/pipeline-lite/dev-selftest.ps1`;或 Editor 内 Test Runner(EditMode)跑 MetaCurrencySyncTests / PlayerAttrServiceTests。
+- 预期结果:0 编译错误;MetaCurrencySyncTests 全绿(含 T4 新增「BatchCallCount==1」聚合断言);PlayerAttrServiceTests 全绿(单条链路不受影响)。
+
+### [ ] BCT2 · 全清一次事件收敛成 1 条批量 RPC(连真服抓包/日志验)
+
+- 测什么:全清(改女神评级/等级 + 可能盲盒 + 虔诚币等多属性)时,客户端只发 1 条 `C2G_PropertyBatchChangeRequest`(携带 N 项),而非 N 条 `C2G_PropertyChangeRequest`;逐项对账后 HUD 各属性显示服务端权威值。
+- 怎么测:连真服进融合主玩法,制造一次全清(改多属性);看客户端发出的消息列表 / 服务端收到的消息类型。
+- 预期结果:该次落盘边界只见 1 条 `C2G_PropertyBatchChangeRequest`(不再是多条 `C2G_PropertyChangeRequest`);响应逐项 `Results` 回带,女神/盲盒/货币等 HUD 校正为服务端权威值。落子体力仍走服务端派生(Place 回带 NewEnergy + delta-push),不进本批量(ExcludeEnergySpend 已排除)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] BCT3 · 部分项失败只动成功项 + 网络断整批留待重报(连真服)
+
+- 测什么:批量中某项被服务端拒(NotEnough/OverLimit)时,只该项按服务端余额校正、其它成功项照常落地;整批 RPC 失败(断网)时所有项不动本地视图/基线,下次落盘边界重报。
+- 怎么测:连真服构造一次含"必被拒项"的多属性事件(如某货币乐观扣超过服务端余额);另做一次断网下触发落盘边界。
+- 预期结果:被拒项 HUD 回滚到服务端实际余额,同批成功项正常;断网时本地乐观值不漂移,恢复后下次边界重报补齐(未对账=未消费)。
+- (依赖真服 + 可控网络,MongoDB 不可达则暂挂。)
+
+---
+
+## 待测条目(批量解锁修饰 + 下行 delta-push 除冗)
+
+> ① 批量解锁:客户端 `CosmeticService.BootstrapUnlocksAsync` 从「两个 kind 逐 id 串行发 C2G_UnlockCosmeticRequest」改为「收集两 kind 差集成一批,一次 C2G_UnlockCosmeticBatchRequest」。服务端 `CosmeticHelper.TryUnlockBatch`:频率闸对整批只检一次、过闸后逐项 sanity + $addToSet 幂等(逐项失败跳过不阻断),回带两 kind 最终解锁集,客户端投影以最终集覆盖。单条 C2G_UnlockCosmetic 保留(运行时单发解锁 ReportUnlockAsync 仍用)。
+> ② 下行除冗:属性批量 handler(C2G_PropertyBatchChange)逐项成功的 delta-push 改经 `SendDeltaPushToExcept` **排除发起会话**(发起方已从批量响应拿到权威值,单会话模型下即不推);客户端批量对账应用四货币结果时本地置货币 push 脏标记(MarkCurrencyPushed)承接 HUD 重绘(原由 push 触发)。仅改批量 handler,单条 PropertyChange / Place / ClearTool / DeliverOrder 推送不动。
+> 新协议:`C2G_UnlockCosmeticBatchRequest{ repeated UnlockCosmeticItem Items }` / `UnlockCosmeticItem{ int32 Kind; int32 Id }` / `G2C_UnlockCosmeticBatchResponse{ int32 ResultCode; repeated int32 UnlockedAvatarIds; repeated int32 UnlockedFrameIds }`。新 handler `C2G_UnlockCosmeticBatchRequestHandler`。
+> 自检:服务端 Entity+Hotfix 编译 0 error;双端协议生成物 diff 逐位一致(OuterOpcode/OuterMessage IDENTICAL);客户端 dev-selftest PASS(595/577/0-fail,含 CosmeticServiceTests E9-E11 改批量断言)。
+
+### [ ] UBT1 · 客户端 + 服务端编译通过
+
+- 测什么:批量解锁两端改动 + 属性批量 push 除冗能否随各自工程编译。
+- 怎么测:客户端 dev-selftest(已过);服务端停遗留 Main 后 `dotnet build examples/Server/APP/Hotfix/Hotfix.csproj`(已过 0 error;整 sln 起服前停 Main)。
+- 预期结果:两端 0 编译错误;源生成器注册新 handler。
+
+### [ ] UBT2 · 升级/首登补齐多解锁收敛成 1 条批量(连真服抓包/日志验)
+
+- 测什么:一次 bootstrap(升级跨多阈值 / 首登服务端空集)补齐多个头像/框解锁时,客户端只发 1 条 `C2G_UnlockCosmeticBatchRequest`(携带 N 项),而非 N 条 `C2G_UnlockCosmeticRequest`;回带两 kind 最终集,本地头像/框网格解锁态与服务端一致。
+- 怎么测:连真服用一个解锁集不全的账号登录(或首登新账号),看客户端发出的消息列表 / 服务端日志。
+- 预期结果:该次 bootstrap 只见 1 条批量解锁 RPC;服务端逐项 `解锁上报成功 ... reason` 日志;客户端解锁集补齐到应解锁集。频率闸对整批只放行一次(不会因第 2 项起被 RateLimited 误拒)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] UBT3 · 属性批量后发起会话不再收自身 delta-push,HUD 仍正确刷新(连真服可观测)
+
+- 测什么:全清等属性批量事件后,发起客户端不再收到自身那几条 `G2C_PropertyDeltaPush`(除冗);货币 HUD 仍随批量对账刷新到服务端权威值(由本地 MarkCurrencyPushed 承接,不再依赖自推)。
+- 怎么测:连真服触发一次多货币事件(全清),抓客户端收到的消息 + 观察货币 HUD。
+- 预期结果:发起会话收不到自身的逐项 delta-push(单会话模型下为 0 条);货币 HUD(灵力/虔诚币/经验/体力)仍即时刷新为服务端对账值(尤其服务端校正与乐观不同时)。若 HUD 滞留旧值不刷新,回报(说明 MarkCurrencyPushed 承接未生效)。
+- (依赖真服,MongoDB 不可达则暂挂。)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
 namespace GameLogic.BlockBlast.Player
@@ -15,10 +16,11 @@ namespace GameLogic.BlockBlast.Player
     /// <see cref="MergeOrderState"/>,故可 EditMode 单测。
     /// </summary>
     /// <remarks>
-    /// 【聚合上报防频率拦截】服务端对同账号同货币有最小变更间隔(占位 100ms)。连消/级联/连击可能在极短时间产出
-    /// 多笔同币奖励,若每消一行就发一次会被 RateLimited 拒、丢奖励。本类按「玩法事件」粒度聚合:每次
-    /// <see cref="ReportPending"/>(挂在 MergeMetaPersistence.SaveAsync 落盘边界,= 一次玩法事件结束)对每种货币
-    /// 计算「当前字段值 - 上次已上报基线」的净 delta,非零才发一笔(累加后一次发,不逐笔发)。
+    /// 【聚合上报 + 批量往返】服务端对同账号同属性有最小变更间隔(占位 100ms)。连消/级联/连击可能在极短时间产出
+    /// 多笔同属性奖励,若每消一行就发一次会被 RateLimited 拒、丢奖励。本类按「玩法事件」粒度聚合:每次
+    /// <see cref="ReportPending"/>(挂在 MergeMetaPersistence.SaveAsync 落盘边界,= 一次玩法事件结束)对每种属性
+    /// 计算「当前字段值 - 上次已上报基线」的净 delta,把本次所有非零项收集成一批、一次 <c>C2G_PropertyBatchChange</c>
+    /// 上报(服务端逐项独立裁决);每属性在一个事件内最多一项,同账号同属性频率闸自然不误触。
     ///
     /// 【对账方向】沿 PlayerAttrService 覆盖语义:响应/推送回的 NewAmount 是服务端绝对余额,直接 set 本地字段
     /// (不做「旧值 + delta」相对推断)。NotEnough/OverLimit/InvalidRequest 一律把本地视图校正回服务端权威值
@@ -120,17 +122,18 @@ namespace GameLogic.BlockBlast.Player
         }
 
         /// <summary>
-        /// 在玩法事件边界(落盘时)把四货币本地净变化各聚合成一笔上报(防频率拦截)。
-        /// 对每种货币算 delta = 当前 state 值 - 基线,非零才发一笔 <c>C2G_PropertyChangeRequest</c>;
-        /// 成功/NotEnough/OverLimit 用服务端 NewAmount 校正本地字段 + 基线;其它失败(网络/服务不可用)不动视图、不动基线
-        /// (待下次边界重试,delta 仍在——未对账即未消费)。
+        /// 在玩法事件边界(落盘时)把四货币 + 六计数器本地净变化聚合成一批、一次 <c>C2G_PropertyBatchChange</c> 上报。
+        /// 对每种属性算 delta = 当前 state 值 - 基线,把非零项收集成一批发出;服务端逐项独立裁决,
+        /// 成功/NotEnough/OverLimit 用服务端 NewAmount 校正对应字段 + 基线;其它码 / 未返回项不动视图、不动基线
+        /// (待下次边界重试,delta 仍在——未对账即未消费)。整批失败(网络断/服务不可用)= 空结果,所有项留待下次重报。
         ///
-        /// 【体力预测恢复排除】上报 Energy 前先把 <see cref="MergeOrderState.RegenSinceReport"/>(本地预测恢复累计量)
+        /// 【体力预测恢复排除】收集 Energy delta 前先把 <see cref="MergeOrderState.RegenSinceReport"/>(本地预测恢复累计量)
         /// 并入 Energy 基线并清零:恢复是服务端懒结算的显示预测,不可作为客户端产出上报(否则双重发体力,P2 §4)。
         /// 故 Energy 实际上报 delta = (当前体力 - 基线) - 预测恢复量 = 仅玩法真实扣/奖(落子扣 / 交付奖 / 修缮奖 / 祈愿兑 / 开盒)。
         ///
         /// 防重入:一次往返在途时直接返回(下次落盘边界会再聚合,delta 累计不丢)。未 Ready(登录快照未到)不上报。
-        /// reasonPrefix 便于服务端 Log 辨识来源(如 "merge_event")。即发即忘 UniTask,不阻塞玩法。
+        /// 无非零项直接返回(不发空请求)。reasonPrefix 便于服务端 Log 辨识来源(逐项落账 reason = "{reasonPrefix}_{type}",服务端拼)。
+        /// 即发即忘 UniTask,不阻塞玩法。
         /// </summary>
         public async UniTask ReportPending(MergeOrderState state, string reasonPrefix)
         {
@@ -145,29 +148,41 @@ namespace GameLogic.BlockBlast.Player
                     state.RegenSinceReport = 0;
                 }
 
-                await ReportOne(state, AttrType.SoulPower, () => state.Soul, v => state.Soul = (int)v,
-                    () => _baseSoul, v => _baseSoul = v, reasonPrefix);
-                await ReportOne(state, AttrType.Piety, () => state.Piety, v => state.Piety = (int)v,
-                    () => _basePiety, v => _basePiety = v, reasonPrefix);
-                await ReportOne(state, AttrType.GuardianExp, () => state.Exp, v => state.Exp = (int)v,
-                    () => _baseExp, v => _baseExp = v, reasonPrefix);
-                await ReportOne(state, AttrType.Energy, () => state.Energy, v => state.Energy = (int)v,
-                    () => _baseEnergy, v => _baseEnergy = v, reasonPrefix);
+                // 收集本次所有非零净变化项(4 货币 + 6 计数器);字段/基线写回入口按 type 留在 descriptors 里供对账。
+                var descriptors = BuildDescriptors(state);
+                var items = new List<BatchChangeItem>(descriptors.Count);
+                for (int i = 0; i < descriptors.Count; i++)
+                {
+                    long delta = descriptors[i].GetValue() - descriptors[i].GetBase();
+                    if (delta != 0) items.Add(new BatchChangeItem(descriptors[i].Type, delta));
+                }
+                if (items.Count == 0) return; // 无净变化:不发空请求
 
-                // 六元层计数器(与四货币同「当前值 - 基线」净 delta 上报、NewAmount 覆盖):
-                await ReportOne(state, AttrType.GoddessLevel, () => state.GoddessLevel, v => state.GoddessLevel = (int)v,
-                    () => _baseGoddessLevel, v => _baseGoddessLevel = v, reasonPrefix);
-                await ReportOne(state, AttrType.GoddessRating, () => state.GoddessRating, v => state.GoddessRating = (int)v,
-                    () => _baseGoddessRating, v => _baseGoddessRating = v, reasonPrefix);
-                await ReportOne(state, AttrType.UnlockedChapter, () => state.UnlockedChapter, v => state.UnlockedChapter = (int)v,
-                    () => _baseUnlockedChapter, v => _baseUnlockedChapter = v, reasonPrefix);
-                await ReportOne(state, AttrType.BlindBoxCount, () => state.BlindBoxCount, v => state.BlindBoxCount = (int)v,
-                    () => _baseBlindBoxCount, v => _baseBlindBoxCount = v, reasonPrefix);
-                // 神庙修缮计数:活态是布尔数组,上报/对账用其「已修 true 项数」标量(顺序解锁,恒 = NextRepairIndex)。
-                await ReportOne(state, AttrType.TempleRepaired, () => TempleRepairedCount(state), v => SetTempleRepairedCount(state, v),
-                    () => _baseTempleRepaired, v => _baseTempleRepaired = v, reasonPrefix);
-                await ReportOne(state, AttrType.NextRepairIndex, () => state.NextRepairIndex, v => state.NextRepairIndex = (int)v,
-                    () => _baseNextRepairIndex, v => _baseNextRepairIndex = v, reasonPrefix);
+                var results = await _gateway.SendBatchChangeRequestAsync(items, reasonPrefix ?? string.Empty);
+                if (results == null) return; // 整批失败(空结果):所有项不动基线,下次边界重报
+
+                // 逐项对账(按 type 匹配 descriptor):None/NotEnough/OverLimit 用服务端 NewBalance 覆盖字段 + 基线;
+                // 其它码 / 未返回项不动 → delta 仍在,下次 ReportPending 自然重报(未对账=未消费)。
+                bool currencyApplied = false;
+                for (int i = 0; i < results.Count; i++)
+                {
+                    var r = results[i];
+                    if (r.Reason != ChangeReject.None
+                        && r.Reason != ChangeReject.NotEnoughBalance
+                        && r.Reason != ChangeReject.TypeUpperOverflow)
+                        continue;
+                    var d = FindDescriptor(descriptors, r.Type);
+                    if (d == null) continue;
+                    // 服务端权威 NewBalance:覆盖本地视图 + 基线(NotEnough/OverLimit 即回滚乐观值到真值)。
+                    d.SetValue(r.NewBalance);
+                    d.SetBase(r.NewBalance);
+                    if (IsFourCurrency(r.Type)) currencyApplied = true;
+                }
+
+                // 批量 handler 不再对发起会话自推 delta-push(除冗余),故四货币的 HUD 重绘触发改由本地对账承接:
+                // 应用了任一四货币结果即置货币 push 脏标记,由玩法窗每秒轮询 ConsumeCurrencyPushed 重绘货币 HUD
+                // (与 ApplyDeltaPush 命中四货币时 MarkCurrencyPushed 同口径;六计数器 UI 由各自玩法事件重绘,不在此触发)。
+                if (currencyApplied) state.MarkCurrencyPushed();
             }
             finally
             {
@@ -175,31 +190,48 @@ namespace GameLogic.BlockBlast.Player
             }
         }
 
-        /// <summary>
-        /// 单货币上报 + 对账(纯逻辑核,无 Unity 依赖)。delta=0 直接跳过(不发空请求)。
-        /// 成功/NotEnough/OverLimit:服务端 NewBalance 可信 → 写回字段 + 基线(两端一致)。
-        /// 其它码(NetworkDown/ServiceUnavailable/NotLoggedIn/TypeUnknown):不动字段、不动基线(delta 留到下次边界重报)。
-        /// </summary>
-        private async UniTask ReportOne(MergeOrderState state, AttrType type,
-            Func<long> getValue, Action<long> setValue,
-            Func<long> getBase, Action<long> setBase, string reasonPrefix)
+        /// <summary>一种属性的净变化收集 + 对账写回入口(type + 字段读写 + 基线读写),供 <see cref="ReportPending"/> 聚合 batch 用。</summary>
+        private sealed class Descriptor
         {
-            long delta = getValue() - getBase();
-            if (delta == 0) return;
-
-            string reason = reasonPrefix == null ? type.ToString() : $"{reasonPrefix}_{type}";
-            var result = await _gateway.SendChangeRequestAsync(type, delta, reason);
-
-            if (result.Reason == ChangeReject.None
-                || result.Reason == ChangeReject.NotEnoughBalance
-                || result.Reason == ChangeReject.TypeUpperOverflow)
-            {
-                // 服务端权威 NewBalance:覆盖本地视图 + 基线(NotEnough/OverLimit 即回滚乐观值到真值)。
-                setValue(result.NewBalance);
-                setBase(result.NewBalance);
-            }
-            // 其它失败:本地视图与基线都不动 → delta 仍 = 当前值 - 基线,下次 ReportPending 自然重报(未对账=未消费)。
+            public AttrType Type;
+            public Func<long> GetValue;
+            public Action<long> SetValue;
+            public Func<long> GetBase;
+            public Action<long> SetBase;
         }
+
+        /// <summary>
+        /// 建本次上报的属性描述表(4 货币 + 6 计数器),字段/基线读写口径与登录快照/推送完全一致。
+        /// 神庙修缮计数活态是布尔数组,上报/对账用其「已修 true 项数」标量(顺序解锁,恒 = NextRepairIndex)。
+        /// </summary>
+        private List<Descriptor> BuildDescriptors(MergeOrderState state)
+        {
+            return new List<Descriptor>(10)
+            {
+                new Descriptor { Type = AttrType.SoulPower, GetValue = () => state.Soul, SetValue = v => state.Soul = (int)v, GetBase = () => _baseSoul, SetBase = v => _baseSoul = v },
+                new Descriptor { Type = AttrType.Piety, GetValue = () => state.Piety, SetValue = v => state.Piety = (int)v, GetBase = () => _basePiety, SetBase = v => _basePiety = v },
+                new Descriptor { Type = AttrType.GuardianExp, GetValue = () => state.Exp, SetValue = v => state.Exp = (int)v, GetBase = () => _baseExp, SetBase = v => _baseExp = v },
+                new Descriptor { Type = AttrType.Energy, GetValue = () => state.Energy, SetValue = v => state.Energy = (int)v, GetBase = () => _baseEnergy, SetBase = v => _baseEnergy = v },
+                new Descriptor { Type = AttrType.GoddessLevel, GetValue = () => state.GoddessLevel, SetValue = v => state.GoddessLevel = (int)v, GetBase = () => _baseGoddessLevel, SetBase = v => _baseGoddessLevel = v },
+                new Descriptor { Type = AttrType.GoddessRating, GetValue = () => state.GoddessRating, SetValue = v => state.GoddessRating = (int)v, GetBase = () => _baseGoddessRating, SetBase = v => _baseGoddessRating = v },
+                new Descriptor { Type = AttrType.UnlockedChapter, GetValue = () => state.UnlockedChapter, SetValue = v => state.UnlockedChapter = (int)v, GetBase = () => _baseUnlockedChapter, SetBase = v => _baseUnlockedChapter = v },
+                new Descriptor { Type = AttrType.BlindBoxCount, GetValue = () => state.BlindBoxCount, SetValue = v => state.BlindBoxCount = (int)v, GetBase = () => _baseBlindBoxCount, SetBase = v => _baseBlindBoxCount = v },
+                new Descriptor { Type = AttrType.TempleRepaired, GetValue = () => TempleRepairedCount(state), SetValue = v => SetTempleRepairedCount(state, v), GetBase = () => _baseTempleRepaired, SetBase = v => _baseTempleRepaired = v },
+                new Descriptor { Type = AttrType.NextRepairIndex, GetValue = () => state.NextRepairIndex, SetValue = v => state.NextRepairIndex = (int)v, GetBase = () => _baseNextRepairIndex, SetBase = v => _baseNextRepairIndex = v },
+            };
+        }
+
+        /// <summary>按 type 线性查描述项(10 项,量小);未命中返 null(服务端回带了未请求的 type,理论不发生)。</summary>
+        private static Descriptor FindDescriptor(List<Descriptor> list, AttrType type)
+        {
+            for (int i = 0; i < list.Count; i++) if (list[i].Type == type) return list[i];
+            return null;
+        }
+
+        /// <summary>是否四货币(Soul/Piety/Exp/Energy)——玩法窗货币 HUD 重绘对象;六计数器 UI 由各自玩法事件重绘,不在此触发。</summary>
+        private static bool IsFourCurrency(AttrType type)
+            => type == AttrType.SoulPower || type == AttrType.Piety
+               || type == AttrType.GuardianExp || type == AttrType.Energy;
 
         /// <summary>
         /// 消除道具体力「服务端派生」防双扣:在乐观扣体力(<see cref="MergeOrderState.SpendClearToolCost"/>)的<b>同一同步边界</b>

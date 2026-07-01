@@ -44,4 +44,39 @@ namespace GameLogic.BlockBlast.Player
         public static ChangeResult Ok(long newBalance) => new ChangeResult(true, ChangeReject.None, newBalance);
         public static ChangeResult Rejected(ChangeReject reason, long newBalance = 0L) => new ChangeResult(false, reason, newBalance);
     }
+
+    /// <summary>
+    /// 批量属性变更的一项输入(类型 + 有符号增量),口径同单条链路(仅声明相对增量,身份从会话取)。
+    /// </summary>
+    public readonly struct BatchChangeItem
+    {
+        public readonly AttrType Type;
+        public readonly long Delta;
+
+        public BatchChangeItem(AttrType type, long delta)
+        {
+            Type = type;
+            Delta = delta;
+        }
+    }
+
+    /// <summary>
+    /// 批量属性变更的一项裁决结果(口径同 <see cref="ChangeResult"/>)。<see cref="NewBalance"/> 在
+    /// None / NotEnoughBalance / TypeUpperOverflow 三种码下是服务端实际余额(可信),其它码下 = 0(不可信)。
+    /// </summary>
+    public readonly struct BatchChangeResultItem
+    {
+        public readonly AttrType Type;
+        public readonly ChangeReject Reason;
+        public readonly long NewBalance;
+
+        public bool Success => Reason == ChangeReject.None;
+
+        public BatchChangeResultItem(AttrType type, ChangeReject reason, long newBalance)
+        {
+            Type = type;
+            Reason = reason;
+            NewBalance = newBalance;
+        }
+    }
 }

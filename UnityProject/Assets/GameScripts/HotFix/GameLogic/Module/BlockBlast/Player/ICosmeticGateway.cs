@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
 namespace GameLogic.BlockBlast.Player
@@ -19,5 +20,12 @@ namespace GameLogic.BlockBlast.Player
 
         /// <summary>发起解锁上报请求。上报 kind + 待解锁 id;服务端 $addToSet 幂等 + sanity,响应回带更新后集合。</summary>
         UniTask<UnlockCosmeticResult> UnlockAsync(int kind, int id);
+
+        /// <summary>
+        /// 批量解锁上报:一次携带多项 (kind, id),服务端频率闸对整批只检一次、过闸后逐项 sanity + $addToSet 幂等,
+        /// 回带两个 kind 的最终解锁集。用于登录 bootstrap 补齐多解锁,把 N 条单发收敛成 1 条往返。
+        /// 失败(网络断 / 未登录 / 服务不可用 / 整批被闸挡)以 Rejected 返、<b>不抛异常</b>;空 items 视作无需上报,返 Rejected(调用方不对齐)。
+        /// </summary>
+        UniTask<UnlockCosmeticBatchResult> UnlockBatchAsync(IReadOnlyList<(int kind, int id)> items);
     }
 }

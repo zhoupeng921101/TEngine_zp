@@ -1,6 +1,7 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 #if FANTASY_UNITY
-using Fantasy; // 协议消息 + NetworkProtocolHelper 扩展方法 C2G_PropertyChangeRequest 所在命名空间
+using Fantasy; // 协议消息 + NetworkProtocolHelper 扩展方法 C2G_PropertyChangeRequest / C2G_PropertyBatchChangeRequest 所在命名空间
 #endif
 
 namespace GameLogic.BlockBlast.Player
@@ -55,29 +56,82 @@ namespace GameLogic.BlockBlast.Player
 #endif
         }
 
+        public async UniTask<IReadOnlyList<BatchChangeResultItem>> SendBatchChangeRequestAsync(
+            IReadOnlyList<BatchChangeItem> items, string reason)
+        {
+#if FANTASY_UNITY
+            if (items == null || items.Count == 0) return System.Array.Empty<BatchChangeResultItem>();
+
+            var session = FantasyClient.FantasyNetwork.Session;
+            if (session == null || !FantasyClient.FantasyNetwork.IsConnected)
+            {
+                return System.Array.Empty<BatchChangeResultItem>(); // 未连接:整批不发,调用方留待下次边界重报
+            }
+            if (!FantasyClient.FantasyNetwork.IsLoggedIn)
+            {
+                return System.Array.Empty<BatchChangeResultItem>();
+            }
+
+            var protoItems = new List<PropertyChangeItem>(items.Count);
+            for (int i = 0; i < items.Count; i++)
+            {
+                protoItems.Add(new PropertyChangeItem { Type = (PropertyType)items[i].Type, Delta = items[i].Delta });
+            }
+
+            G2C_PropertyBatchChangeResponse response;
+            try
+            {
+                response = await session.C2G_PropertyBatchChangeRequest(protoItems, reason);
+            }
+            catch
+            {
+                return System.Array.Empty<BatchChangeResultItem>();
+            }
+
+            if (response == null || response.Results == null)
+            {
+                return System.Array.Empty<BatchChangeResultItem>();
+            }
+
+            var results = new List<BatchChangeResultItem>(response.Results.Count);
+            for (int i = 0; i < response.Results.Count; i++)
+            {
+                var r = response.Results[i];
+                results.Add(new BatchChangeResultItem((AttrType)r.Type, MapCode(r.ResultCode), r.NewAmount));
+            }
+            return results;
+#else
+            await UniTask.CompletedTask;
+            return System.Array.Empty<BatchChangeResultItem>();
+#endif
+        }
+
 #if FANTASY_UNITY
         /// <summary>
         /// 把协议响应转客户端 <see cref="ChangeResult"/>(纯转换,理论可拆出可 EditMode 测,但因含 Fantasy 类型不便 — 留给真往返核 E2/E3)。
+        /// NewAmount 在成功 / NotEnough / OverLimit 下是服务端实际余额,其它码下服务端本就回 0,直接透传。
         /// </summary>
         private static ChangeResult MapResponse(G2C_PropertyChangeResponse response)
         {
-            switch (response.ResultCode)
+            var reject = MapCode(response.ResultCode);
+            return reject == ChangeReject.None
+                ? ChangeResult.Ok(response.NewAmount)
+                : ChangeResult.Rejected(reject, response.NewAmount);
+        }
+
+        /// <summary>服务端属性变更结果码 → 客户端拒因(单条 / 批量共用;UnknownType 与 InvalidRequest 合并为 TypeUnknown,未知码兜底 ServiceUnavailable)。</summary>
+        private static ChangeReject MapCode(PropertyChangeResultCode code)
+        {
+            switch (code)
             {
-                case PropertyChangeResultCode.Success:
-                    return ChangeResult.Ok(response.NewAmount);
-                case PropertyChangeResultCode.NotEnough:
-                    return ChangeResult.Rejected(ChangeReject.NotEnoughBalance, response.NewAmount);
-                case PropertyChangeResultCode.OverLimit:
-                    return ChangeResult.Rejected(ChangeReject.TypeUpperOverflow, response.NewAmount);
-                case PropertyChangeResultCode.NotLoggedIn:
-                    return ChangeResult.Rejected(ChangeReject.NotLoggedIn);
+                case PropertyChangeResultCode.Success:            return ChangeReject.None;
+                case PropertyChangeResultCode.NotEnough:          return ChangeReject.NotEnoughBalance;
+                case PropertyChangeResultCode.OverLimit:          return ChangeReject.TypeUpperOverflow;
+                case PropertyChangeResultCode.NotLoggedIn:        return ChangeReject.NotLoggedIn;
                 case PropertyChangeResultCode.UnknownType:
-                case PropertyChangeResultCode.InvalidRequest:
-                    return ChangeResult.Rejected(ChangeReject.TypeUnknown);
-                case PropertyChangeResultCode.ServiceUnavailable:
-                    return ChangeResult.Rejected(ChangeReject.ServiceUnavailable);
-                default:
-                    return ChangeResult.Rejected(ChangeReject.ServiceUnavailable); // 未知码兜底
+                case PropertyChangeResultCode.InvalidRequest:     return ChangeReject.TypeUnknown;
+                case PropertyChangeResultCode.ServiceUnavailable: return ChangeReject.ServiceUnavailable;
+                default:                                          return ChangeReject.ServiceUnavailable;
             }
         }
 #endif
