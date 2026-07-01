@@ -279,13 +279,13 @@ namespace GameLogic.BlockBlast.Tests
             src.Skin.OnAllClear(BlockSkinCatalog.MonoIds); // 单色态某张
             int srcId = src.Skin.MonoId;
 
-            var dto = src.ExportMeta("2026-06-22");
+            var dto = src.ExportMeta();
             string json = MergeMetaPersistence.Serialize(dto);
             var back = MergeMetaPersistence.Deserialize(json);
 
             var dst = new MergeOrderState();
             dst.Reset();                       // 缺省彩色
-            dst.ImportMeta(back, "2026-06-22");
+            dst.ImportMeta(back);
 
             Assert.AreEqual(SkinMode.Mono, dst.Skin.Mode, "整合: ExportMeta/ImportMeta 续存皮肤模式");
             Assert.AreEqual(srcId, dst.Skin.MonoId, "整合: 续存当前单色标识保真");

@@ -13,21 +13,22 @@ namespace GameLogic
     [Window(UILayer.UI, location: "MainMenuWindow", fullScreen: true)]
     public sealed class MainMenuWindow : UIWindowMono
     {
-        /// <summary>进玩法入口等云存档就绪时的看门狗超时(毫秒)。慢网偶发短等;超时按本地兜底放行,绝不卡死。</summary>
+        /// <summary>进玩法入口等进主游戏响应对齐时的看门狗超时(毫秒)。慢网偶发短等;超时按本地兜底放行,绝不卡死。</summary>
         private const int EnterReadyTimeoutMs = 8000;
 
         /// <summary>进窗防重入。等待就绪期间二次点击「开始游戏」只进窗一次。</summary>
         private bool _entering;
 
+        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.RankWindow"/> 默认展示榜一致，个人最佳分投影读此榜。</summary>
+        private const int MainRankId = 1;
+
         protected override void OnCreate()
         {
             var state = BlockGameState.Instance;
             state.Load();
-            // 最高分权威源 = 元层（设计 29 §5.4）。GameContext.OnInit 启动时已从元层把 HighScore 读进单例；
-            // state.Load() 之上的 block_blast_save_v1 键也带 highScore（局内瞬态键的遗产字段），二者取较大值，
-            // 迁移期（元层缺省 0 而旧键有历史最高）不抹掉老玩家最高分，新进展由元层落盘接管。
-            int metaHigh = LoadMetaHighScore();
-            if (metaHigh > state.HighScore) state.HighScore = metaHigh;
+            // 最高分权威源 = 排行榜个人最佳分（服务端 RankScoreDoc.BestScore，经 G2C_RankQueryResponse.MyScore 下发 →
+            // RankService 本地展示缓存投影）。元层 highScore 不再是最高分权威载体，此处不再从元层读。
+            int bestScore = LoadBestScoreFromRank();
 
             var content = UGuiFactory.CreateContentPanel(rectTransform);
             float cx = BlockLayout.DesignWidth / 2f;
@@ -46,12 +47,12 @@ namespace GameLogic
                 new Color32(0x44, 0x77, 0xff, 0xFF), Color.white, out _, out _);
             UGuiFactory.CreateText(content, "StartSub", cx, 1138, 677, 58, "落子·消除·合成·订单 · 完成 5 单通关", 32,
                 new Color32(0xdd, 0xee, 0xff, 0xFF));
-            // 进玩法入口闸:进窗前先等云存档下载对齐就绪(常态点按钮时抢跑下载已完成 → 零等待;
+            // 进玩法入口闸:进窗前先发进主游戏请求等订单快照对齐(常态点按钮时抢跑已完成 → 零等待;
             // 慢网偶发才短暂等,期间禁用按钮)。配看门狗超时,超时按本地兜底放行。
             btn.onClick.AddListener(() => EnterMergeOrder(btn).Forget());
 
-            // BEST
-            UGuiFactory.CreateText(content, "Best", cx, 1469, 677, 72, $"BEST  {state.HighScore}", 46,
+            // BEST（读排行榜个人最佳分投影，非元层/blob）
+            UGuiFactory.CreateText(content, "Best", cx, 1469, 677, 72, $"BEST  {bestScore}", 46,
                 new Color32(0xaa, 0xbb, 0xdd, 0xFF));
 
             // 设置入口（设计 23 §八 B5：本轮入口落主菜单；玩法 HUD 齿轮入口后续轮次）
@@ -90,7 +91,7 @@ namespace GameLogic
 
         /// <summary>
         /// 「开始游戏」进玩法编排:发一次进主游戏请求(EnterMainGame,决策②每次进入重新对齐),服务端一次性原子响应
-        /// 回带订单快照 + 云存档同包应用(配看门狗超时)→ 关主菜单 + 开融合玩法窗。
+        /// 回带订单快照(配看门狗超时)→ 关主菜单 + 开融合玩法窗。
         /// 由 Button.onClick 经 .Forget() 调用(等价 async void),故全程 try/catch 兜底、异常不外逃;
         /// _entering 防重入保证等待期二次点击只进窗一次。就绪/超时后再 Close+Show,MergeOrderWindow.OnCreate 读到的本地键已是服务端对齐后投影。
         /// </summary>
@@ -106,7 +107,7 @@ namespace GameLogic
                 if (enter != null)
                 {
                     // 看门狗:进主游戏响应应用完成与超时谁先到都放行。超时→按本地兜底进入(ResetForMergeOrder 回落本地),绝不卡死。
-                    // EnterAsync 自带防重入 + 失败降级(请求失败用本地兜底、云存档置 Ready),故此处只需配超时。
+                    // EnterAsync 自带防重入 + 失败降级(请求失败用本地兜底、不清空本地订单),故此处只需配超时。
                     await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(EnterReadyTimeoutMs, ignoreTimeScale: true));
                 }
 
@@ -124,13 +125,16 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 从元层存档读经典最高分（设计 29 §5.4）。同步经 Persistence.Provider 读（PlayerPrefs 非阻塞内存级，
-        /// 不触「禁阻塞 IO」红线，与 GameContext.LoadPlayer / BlockGameState.Load 同口径）。无档 → 0。
+        /// 读排行榜个人最佳分投影(主榜 <see cref="MainRankId"/>)作 BEST 展示。RankService 的本地展示缓存是服务端
+        /// 权威最佳分(RankScoreDoc.BestScore / MyScore)的投影(离线可丢缓存,登录/查榜/提交时由服务端刷新),
+        /// 非本地权威。同步读缓存(不阻塞、不发 RPC),无缓存 → 0。
         /// </summary>
-        private static int LoadMetaHighScore()
+        private static int LoadBestScoreFromRank()
         {
-            var dto = MergeMetaPersistence.Load();
-            return dto != null && dto.highScore > 0 ? dto.highScore : 0;
+            var rank = GameContext.Instance?.Rank;
+            if (rank == null) return 0;
+            long best = rank.GetMyBest(MainRankId).score;
+            return best > 0 ? (int)best : 0;
         }
     }
 }

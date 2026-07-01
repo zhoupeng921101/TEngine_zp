@@ -63,7 +63,11 @@ namespace GameLogic.BlockBlast.Player
         /// </summary>
         public static void GrantUnlock(PlayerInfo p, AvatarEntry e) => AddToSet(p, e);
 
-        /// <summary>换装：仅当目标已解锁才允许佩戴（防换上未解锁的）。返回是否换装成功。</summary>
+        /// <summary>
+        /// 本地换装预检 + 就地 set(纯逻辑)：仅当目标已解锁才佩戴。头像/框服务端权威后,真正的换装走
+        /// <see cref="CosmeticService.EquipAsync"/>(乐观 set + 服务端对账);本方法保留为纯逻辑单元(供单测 /
+        /// 离线预检),不再是权威换装入口——换装合法性最终由服务端解锁集裁定。
+        /// </summary>
         public static bool TryEquip(PlayerInfo p, AvatarEntry e)
         {
             if (!IsUnlocked(p, e)) return false;

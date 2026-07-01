@@ -37,6 +37,15 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>已上报基线:某货币「上次成功上报/对账后」的本地值。下次 ReportPending 的 delta = 当前值 - 基线。</summary>
         private long _baseSoul, _basePiety, _baseExp, _baseEnergy;
 
+        /// <summary>
+        /// 六元层计数器基线(P 全栈迁移·客户端段:女神等级/评级、章节解锁数、盲盒计数、神庙修缮计数、神庙修缮游标)。
+        /// 与四货币同口径「当前值 - 基线」净 delta 上报、服务端 NewAmount 覆盖本地视图 + 基线。
+        /// 神庙修缮计数(<see cref="_baseTempleRepaired"/>)对应服务端 <c>PropertyType.TempleRepaired</c>(已修厅数标量),
+        /// 客户端活态是 <see cref="MergeOrderState.TempleRepaired"/> 布尔数组,其「已修计数」= true 项数(顺序解锁,恒 = NextRepairIndex)。
+        /// </summary>
+        private long _baseGoddessLevel, _baseGoddessRating, _baseUnlockedChapter,
+                     _baseBlindBoxCount, _baseTempleRepaired, _baseNextRepairIndex;
+
         /// <summary>是否已收到登录快照对齐过基线(false 时不上报,避免登录前用占位 0 基线发出错误 delta)。</summary>
         public bool IsReady { get; private set; }
 
@@ -49,16 +58,25 @@ namespace GameLogic.BlockBlast.Player
         }
 
         /// <summary>
-        /// 登录初始化:用服务端快照四货币权威值覆盖本地视图(<see cref="MergeOrderState"/> 字段)+ 对齐基线。
-        /// 验收:登录后四货币显示 = 服务端快照值(非本地旧值);此后基线锚到服务端值,后续产销 delta 从此基准算。
+        /// 登录初始化:用服务端快照四货币 + 六计数器权威值覆盖本地视图(<see cref="MergeOrderState"/> 字段)+ 对齐基线。
+        /// 验收:登录后四货币 + 六计数器显示 = 服务端快照值(非本地旧值/blob 旧值);此后基线锚到服务端值,后续产销 delta 从此基准算。
         /// state 为 null(玩法窗未开)时仅记基线,待开窗 ImportMeta 后由 <see cref="RebindBaseline"/> 重对齐。
+        /// 六计数器与四货币同处理:登录快照是唯一初值源,本地缓存只作开窗前投影兜底(云存档通道已整体退役)。
         /// </summary>
-        public void ApplySnapshot(MergeOrderState state, long soul, long piety, long exp, long energy)
+        public void ApplySnapshot(MergeOrderState state, long soul, long piety, long exp, long energy,
+            long goddessLevel, long goddessRating, long unlockedChapter,
+            long blindBoxCount, long templeRepaired, long nextRepairIndex)
         {
             _baseSoul = soul;
             _basePiety = piety;
             _baseExp = exp;
             _baseEnergy = energy;
+            _baseGoddessLevel = goddessLevel;
+            _baseGoddessRating = goddessRating;
+            _baseUnlockedChapter = unlockedChapter;
+            _baseBlindBoxCount = blindBoxCount;
+            _baseTempleRepaired = templeRepaired;
+            _baseNextRepairIndex = nextRepairIndex;
             IsReady = true;
 
             if (state == null) return;
@@ -66,6 +84,12 @@ namespace GameLogic.BlockBlast.Player
             state.Piety = (int)piety;
             state.Exp = (int)exp;
             state.Energy = (int)energy;
+            state.GoddessLevel = (int)goddessLevel;
+            state.GoddessRating = (int)goddessRating;
+            state.UnlockedChapter = (int)unlockedChapter;
+            state.BlindBoxCount = (int)blindBoxCount;
+            SetTempleRepairedCount(state, templeRepaired);
+            state.NextRepairIndex = (int)nextRepairIndex;
         }
 
         /// <summary>
@@ -83,6 +107,12 @@ namespace GameLogic.BlockBlast.Player
             _basePiety = state.Piety;
             _baseExp = state.Exp;
             _baseEnergy = state.Energy;
+            _baseGoddessLevel = state.GoddessLevel;
+            _baseGoddessRating = state.GoddessRating;
+            _baseUnlockedChapter = state.UnlockedChapter;
+            _baseBlindBoxCount = state.BlindBoxCount;
+            _baseTempleRepaired = TempleRepairedCount(state);
+            _baseNextRepairIndex = state.NextRepairIndex;
             // 开窗时 ApplyTimeRegen 可能已把离线/在窗恢复累计进 RegenSinceReport,而该恢复量已包含在上面钉入的
             // Energy 基线里。若不清零,首次 ReportPending 会再把它并入基线(_baseEnergy += RegenSinceReport),
             // 使基线超出活态值、算出等额负 delta(又一次虚假扣体力)。基线已含恢复 → 此处一并清零,二者同源对齐。
@@ -123,6 +153,21 @@ namespace GameLogic.BlockBlast.Player
                     () => _baseExp, v => _baseExp = v, reasonPrefix);
                 await ReportOne(state, AttrType.Energy, () => state.Energy, v => state.Energy = (int)v,
                     () => _baseEnergy, v => _baseEnergy = v, reasonPrefix);
+
+                // 六元层计数器(与四货币同「当前值 - 基线」净 delta 上报、NewAmount 覆盖):
+                await ReportOne(state, AttrType.GoddessLevel, () => state.GoddessLevel, v => state.GoddessLevel = (int)v,
+                    () => _baseGoddessLevel, v => _baseGoddessLevel = v, reasonPrefix);
+                await ReportOne(state, AttrType.GoddessRating, () => state.GoddessRating, v => state.GoddessRating = (int)v,
+                    () => _baseGoddessRating, v => _baseGoddessRating = v, reasonPrefix);
+                await ReportOne(state, AttrType.UnlockedChapter, () => state.UnlockedChapter, v => state.UnlockedChapter = (int)v,
+                    () => _baseUnlockedChapter, v => _baseUnlockedChapter = v, reasonPrefix);
+                await ReportOne(state, AttrType.BlindBoxCount, () => state.BlindBoxCount, v => state.BlindBoxCount = (int)v,
+                    () => _baseBlindBoxCount, v => _baseBlindBoxCount = v, reasonPrefix);
+                // 神庙修缮计数:活态是布尔数组,上报/对账用其「已修 true 项数」标量(顺序解锁,恒 = NextRepairIndex)。
+                await ReportOne(state, AttrType.TempleRepaired, () => TempleRepairedCount(state), v => SetTempleRepairedCount(state, v),
+                    () => _baseTempleRepaired, v => _baseTempleRepaired = v, reasonPrefix);
+                await ReportOne(state, AttrType.NextRepairIndex, () => state.NextRepairIndex, v => state.NextRepairIndex = (int)v,
+                    () => _baseNextRepairIndex, v => _baseNextRepairIndex = v, reasonPrefix);
             }
             finally
             {
@@ -194,9 +239,49 @@ namespace GameLogic.BlockBlast.Player
                 case AttrType.Piety:       _basePiety = newAmount;  if (state != null) state.Piety = (int)newAmount; hit = true; break;
                 case AttrType.GuardianExp: _baseExp = newAmount;    if (state != null) state.Exp = (int)newAmount; hit = true; break;
                 case AttrType.Energy:      _baseEnergy = newAmount; if (state != null) state.Energy = (int)newAmount; hit = true; break;
-                // 其它 type:非本类职责,忽略
+                // 六计数器:set 本地字段 + 基线(绝对值覆盖,幂等)。不触发四货币 HUD 脏标记(那是 Soul/Piety/Exp/Energy 专用刷新入口);
+                // 计数器 UI(女神/盲盒/神庙)由各自玩法事件重绘,delta-push 主要保基线对齐、免下次误报。
+                case AttrType.GoddessLevel:    _baseGoddessLevel = newAmount;    if (state != null) state.GoddessLevel = (int)newAmount; break;
+                case AttrType.GoddessRating:   _baseGoddessRating = newAmount;   if (state != null) state.GoddessRating = (int)newAmount; break;
+                case AttrType.UnlockedChapter: _baseUnlockedChapter = newAmount; if (state != null) state.UnlockedChapter = (int)newAmount; break;
+                case AttrType.BlindBoxCount:   _baseBlindBoxCount = newAmount;   if (state != null) state.BlindBoxCount = (int)newAmount; break;
+                case AttrType.TempleRepaired:  _baseTempleRepaired = newAmount;  if (state != null) SetTempleRepairedCount(state, newAmount); break;
+                case AttrType.NextRepairIndex: _baseNextRepairIndex = newAmount; if (state != null) state.NextRepairIndex = (int)newAmount; break;
+                // 其它 type(Coin/Diamond/Stamina/All):非本类职责,忽略
             }
             if (hit && state != null) state.MarkCurrencyPushed();
+        }
+
+        // ── 神庙修缮计数 标量 ↔ 布尔数组 转换 ────────────────────────
+        // 服务端 PropertyType.TempleRepaired 是「已修厅数」标量;客户端活态 MergeOrderState.TempleRepaired 是布尔数组。
+        // 顺序解锁不变量(厅 i 可修 ⟺ i==NextRepairIndex,修完 NextRepairIndex=i+1)保证已修集恒为前缀 [0, count),
+        // 故标量 = true 项数,反向 set 时把前 count 项置 true、其余 false。二者与 NextRepairIndex 同源同步,不会漂移。
+
+        /// <summary>取活态已修厅数(布尔数组 true 项数)。state/数组为 null 返 0。</summary>
+        private static long TempleRepairedCount(MergeOrderState state)
+        {
+            var arr = state?.TempleRepaired;
+            if (arr == null) return 0;
+            int n = 0;
+            for (int i = 0; i < arr.Length; i++) if (arr[i]) n++;
+            return n;
+        }
+
+        /// <summary>
+        /// 按权威已修厅数覆盖活态布尔数组:前 <paramref name="count"/> 项置 true、其余 false(顺序解锁前缀语义)。
+        /// count 夹到 [0, 数组长];数组为 null(未初始化)按 TempleConfig.HallCount 新建。
+        /// </summary>
+        private static void SetTempleRepairedCount(MergeOrderState state, long count)
+        {
+            if (state == null) return;
+            var arr = state.TempleRepaired;
+            if (arr == null)
+            {
+                arr = new bool[GameLogic.BlockBlast.TempleConfig.HallCount];
+                state.TempleRepaired = arr;
+            }
+            int c = count < 0 ? 0 : (count > arr.Length ? arr.Length : (int)count);
+            for (int i = 0; i < arr.Length; i++) arr[i] = i < c;
         }
     }
 }

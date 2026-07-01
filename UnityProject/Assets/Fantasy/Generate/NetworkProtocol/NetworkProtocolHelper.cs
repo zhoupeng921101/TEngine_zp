@@ -38,7 +38,7 @@ namespace Fantasy
 			return (G2C_PlaceResponse)await session.Call(C2G_PlaceRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_PlaceResponse> C2G_PlaceRequest(this Session session, long gameId, int baseStep, int candidateIndex, int posX, int posY)
+		public static async FTask<G2C_PlaceResponse> C2G_PlaceRequest(this Session session, long gameId, int baseStep, int candidateIndex, int posX, int posY, string sliceJson)
 		{
 			using var C2G_PlaceRequest_request = Fantasy.C2G_PlaceRequest.Create();
 			C2G_PlaceRequest_request.GameId = gameId;
@@ -46,6 +46,7 @@ namespace Fantasy
 			C2G_PlaceRequest_request.CandidateIndex = candidateIndex;
 			C2G_PlaceRequest_request.PosX = posX;
 			C2G_PlaceRequest_request.PosY = posY;
+			C2G_PlaceRequest_request.SliceJson = sliceJson;
 			return (G2C_PlaceResponse)await session.Call(C2G_PlaceRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -54,13 +55,14 @@ namespace Fantasy
 			return (G2C_ClearToolResponse)await session.Call(C2G_ClearToolRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_ClearToolResponse> C2G_ClearToolRequest(this Session session, long gameId, int baseStep, int posX, int posY)
+		public static async FTask<G2C_ClearToolResponse> C2G_ClearToolRequest(this Session session, long gameId, int baseStep, int posX, int posY, string sliceJson)
 		{
 			using var C2G_ClearToolRequest_request = Fantasy.C2G_ClearToolRequest.Create();
 			C2G_ClearToolRequest_request.GameId = gameId;
 			C2G_ClearToolRequest_request.BaseStep = baseStep;
 			C2G_ClearToolRequest_request.PosX = posX;
 			C2G_ClearToolRequest_request.PosY = posY;
+			C2G_ClearToolRequest_request.SliceJson = sliceJson;
 			return (G2C_ClearToolResponse)await session.Call(C2G_ClearToolRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -76,28 +78,30 @@ namespace Fantasy
 			return (G2C_GameSnapshotResponse)await session.Call(C2G_GameSnapshotRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_CloudSaveUploadResponse> C2G_CloudSaveUploadRequest(this Session session, C2G_CloudSaveUploadRequest C2G_CloudSaveUploadRequest_request)
+		public static async FTask<G2C_EquipCosmeticResponse> C2G_EquipCosmeticRequest(this Session session, C2G_EquipCosmeticRequest C2G_EquipCosmeticRequest_request)
 		{
-			return (G2C_CloudSaveUploadResponse)await session.Call(C2G_CloudSaveUploadRequest_request);
+			return (G2C_EquipCosmeticResponse)await session.Call(C2G_EquipCosmeticRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_CloudSaveUploadResponse> C2G_CloudSaveUploadRequest(this Session session, long version, byte[] blob)
+		public static async FTask<G2C_EquipCosmeticResponse> C2G_EquipCosmeticRequest(this Session session, int kind, int id)
 		{
-			using var C2G_CloudSaveUploadRequest_request = Fantasy.C2G_CloudSaveUploadRequest.Create();
-			C2G_CloudSaveUploadRequest_request.Version = version;
-			C2G_CloudSaveUploadRequest_request.Blob = blob;
-			return (G2C_CloudSaveUploadResponse)await session.Call(C2G_CloudSaveUploadRequest_request);
+			using var C2G_EquipCosmeticRequest_request = Fantasy.C2G_EquipCosmeticRequest.Create();
+			C2G_EquipCosmeticRequest_request.Kind = kind;
+			C2G_EquipCosmeticRequest_request.Id = id;
+			return (G2C_EquipCosmeticResponse)await session.Call(C2G_EquipCosmeticRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_CloudSaveDownloadResponse> C2G_CloudSaveDownloadRequest(this Session session, C2G_CloudSaveDownloadRequest C2G_CloudSaveDownloadRequest_request)
+		public static async FTask<G2C_UnlockCosmeticResponse> C2G_UnlockCosmeticRequest(this Session session, C2G_UnlockCosmeticRequest C2G_UnlockCosmeticRequest_request)
 		{
-			return (G2C_CloudSaveDownloadResponse)await session.Call(C2G_CloudSaveDownloadRequest_request);
+			return (G2C_UnlockCosmeticResponse)await session.Call(C2G_UnlockCosmeticRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static async FTask<G2C_CloudSaveDownloadResponse> C2G_CloudSaveDownloadRequest(this Session session)
+		public static async FTask<G2C_UnlockCosmeticResponse> C2G_UnlockCosmeticRequest(this Session session, int kind, int id)
 		{
-			using var C2G_CloudSaveDownloadRequest_request = Fantasy.C2G_CloudSaveDownloadRequest.Create();
-			return (G2C_CloudSaveDownloadResponse)await session.Call(C2G_CloudSaveDownloadRequest_request);
+			using var C2G_UnlockCosmeticRequest_request = Fantasy.C2G_UnlockCosmeticRequest.Create();
+			C2G_UnlockCosmeticRequest_request.Kind = kind;
+			C2G_UnlockCosmeticRequest_request.Id = id;
+			return (G2C_UnlockCosmeticResponse)await session.Call(C2G_UnlockCosmeticRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_EnterMainGameResponse> C2G_EnterMainGameRequest(this Session session, C2G_EnterMainGameRequest C2G_EnterMainGameRequest_request)
@@ -628,6 +632,20 @@ namespace Fantasy
 			return (G2C_QueryAttrLedgerResponse)await session.Call(C2G_QueryAttrLedger_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_SetProfileStateResponse> C2G_SetProfileStateRequest(this Session session, C2G_SetProfileStateRequest C2G_SetProfileStateRequest_request)
+		{
+			return (G2C_SetProfileStateResponse)await session.Call(C2G_SetProfileStateRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_SetProfileStateResponse> C2G_SetProfileStateRequest(this Session session, int skinMono, int skinMonoId, long templeDecorated)
+		{
+			using var C2G_SetProfileStateRequest_request = Fantasy.C2G_SetProfileStateRequest.Create();
+			C2G_SetProfileStateRequest_request.SkinMono = skinMono;
+			C2G_SetProfileStateRequest_request.SkinMonoId = skinMonoId;
+			C2G_SetProfileStateRequest_request.TempleDecorated = templeDecorated;
+			return (G2C_SetProfileStateResponse)await session.Call(C2G_SetProfileStateRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_RankSubmitScoreResponse> C2G_RankSubmitScoreRequest(this Session session, C2G_RankSubmitScoreRequest C2G_RankSubmitScoreRequest_request)
 		{
 			return (G2C_RankSubmitScoreResponse)await session.Call(C2G_RankSubmitScoreRequest_request);
@@ -665,6 +683,18 @@ namespace Fantasy
 			return (G2C_RedeemCodeResponse)await session.Call(C2G_RedeemCodeRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_RenameResponse> C2G_RenameRequest(this Session session, C2G_RenameRequest C2G_RenameRequest_request)
+		{
+			return (G2C_RenameResponse)await session.Call(C2G_RenameRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_RenameResponse> C2G_RenameRequest(this Session session, string newNickname)
+		{
+			using var C2G_RenameRequest_request = Fantasy.C2G_RenameRequest.Create();
+			C2G_RenameRequest_request.NewNickname = newNickname;
+			return (G2C_RenameResponse)await session.Call(C2G_RenameRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void C2G_TestEnumMessage(this Session session, C2G_TestEnumMessage C2G_TestEnumMessage_message)
 		{
 			session.Send(C2G_TestEnumMessage_message);
@@ -677,6 +707,17 @@ namespace Fantasy
 			C2G_TestEnumMessage_message.Message = message;
 			C2G_TestEnumMessage_message.State = state;
 			session.Send(C2G_TestEnumMessage_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_WishForEnergyResponse> C2G_WishForEnergyRequest(this Session session, C2G_WishForEnergyRequest C2G_WishForEnergyRequest_request)
+		{
+			return (G2C_WishForEnergyResponse)await session.Call(C2G_WishForEnergyRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_WishForEnergyResponse> C2G_WishForEnergyRequest(this Session session)
+		{
+			using var C2G_WishForEnergyRequest_request = Fantasy.C2G_WishForEnergyRequest.Create();
+			return (G2C_WishForEnergyResponse)await session.Call(C2G_WishForEnergyRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_ClearPlayerDataResponse> C2G_ClearPlayerDataRequest(this Session session, C2G_ClearPlayerDataRequest C2G_ClearPlayerDataRequest_request)

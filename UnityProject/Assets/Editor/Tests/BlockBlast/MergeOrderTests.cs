@@ -788,7 +788,7 @@ namespace GameLogic.BlockBlast.Tests
             src.Reset();
             src.Energy = 5;
             src.LastEnergyRegenTime = t0;     // 真实档:已有记录
-            var dto = src.ExportMeta(today);
+            var dto = src.ExportMeta();
             Assert.AreEqual(5, dto.energy, "体力进盘");
             Assert.AreEqual(t0, dto.lastEnergyRegenTime, "记录时刻进盘");
 
@@ -797,7 +797,7 @@ namespace GameLogic.BlockBlast.Tests
             var back = MergeMetaPersistence.Deserialize(json);
             var dst = new MergeOrderState();
             dst.Reset();
-            dst.ImportMeta(back, today);
+            dst.ImportMeta(back);
             Assert.AreEqual(5, dst.Energy, "真实档:体力续存（lastEnergyRegenTime>0 信存档值）");
             Assert.AreEqual(t0, dst.LastEnergyRegenTime, "记录时刻续存");
 
@@ -815,7 +815,7 @@ namespace GameLogic.BlockBlast.Tests
             var dto = new MergeMetaSave { version = 1, goddessLevel = 1 };
             var dst = new MergeOrderState();
             dst.Reset();
-            dst.ImportMeta(dto, today);
+            dst.ImportMeta(dto);
             Assert.AreEqual(MergeOrderConfig.EnergyStart, dst.Energy, "无记录档:体力夹回起始值（不信缺省 0）");
             Assert.AreEqual(0, dst.LastEnergyRegenTime, "无记录档:记录时刻保持 0,进窗 ApplyTimeRegen 再初始化");
         }
@@ -828,7 +828,7 @@ namespace GameLogic.BlockBlast.Tests
             var dto = new MergeMetaSave { version = 1, goddessLevel = 1, energy = -50, lastEnergyRegenTime = 1_700_000_000L };
             var dst = new MergeOrderState();
             dst.Reset();
-            dst.ImportMeta(dto, today);
+            dst.ImportMeta(dto);
             Assert.AreEqual(0, dst.Energy, "篡改负体力夹回 0");
         }
 

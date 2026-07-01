@@ -44,6 +44,8 @@ namespace GameLogic.BlockBlast.Player
         public int Level { get; private set; }
         /// <summary>经验。服务端权威值,登录快照下发。</summary>
         public long Exp { get; private set; }
+        /// <summary>已改名次数(0 = 还没改过 → 下次免费)。服务端权威值,登录快照下发 + 改名响应回带保鲜;供 UI 预告下次改名费。</summary>
+        public int RenameCount { get; private set; }
         /// <summary>最近一次收到的 schema 版本(服务端加字段时升)。</summary>
         public int SchemaVersion { get; private set; }
 
@@ -58,16 +60,32 @@ namespace GameLogic.BlockBlast.Player
 
         /// <summary>
         /// 应用登录档案(收到 G2C_PlayerInfoSnapshot 时由分发钩子调,与 <see cref="ApplySnapshot"/> 配对)。
-        /// 仅覆盖基础档案(账号/昵称/等级/经验/schema 版本),不动三属性、不触发 OnAttrChanged
+        /// 仅覆盖基础档案(账号/昵称/等级/经验/改名次数/schema 版本),不动三属性、不触发 OnAttrChanged
         /// (三属性的覆盖 + 事件由 <see cref="ApplySnapshot"/> 负责,职责分离避免重复触发)。
         /// </summary>
-        public void ApplyProfile(string accountId, string nickname, int level, long exp, int schemaVersion)
+        public void ApplyProfile(string accountId, string nickname, int level, long exp, int renameCount, int schemaVersion)
         {
             AccountId = accountId ?? string.Empty;
             Nickname = nickname ?? string.Empty;
             Level = level;
             Exp = exp;
+            RenameCount = renameCount;
             SchemaVersion = schemaVersion;
+        }
+
+        /// <summary>
+        /// 用服务端改名响应回带的权威值覆盖 <see cref="Nickname"/>/<see cref="RenameCount"/> + <see cref="Diamond"/> 视图
+        /// (改名服务端权威·客户端段)。成功(Success:昵称已变)与失败-携权威值(InvalidName / NotEnoughDiamond:昵称未变、
+        /// 回带服务端当前值防漂移)两路都调此方法覆盖到服务端当前权威值。触发一次 Diamond 事件让订阅方
+        /// (钻石行 / 改名按钮可点态 / 昵称文本)刷新——昵称无独立事件类型,复用 Diamond 事件驱动整体重绘。
+        /// 纯客户端失败(NetworkDown / ServiceUnavailable 未收响应)不调此方法(回带值不可信)。
+        /// </summary>
+        public void ApplyRenameAuthoritative(string nickname, int renameCount, long diamond)
+        {
+            Nickname = nickname ?? string.Empty;
+            RenameCount = renameCount;
+            Diamond = diamond;
+            OnAttrChanged?.Invoke(AttrType.Diamond, diamond, "player_rename");
         }
 
         /// <summary>

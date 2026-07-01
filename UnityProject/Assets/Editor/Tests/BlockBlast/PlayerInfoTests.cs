@@ -72,82 +72,59 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreNotEqual(a.Substring(6), c.Substring(6), "异种子后缀应不全等");
         }
 
-        // ───────────────────────── 改名（R1–R5） ─────────────────────────
-
+        // 通用测试玩家构造(供改名 / 经验 / 解锁三态各组共用)。
         private static PlayerInfo NewPlayer(int renameCount = 0, string name = "PlayerInit01")
             => new PlayerInfo { Id = "id123", Name = name, RenameCount = renameCount, Exp = 0,
                 CurrentAvatarId = 1, CurrentFrameId = 101,
                 UnlockedAvatarIds = new[] { 1 }, UnlockedFrameIds = new[] { 101 } };
 
+        // ───────────────────────── 改名本地校验 + 费用预告（R1–R5） ─────────────────────────
+        //
+        // 改名改走服务端权威 RPC(客户端段):费用 / 扣钻 / 写名 / 计数全由服务端一次原子做完。
+        // 客户端 PlayerRenameService 只剩纯本地校验(减一次无谓往返)+ 费用预告(RenamePriceConfig 供 UI 预告)。
+        // 本组只测「本地校验判定」与「费用预告数值」,不再测本地扣钻 / 本地写名(那已迁服务端)。
+
         [Test]
-        public void R1_FirstRenameFree()
+        public void R1_FirstRenameFree_PricePreviewZero()
         {
-            var p = NewPlayer(renameCount: 0);
-            bool spendCalled = false;
-            var r = PlayerRenameService.TryRename(p, "新名字", null, cost => { spendCalled = true; return true; });
-            Assert.IsTrue(r.Success);
-            Assert.AreEqual(0, r.Cost, "首次免费 Cost=0");
-            Assert.AreEqual("新名字", p.Name);
-            Assert.AreEqual(1, p.RenameCount);
-            Assert.IsFalse(spendCalled, "首次免费不调 trySpend");
+            // 首次改名(RenameCount=0)费用预告 = 0(免费)。
+            Assert.AreEqual(0, RenamePriceConfig.PriceFor(0), "首次预告 Cost=0");
         }
 
         [Test]
-        public void R2_SecondRenameChargesDiamond()
+        public void R2_NonFirstRename_PricePreviewFixed()
         {
-            var p = NewPlayer(renameCount: 1);
-            int spentCost = -1;
-            var r = PlayerRenameService.TryRename(p, "再次改名", null, cost => { spentCost = cost; return true; });
-            Assert.IsTrue(r.Success);
-            Assert.AreEqual(RenamePriceConfig.RENAME_PRICE, r.Cost, "二次读配置价（默认100）");
-            Assert.AreEqual(2, p.RenameCount);
-            Assert.AreEqual(RenamePriceConfig.RENAME_PRICE, spentCost, "trySpend 被以 cost 调用");
+            // 非首次改名费用预告 = 固定价(默认 100)。
+            Assert.AreEqual(RenamePriceConfig.RENAME_PRICE, RenamePriceConfig.PriceFor(1), "二次预告读配置价（默认100）");
+            Assert.AreEqual(RenamePriceConfig.RENAME_PRICE, RenamePriceConfig.PriceFor(5), "多次预告仍固定价");
         }
 
         [Test]
-        public void R3_NotEnoughDiamondRejects()
+        public void R3_LegalName_ValidatePasses()
         {
-            var p = NewPlayer(renameCount: 1, name: "旧名");
-            var r = PlayerRenameService.TryRename(p, "想改的名", null, cost => false);
-            Assert.IsFalse(r.Success);
-            Assert.AreEqual(RenameReject.NotEnoughDiamond, r.Reason);
-            Assert.AreEqual("旧名", p.Name, "钻石不足不改名");
-            Assert.AreEqual(1, p.RenameCount, "次数不变");
+            // 合法名(空词表)→ 本地校验通过(None)。
+            Assert.AreEqual(RenameReject.None, PlayerRenameService.ValidateLocal("新名字", null),
+                "合法名本地校验应通过");
         }
 
         [Test]
-        public void R4_ProfanityRejectsNoCharge()
+        public void R4_ProfanityRejected()
         {
-            var p = NewPlayer(renameCount: 1, name: "旧名");
-            bool spendCalled = false;
-            var r = PlayerRenameService.TryRename(p, "superADMIN", new[] { "admin" },
-                cost => { spendCalled = true; return true; });
-            Assert.IsFalse(r.Success);
-            Assert.AreEqual(RenameReject.Profanity, r.Reason);
-            Assert.AreEqual("旧名", p.Name);
-            Assert.AreEqual(1, p.RenameCount);
-            Assert.IsFalse(spendCalled, "屏蔽字先于计费，trySpend 未被调");
+            // 屏蔽字命中 → Profanity(空词表则不触发)。
+            Assert.AreEqual(RenameReject.Profanity, PlayerRenameService.ValidateLocal("superADMIN", new[] { "admin" }),
+                "含屏蔽词应拒");
+            Assert.AreEqual(RenameReject.None, PlayerRenameService.ValidateLocal("superADMIN", System.Array.Empty<string>()),
+                "空词表不触发 Profanity");
         }
 
         [Test]
         public void R5_EmptyAndTooLongReject()
         {
-            var p = NewPlayer(renameCount: 1, name: "旧名");
-            bool spendCalled = false;
-            Func<int, bool> spy = cost => { spendCalled = true; return true; };
-
-            var empty = PlayerRenameService.TryRename(p, "", null, spy);
-            Assert.AreEqual(RenameReject.Empty, empty.Reason);
-            var ws = PlayerRenameService.TryRename(p, "   ", null, spy);
-            Assert.AreEqual(RenameReject.Empty, ws.Reason, "全空白当空");
+            Assert.AreEqual(RenameReject.Empty, PlayerRenameService.ValidateLocal("", null), "空串");
+            Assert.AreEqual(RenameReject.Empty, PlayerRenameService.ValidateLocal("   ", null), "全空白当空");
 
             string tooLong = new string('a', PlayerRenameService.MaxLen + 1);
-            var lng = PlayerRenameService.TryRename(p, tooLong, null, spy);
-            Assert.AreEqual(RenameReject.TooLong, lng.Reason);
-
-            Assert.AreEqual("旧名", p.Name, "均不改名");
-            Assert.AreEqual(1, p.RenameCount, "均不计次");
-            Assert.IsFalse(spendCalled, "均不计费");
+            Assert.AreEqual(RenameReject.TooLong, PlayerRenameService.ValidateLocal(tooLong, null), "超长");
         }
 
         // ───────────────────────── 屏蔽字（P1–P2） ─────────────────────────
@@ -346,16 +323,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(PlayerInfo.DefaultFrameId, p.CurrentFrameId);
             Assert.Contains(PlayerInfo.DefaultAvatarId, p.UnlockedAvatarIds, "解锁集合含默认头像");
             Assert.Contains(PlayerInfo.DefaultFrameId, p.UnlockedFrameIds, "解锁集合含默认框");
-        }
-
-        [Test]
-        public void D2_IdStableAcrossRename()
-        {
-            var p = PlayerInfo.CreateDefault(new System.Random(1));
-            string idBefore = p.Id;
-            var r = PlayerRenameService.TryRename(p, "改个名", null, cost => true);
-            Assert.IsTrue(r.Success);
-            Assert.AreEqual(idBefore, p.Id, "改名只改 Name，不改 Id");
         }
 
         // ───────────────────────── 持久化（S1–S3） ─────────────────────────

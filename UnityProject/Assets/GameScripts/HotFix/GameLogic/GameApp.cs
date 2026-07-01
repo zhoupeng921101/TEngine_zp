@@ -22,8 +22,8 @@ public partial class GameApp
 #if FANTASY_UNITY
     // 入口闸（强制联网入口）：登录成功 + 服务端玩家信息快照应用 + 启动期异步预载完成「三者俱备」后，才放行玩法窗。
     // 三信号到达顺序不保证（OnLoggedIn 来自登录 RPC 回包；OnPlayerInfoSnapshot 来自 push；_preloadDone 由 PreloadThenStart 末尾置位），
-    // 故各置一标志位、每个信号到达时检查「三者俱备」。云存档下载（P3）尽力而为、不入闸：登录已成功即服务器可达，
-    // 下载失败有本地兜底，不挡门。_mainMenuOpened 守卫确保玩法窗只开一次。
+    // 故各置一标志位、每个信号到达时检查「三者俱备」。进主游戏订单快照对齐尽力而为、不入闸：登录已成功即服务器可达，
+    // 对齐失败有本地兜底，不挡门。_mainMenuOpened 守卫确保玩法窗只开一次。
     //
     // _preloadDone 入闸的根由（修复异步预载引入的时序回归）：闸窗（ConnectingWindow）在 StartGameLogic 同步路径立即摆上、
     // 网络登录与预载并行；若登录 + 快照先于预载完成放行、而玩法窗内 widget 此刻尚未预载驻留，WebGL 上 widget 同步加载会报错。
@@ -77,14 +77,32 @@ public partial class GameApp
             {
                 // 先档案后七属性:ApplySnapshotFull 末尾置 IsReady=true 并触发 All 事件,
                 // 让订阅方在收到事件时档案字段已就绪。
-                attr.ApplyProfile(view.AccountId, view.Nickname, view.Level, view.Exp, view.SchemaVersion);
+                attr.ApplyProfile(view.AccountId, view.Nickname, view.Level, view.Exp, view.RenameCount, view.SchemaVersion);
                 attr.ApplySnapshotFull(view.Coin, view.Diamond, view.Stamina,
                     view.SoulPower, view.Piety, view.GuardianExp, view.Energy);
             }
-            // 四货币(P2 客户端段):用服务端快照权威值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
-            ctx.ApplyServerCurrencySnapshot(view.SoulPower, view.Piety, view.GuardianExp, view.Energy);
+            // 四货币 + 六计数器(客户端段):用服务端快照权威值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
+            ctx.ApplyServerCurrencySnapshot(view.SoulPower, view.Piety, view.GuardianExp, view.Energy,
+                view.GoddessLevel, view.GoddessRating, view.UnlockedChapter,
+                view.BlindBoxCount, view.TempleRepaired, view.NextRepairIndex);
 
-            // 云存档下载不再在登录侧发起:改由进主游戏请求(EnterMainGame)同包回带驱动(决策②每次进入重新对齐)。
+            // 头像/框(客户端段):用服务端快照当前佩戴 + 解锁集覆盖本地投影 Player;随后 bootstrap 把客户端按等级算出的
+            // 应解锁集与服务端集做差、对缺的 id 上报补齐(幂等,只报差集)。bootstrap 即发即忘,不阻塞入口闸;
+            // 晚到时头像网格短暂少几个解锁,补报响应回带集合刷新。
+            ctx.ApplyServerCosmeticSnapshot(view.CurrentAvatarId, view.CurrentFrameId,
+                view.UnlockedAvatarIds, view.UnlockedFrameIds);
+            BootstrapCosmeticUnlocks(ctx);
+
+            // 祈愿每日态(客户端段):用服务端快照今日已用次数(懒重置后当日值)覆盖本地投影(缓存 + 已开活态);
+            // 客户端 WishUsedToday 降为投影,不再本地跨天重置。今日剩余 = 每日上限 - 已用。
+            ctx.ApplyServerWishSnapshot(view.WishUsedToday);
+
+            // 皮肤态 + 神庙装饰(客户端段 3b):用服务端快照三态(是否单色 + 当前单色 id + 已装饰厅数标量)覆盖本地投影
+            // (缓存 + 已开活态)。SkinMonoId=-1 表未选(彩色态);TempleDecorated 标量 → 前缀布尔数组。
+            // 登录快照是唯一初值源。变更(全清换皮 / 神庙装饰)由 ProfileState 全量 SET 上报,fire-and-forget。
+            ctx.ApplyServerProfileStateSnapshot(view.SkinMono, view.SkinMonoId, view.TempleDecorated);
+
+            // 进主游戏订单快照对齐不在登录侧发起:改由进主游戏请求(EnterMainGame)同包回带驱动(决策②每次进入重新对齐)。
             // 接线在 MainMenuWindow「开始游戏」入口闸 → ctx.EnterMainGame.EnterAsync()。
 
             // 入口闸信号①:服务端玩家信息快照已应用。
@@ -142,9 +160,8 @@ public partial class GameApp
             if (sync != null && live != null && live.MergeOrderMode && live.MergeState != null)
                 sync.ReportPending(live.MergeState, "merge_event").Forget();
 
-            // 云存档节流上传(P3):元层落盘 = 一次「有意义的存档边界」,据此节流批量上传(只搬非货币非身份切片)。
-            // 下载未完成(IsReady=false)时 TryUploadThrottled 内部直接 return,不会拿未对齐 version 覆盖云端。
-            ctx.CloudSave?.TryUploadThrottled().Forget();
+            // 局内 cosmetic + 合成经济叠加层不再经此存档边界上传:改作不透明切片经落子 / 消除道具搭车上行
+            // (C2G_Place/ClearTool 的 SliceJson)由服务端存档、续局回带,故 OnSaved 只保留货币聚合上报。
         };
 
         // 玩家身份接线(P0 全栈迁移·客户端段):playerId 改以服务端登录签发为权威。
@@ -285,7 +302,7 @@ public partial class GameApp
             if (enter != null)
             {
                 // 看门狗:进主游戏响应应用完成与超时谁先到都放行。超时→按本地兜底进入(ResetForMergeOrder 回落本地),绝不卡死。
-                // EnterAsync 自带防重入 + 失败降级(请求失败用本地兜底、云存档置 Ready),故此处只需配超时。
+                // EnterAsync 自带防重入 + 失败降级(请求失败用本地兜底、不清空本地订单),故此处只需配超时。
                 await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(8000, ignoreTimeScale: true));
             }
 
@@ -301,7 +318,25 @@ public partial class GameApp
         }
         // 不重置 _entering / 按钮 interactable:成功路径下本窗已 Close 销毁,无需还原。
     }
-    
+
+    /// <summary>
+    /// 登录快照到达后触发头像/框解锁 bootstrap(头像服务端权威·客户端段):把客户端按等级算出的应解锁集与服务端
+    /// 快照集做差、对缺的 id 上报补齐(<see cref="GameLogic.BlockBlast.Player.CosmeticService.BootstrapUnlocksAsync"/>)。
+    /// 即发即忘、不阻塞入口闸;配置未就绪(AvatarConfigMgr.All 抛)时退「只兜默认 id」不崩启动。
+    /// </summary>
+    private static void BootstrapCosmeticUnlocks(GameLogic.GameContext ctx)
+    {
+        var player = ctx?.Player;
+        var cosmetic = ctx?.Cosmetic;
+        if (player == null || cosmetic == null) return;
+
+        System.Collections.Generic.IReadOnlyCollection<GameLogic.BlockBlast.Player.AvatarEntry> all = null;
+        try { all = GameLogic.Config.AvatarConfigMgr.All(); }
+        catch { all = null; } // 配置未就绪:退 null,BootstrapUnlocksAsync 仍会补默认 id
+
+        cosmetic.BootstrapUnlocksAsync(player, all).Forget();
+    }
+
 #endif
 
 #if FANTASY_UNITY

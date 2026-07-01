@@ -412,3 +412,491 @@
 - 预期结果:jam 触发结算面板正确显示最终分 + 最佳分;结算后棋盘停止落子;「再来一局」= 空盘新局(非恢复 jam 盘);「返回」回主菜单且 BEST 反映服务端最佳分;Console 无红色异常。
 - 已知风险/复核重点:① 结算面板是运行时代码构建(非 prefab),用 `UGuiFactory` 在 1080×1920 设计坐标系居中——若面板位置 / 文字错位 / 遮罩没盖住棋盘,回报(布局参数需调,非逻辑 bug)。② 终局信号在落子对账的异步回包里到达(`SendPlaceAndReconcile`),触发 jam 那手落下后到弹面板有一个 RTT 的延迟,期间棋盘短暂可交互——若延迟内又落了一子,该子会正常上报但服务端对已删档局回 GameNotFound,本地态保留、下次开窗重建(不致命,但用户若观察到「终局后还能再落一子」属此时序,回报以便评估是否需落子后即时本地禁手)。③ 若服务端 BestScore 回 0(入榜服务不可用),结算页「最佳分 0」属预期(不抹本地既有展示;`ShowGameOverSettlement` 仅在 BestScore > 本地 HighScore 时才更新本地投影)。④ `FinalScore` 是服务端权威分,与客户端本地乐观结算的显示分在 happy path 下应一致(预测逐位对账);若两者不一致,说明该局曾发生过对账覆盖,以服务端 FinalScore 为准。
 - (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(元层进度计数器上服务端骨架·服务端段)
+
+> 服务端工程 `Fantasy/`(分支 `block`)。云存档 blob 迁服务端权威第 1 批:把六个元层数值进度计数器(女神等级 GoddessLevel / 女神评级 GoddessRating / 章节解锁数 UnlockedChapter / 盲盒计数 BlindBoxCount / 神庙修缮计数 TempleRepaired / 神庙修缮游标 NextRepairIndex)迁上既有 PropertyChange 骨架——**复用**已有的 `C2G_PropertyChangeRequest` 通道 + `PlayerPropertyServiceHelper.ChangeProperty`(限界信任 + ledger + delta-push)+ 登录快照 `G2C_PlayerInfoSnapshot`,不造新通道。本批**只做服务端段**(客户端消费=报增量 + 从快照读 + 从 blob 删,下一段做)。
+> `highScore` 特判结论:**不纳入本批**——服务端排行榜(`RankScoreDoc.BestScore`,_id=`{account}|{rankId}`,经 `G2C_RankQueryResponse.MyScore` 下发)已是「个人最佳分」权威源,与客户端 blob 的 highScore 等价;客户端段应改从排行榜投影读、从 blob 删 highScore,不为它新增 PropertyType/字段。
+> 产出定位:六计数器均走 PropertyChange 上报增量(客户端算增量 + 事由,服务端限界信任落账),**不建模产出逻辑**(玩法产出 = 女神/盲盒;动作产出 = 神庙修缮/游标;真正的产出建模留后续抽奖/合成批)。校验规则:单次 delta 上限(限界信任主杠杆,占位值,女神/章节 100、盲盒/修缮 1000)+ 类型上界(宽松 sanity 天花板)+ 同账号同属性 100ms 频率闸,均沿既有四货币口径。BlindBoxCount 可增可减(攒盒/开盒),其余单调递增但骨架不强制单调(限界信任只防异常大跳)。
+> 协议改动:`PropertyType` 枚举加 7..12 六值(纯加性,不动既有 0..6);`C2G_QueryAttrLedger.Kind` 映射扩到 1..13。协议已重导,客户端生成物已自动同步进 UnityProject(`Assets/Fantasy/Generate/NetworkProtocol/OuterEnum.cs` 含 GoddessLevel=7..NextRepairIndex=12;`OuterOpcode.cs` 无变化 = 未增删消息,opcode 稳定,两端不错位)。
+> dev 已自检:Entity + Hotfix 项目编译 0 错误(本批新增/改动文件 0 警告;`dotnet build Server.sln` 因遗留 Main 进程锁 SourceGenerator dll 报 CS2012 属环境,单编 Entity/Hotfix 佐证代码本身干净);6 值枚举两端一致、schema 版本 4→5、旧档 $ifNull 补字段已加。
+> PC1 需能起服 + 本机可达 MongoDB 的环境手测(PropertyChange 往返 + 快照回带 + 限界信任拒异常);编译核对(PC0)任意装 .NET 8 SDK 机器可跑。前置同既往:起服 / 跑 `Server.sln` 前先停遗留 `Main` 进程(占 `examples/Bin/Debug/net8.0/` dll 锁)。
+
+### [ ] PC0 · 服务端编译通过(0 错;新增/改动文件 0 警)
+
+- 测什么:六计数器加入 `PlayerDoc` 字段 + `PropertyType` 枚举 + `PlayerPropertyServiceComponent` 配置 + `PlayerPropertyServiceHelper`(TryGetTypeMeta / GetFieldValue / InitOrLoad setOnInsert / MigrateSchemaIfNeeded $ifNull / ResetToNewbie / SendPlayerInfoTo)+ ledger kind 映射后,整个服务端能否干净编译,且源生成器把导出的 `PropertyType` 枚举正确产出。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后 `dotnet build examples/Server/Server.sln`。若仍因 `Main` 锁 SourceGenerator dll 报 CS2012,退而单编两项佐证代码本身:`dotnet build "examples/Server/APP/Entity/Entity.csproj"` 与 `dotnet build "examples/Server/APP/Hotfix/Hotfix.csproj"`。
+- 预期结果:`已成功生成`;本批改动的 BlockBlast/Player 文件 0 警告 0 错误(整 sln 仍有 3 个既有示例历史 nullable 告警:`ProductsController.cs` / `UsersController.cs` / `C2G_SubscribeSphereEventRequestHandler.cs`,非本批引入)。Entity 项目应 0 警告 0 错误(含生成的 `PropertyType` 枚举),Hotfix 项目仅上述 3 个既有告警。
+
+### [ ] PC1 · 六计数器 PropertyChange 往返落账 + 推送 + 登录快照回带 + 限界信任拒异常(起服手测)
+
+- 测什么:六个新计数器各自走既有 `C2G_PropertyChangeRequest` 通道往返——服务端限界信任校验后 `$inc` 落 `players` 文档 + 写 ledger + delta-push 回同一 UUID 会话;登录快照 `G2C_PlayerInfoSnapshot` 回带这六项权威初值;异常增量(超单次上限)被拒不落账。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需 MongoDB 可达,登录链路依赖)。客户端(或测试客户端)登录后:
+  - **登录快照回带**:登录成功即收 `G2C_PlayerInfoSnapshot`,其 `Info.Properties` 数组应含六项新 PropertyType(Type=7..12,首登玩家 Amount 均为 0);老档(schema<5)首次登录时服务端会 `MigrateSchemaIfNeeded` 补齐字段,快照同样带 6 项(present 值 = 各自既有值或补的 0)。
+  - **PropertyChange 往返落账 + 推送**:逐个发 `C2G_PropertyChangeRequest{ Type=<7..12 之一>, Delta=<正数,如 GoddessLevel +1 / BlindBoxCount +5>, Reason="test_xxx" }`:
+    - 响应 `G2C_PropertyChangeResponse{ ResultCode=Success(0), Type=<回声>, NewAmount=<累加后新值> }`;
+    - 随即收到 `G2C_PropertyDeltaPush{ Type=<同>, NewAmount=<同>, Reason=<回声> }`(推送到同 UUID 在线会话);
+    - 服务端日志 `PlayerProperty 变更成功 account=... type=GoddessLevel delta=1 reason='test_xxx' newAmount=1`。
+    - 再发同 Type 一次(注意间隔 >100ms 避开频率闸)→ NewAmount 应继续累加(证明 `$inc` 落账、非覆盖)。
+  - **BlindBoxCount 可减**:发 `Type=BlindBoxCount(10), Delta=-2`(前提当前值 ≥ 2)→ Success、NewAmount 减 2(证明可增可减,余额下界 0 由骨架条件过滤保证:扣到负数会返 NotEnough(4))。
+  - **限界信任拒异常增量**:发 `Type=GoddessLevel(7), Delta=100000`(远超单次上限 100)→ 响应 `ResultCode=InvalidRequest(3)`、不落账;服务端日志 `PropertyChange 拒因=SingleDeltaLimit account=... type=GoddessLevel delta=100000 limit=100`。再发一条同 account 同 type 100ms 内的合法请求 → 可能命中频率闸返 InvalidRequest(3) + 日志 `拒因=RateLimited`(属预期,间隔开即可正常)。
+  - **持久性**:变更几项后重登(断开重连再登录)→ 新的 `G2C_PlayerInfoSnapshot` 应回带刚才变更后的值(证明落库持久,非内存态)。
+- 预期结果:六计数器 PropertyChange 往返均 Success + 累加落账 + delta-push;登录快照含六项且回带权威值;超单次上限的异常增量被 `InvalidRequest` 拒且不落账;重登后值保持。无服务端红色异常日志。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(元层进度计数器上服务端骨架·客户端段)
+
+> 云存档 blob 迁服务端权威第 1 批·客户端段:六个元层数值进度计数器(女神等级 GoddessLevel / 女神评级 GoddessRating / 章节解锁数 UnlockedChapter / 盲盒计数 BlindBoxCount / 神庙已修厅数 TempleRepaired / 神庙修缮游标 NextRepairIndex)在服务端段已权威后,客户端来消费它们、并从 blob 剔除;highScore 改从排行榜个人最佳分投影读、从 blob 剔除。
+> 客户端做法照四货币 `MetaCurrencySync` 范式扩展:①`AttrType` 加 6 值(7..12,对齐服务端 PropertyType);②落盘边界 `ReportPending` 对 6 计数器算净 delta 经 `C2G_PropertyChange` 上报、服务端 NewAmount 覆盖本地视图 + 基线;③登录快照 `ApplySnapshot` 从 6 个权威值读初值覆盖本地字段 + 缓存 + 对齐基线;④`ApplyDeltaPush` 认这 6 个 type;⑤`CloudSaveCodec` 从 blob 剔除 6 计数器 + highScore(下载合并不拷 + 上传 sanitize 清零);⑥主菜单 BEST + 终局结算页最佳分改读排行榜投影(`RankService.GetMyBest`),终局服务端权威最佳分刷进排行榜投影缓存。
+> 神庙已修厅数(`TempleRepaired`)特判:服务端是标量计数,客户端活态是布尔数组,「已修计数」= true 项数(顺序解锁,恒 = NextRepairIndex);标量 ↔ 数组转换(前 N 项 true)由 `MetaCurrencySync`/`GameContext` 内部处理。
+> 改动文件:`Player/MetaCurrencySync.cs`、`Player/AttrType.cs`、`Player/CloudSaveCodec.cs`、`GameContext.cs`、`GameApp.cs`、`UI/BlockBlastUI/MainMenuWindow.cs`、`UI/BlockBlastUI/MergeOrderWindow.cs`、`Assets/Fantasy/Scripts/FantasyNetwork.cs`(PlayerInfoView 加 6 字段)、`Assets/Fantasy/Scripts/Handlers/G2C_PlayerInfoSnapshotHandler.cs`(从快照属性列表提 6 值);测试 `MetaCurrencySyncTests.cs`(加 C1-C6)、`CloudSaveTests.cs`(改 C1/C2)。
+> dev 已自检:Unity batchmode 编译 0 错误 + EditMode 全绿(602 例 584 通过 0 失败 18 跳过,含本轮新增 6 个 MetaCurrencySync 计数器用例 + 改写 2 个 CloudSave 用例)。EC1/EC2 是纯客户端单测(EditMode,任意能打开本工程的机器可跑);EC3/EC4/EC5 需起 Mongo + 服务端真往返(可与服务端段 PC1 合并一次手测)。
+
+### [ ] EC0 · 改动后客户端工程编译通过
+
+- 测什么:本轮所有新增/改动文件能否随客户端工程干净编译(含热更区 GameLogic + 非热更 `Assets/Fantasy/Scripts` + 测试程序集 BlockBlast.Tests)。`MetaCurrencySync.ApplySnapshot` 签名从 4 货币参扩到 4 货币 + 6 计数器(共 10 个数值参),所有调用点(GameContext / 测试)已同步改;`PlayerInfoView` 构造函数加 6 参,handler 调用点已同步改。
+- 怎么测:用 Unity 打开本工程(`D:\work\TEngine_block\UnityProject`),等 Editor 编译完成;看 Console 是否有红色编译错误。打开 `Window > General > Test Runner`(EditMode)能否列出 `MetaCurrencySyncTests` / `CloudSaveTests`(列得出即说明编译成功)。
+- 预期结果:Console 无编译错误(0 error);EditMode 列表出现 `MetaCurrencySyncTests`(含新增 `C1_SnapshotAll_OverwritesSixCounters_AndAlignsBaseline`、`C2_SixCounters_ReportNetDeltaPerCounter`、`C3_BlindBoxCount_CanDecrease_ReportsNegativeDelta`、`C4_ApplyDeltaPush_OverwritesCounterByType`、`C5_RebindBaseline_RealignsSixCountersToState`、`C6_SnapshotOnly_NoCounterReport`)与 `CloudSaveTests`(含改写的 `C1_BuildBlob_ExcludesCurrencyCountersHighScoreAndIdentity`)。
+
+### [ ] EC1 · MetaCurrencySync 六计数器单测全绿(上报/对账/快照/delta-push/rebind,核心 + 异常路径)
+
+- 测什么:六计数器与四货币同口径——①全量快照覆盖本地视图 + 对齐基线(随后无变化不发);②各净变化每计数器恰发一笔(聚合上报,delta = 当前 - 基线);③BlindBoxCount 可减(开盒,净负 delta 正常上报);④delta-push 按 type 覆盖本地字段 + 基线(含神庙已修厅数标量 → 布尔数组前 N 项 true);⑤RebindBaseline 把六计数器基线重对齐到活态(开窗 ImportMeta 后免首刀误报);⑥纯快照无产销不发。
+- 怎么测:Test Runner → EditMode → 跑 `GameLogic.BlockBlast.Tests.MetaCurrencySyncTests` 整个 fixture(或全量 EditMode)。
+- 预期结果:`MetaCurrencySyncTests` 全部用例通过,含新增 C1-C6 六条;既有四货币用例(T1-T18)仍绿(无回归)。
+- 已知风险/复核重点:Test Runner filter 偶发失效 + 失败列表截断(见 dev 经验 `unitymcp-run-tests-filter`),若只跑单 fixture 没看到预期条数,改跑全量 EditMode 并按名核对 C1-C6 确实出现且为绿,而非被过滤掉当成「通过」。
+
+### [ ] EC2 · CloudSaveCodec 剔除六计数器 + highScore 单测全绿(不再入 blob / 不被 blob 回灌)
+
+- 测什么:①`BuildBlob` 组装的 blob 内元层货币 + 六计数器(goddessLevel/goddessRating/unlockedChapter/blindBoxCount/templeRepaired 数组/nextRepairIndex)+ highScore + playerId 全被清零/清空,其余非货币字段(templeDecorated / playerName / curAvatarId 等)保留;②下载合并 `ApplyBlob` 时六计数器 + highScore 不被 blob 覆盖,保留本地既有值(权威由服务端快照/上报维护)。
+- 怎么测:Test Runner → EditMode → 跑 `GameLogic.BlockBlast.Tests.CloudSaveTests` 整个 fixture。
+- 预期结果:全绿,重点关注改写的 `C1_BuildBlob_ExcludesCurrencyCountersHighScoreAndIdentity`(断言 6 计数器 + highScore 清零、templeDecorated 保留)与 `C2_ApplyBlob_PreservesLocalCurrencyAndIdentity`(断言 highScore/blindBoxCount/goddessLevel 保留本地值不被 blob 回灌)。其余 C3-C12 无回归。
+
+### [ ] EC3 · 登录快照读六计数器初值 + 主菜单 BEST 读排行榜投影(起服手测)
+
+- 测什么:登录时六计数器从服务端快照读初值覆盖本地(非 blob 旧值);主菜单 BEST 显示排行榜个人最佳分投影(非元层 highScore)。
+- 怎么测:前置起服(停遗留 `Main` → `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`,需 MongoDB 可达)。客户端 Play 登录:
+  1. 用一个此前在服务端已有六计数器非零值的账号登录(或先经服务端段 PC1 给某账号变更过六计数器)。
+  2. 进主菜单 → 开始游戏进玩法窗,观察女神等级/评级、盲盒计数、神庙修缮进度显示是否 = 服务端权威值(而非本地 PlayerPrefs 旧值)。可对照服务端登录快照日志(`G2C_PlayerInfoSnapshot` 的 Properties 含 Type=7..12)。
+  3. 回主菜单看 BEST 数字:应 = 排行榜个人最佳分(此前玩到过的最高分入榜后的值)。
+- 预期结果:六计数器显示 = 服务端快照值;主菜单 BEST = 排行榜个人最佳分投影;无 Console 红。
+- 已知风险/复核重点:①首次登录(该账号服务端六计数器均为 0)时,玩法窗显示应为初始态(女神 1 级、盲盒 0、无神庙修缮),不被本地旧缓存盖。②BEST 若显示 0 而排行榜里其实有分,核对 `RankService.GetMyBest(1)` 缓存是否已被登录/查榜刷新过——本地投影缓存在从未查榜/提交的全新会话可能暂为 0(离线可丢缓存,查一次榜或玩一局终局入榜后即刷新),属预期,非 bug。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] EC4 · 六计数器玩法变更经 PropertyChange 落账并对账(起服手测)
+
+- 测什么:玩法中推进六计数器(全清推女神评级/升级、攒盒/开盒改盲盒、修神庙改已修厅数 + 游标 + 章节)时,落盘边界把净增量经 `C2G_PropertyChange` 上报服务端,服务端限界信任落账 + delta-push 回,本地视图以服务端 NewAmount 对账。
+- 怎么测:前置同 EC3 起服。客户端进玩法窗:
+  1. 触发全清(清空棋盘)→ 女神评级 +1(满档则升级 + 章节 +1);开/攒盲盒 → 盲盒计数变化;攒够虔诚币修一座神庙 → 已修厅数 +1、修缮游标 +1、章节可能 +1。
+  2. 每次玩法事件后(落盘边界)观察服务端日志:应有对应 Type(7..12)的 `PlayerProperty 变更成功 ... type=GoddessRating/BlindBoxCount/... delta=... newAmount=...` + delta-push。
+  3. 断开重连再登录 → 快照回带的六计数器应 = 刚才变更后的值(证明落库持久,非本地态)。
+- 预期结果:六计数器玩法变更均经 PropertyChange 上报落账 + 对账;重登后值保持;盲盒开盒发净负 delta(可减)也正常。无 Console 红、无重复上报(同一事件每计数器一笔)。
+- 已知风险/复核重点:①迁这六个后,落子/元动作在落盘边界会多发几笔 `C2G_PropertyChange`(这几个计数器的增量)——这是「步步上服务端」的预期代价,聚合上报(仅非零 delta)已限频。若观察到频繁 `RateLimited` 拒(100ms 频率闸),说明落盘边界触发过密,回报以便评估节流。②神庙已修厅数(TempleRepaired)与修缮游标(NextRepairIndex)每修一厅同步 +1,会各发一笔 delta=+1,两笔值恒相等,属预期(服务端两个独立 PropertyType)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] EC5 · blob 不再含六计数器 + highScore + 终局结算页最佳分正确(起服手测)
+
+- 测什么:①云存档上传的 blob 里不再含六计数器 + highScore(sanitize 清零);下载合并不用 blob 旧值盖服务端权威;②玩到 jam 终局,结算页最佳分显示服务端权威 BestScore,且刷进排行榜投影使主菜单 BEST 同步。
+- 怎么测:前置同 EC3 起服。
+  1. 玩一局改变六计数器 + 拿一个高分,退出让云存档上传(落盘边界节流上传);可选:在服务端 Mongo 查该玩家云存档 blob 文档,确认其 meta 段六计数器 + highScore 均为 0(未入 blob)。
+  2. 玩到棋盘 jam 触发终局 → 结算面板显示「最佳分 <数字>」= 服务端权威 BestScore(与服务端日志 `[BlockBlast] GameOver ... totalBest=...` 一致);若本局是新高,该值应 > 之前。
+  3. 点「返回」回主菜单 → BEST 应已反映本局最佳分(结算时已把服务端 BestScore 刷进排行榜投影缓存,无需再查榜)。
+- 预期结果:blob 不含六计数器 + highScore;结算页最佳分 = 服务端权威 BestScore;终局后主菜单 BEST 与之一致。无 Console 红。
+- 已知风险/复核重点:①BestScore=0(入榜服务不可用)时结算页「最佳分 0」属预期(不抹既有排行榜投影;仅 BestScore>0 才刷缓存)。②若终局后返回主菜单 BEST 未更新,核对 `MergeOrderWindow.ShowGameOverSettlement` 是否调了 `Rank.SubmitScore(1, bestScore)`(取较大者刷投影),以及主菜单 `LoadBestScoreFromRank` 读的是 rankId=1。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(改名服务端权威·服务端段·2a)
+
+> 服务端工程 `Fantasy/`(分支 `block`)。本轮把昵称 + 改名次数迁上服务端权威,顺带把改名扣钻收成服务端裁定:
+> 新增 `C2G_RenameRequest` / `G2C_RenameResponse`(Outer RPC,Gate Scene);PlayerDoc 加 `RenameCount`;登录快照 `G2C_PlayerInfoSnapshot` 加 `RenameCount`;改名费镜像到服务端 `RenameConfigServer`。
+> 请求只带新昵称,费用/次数一律服务端按自己的 `PlayerDoc.RenameCount` 派生(RenameCount==0 免费,否则 `RenameConfigServer.PriceFor`=固定 100 钻);扣钻走 `PlayerPropertyServiceHelper.ChangeProperty(Diamond, -cost, serverAuthoritative:true, reason="player_rename")`(钻不足回拒、不改名),扣成功(或免费)后原子 `set Nickname + inc RenameCount`。
+> dev 已自检:Entity + Hotfix 项目单编各 0 警告 0 错误(整 `Server.sln` 仅剩已知的 MSB3027/MSB3021 文件锁——遗留 `Main` 进程占 `examples/Bin/Debug/net8.0/` dll,非编译错;编译本身已过);协议已导出,客户端生成物已自动同步进 UnityProject(`Assets/Fantasy/Generate/NetworkProtocol/` 4 文件,与服务端生成物同一 diff、byte 对齐);源生成器已把 `C2G_RenameRequestHandler` 编入 Hotfix.dll。
+> schema 版本已由 5 升至 6(旧档登录经 `MigrateSchemaIfNeeded` 用 `$ifNull` 补 `RenameCount=0`)。
+> **opcode 说明(重要,已两端同步)**:新增 Rename 两条消息导出时占用了 `C2G_RenameRequest=268445486`/`G2C_RenameResponse=402663214`,原 `C2G_ClearPlayerDataRequest/Response` 顺移到 `268445487/402663215`。**客户端与服务端生成物在同一次导出中一起重生成、两端 opcode 表 byte 完全一致**,故此位移无害;但前提是两端生成物一并生效(勿只更新一端)。
+> RT1 需用户在能起服(且本机可达 MongoDB)的环境手测;RT0 是纯编译核对(有 .NET 8 SDK 即可,先停遗留 Main 进程)。前置同 ST2/SST1:起服 / 跑 `Server.sln` 前先停掉遗留 `Main` 进程(占 dll 锁)。
+
+### [ ] RT0 · 服务端编译通过(Entity + Hotfix 干净;整 sln 除文件锁外无编译错)
+
+- 测什么:新增改名 RPC handler + RenameHelper + RenameConfigServer + PlayerDoc.RenameCount + 快照下发 + schema 迁移改动后,服务端能否干净编译,源生成器把新 handler 正确注册。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后分别:
+  - `dotnet build examples/Server/APP/Entity/Entity.csproj`(应 0 警告 0 错误)
+  - `dotnet build examples/Server/APP/Hotfix/Hotfix.csproj`(应 0 警告 0 错误)
+  - 可选整 sln:`dotnet build examples/Server/Server.sln`(若停干净遗留进程应 `已成功生成`;若仍报 MSB3027/MSB3021「文件被 Main(...) 锁定」,是遗留进程没停干净的环境问题,非本轮代码,停掉重试)。
+- 预期结果:Entity / Hotfix 单编各 `已成功生成` 0 警告 0 错误;整 sln 干净或仅剩文件锁环境错。
+
+### [ ] RT1 · 改名 RPC 往返 + 快照回带 + 重登持久(起服手测)
+
+- 测什么:改名 RPC 在真实服务端往返;首次免费 / 二次扣钻 / 钻不足拒 / 名字非法拒四条分支各自正确;登录快照回带 Nickname + RenameCount;改名后重登持久。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需本机 MongoDB 可达)。用客户端(或测试客户端)登录后依次:
+  1. **首次免费改名**:发 `C2G_RenameRequest{ NewNickname="阿狸" }` → 响应 `ResultCode=Success(0)`、`Nickname="阿狸"`、`RenameCount=1`、`Diamond=<不变的当前余额>`;服务端日志 `改名成功 account=... nickname='阿狸' renameCount=1 cost=0 diamond=...`。
+  2. **二次扣钻改名(次数递增)**:先确保该账号有 ≥100 钻(可先发 `C2G_PropertyChange{Type=Diamond, Delta=+500, Reason="test_grant"}` 充值),再发 `C2G_RenameRequest{ NewNickname="狐狸" }` → `ResultCode=Success`、`Nickname="狐狸"`、`RenameCount=2`、`Diamond=<扣 100 后的余额>`;日志 `... renameCount=2 cost=100 ...`,并伴随一条 Diamond 的 `PlayerProperty 变更成功 ... type=Diamond delta=-100` + delta-push。
+  3. **钻不足拒**:把钻石花到 <100(或用没充值的账号做第二次改名),发 `C2G_RenameRequest{ NewNickname="任意名" }` → `ResultCode=NotEnoughDiamond(3)`、`Nickname` 回带**当前权威昵称(未改)**、`RenameCount` 不变、`Diamond=<当前余额>`;服务端**无**「改名成功」日志。
+  4. **名字非法拒**:发 `C2G_RenameRequest{ NewNickname="" }`(空串)或一个 >16 字符的超长名 → `ResultCode=InvalidName(2)`、回带当前昵称/次数、不扣钻、不改名。
+  5. **快照回带 + 重登持久**:断开重连再登录 → 观察服务端登录快照日志 `G2C_PlayerInfoSnapshot`,其 `Info.Nickname` = 最后一次成功改名的名、`Info.RenameCount` = 累计成功次数(证明落库持久,非本地态)。
+- 预期结果:四分支各返对应 ResultCode;成功时 Nickname/RenameCount 递进、扣钻分支 Diamond 扣 100;失败分支不改名不扣钻;重登快照回带最新 Nickname + RenameCount。无服务端异常红日志。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+## 改名服务端权威·客户端段(2a)
+
+> dev 已自检:主工程 batchmode 编译 0 CS 错误 + EditMode 全测通过(599 用例 581 passed / 18 skipped / 0 failed,含本轮改名 RPC 成功/钻不足/非法/服务不可用/本地拦截各分支 + blob 剔除断言)。以下为门覆盖不到的部分(PlayMode / UI 手感 / 真机真服往返),交用户手测。
+> 客户端改名已改走服务端权威 RPC(`C2G_RenameRequest`),不再本地扣钻、不再本地写名、不再落 blob;昵称显示读服务端权威快照 `PlayerAttrService.Nickname`。本节须与服务端段 RT1(起服往返)配套:客户端跑通的前提是服务端已起、协议两端 opcode 一致。
+
+### [ ] CT1 · 改名走 RPC:首次免费改名成功(端到端)
+
+- 测什么:客户端改名不再本地扣钻,而是发 RPC 由服务端裁决;首次(RenameCount=0)免费。
+- 怎么测:登录进游戏(需服务端已起 + 可达),打开个人信息窗(PlayerInfoWindow)→ 点昵称旁编辑铅笔进改名态 → 输入合法新名(如「阿狸」)→ 确认(失焦提交)。
+- 预期结果:昵称显示立即变为新名;钻石余额不变(首次免费);服务端日志有 `改名成功 ... cost=0`。若客户端有网络抓包/日志,应看到发出 `C2G_RenameRequest{NewNickname="阿狸"}` 并收到 `Success`。
+- 已知风险:若服务端未起 / 未登录,应提示「网络异常」类文案且昵称不变(不冒进本地改名)——顺带验证这条降级。
+
+### [ ] CT2 · 二次改名扣钻(服务端扣、客户端对账)
+
+- 测什么:非首次改名由服务端扣 100 钻,客户端钻石视图按响应回带余额对齐(不客户端自扣)。
+- 怎么测:承 CT1(此时 RenameCount≥1)。先确保账号钻石 ≥100(可经充值途径或服务端授予)。再次改名输入合法新名 → 确认。
+- 预期结果:昵称变为新名;钻石余额减少 100(由服务端响应回带的新余额刷新,不是客户端本地先扣);服务端日志 `改名成功 ... cost=100` + 一条 Diamond 变更。观察钻石行数字与服务端扣后余额一致。
+
+### [ ] CT3 · 钻石不足拒绝(不改名、视图对齐服务端)
+
+- 测什么:钻石 <100 时二次改名被服务端拒,客户端不改名、钻石/昵称对齐服务端当前权威值。
+- 怎么测:把账号钻石花到 <100(或用没充值、已改过一次名的账号)→ 再次改名输入新名 → 确认。
+- 预期结果:提示「钻石不足」;昵称保持原样(未改);钻石余额显示服务端当前值(不是被本地虚扣)。服务端无「改名成功」日志。
+
+### [ ] CT4 · 名字非法本地拦截(不发 RPC)
+
+- 测什么:空名 / 全空白 / 超长(>16 字符)在客户端本地即被拦,不发 RPC(减一次往返)。
+- 怎么测:改名态输入 ①空(直接确认)、②全空格、③粘贴一个 >16 字符的超长串,分别确认。
+- 预期结果:各自提示对应文案(「名字不能为空」/「名字过长(上限 16)」);昵称不变;此时不应有 `C2G_RenameRequest` 发出(本地拦截)。若能看网络日志,确认这三种输入零 RPC。
+
+### [ ] CT5 · 昵称显示读服务端权威快照(重登/切换验证)
+
+- 测什么:PlayerInfoWindow 昵称读 `PlayerAttrService.Nickname`(登录快照下发),不再读本地 blob 的 `PlayerInfo.Name`。
+- 怎么测:改名成功后完全退出客户端重登(或断线重连触发重新登录快照)→ 再打开个人信息窗看昵称。
+- 预期结果:昵称显示 = 最后一次服务端成功改名的名(来自登录快照 Nickname),重登后仍持久;改名次数(内部 RenameCount)随快照回带,下次改名费预告据服务端权威次数计算。
+
+### [ ] CT6 · Diamond 对账无客户端自报 player_rename
+
+- 测什么:改名扣钻不再由客户端自发 `C2G_PropertyChange(Diamond, player_rename)`,钻石余额只由改名响应 + 服务端 delta-push 对齐。
+- 怎么测:二次改名(CT2)时若能抓客户端上行包 / 看流水,确认扣钻不是客户端发的 PropertyChange 请求驱动的;打开「我的流水」窗查改名那笔钻石变动的来源是否为服务端记账(而非客户端自报)。
+- 预期结果:改名扣钻在流水里体现为服务端裁决的一笔;客户端未发独立的 player_rename PropertyChange 请求。钻石视图最终与服务端一致。
+
+### [ ] CT7 · blob 不含 playerName / playerRenameCount / playerExp(清档/云存档验证)
+
+- 测什么:云存档 blob 上传时已剔除昵称 / 改名次数 / 账号经验三字段(改名服务端权威,不入 blob、不被下载回灌覆盖服务端权威)。
+- 怎么测(偏工程侧,能看本地存档 / 抓上传包则可验):改名成功后触发一次云存档上传(进主游戏 / 存档边界)→ 若能 dump 上传的 blob JSON,确认 metaJson 内 `playerName` 为空、`playerRenameCount`=0、`playerExp`=0(与货币/身份一并被清)。反向:模拟一个含旧 playerName 的下载 blob 回灌,确认不会用它冲掉当前服务端权威昵称显示。
+- 预期结果:上传 blob 的 metaJson 三字段已清;下载回灌不改昵称显示(昵称只认服务端快照)。此条 EditMode 已用 C1_BuildBlob 断言覆盖 strip 逻辑,手测重点在「真实上传/下载链路里也确实如此」。
+- 已知风险:此条需能观察 blob 内容(工程日志 / 抓包),纯玩家视角不易验;若无手段,可依赖 EditMode C1 断言,标注「blob 内容层由单测保障」。
+
+## 待测条目(头像/框服务端权威·服务端段·2c)
+
+> 服务端工程 `Fantasy/`(分支 `block`)。本轮把头像 / 头像框迁上服务端权威:当前佩戴 id(头像 + 框)+ 已解锁集合(头像 + 框)服务端持有唯一事实源。
+> 新增 `C2G_EquipCosmeticRequest`/`G2C_EquipCosmeticResponse`(换装 RPC)与 `C2G_UnlockCosmeticRequest`/`G2C_UnlockCosmeticResponse`(解锁上报 RPC),均 Outer RPC、Gate Scene、身份从会话 `GateAccountFlagComponent` 取(不接受客户端上报账号)。
+> `PlayerDoc` 加 4 字段:`CurrentAvatarId`(int)/`CurrentFrameId`(int)/`UnlockedAvatarIds`(List<int>)/`UnlockedFrameIds`(List<int>)。登录快照 `PlayerInfo` 加对应 4 字段(2 个当前 id + 2 个 repeated 解锁集)。
+> 换装:服务端校验目标 id 已在对应解锁集合内(未解锁拒 `NotUnlocked`),通过则原子 `$set` 当前 id,响应回带最新当前头像 id + 框 id。
+> 解锁上报(client-report 限界信任):sanity(id 落合法段:头像 [1,100] / 框 [101,100000];集合大小上限 4096 防灌爆;同账号 100ms 频率闸)→ 原子 `$addToSet` 幂等加入集合(重复上报同 id 无副作用),响应回带更新后集合。
+> **默认值对齐策略(选项 2 变体)**:当前佩戴 id 缺省与客户端默认对齐(头像 1 / 框 101,= 客户端 `PlayerInfo.DefaultAvatarId`/`DefaultFrameId`),使客户端登录拉快照时不会因服务端「未佩戴」误判;**已解锁集合首登缺省空**,由客户端登录后 bootstrap 上报默认解锁(id 1、id 101)填入。选这个而非「当前 id 缺省 0」是为避免客户端把 0 当「无佩戴」而闪默认头像;不在服务端建整套头像等级配置自算(饰品低危,解锁走 client-report,与 boss 决策一致)。
+> schema 版本已由 6 升至 7(旧档登录经 `MigrateSchemaIfNeeded` 用 `$ifNull` 补当前 id 默认 + 解锁集合空数组);清档 `ResetToNewbie` 一并把 4 字段重置为默认。
+> **opcode 说明(重要,已两端同步,本轮再位移一次)**:新增 Cosmetic 两条 RPC 导出时排在 proto 处理序中段(文件名 `CosmeticMessage.proto` 排在 `EnterMainGame` 之前),占用 `C2G_EquipCosmeticRequest=268445464`/`G2C_EquipCosmeticResponse=402663192`/`C2G_UnlockCosmeticRequest=268445465`/`G2C_UnlockCosmeticResponse=402663193`,其后所有 request/response opcode 顺移 +2(例:`C2G_RenameRequest` 现为 `268445488`、`C2G_ClearPlayerDataRequest` 现为 `268445489`)。**客户端与服务端生成物在同一次导出中一起重生成、两端 opcode 表 byte 完全一致**(dev 已 diff 核对 `OuterMessage.cs`/`OuterEnum.cs`/`OuterOpcode.cs` 服务端与客户端 4 文件逐字节相同),故此位移无害;前提是两端生成物一并生效(勿只更新一端,开发阶段无历史包袱、无旧连接)。
+> dev 已自检:Entity + Hotfix 项目单编各 0 警告 0 错误(整 `Server.sln` 仅剩已知的 MSB3027/MSB3021 文件锁——遗留 `Main` 进程占 `examples/Bin/Debug/net8.0/` dll,非编译错);协议已导出,客户端生成物已自动同步进 UnityProject(`Assets/Fantasy/Generate/NetworkProtocol/`);源生成器已把两个新 handler 编入 Hotfix.dll(RPC ResponseType 绑定正确)。
+> AT0 是纯编译核对(有 .NET 8 SDK 即可,先停遗留 Main 进程);AT1/AT2 需用户在能起服(且本机 MongoDB 可达)的环境手测。前置:起服 / 跑 `Server.sln` 前先停掉遗留 `Main` 进程(占 dll 锁)。
+
+### [ ] AT0 · 服务端编译通过(Entity + Hotfix 干净;整 sln 除文件锁外无编译错)
+
+- 测什么:新增换装 / 解锁 RPC handler + CosmeticHelper + PlayerDoc 4 字段 + 组件配置 + 快照下发 + schema 迁移改动后,服务端能否干净编译,源生成器把两个新 handler 正确注册。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后分别:
+  - `dotnet build examples/Server/APP/Entity/Entity.csproj`(应 0 警告 0 错误)
+  - `dotnet build examples/Server/APP/Hotfix/Hotfix.csproj`(应 0 警告 0 错误)
+  - 可选整 sln:`dotnet build examples/Server/Server.sln`(若停干净遗留进程应 `已成功生成`;若仍报 MSB3027/MSB3021「文件被 Main(...) 锁定」,是遗留进程没停干净的环境问题,非本轮代码,停掉重试)。
+- 预期结果:Entity / Hotfix 单编各 `已成功生成` 0 警告 0 错误;整 sln 干净或仅剩文件锁环境错。
+
+### [ ] AT1 · 换装 RPC 往返:已解锁可换 / 未解锁拒(起服手测)
+
+- 测什么:换装 RPC 在真实服务端往返;目标已解锁则切换当前 id、未解锁则拒(NotUnlocked)、Kind 非法则拒(InvalidKind);响应回带当前权威两个 id。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需本机 MongoDB 可达)。用客户端(或测试客户端)登录后:
+  1. **先解锁再换装(正路)**:先发 `C2G_UnlockCosmeticRequest{ Kind=1, Id=2 }`(解锁头像 id=2)→ 再发 `C2G_EquipCosmeticRequest{ Kind=1, Id=2 }` → 响应 `ResultCode=Success(0)`、`CurrentAvatarId=2`、`CurrentFrameId=101`(框未动,保持默认);服务端日志 `换装成功 ... kind=1 id=2 currentAvatar=2`。
+  2. **换框**:先 `C2G_UnlockCosmeticRequest{ Kind=2, Id=102 }` → 再 `C2G_EquipCosmeticRequest{ Kind=2, Id=102 }` → `ResultCode=Success`、`CurrentFrameId=102`、`CurrentAvatarId` 保持上一步的 2。
+  3. **未解锁拒**:发 `C2G_EquipCosmeticRequest{ Kind=1, Id=50 }`(id=50 未解锁)→ `ResultCode=NotUnlocked(3)`、回带当前权威两个 id(未切换,即头像仍 2 / 框仍 102);无「换装成功」日志。
+  4. **Kind 非法拒**:发 `C2G_EquipCosmeticRequest{ Kind=9, Id=2 }` → `ResultCode=InvalidKind(2)`、回带当前两个 id、不切换。
+- 预期结果:已解锁换装成功并切换对应种类当前 id;未解锁 / Kind 非法各返对应码且不切换、回带当前权威值。无服务端异常红日志。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] AT2 · 解锁上报 RPC:加集合 / 幂等重报 / sanity 拒非法(起服手测)
+
+- 测什么:解锁上报把 id 幂等加入对应集合;重复上报同 id 无副作用;越段 id / Kind 非法被 sanity 拒;高频上报被频率闸拒。
+- 怎么测:承 AT1 起服环境,登录后:
+  1. **首次解锁加集合**:发 `C2G_UnlockCosmeticRequest{ Kind=1, Id=3 }` → `ResultCode=Success(0)`、`UnlockedIds` 回带的头像解锁集合含 3;服务端日志 `解锁上报成功 ... kind=1 id=3`。
+  2. **幂等重报**:紧接着(间隔 >100ms 避开频率闸)再发同一条 `{ Kind=1, Id=3 }` → 仍 `ResultCode=Success`、`UnlockedIds` 集合大小不变(仍只一个 3,不重复);无报错。
+  3. **越段 id 拒**:发 `C2G_UnlockCosmeticRequest{ Kind=1, Id=500 }`(头像段 [1,100],500 越界)→ `ResultCode=InvalidId(3)`;发 `{ Kind=2, Id=50 }`(框段 [101,100000],50 越界)→ 同样 `InvalidId`;日志 `拒因=InvalidId`。集合不变。
+  4. **Kind 非法拒**:发 `{ Kind=0, Id=3 }` 或 `{ Kind=5, Id=3 }` → `ResultCode=InvalidKind(2)`。
+  5. **频率闸拒(可选)**:100ms 内连发两条不同合法解锁(如 `{1,4}` 紧跟 `{1,5}`)→ 第二条 `ResultCode=RateLimited(5)`、日志 `拒因=RateLimited`;间隔 >100ms 再发则正常成功(证明只是限速非永久拒)。
+- 预期结果:合法解锁幂等入集合(重报不增大小);越段 / Kind 非法 / 高频各返对应码且不改集合。无服务端异常红日志。
+
+### [ ] AT3 · 登录快照回带 4 字段 + 重登持久(起服手测)
+
+- 测什么:登录快照 `PlayerInfo` 回带当前佩戴 id + 已解锁集合 4 字段;换装 / 解锁后重登持久(证明落库,非本地态)。
+- 怎么测:承 AT1/AT2(此时该账号已换头像=2、框=102,解锁集合含若干 id)。断开重连再登录 → 观察服务端登录快照日志 `G2C_PlayerInfoSnapshot`,其 `Info.CurrentAvatarId`=2、`Info.CurrentFrameId`=102、`Info.UnlockedAvatarIds` 含此前解锁的头像 id、`Info.UnlockedFrameIds` 含此前解锁的框 id。
+- 预期结果:重登快照回带最新当前佩戴 id + 完整解锁集合,与此前操作一致(持久)。全新账号首登快照:`CurrentAvatarId=1`/`CurrentFrameId=101`、两解锁集合为空(等客户端 bootstrap 上报默认解锁后才填)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+## 头像/框服务端权威·客户端段(2c)
+
+> 客户端段:换装走 RPC(乐观+对账)、登录 bootstrap 上报默认解锁、当前佩戴/解锁集读快照、blob 剔除 4 字段、重登持久。
+> 编译 + EditMode 单测已过 batchmode 自检门(0 编译错误、CosmeticServiceTests 11 项 + 全量 610 测全绿);以下为门覆盖不到的联机/持久面,需起服 + 客户端连真服手测。
+
+### [ ] CT0 · 客户端编译通过(最基本项,用户 Unity 编)
+
+- 测什么:本批新增/改动的客户端代码在 Unity 编辑器里编译 0 error。
+- 怎么测:打开 Unity 编辑器(FANTASY_UNITY 已开),等待编译完成,看 Console 无红色编译错误(warning 不卡)。重点看新增文件 `CosmeticResult.cs / ICosmeticGateway.cs / CosmeticGatewayProd.cs / CosmeticService.cs`、改动的 `GameContext.cs / GameApp.cs / FantasyNetwork.cs / G2C_PlayerInfoSnapshotHandler.cs / CloudSaveCodec.cs`。
+- 预期结果:编译通过,无 error。
+- (信心来源:batchmode 已编过、只引用生成物里确在的消息/字段/枚举;仍以用户本机 Unity 编为准。)
+
+### [ ] CT1 · 换装走 RPC:已解锁可换 / 未解锁回滚 + 提示(连真服手测)
+
+- 测什么:客户端换装经 `CosmeticService.EquipAsync`:乐观即时切显示 → 发 `C2G_EquipCosmetic` → 响应对账。
+- 怎么测:起服 + 客户端连真服登录。当前无正式头像选择网格 UI(PlayerInfoWindow「编辑头像」仍是占位),故本条经临时入口手测:在能拿到 `GameContext.Instance.Cosmetic` 的调试入口(或临时按钮)对某已解锁头像 entry 调 `EquipAsync(player, entry)`,再对一个未解锁 entry 调一次。
+  1. **已解锁换装**:选一个服务端解锁集里已有的头像(如首登默认头像 1 或已 bootstrap 上报的 id)→ 换装后 `PlayerInfoWindow` 头像占位色随 `CurrentAvatarId` 改变;服务端日志 `换装成功`;`EquipCosmeticResult.Success=true`。
+  2. **未解锁回滚**:选一个服务端解锁集里没有的头像 id → 客户端先乐观切显示(短暂)→ 响应 `NotUnlocked` → 显示回退到服务端当前佩戴 id(不停在未解锁 id);有提示/日志。
+  3. **断网**:关服后换装 → 乐观切显示后回滚到发前旧值,不停在目标 id;提示网络异常。
+- 预期结果:已解锁换装成功并持久;未解锁乐观切后回退到服务端当前值;断网回退到旧值。全程不崩。
+- 已知风险:目前无正式换装网格 UI,需临时调试入口触发 `EquipAsync`;正式 UI 落地后此路径复测。
+
+### [ ] CT2 · 登录 bootstrap 上报默认解锁(连真服手测,首登账号)
+
+- 测什么:全新账号首登(服务端解锁集空)后,客户端 bootstrap 把「按等级算出的应解锁集(含默认头像 1 / 框 101)」与服务端空集做差、对缺的每个 id 发一次 `C2G_UnlockCosmetic` 补齐;只报差集。
+- 怎么测:用一个从未登录过的全新账号连真服登录。观察:
+  1. 服务端收到若干 `C2G_UnlockCosmeticRequest`,至少含 `{Kind=1,Id=1}`(默认头像)与 `{Kind=2,Id=101}`(默认框),外加当前等级已达标的 LEVEL 头像/框 id;各返 `Success`。
+  2. 重登该账号 → 登录快照 `UnlockedAvatarIds` 含 1(及已达标项)、`UnlockedFrameIds` 含 101(证明 bootstrap 已落库)。
+  3. **只报差集**:再次重登(此时服务端集已含默认)→ bootstrap 不再重发已含的 id(客户端只对服务端集缺的 id 发上报);服务端不应收到对 1/101 的重复上报(幂等,重报也无害但应尽量不发)。
+- 预期结果:首登补报默认 + 达标解锁并落库;重登只报仍缺的差集,不全量重发。
+- 已知风险:bootstrap 依赖 `AvatarConfigMgr.All()`(配置表);配置未就绪时退「只兜默认 id」,请确认头像配置表在登录快照到达前已加载(否则只补默认 1/101,达标项延后到配置就绪后的下次登录/事件补)。
+
+### [ ] CT3 · 当前佩戴 / 解锁集登录读快照(连真服手测)
+
+- 测什么:客户端当前佩戴 + 解锁集的权威源是登录快照(不再读本地 blob)。
+- 怎么测:
+  1. 登录后打开 `PlayerInfoWindow`,头像占位色对应服务端快照 `CurrentAvatarId`(默认 1 时为 id=1 的稳定色)。
+  2. **服务端改值验证权威**:在服务端(或经 CT1 换装)把当前头像改成 2 → 客户端重登 → 头像显示随快照变为 id=2 的色(证明读快照非读本地旧 blob)。
+  3. **本地篡改被覆盖**:手动改本地存档 blob 里 curAvatarId(若可达)→ 重登 → 显示仍以服务端快照为准,不被本地 blob 值影响。
+- 预期结果:显示 / 换装当前态 / 解锁判定均以服务端快照为准;登录不闪默认头像(服务端缺省 1/101 与客户端默认一致)。
+
+### [ ] CT4 · blob 不含 4 字段(可离线手测,不需连服)
+
+- 测什么:云存档 blob 组装 / 回灌都不含 curAvatarId/curFrameId/unlockedAvatarIds/unlockedFrameIds(绝不入 blob、不被下载回灌覆盖服务端权威)。
+- 怎么测:本条已由 EditMode `CloudSaveTests.C1/C2` 覆盖(自检门已过):C1 断言 BuildBlob 后这 4 字段清零/清空;C2 断言 ApplyBlob 回灌不带这 4 字段。用户如需人工复核:在离线包里触发一次存档上传/下载,确认 blob JSON 里这 4 字段为 0 / 空。
+- 预期结果:blob 里这 4 字段恒为 0 / 空;下载回灌不覆盖服务端权威当前佩戴 / 解锁集。
+
+### [ ] CT5 · 重登头像持久(连真服手测,端到端)
+
+- 测什么:换装 + 解锁后彻底重登(断连接重连),头像与解锁集持久(证明服务端落库,非本地态)。
+- 怎么测:CT1 换到头像 2、CT2 已 bootstrap 解锁若干 → 完全退出重连重登 → `PlayerInfoWindow` 头像仍为 2;若有解锁网格,已解锁项仍显解锁态。清掉本地存档后重登 → 仍从服务端快照恢复为 2 + 完整解锁集(证明与本地 blob 无关)。
+- 预期结果:重登后当前佩戴 + 解锁集与操作后一致,且清本地档也能从服务端快照恢复。
+
+## 待测条目(祈愿服务端权威·服务端段·3a)
+
+> 服务端工程 `Fantasy/`(分支 `block`)。本轮把祈愿(每日限领体力兑换)迁上服务端权威:每日祈愿次数闸 + 灵力扣 + 体力发一律服务端裁决。
+> 新增 `C2G_WishForEnergyRequest`/`G2C_WishForEnergyResponse`(祈愿 RPC,Outer RPC、Gate Scene、身份从会话 `GateAccountFlagComponent` 取,请求无载荷——不带账号 / 费用 / 次数)。
+> `PlayerDoc` 加 2 字段:`WishUsedToday`(int,今日已用次数)/`WishLastResetUnixMs`(long,上次每日重置时刻 UTC ms)。登录快照 `PlayerInfo` 加 `WishUsedToday` + `WishDailyLimit` 两字段。
+> 配置镜像 `WishConfigServer`(= 客户端 `MergeOrderConfig` 同名常量):`WishSoulCost=20`、`WishEnergyGain=10`、`WishDailyLimit=3`;体力软上限复用 `MergeOrderConfigServer.EnergyCap`(读 Luban global id=4,默认 30)不另镜像,避免同一软上限两处分叉。
+> RPC 裁决顺序(`WishHelper.TryWish`):① 懒每日重置(`ResetWishIfDue`:按服务端本地日期 `TimeHelper.Now.TransitionLocal().Date` 判跨天,跨天则 `WishUsedToday=0` + 刷新 `WishLastResetUnixMs`,CAS `WishLastResetUnixMs==读值` 防并发双重置)→ ② 门控(重置后 `WishUsedToday >= WishDailyLimit` → `DailyLimitReached`,不扣不发)→ ③ 扣灵力(`ChangeProperty(SoulPower, -20, serverAuthoritative:true, reason="wish")`;灵力不足 `NotEnough` → `NotEnoughSoul`、不发体力)→ ④ 发体力(先 `ReadEnergyAuthoritative` 读权威体力 E 含懒恢复结算,实发 `netDelta = min(EnergyCap, E+10) - E`;E 已到/超软上限时 `netDelta<=0` 不发,只扣灵力——复刻客户端 `Math.Min(EnergyCap, Energy+gain)`)→ ⑤ `WishUsedToday+1`(原子 `$inc`)。成功各资源变更起 delta 推送对齐 HUD。
+> 体力夹 cap 与落子派生口径协调:祈愿发体力沿用与落子完全相同的「`ReadEnergyAuthoritative`(await 结算恢复取 E)→ 同步算 netDelta(无 await)→ `ChangeProperty($inc netDelta)`」范式;`ChangeProperty` 内部恢复结算因同 tick 变 no-op,两处不打架。
+> 登录快照:`InitOrLoad` 在下发快照前先跑一次 `ResetWishIfDue`,使客户端登录看到的 `WishUsedToday` 是重置后的当日值。
+> schema 版本已由 7 升至 8(旧档登录经 `MigrateSchemaIfNeeded` 用 `$ifNull` 补 `WishUsedToday=0` + `WishLastResetUnixMs=nowMs`,补 nowMs 而非 0 避免旧档补齐当次即被判 1970 年跨天);清档 `ResetToNewbie` 一并重置这 2 字段。
+> **opcode 说明(已两端同步,本轮位移一次)**:新增 Wish 两条 RPC 导出时 `WishMessage.proto` 排在处理序末段(`Wish` 排在 `ClearPlayerData` 之前),占用 `C2G_WishForEnergyRequest=268445489`/`G2C_WishForEnergyResponse=402663217`,其后仅 `C2G_ClearPlayerDataRequest`/`G2C_ClearPlayerDataResponse` 顺移 +2(现为 `268445490`/`402663218`)。因本轮导出同时把工作树里此前已加但未导出的 Cosmetic proto 一并纳入扫描序,故相对上一次提交的服务端生成物,中段 opcode 另有 +2 整体位移——**客户端与服务端生成物在同一次导出中一起重生成、两端 opcode 表 byte 完全一致**(dev 已 diff 核对 `OuterOpcode.cs`/`OuterEnum.cs`/`OuterMessage.cs` 服务端与客户端 3 文件逐字节相同),故位移无害;前提两端生成物一并生效(勿只更新一端,开发阶段无历史包袱、无旧连接)。
+> dev 已自检:Entity + Hotfix 项目单编各 0 警告 0 错误(整 `Server.sln` 仅剩已知的 MSB3027/MSB3021 文件锁——遗留 `Main` 进程占 `examples/Bin/Debug/net8.0/` dll,非编译错);协议已导出,客户端生成物已自动同步进 UnityProject(`Assets/Fantasy/Generate/NetworkProtocol/`);源生成器已把新 handler 编入 Hotfix.dll(RPC ResponseType 绑定正确)。
+> WT0 是纯编译核对(有 .NET 8 SDK 即可,先停遗留 Main 进程);WT1/WT2/WT3/WT4 需用户在能起服(且本机 MongoDB 可达)的环境手测。前置:起服 / 跑 `Server.sln` 前先停掉遗留 `Main` 进程(占 dll 锁)。
+
+### [ ] WT0 · 服务端编译通过(Entity + Hotfix 干净;整 sln 除文件锁外无编译错)
+
+- 测什么:新增祈愿 RPC handler + WishHelper + WishConfigServer + PlayerDoc 2 字段 + 快照下发 + schema 迁移改动后,服务端能否干净编译,源生成器把新 handler 正确注册。
+- 怎么测:先停掉遗留 `Main` 进程;命令行 `cd D:\work\TEngine_block\Fantasy` 后分别:
+  - `dotnet build examples/Server/APP/Entity/Entity.csproj`(应 0 警告 0 错误)
+  - `dotnet build examples/Server/APP/Hotfix/Hotfix.csproj`(应 0 警告 0 错误)
+  - 可选整 sln:`dotnet build examples/Server/Server.sln`(若停干净遗留进程应 `已成功生成`;若仍报 MSB3027/MSB3021「文件被 Main(...) 锁定」,是遗留进程没停干净的环境问题,非本轮代码,停掉重试)。
+- 预期结果:Entity / Hotfix 单编各 `已成功生成` 0 警告 0 错误;整 sln 干净或仅剩文件锁环境错。
+
+### [ ] WT1 · 祈愿 RPC 往返:可领(扣灵力 + 发体力 + 次数 +1)(起服手测)
+
+- 测什么:祈愿 RPC 在真实服务端往返;灵力足 + 未达每日上限时,扣 20 灵力、发体力(夹软上限 30)、今日次数 +1;响应回带最新权威值。
+- 怎么测:停遗留 `Main` → 起服 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`(需本机 MongoDB 可达)。用客户端(或测试客户端)登录后,先确保该账号有 ≥20 灵力、体力 <30(如体力已 30 满,先落子/消耗降到 30 以下,否则本条只扣灵力不涨体力,见 WT4)。发 `C2G_WishForEnergyRequest{}`:
+  1. **首次祈愿**:响应 `ResultCode=Success(0)`;`SoulPower` = 扣前 -20 后余额;`Energy` = 发后余额(= min(30, E+10));`WishUsedToday=1`;`WishDailyLimit=3`。服务端日志 `祈愿成功 ... wishUsedToday=1/3`,并各起一次 SoulPower / Energy 的 delta 推送。
+  2. **连领至上限**:再连发两次(每次间隔避开 100ms 频率闸虽走 serverAuthoritative 绕过,但保守起见)→ 第 2/3 次仍 `Success`、`WishUsedToday` 递增到 2、3;每次扣 20 灵力、发体力夹 cap。
+- 预期结果:可领时扣 20 灵力、发体力夹到 ≤30、次数递增;响应回带扣后灵力 / 发后体力 / 新次数 / 上限 3。无服务端异常红日志。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] WT2 · 祈愿门控:灵力不足拒 / 当日次数满拒(起服手测)
+
+- 测什么:灵力 <20 时拒 `NotEnoughSoul`、不扣不发;今日已用满 3 次时拒 `DailyLimitReached`、不扣不发。
+- 怎么测:承 WT1 起服环境:
+  1. **灵力不足**:把账号灵力降到 <20(如经消耗,或用一个灵力不足的账号)→ 发 `C2G_WishForEnergyRequest{}` → `ResultCode=NotEnoughSoul(3)`;`SoulPower` 回带当前实际灵力(未扣)、`Energy` 未变、`WishUsedToday` 未增。无「祈愿成功」日志。
+  2. **当日次数满**:承 WT1 已连领到 `WishUsedToday=3` 的账号(灵力仍充足)→ 再发一次 → `ResultCode=DailyLimitReached(2)`;灵力 / 体力均未变、`WishUsedToday` 仍 3。无扣发日志。
+- 预期结果:灵力不足 / 次数满各返对应码且不扣灵力、不发体力、不加次数;回带当前权威值供客户端回退。无异常红日志。
+
+### [ ] WT3 · 跨天懒重置(次数归零可再领)+ 登录快照回带 + 重登持久(起服手测)
+
+- 测什么:跨服务端本地日期后,懒重置把 `WishUsedToday` 归零、可再领;登录快照回带 `WishUsedToday`(重置后当日值);重登持久。
+- 怎么测:承 WT1/WT2(账号已 `WishUsedToday=3`)。制造跨天有两种方式,任选:
+  - **改机器日期**:把服务端机器系统日期 +1 天(或改时区跨过本地午夜),重启服(或直接触发一次祈愿 / 重登)→ 祈愿或登录时 `ResetWishIfDue` 判跨天 → `WishUsedToday` 归零。
+  - **改库时刻**:MongoDB 里把该账号 `players` 文档的 `WishLastResetUnixMs` 手动改成昨天某时刻的 ms → 下次祈愿 / 登录触发懒重置。
+  1. **重置后可再领**:跨天后重登(或直接发祈愿)→ 若走登录:观察 `G2C_PlayerInfoSnapshot` 的 `Info.WishUsedToday=0`、`Info.WishDailyLimit=3`;再发 `C2G_WishForEnergyRequest{}` → `Success`、`WishUsedToday=1`(证明归零后重新计数)。服务端日志 `祈愿每日重置 ... wishUsedToday=0`。
+  2. **同日不重置**:同一天内多次登录 / 祈愿,`WishUsedToday` 不被重置(沿用当日累计值,只跨天才归零)。
+  3. **重登持久**:领若干次后(如 `WishUsedToday=2`)当天断连重登 → 登录快照 `Info.WishUsedToday=2`(同日持久,未被误重置);跨天再重登 → `Info.WishUsedToday=0`。
+- 预期结果:跨服务端本地日期归零并可再领;同日不重置;登录快照回带重置后当日次数;重登在同日持久、跨天归零。无异常红日志。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] WT4 · 体力已满软上限时祈愿只扣灵力不涨体力(夹 cap 边界,起服手测)
+
+- 测什么:体力已 ≥ EnergyCap(30)时祈愿,复刻客户端 `Math.Min(EnergyCap, Energy+gain)` 语义 —— 灵力仍扣 20、次数仍 +1,但体力不涨(netDelta ≤ 0 跳过发体力)。
+- 怎么测:承起服环境,让账号体力 = 30(满软上限)、灵力 ≥20、当日次数 <3。发 `C2G_WishForEnergyRequest{}` → `ResultCode=Success`;`SoulPower` = 扣 20 后;`Energy` 仍 = 30(未涨);`WishUsedToday` +1。服务端日志有「祈愿成功」但 Energy 的 delta 推送不触发(netDelta<=0 跳过发体力)。
+- 预期结果:体力满软上限时祈愿仍消耗灵力 + 计次,但体力不溢出软上限(与客户端夹 cap 逐位一致,避免登录/对账时体力跳变)。
+
+---
+
+## 皮肤/神庙装饰服务端权威·服务端段(3b)
+
+> 服务端段:皮肤态(是否单色 + 当前单色 id)+ 神庙装饰(已装饰厅数标量)三个「设置状态」服务端权威。
+> 新增一条 SET 语义上报 RPC `C2G_SetProfileStateRequest`(全量覆盖三态,非 delta 累加)+ 登录快照回带三字段。
+> 起服前提:先关掉正在跑的旧服务端进程(否则占用锁旧二进制),用新编译产物重启;需 MongoDB 可达(改动落 players 集合)。MongoDB 不可达的用例标注「待有库环境手验」。
+
+### [ ] PT0 · 服务端编译通过(Entity + Hotfix 干净;整 sln 除文件锁外无编译错)
+
+- 测什么:本批改动(PlayerDoc 加 3 字段 + SchemaVersion 8→9 + ProfileStateHelper + Handler + 服务组件 sanity 配置 + 登录快照下发 + 协议导出生成物)能否随服务端工程编译通过。
+- 怎么测:关掉正在跑的 Main 服务端进程(释放 Bin 目录 DLL 锁),在 `D:\work\TEngine_block\Fantasy` 跑 `dotnet build examples/Server/Server.sln`。
+- 预期结果:0 error 0 warning。（dev 侧已单编 Entity 与 Hotfix 均 0 error 0 warning 佐证；整 sln 若仍有 `MSB3021/MSB3027 文件被 Main 锁定` 属旧进程未关的环境项,非编译错,关进程后即消失。）
+
+### [ ] PT1 · 设置三态 RPC 往返:全量 set + 回带对账（起服手测，需 MongoDB）
+
+- 测什么:客户端发 `C2G_SetProfileStateRequest{SkinMono, SkinMonoId, TempleDecorated}`，服务端 sanity 通过后原子 `$set` 三态到 players 文档，响应回带 set 后当前权威三态。
+- 怎么测:起服（连 MongoDB）+ 登录一个账号。发合法值，如 `SkinMono=1, SkinMonoId=5, TempleDecorated=3`（SkinMonoId 落 [1,100000] 段内、TempleDecorated ∈ [0,100000]）。
+- 预期结果:响应 `ResultCode=Success`；`SkinMono=1 / SkinMonoId=5 / TempleDecorated=3` 原样回带。服务端日志有「设置档案状态成功 account=... skinMono=1 skinMonoId=5 templeDecorated=3」。直查 MongoDB players 文档该账号，`SkinMono=1 / SkinMonoId=5 / TempleDecorated=3` 已落库。
+
+### [ ] PT2 · 幂等重报同值无副作用（起服手测，需 MongoDB）
+
+- 测什么:重复上报同一组三态，SET 覆盖语义下第二次无副作用（结果与第一次一致，不报错、不累加）。
+- 怎么测:承 PT1，紧接再发一次完全相同的 `SkinMono=1, SkinMonoId=5, TempleDecorated=3`。
+- 预期结果:第二次仍 `ResultCode=Success`，回带值不变（1/5/3）。MongoDB 文档该三字段值不变（SET 幂等，非 delta 累加，不会变成 6 之类）。
+
+### [ ] PT3 · sanity 拒非法值 + 回带当前权威（起服手测，需 MongoDB）
+
+- 测什么:越界值被 sanity 拒（`InvalidRequest`），不写库，且回带服务端当前权威三态供客户端回退。
+- 怎么测:承 PT1（当前权威 = 1/5/3）。分别发三组非法值观察：
+  - `SkinMono=2`（非 0/1）；
+  - `SkinMonoId=0`（既非哨兵 -1、又 < 段下界 1）或 `SkinMonoId=200000`（超段上界）；
+  - `TempleDecorated=-1` 或 `TempleDecorated=200000`（超上界）。
+  另验合法哨兵 `SkinMonoId=-1`（彩色态）应放行不被拒。
+- 预期结果:三组非法值均返 `ResultCode=InvalidRequest`，回带当前权威 1/5/3（未被覆盖）；MongoDB 文档三字段保持 1/5/3 不变。服务端日志有「ProfileStateHelper.TrySet 拒因=InvalidRequest ...」。`SkinMonoId=-1` 那次应 `Success`（哨兵放行）。
+
+### [ ] PT4 · 登录快照回带 3 字段 + 重登持久（起服手测，需 MongoDB）
+
+- 测什么:登录时服务端主动下发的 `G2C_PlayerInfoSnapshot.Info` 携带 `SkinMono / SkinMonoId / TempleDecorated` 三字段，且断线重登后值持久（上次 set 的值不丢）。
+- 怎么测:承 PT1（已 set 1/5/3）。断开连接后重新登录同账号，抓登录快照 `G2C_PlayerInfoSnapshot`。
+- 预期结果:快照 `Info.SkinMono=1 / Info.SkinMonoId=5 / Info.TempleDecorated=3`（重登读到上次 set 的值，服务端权威持久）。全新账号首登时三字段为缺省 `SkinMono=0 / SkinMonoId=-1 / TempleDecorated=0`（对齐客户端默认:彩色 / Unselected / 无装饰）。
+
+### [ ] PT5 · 旧档补字段迁移（可选，需构造旧 schema 文档，需 MongoDB）
+
+- 测什么:SchemaVersion < 9 的旧玩家文档登录时被补齐 3 个新字段（缺字段 → 补客户端默认 0/-1/0），SchemaVersion 升到 9。
+- 怎么测:直接在 MongoDB 把某账号 players 文档的 `SchemaVersion` 改回 8 并删掉 `SkinMono/SkinMonoId/TempleDecorated` 三字段，然后用该账号登录。
+- 预期结果:登录后文档 `SchemaVersion=9`，三字段 present 且为 `SkinMono=0 / SkinMonoId=-1 / TempleDecorated=0`；服务端日志有「MigrateSchemaIfNeeded 补字段成功 ... fromVersion=8 toVersion=9」。登录快照回带这三缺省值。
+
+## 皮肤/神庙装饰服务端权威·客户端段(3b)
+
+> dev 已跑自检门(batchmode 编译 + EditMode):PASS，total=619 passed=601 failed=0 skipped=18，compileErrors=0。新增/改动的 EditMode 单测已覆盖皮肤/装饰 SET 上报三态口径、快照读三态(标量↔数组 + SkinMonoId=-1 未选)、blob 剔除三字段(且 CopyNonCurrencyNonIdentity 清空)。以下为门覆盖不到、需连真服 / 实机手测的路径。
+
+### [ ] PCT1 · 客户端编译通过(最基本项,用户 Unity 编)
+
+- 测什么:本批客户端改动(新增 profile-state 网关 + 上报接入 + 快照读三态 + blob 剔除)能否随工程编译通过。
+- 怎么测:Unity 编辑器等脚本编译完成,看 Console 无红色 error。
+- 预期结果:0 编译错误(warning 不卡)。
+
+### [ ] PCT2 · 皮肤全清换皮走 SET 上报(连真服手测)
+
+- 测什么:融合主游戏里达成一次全清(PERFECT)触发换皮后,客户端把当前三态全量 SET 上报服务端。
+- 怎么测:连真服进融合主游戏,玩到一次全清(棋盘清空,弹 PERFECT)。观察服务端是否收到一条 `C2G_SetProfileState`(带 SkinMono=1 + 当前单色 id + 当前已装饰厅数);或换皮后重登,看棋盘皮肤是否为上次换到的单色态(而非退回彩色)。
+- 预期结果:全清后棋盘转单色/换一张单色皮肤;该三态经 RPC 落服务端;重登后皮肤态保持(单色不退回彩色)。已知风险:上报 fire-and-forget,若换皮瞬间网络抖动这一笔可能丢——但下次任意变更会再全量报、或重登由快照对齐,不应长期丢态。手测时若单次未同步,重开一局再触发一次全清复核。
+
+### [ ] PCT3 · 神庙装饰走 SET 上报(连真服手测)
+
+- 测什么:神庙窗口修复一厅(即置该厅已装饰)后,客户端把当前三态全量 SET 上报(已装饰厅数 +1)。
+- 怎么测:连真服,攒够虔诚币,进神庙窗修复下一厅。观察服务端是否收到 `C2G_SetProfileState`(TempleDecorated = 修复后的已装饰厅数);或修复后重登,看该厅装饰态是否保持。
+- 预期结果:修复一厅后已装饰厅数 +1 并经 RPC 落服务端;重登后装饰态保持。已知风险:同 PCT2 fire-and-forget,单次抖动可能丢;下次装饰/换皮再全量报或重登快照对齐。
+
+### [ ] PCT4 · 登录快照读三态覆盖本地投影(连真服手测)
+
+- 测什么:登录时用服务端快照三态(是否单色 + 当前单色 id + 已装饰厅数)覆盖本地投影,而非本地旧缓存 / 旧 blob。
+- 怎么测:①先在账号 A 玩出单色皮肤 + 装饰若干厅并让其落服务端;②换设备 / 清本地 PlayerPrefs 后用账号 A 重登,进融合主游戏。观察棋盘皮肤态 + 神庙装饰态是否 = 服务端权威(而非清本地后的初始彩色 / 无装饰)。
+- 预期结果:清本地后重登,皮肤态 + 装饰态仍显示服务端权威值(单色 + 已装饰厅数正确恢复)。重点核对:SkinMonoId 服务端为 -1(彩色/未选)时客户端按未选处理、显示彩色态,不误当有效 id 0 而显示 0 号皮肤。
+
+### [ ] PCT5 · blob 不含三字段(可离线手测,不需连服)
+
+- 测什么:云存档 blob 不再携带 skinMono / skinMonoId / templeDecorated(元层白名单已清空)。
+- 怎么测:触发一次云存档上传后,查看上传的 blob 内容(或本批已由 EditMode 单测 C1/C1b 覆盖:blob strip 三字段 + ApplyBlob 不回灌)。若手动核对:构造本地皮肤=单色 + 装饰若干,触发上传,解出 blob metaJson,确认这三字段为清零/清空值。
+- 预期结果:blob metaJson 里 skinMono=false / skinMonoId=0 / templeDecorated 空;下载他人 blob 不会把这三字段回灌本地(权威只走登录快照)。此项 happy path 已被 EditMode 单测锁死,手测仅在怀疑上传路径异常时复核。
+
+---
+
+## 待测条目(云存档退役·服务端段:局内切片折入 GameSessionDoc + 删 C2G_CloudSave* 通道)
+
+> 局内 cosmetic + 合成叠加层作为不透明字符串切片 SliceJson 折入服务端 GameSessionDoc(服务端只搬运不解析,按 playerId 隔离,随会话档同生死):C2G_Place / ClearTool 上行搭车写入,G2C_GameStart(续局)/ GameSnapshot 下行回带。整个 C2G_CloudSave* 通道(上传 / 下载 handler、CloudSaveDoc、Service、Helper、proto)已删。协议双端重导,生成物逐位一致。
+> 提醒:跑整 sln build / 起服前先停占 examples/Bin dll 锁的旧 Main 进程。
+
+### [ ] SVT1 · 服务端编译通过(纯命令行)
+
+- 测什么:Entity + Hotfix 两工程(及整 sln)在切片字段 + 删 CloudSave 通道后能否编译通过、源生成器无悬挂 CloudSave handler 注册。
+- 怎么测:停掉占锁的旧 Main 进程后,dotnet build Fantasy.sln(或 Entity.csproj + Hotfix.csproj)。
+- 预期结果:0 编译错误;生成物中无 CloudSave message,双端 OuterOpcode / OuterMessage / OuterEnum 逐位一致。
+
+### [ ] SVT2 · 局内切片续存往返(起服手测,依赖 MongoDB)
+
+- 测什么:切片经落子 / 消除道具上行写入 GameSessionDoc,续局 / 快照回带恢复;GameOver 删档后切片一并没、下一局 Resumed=false 回带空串。
+- 怎么测:连真服玩若干步(合成 / 元素 / 订单态非空),断线重连或重进拉快照,核对回带切片非空且与中断前一致;玩到终局后再进,确认新建局(空切片)。
+- 预期结果:续局回带切片恢复中断前局内现场;终局后无残留切片、走缺省新局。
+- (MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] SVT3 · CloudSave 通道已删且 EnterMainGame / ClearPlayerData 仍成立(起服手测)
+
+- 测什么:C2G_CloudSave* 通道彻底移除后,依赖它的两条链路仍正常——EnterMainGame 只回带订单快照(无云存档段)、ClearPlayerData 改删 GameSessionDoc。
+- 怎么测:连真服登录进主游戏(观察 EnterMainGame 往返正常、订单快照到位);触发清档,确认服务端删的是 GameSessionDoc(在局对局档),重登走新建 / 空局。
+- 预期结果:无任何 C2G_CloudSave* 往返;EnterMainGame 订单快照正常;ClearPlayerData 后在局档被清、重登不复活旧局。
+- (MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(云存档退役·客户端段:局内现场改服务端会话切片承载)
+
+> 云存档通道已彻底退役:客户端 CloudSaveSync / Codec / Payload / GatewayProd / ICloudSaveGateway + 本地融合局内持久化 MergeIngamePersistence 均已删。局内 cosmetic + 合成叠加层(颜色 / 元素 overlay / 合成区库存 / 订单 / 连消态)改由服务端会话文档的不透明切片 SliceJson 承载:落子 / 消除道具经 C2G_Place / ClearTool 上行搭车存档,G2C_GameStart / GameSnapshot 下行回带恢复。
+> 自检门(batchmode 编译 + EditMode)结论见交付报告。以下为门覆盖不到、需连真服 / 实机手测的路径。CVT1 是最基本编译项。
+
+### [ ] CVT1 · 客户端编译通过(最基本项,用户 Unity 编)
+
+- 测什么:本轮收尾改动(PlayerDataLocalReset 去 MergeIngamePersistence/CloudSaveSync 引用 + 遗留键防御性清、EnterMainGameTests 重写去云存档断言、ServerDealSyncTests 桩补 sliceJson 参数、多处注释重写)能否随工程编译通过。
+- 怎么测:Unity 编辑器等脚本编译完成,看 Console 无红色 error;Window > General > Test Runner(EditMode)能否列出 BlockBlast.Tests(尤其 EnterMainGameTests / ServerDealSyncTests / PlayerDataLocalResetTests)。
+- 预期结果:0 编译错误(warning 不卡);EditMode 列表正常列出上述 fixture,EnterMainGameTests 含 E1-E4 四条(均围绕订单快照,不再有云存档 version/blob 断言)。
+
+### [ ] CVT2 · 续局回带切片恢复局内现场(连真服 + 起服手测)
+
+- 测什么:退出玩法窗重进(服务端仍持同一局)时,盘面颜色 / 元素叠加层 / 合成区库存 / 订单 / 连消态恢复到中断前(切片 SliceJson 下行 import)。
+- 怎么测:连真服(需 MongoDB 可达)登录进融合主游戏,落若干子,让局内出现:盘面带颜色 / 元素 overlay、合成区有库存、订单进度非零、连消链非 1。关闭玩法窗再开(或断线重连后再开窗)。
+- 预期结果:重进后 board 占用格的颜色 / 元素 overlay、合成区库存、订单状态、连消态恢复到关窗前,不是空白初始态。切片随 G2C_GameStart(Resumed=true)/ GameSnapshot 回带并 import。若某一类叠加层未恢复(如合成区清零),原样回报是哪一类丢失。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] CVT3 · 落子/消除道具上行搭车切片存档 + 弱网重连一致(连真服 + 起服手测)
+
+- 测什么:每步落子 / 用消除道具时,当前局内切片 SliceJson 随 C2G_Place / C2G_ClearTool 上行,服务端存档;弱网 / 掉线重连后快照回带的局内现场与掉线前一致。
+- 怎么测:连真服进玩法,落几子 + 用一次消除道具(让合成 / 元素态变化);制造一次弱网或强制断线(如关网卡后重连),重连后再开窗观察局内现场。
+- 预期结果:上行的每一步都带最新切片(服务端存档持续更新);重连后回带的盘面颜色 / 元素 / 合成 / 订单 / 连消与断线前最后一步一致,无回退到更早状态或丢失叠加层。重点核对:消除道具那一步的切片也上行了(不只落子上行)。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+### [ ] CVT4 · CloudSave 客户端彻底移除:无云存档往返 + OnSaved 不传 blob(连真服可观测)
+
+- 测什么:客户端不再有 C2G_CloudSaveUpload / Download 往返;存档边界 OnSaved 钩子不再上传 blob,仅触发货币聚合上报。
+- 怎么测:连真服进玩法,触发若干次存档边界(落子 / 消除 / 换皮等驱动 MergeMetaPersistence.SaveAsync)。抓客户端发出的 RPC 列表 / 服务端收到的消息类型。
+- 预期结果:全程无 C2G_CloudSaveUpload / C2G_CloudSaveDownload(这两条协议客户端已无发起方);存档边界只观察到货币聚合上报(C2G_PropertyChange 类)。若仍看到任何云存档相关 RPC,原样回报(说明有残留调用点未清)。
+
+### [ ] CVT5 · 清档后重登无旧局内 blob 复活(连真服 + 起服手测)
+
+- 测什么:清档(PlayerDataLocalReset.ClearAll,含防御性清历史遗留融合局内 blob 键 block_blast_merge_ingame_v1)后重登,本地无旧融合局内数据复活,客户端从服务端快照 / 切片重建。
+- 怎么测:先正常玩一局让本地有各类缓存;触发清档流程(客户端清档入口,服务端清档成功后调 ClearAll);重登同账号进玩法。
+- 预期结果:重登后局内现场以服务端为准(服务端已清则空盘新局 / 服务端仍持则续局切片),本地不会冒出旧盘面 / 旧合成态。即使本地曾遗留 block_blast_merge_ingame_v1 旧 blob(历史版本写入),清档已防御性删除,不复活。
+- (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)

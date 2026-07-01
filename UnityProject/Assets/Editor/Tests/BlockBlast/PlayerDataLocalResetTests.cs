@@ -15,15 +15,15 @@ namespace GameLogic.BlockBlast.Tests
     {
         private InMemoryPersistenceProvider _store;
 
-        // 与 PlayerDataLocalReset / CloudSaveCodec 枚举的玩法键集对齐(此处复述键值,与实现独立校验,
+        // 与 PlayerDataLocalReset 的删除集对齐(此处复述键值,与实现独立校验,
         // 任一侧改键名而未同步,本测试即红,作防漂移闸)。
         private static readonly string[] PlayerDataKeys =
         {
             "block_blast_merge_meta_v1",   // 元层(货币/进度/档案/经典最高分)
-            "block_blast_merge_ingame_v1", // 融合棋盘
             "block_blast_save_v1",         // 经典棋盘
             "block_blast_dynamic_v1",      // 动态权重
-            "block_blast_cloud_version_v1",// 云存档本地 version
+            "block_blast_merge_ingame_v1", // 历史遗留:已退役的融合局内 blob(防御性清)
+            "block_blast_cloud_version_v1",// 历史遗留:已退役的云存档本地 version(防御性清)
             "Mail.Inbox",                  // 邮件
             "Rank.Progress",               // 排行榜进度
         };

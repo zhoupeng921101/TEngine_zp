@@ -24,10 +24,13 @@ namespace FantasyClient
                 return;
             }
 
-            // 七属性各一项(Coin/Diamond/Stamina + 四玩法货币 SoulPower/Piety/GuardianExp/Energy),按 type 散到对应 long;
+            // 属性各一项(Coin/Diamond/Stamina + 四玩法货币 SoulPower/Piety/GuardianExp/Energy + 六元层计数器
+            // GoddessLevel/GoddessRating/UnlockedChapter/BlindBoxCount/TempleRepaired/NextRepairIndex),按 type 散到对应 long;
             // 缺项以 0 缺省(沿服务端段默认初值)。
             long coin = 0, diamond = 0, stamina = 0;
             long soulPower = 0, piety = 0, guardianExp = 0, energy = 0;
+            long goddessLevel = 0, goddessRating = 0, unlockedChapter = 0;
+            long blindBoxCount = 0, templeRepaired = 0, nextRepairIndex = 0;
             if (info.Properties != null)
             {
                 foreach (var item in info.Properties)
@@ -35,23 +38,47 @@ namespace FantasyClient
                     if (item == null) continue;
                     switch (item.Type)
                     {
-                        case PropertyType.Coin:        coin = item.Amount; break;
-                        case PropertyType.Diamond:     diamond = item.Amount; break;
-                        case PropertyType.Stamina:     stamina = item.Amount; break;
-                        case PropertyType.SoulPower:   soulPower = item.Amount; break;
-                        case PropertyType.Piety:       piety = item.Amount; break;
-                        case PropertyType.GuardianExp: guardianExp = item.Amount; break;
-                        case PropertyType.Energy:      energy = item.Amount; break;
+                        case PropertyType.Coin:            coin = item.Amount; break;
+                        case PropertyType.Diamond:         diamond = item.Amount; break;
+                        case PropertyType.Stamina:         stamina = item.Amount; break;
+                        case PropertyType.SoulPower:       soulPower = item.Amount; break;
+                        case PropertyType.Piety:           piety = item.Amount; break;
+                        case PropertyType.GuardianExp:     guardianExp = item.Amount; break;
+                        case PropertyType.Energy:          energy = item.Amount; break;
+                        case PropertyType.GoddessLevel:    goddessLevel = item.Amount; break;
+                        case PropertyType.GoddessRating:   goddessRating = item.Amount; break;
+                        case PropertyType.UnlockedChapter: unlockedChapter = item.Amount; break;
+                        case PropertyType.BlindBoxCount:   blindBoxCount = item.Amount; break;
+                        case PropertyType.TempleRepaired:  templeRepaired = item.Amount; break;
+                        case PropertyType.NextRepairIndex: nextRepairIndex = item.Amount; break;
                     }
                 }
             }
 
+            // 头像/框服务端权威:当前佩戴 id + 已解锁集合。协议 List<int> 用完即回池,复制为独立数组避免引用悬空。
+            int[] unlockedAvatarIds = CopyIds(info.UnlockedAvatarIds);
+            int[] unlockedFrameIds = CopyIds(info.UnlockedFrameIds);
+
             var view = new PlayerInfoView(
-                info.AccountId, info.Nickname, info.Level, info.Exp,
-                coin, diamond, stamina, soulPower, piety, guardianExp, energy, info.SchemaVersion);
+                info.AccountId, info.Nickname, info.Level, info.Exp, info.RenameCount,
+                coin, diamond, stamina, soulPower, piety, guardianExp, energy,
+                goddessLevel, goddessRating, unlockedChapter, blindBoxCount, templeRepaired, nextRepairIndex,
+                info.CurrentAvatarId, info.CurrentFrameId, unlockedAvatarIds, unlockedFrameIds,
+                info.WishUsedToday, info.WishDailyLimit,
+                info.SkinMono, info.SkinMonoId, info.TempleDecorated,
+                info.SchemaVersion);
 
             FantasyNetwork.RaisePlayerInfoSnapshot(view);
             await FTask.CompletedTask;
+        }
+
+        /// <summary>把协议 List&lt;int&gt; 复制为独立数组(协议对象用完即回池,跨边界须复制)。null/空 → 空数组。</summary>
+        private static int[] CopyIds(System.Collections.Generic.List<int> src)
+        {
+            if (src == null || src.Count == 0) return System.Array.Empty<int>();
+            var dst = new int[src.Count];
+            for (int i = 0; i < src.Count; i++) dst[i] = src[i];
+            return dst;
         }
     }
 }

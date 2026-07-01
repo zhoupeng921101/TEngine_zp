@@ -26,6 +26,9 @@ namespace GameLogic
         // 运行时 SetSprite 填进空层节点；消除道具 gate 染色由 RefreshClearTool 运行时按体力门控写入。
         private const int N = BlockLayout.BoardSize;
 
+        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.RankWindow"/> / 主菜单 BEST 一致，终局权威最佳分刷进此榜投影。</summary>
+        private const int MainRankId = 1;
+
         private BlockGameState _state;
         private MergeOrderState _merge;
         private BinaryBoard _board;
@@ -173,11 +176,6 @@ namespace GameLogic
             _state.Dynamic.Reset();
             _state.Dynamic.BeginGame();
 
-            // 纵深防御(单入口下非必需,异常路径留证):正常经 MainMenuWindow 入口闸进窗时云存档已就绪。
-            // 此处只读断言不 await、不转圈;若未就绪说明绕过了入口闸,ResetForMergeOrder 可能读到旧本地。
-            if (GameContext.Instance?.CloudSave is { IsReady: false })
-                Log.Warning("[MergeOrderWindow] 进窗时云存档未就绪(疑似绕过入口闸),场景可能恢复成旧本地。");
-
             // 进入即重置（隐患 A，设计 29 §5.3）：ResetForMergeOrder 将 BlockGameState.Score / Combo 清零（局内瞬态，不进盘）。
             // 元层进度（灵力 / 虔诚币 / 女神 / 神庙 / 盲盒 / HighScore 等）经存档加载覆盖，与局内瞬态分层不重叠。
             _state.ResetForMergeOrder(_board);
@@ -234,6 +232,19 @@ namespace GameLogic
         private void ReprojectServerState()
         {
             if (_state == null || !_state.ServerAuthoritativeDealing) return;
+
+            // 局内叠加层切片恢复(续局 / 快照回带):先 import 服务端回带的切片原文,恢复 cosmetic(盘面颜色 / 元素叠加层)+
+            // 手牌 + 合成区 / 订单 / 连消 / 元素预算,再由下面 ProjectServerBoard 以服务端权威占用为准裁剪(占用格保留切片颜色、
+            // 服务端判空的格清掉、占用但切片无色的格新掷色)。切片一次性消费(落子对账覆盖不带切片,不重复 import 旧值);
+            // 空串(新建局)= 无切片,跳过、走上面 ResetForMergeOrder 缺省空盘。
+            var deal = _state.ServerDeal;
+            string sliceJson = deal != null ? deal.ConsumePendingSliceJson() : string.Empty;
+            if (!string.IsNullOrEmpty(sliceJson))
+            {
+                var ingame = MergeIngameSave.Deserialize(sliceJson);
+                if (ingame != null) _state.ImportIngame(ingame, _board);
+            }
+
             // 整体以服务端权威态重投影:盘面占用 + 分数,候选队列(0→空槽)。本回调只在建局/对账覆盖/快照恢复时触发
             // (happy path 对账一致不触发),故罕见的候选重投影带来的颜色重掷可接受,换取候选与权威 shapeId 严格对齐。
             _state.ProjectServerBoard(_board);
@@ -241,6 +252,8 @@ namespace GameLogic
             RenderBoard();
             RenderSlots();
             RefreshEnergy();
+            RefreshOrders();
+            RefreshSynthesis();
         }
 
         /// <summary>
@@ -783,7 +796,11 @@ namespace GameLogic
             // 发 C2G_ClearTool 上报输入并对账。对账覆盖(预测与权威不一致)经 OnAuthoritativeChanged → ReprojectServerState 整屏重绘;
             // NotEnoughEnergy 被服务端拒 → 回滚本地乐观清 + 体力。建局未成(serverBaseStep<0)则退回纯本地清(不发,兜底可玩)。
             if (deal != null && serverBaseStep >= 0)
-                SendClearToolAndReconcile(deal, serverBaseStep, col, row, cost).Forget();
+            {
+                // 乐观清 + 乐观扣已同步完成:此刻局内叠加层(清后盘面颜色/元素/合成区/订单)即搭车上行的切片。
+                string sliceJson = BuildSliceJson();
+                SendClearToolAndReconcile(deal, serverBaseStep, col, row, cost, sliceJson).Forget();
+            }
         }
 
         /// <summary>
@@ -796,11 +813,11 @@ namespace GameLogic
         /// async void 经 .Forget() 调,全程吞异常不外逃。
         /// </summary>
         private async UniTaskVoid SendClearToolAndReconcile(
-            GameLogic.BlockBlast.Player.ServerDealSync deal, int baseStep, int col, int row, int cost)
+            GameLogic.BlockBlast.Player.ServerDealSync deal, int baseStep, int col, int row, int cost, string sliceJson)
         {
             try
             {
-                var result = await deal.ClearToolAsync(baseStep, col, row);
+                var result = await deal.ClearToolAsync(baseStep, col, row, sliceJson);
                 var currency = GameContext.Instance?.MetaCurrency;
 
                 switch (result.Code)
@@ -1018,14 +1035,22 @@ namespace GameLogic
             _merge.ClearSaveDirty();
             MergeMetaPersistence.SaveAsync(dto).Forget();
 
-            // 局内态续存（2026-06-22 决定）：与元层同时机落盘，记录上次中断的对局现场（盘面/手牌/合成区/订单/连消）。
-            // 仅在 merge-order 现场有效时写（退出按钮已先 ExitMergeOrder 则跳过，避免空盘覆盖有效快照）。
-            if (_state != null && _state.MergeOrderMode && _state.MergeState != null)
-            {
-                var ingame = new MergeIngameSave { version = MergeIngamePersistence.CurrentVersion };
-                _state.ExportIngame(ingame);
-                MergeIngamePersistence.SaveAsync(ingame).Forget();
-            }
+            // 局内 cosmetic + 合成经济叠加层不再落本地磁盘:改作不透明切片经落子/消除道具搭车上行(C2G_Place/ClearTool
+            // 的 SliceJson)由服务端存档,续局/快照回带恢复。故此处只落元层货币边界,局内叠加层切片由 BuildSliceJson 在
+            // 落子/消除道具发起时构建、透传。
+        }
+
+        /// <summary>
+        /// 构建当前局内 cosmetic + 合成经济叠加层的切片 JSON(供落子 / 消除道具搭车上行)。
+        /// 仅在 merge-order 现场有效时产出;无有效现场返回空串(服务端存空切片)。切片对服务端不透明,只搬运存档。
+        /// 切片棋盘占用与服务端权威占用天然一致(客户端只在预测态==权威态时发切片)。
+        /// </summary>
+        private string BuildSliceJson()
+        {
+            if (_state == null || !_state.MergeOrderMode || _state.MergeState == null) return string.Empty;
+            var ingame = new MergeIngameSave { version = MergeIngameSave.CurrentVersion };
+            _state.ExportIngame(ingame);
+            return MergeIngameSave.Serialize(ingame);
         }
 
         // ── 渲染棋盘（方块色 / 皮肤，设计 50 §二）──
@@ -1379,7 +1404,12 @@ namespace GameLogic
                 // 纯视觉附加，不改上方全清结算（设计 50 §三 规则 5 / A9）。皮肤态进元层存档（设计 50 §六），
                 // 故换皮即标元层脏；metaChangedBySettle 已为 true（AllClearRewarded 蕴含），落盘随之发生。
                 if (settle.AllClearRewarded)
+                {
                     _merge.Skin.OnAllClear(BlockSkinCatalog.MonoIds);
+                    // 皮肤态服务端权威(客户端段 3b):换皮乐观本地变更后,取当前三态全量 SET 上报,fire-and-forget
+                    // (失败下次变更再报 / 登录快照对齐)。神庙装饰厅数随同带,SET 语义。
+                    GameContext.Instance.ProfileState?.Report(_merge);
+                }
 
                 RenderBoard();
                 // 全清换皮后，待选区残留候选块须与棋盘同步换皮（设计 50，候选预览 = 落盘后样子）。
@@ -1443,7 +1473,12 @@ namespace GameLogic
             // 终局检测在 SendPlaceAndReconcile 内（读服务端对账回带的 GameOver）：终局 → 弹结算 + 停止落子。
             // 卡死但未终局（服务端未判 jam）：玩家用消除道具清一行一列；体力归零：等时基恢复 / 订单补 / 用消除道具。
             if (deal != null && serverBaseStep >= 0)
-                SendPlaceAndReconcile(deal, serverBaseStep, slotIdx, col, row).Forget();
+            {
+                // 落子已本地乐观结算完毕:此刻的局内叠加层(盘面颜色/元素/手牌/合成区/订单/连消)即要搭车上行的切片。
+                // 切片棋盘占用与刚推进的预测权威占用一致(预测态==权威态才发),恢复时以服务端 Board 为准、切片只提供叠加。
+                string sliceJson = BuildSliceJson();
+                SendPlaceAndReconcile(deal, serverBaseStep, slotIdx, col, row, sliceJson).Forget();
+            }
         }
 
         /// <summary>
@@ -1453,11 +1488,11 @@ namespace GameLogic
         /// async void 经 .Forget() 调,全程吞异常不外逃。
         /// </summary>
         private async UniTaskVoid SendPlaceAndReconcile(
-            GameLogic.BlockBlast.Player.ServerDealSync deal, int baseStep, int slotIdx, int col, int row)
+            GameLogic.BlockBlast.Player.ServerDealSync deal, int baseStep, int slotIdx, int col, int row, string sliceJson)
         {
             try
             {
-                var result = await deal.PlaceAsync(baseStep, slotIdx, col, row);
+                var result = await deal.PlaceAsync(baseStep, slotIdx, col, row, sliceJson);
 
                 // 权威体力校正:落子体力服务端派生,响应 NewEnergy = 服务端裁决后余额(先扣 PlaceCost、按消行返还、夹 EnergyCap)。
                 // Ok/IdempotentReplay/StepAhead 回带当前权威余额,set 本地体力 + 基线到该值(与随后 delta-push 幂等,绝对值重复 set 无害),
@@ -1683,10 +1718,11 @@ namespace GameLogic
             if (_gameOver) return; // 幂等:重复 GameOver 信号(理论不应有)只弹一次面板
             _gameOver = true;
 
-            // 最高分展示 = 服务端 BestScore 的本地投影(不新增本地权威分):服务端入榜后回带的最佳分若更高,
-            // 更新本地 HighScore 显示缓存;随后退出/重开经 FlushSaveIfDirty 落元层,主菜单 BEST 与服务端一致。
-            // BestScore=0(入榜服务不可用)时不抹掉既有本地展示值。long→int:本游戏分值范围内不溢出。
-            if (bestScore > _state.HighScore) _state.HighScore = (int)bestScore;
+            // 最高分展示 = 服务端 BestScore 的本地投影:服务端终局入榜后回带的权威最佳分刷进排行榜个人最佳缓存
+            // (主菜单 BEST 读同一投影 RankService.GetMyBest),使退出/重开后 BEST 与服务端最佳分一致,无需再等一次查榜 RPC。
+            // BestScore=0(入榜服务不可用)时 SubmitScore 取较大者不抹既有缓存。highScore 已不入 blob、不再作权威载体。
+            if (bestScore > 0)
+                GameContext.Instance?.Rank?.SubmitScore(MainRankId, bestScore);
 
             float cx = BlockLayout.DesignWidth / 2f;
             float cy = BlockLayout.DesignHeight / 2f;

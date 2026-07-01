@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Text;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using GameLogic.BlockBlast;
@@ -9,33 +8,14 @@ namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
     /// 进主游戏编排 <see cref="EnterMainGameSync"/> EditMode 单测(全栈协议改动·客户端段)。
-    /// 纯逻辑、不连网 — 用 <see cref="InMemoryPersistenceProvider"/> 隔离本地存储、桩 <see cref="IEnterMainGameGateway"/> 注入响应,断言:
-    /// 进主游戏响应把云存档冲突解决落地 + 置 Ready;每次进入复位 Ready 再重对齐(决策②);失败(ServiceUnavailable)保留本地仍置 Ready 不卡死。
-    /// 同步驱动 UniTask 用 GetAwaiter().GetResult()(桩 await CompletedTask 同步完成,沿 CloudSaveTests 范式)。
+    /// 进主游戏响应现只回带订单快照(云存档通道已整体退役,局内 cosmetic + 合成叠加层改经 C2G_GameStart/GameSnapshot 的 SliceJson 收发)。
+    /// 纯逻辑、不连网 — 桩 <see cref="IEnterMainGameGateway"/> 注入响应、经 <see cref="OrderSync"/> + 开窗 <see cref="MergeOrderState"/> 观测订单落地。
+    /// 断言:响应回带的订单快照喂 OrderSync 并覆盖活态订单;每次进入都重发请求(决策②)、取最新响应;失败(Unavailable → 空快照)保留本地订单不清空。
+    /// 同步驱动 UniTask 用 GetAwaiter().GetResult()(桩 await CompletedTask 同步完成)。
     /// </summary>
     [TestFixture]
     public class EnterMainGameTests
     {
-        private InMemoryPersistenceProvider _store;
-
-        [SetUp]
-        public void SetUp()
-        {
-            _store = new InMemoryPersistenceProvider();
-            Persistence.Provider = _store;
-        }
-
-        private const string ClassicKey = "block_blast_save_v1";
-
-        private static string ReadKey(InMemoryPersistenceProvider s, string key)
-            => s.TryGet(key, out var v) ? v : null;
-
-        private static byte[] BlobWithClassicScore(int score)
-        {
-            var payload = new CloudSavePayload { payloadVersion = 1, classicJson = "{\"score\":" + score + "}", metaJson = "" };
-            return Encoding.UTF8.GetBytes(UnityEngine.JsonUtility.ToJson(payload));
-        }
-
         // ── 桩 gateway:可预设进主游戏响应(可按调用次序返不同响应),记录调用次数 ──
         private sealed class StubEnterGateway : IEnterMainGameGateway
         {
@@ -52,104 +32,107 @@ namespace GameLogic.BlockBlast.Tests
             }
         }
 
-        private static EnterMainGameSync NewSync(StubEnterGateway gw, out CloudSaveSync cloud)
-        {
-            var orderSync = new OrderSync(new StubOrderGateway());
-            cloud = new CloudSaveSync(new StubCloudGateway(), () => 0);
-            return new EnterMainGameSync(gw, orderSync, cloud);
-        }
-
-        // 进主游戏路径不经这两个 gateway 发请求(下载/订单已同包回带),但 OrderSync/CloudSaveSync 构造需要接缝,给惰性桩占位。
+        // 交付 RPC 不在本编排路径触发,给惰性桩占位(OrderSync 构造需接缝)。
         private sealed class StubOrderGateway : IOrderRpcGateway
         {
             public async UniTask<OrderDeliverResult> DeliverAsync(int slot)
             { await UniTask.CompletedTask; return new OrderDeliverResult(DeliverCode.ServiceUnavailable, null); }
         }
-        private sealed class StubCloudGateway : ICloudSaveGateway
+
+        // 单槽订单快照:一条 (type, level, count) 有效订单,其余槽空。
+        private static OrderSnapshotData SnapshotWith(MergeElement type, int level, int count)
         {
-            public async UniTask<CloudUploadResult> UploadAsync(long version, byte[] blob)
-            { await UniTask.CompletedTask; return new CloudUploadResult(CloudUploadCode.ServiceUnavailable, 0, null); }
-            public async UniTask<CloudDownloadResult> DownloadAsync()
-            { await UniTask.CompletedTask; return new CloudDownloadResult(CloudDownloadCode.ServiceUnavailable, 0, null); }
+            var orders = new List<OrderItemData> { new OrderItemData((int)type, level, count) };
+            return new OrderSnapshotData(orders, orderCursor: 0, lastOrderRefreshMs: 0,
+                orderRefreshIntervalSec: 0, orderRewardEnergy: 0);
         }
 
-        // ── E1:进主游戏响应 Success 且 ServerVersion>本地 → 应用云存档 blob + 置 Ready ──
+        // 组一套 OrderSync + 已开窗活态,供观测进主游戏回带的订单是否落地到活态。
+        private static (EnterMainGameSync sync, MergeOrderState state) NewSyncWithOpenState(StubEnterGateway gw)
+        {
+            var orderSync = new OrderSync(new StubOrderGateway());
+            var state = new MergeOrderState();
+            orderSync.OnMergeStateReady(state); // 开窗:切服务端权威 + 记活态,后续 OnSnapshotPush 直接覆盖活态
+            return (new EnterMainGameSync(gw, orderSync), state);
+        }
+
+        // ── E1:进主游戏响应回带订单快照 → 喂 OrderSync 覆盖活态订单 ──
         [Test]
-        public void E1_Enter_SuccessNewerVersion_AppliesCloudAndReady()
+        public void E1_Enter_SnapshotApplied_OverwritesActiveOrders()
         {
             var gw = new StubEnterGateway();
-            gw.Queue.Add(new EnterMainGameResult(null, CloudDownloadCode.Success, 5, BlobWithClassicScore(77)));
+            gw.Queue.Add(new EnterMainGameResult(SnapshotWith(MergeElement.Chalice, level: 2, count: 3)));
 
-            var sync = NewSync(gw, out var cloud);
+            var (sync, state) = NewSyncWithOpenState(gw);
             sync.EnterAsync().GetAwaiter().GetResult();
 
             Assert.AreEqual(1, gw.Calls);
-            Assert.IsTrue(cloud.IsReady, "响应应用后置 Ready");
-            Assert.AreEqual(5, cloud.LocalVersion, "本地 version 推进到 ServerVersion");
-            Assert.AreEqual("{\"score\":77}", ReadKey(_store, ClassicKey), "应用了进主游戏回带的云存档 blob");
+            Assert.AreEqual(1, state.ActiveOrders.Length, "回带快照的单槽订单覆盖活态");
+            Assert.AreEqual(MergeElement.Chalice, state.ActiveOrders[0].Type);
+            Assert.AreEqual(2, state.ActiveOrders[0].Level);
+            Assert.AreEqual(3, state.ActiveOrders[0].Count);
         }
 
-        // ── E2:失败(ServiceUnavailable)→ 保留本地 + 仍置 Ready(不卡死进游戏)──
+        // ── E2:失败(Unavailable → 空快照)→ 不喂 OrderSync,保留本地已有订单不清空 ──
         [Test]
-        public void E2_Enter_Unavailable_KeepsLocalButReady()
+        public void E2_Enter_Unavailable_KeepsLocalOrders()
         {
-            _store.Set(CloudSaveSync.VersionKey, "10");
-            _store.Set(ClassicKey, "{\"score\":1}");
+            var gw = new StubEnterGateway();
+            var (sync, state) = NewSyncWithOpenState(gw);
 
-            var gw = new StubEnterGateway { Fallback = EnterMainGameResult.Unavailable() };
-            var sync = NewSync(gw, out var cloud);
+            // 先经一次成功回带铺底本地订单。
+            gw.Queue.Add(new EnterMainGameResult(SnapshotWith(MergeElement.Star, level: 1, count: 5)));
+            sync.EnterAsync().GetAwaiter().GetResult();
+            Assert.AreEqual(MergeElement.Star, state.ActiveOrders[0].Type, "首次回带铺底");
+
+            // 再进入返回 Unavailable(空快照):OrderSnapshot=null → 不喂 OrderSync,活态订单保留不变。
+            gw.Fallback = EnterMainGameResult.Unavailable();
             sync.EnterAsync().GetAwaiter().GetResult();
 
-            Assert.IsTrue(cloud.IsReady, "失败也置 Ready,按本地兜底进游戏");
-            Assert.AreEqual(10, cloud.LocalVersion, "本地 version 不变");
-            Assert.AreEqual("{\"score\":1}", ReadKey(_store, ClassicKey), "本地未被覆盖");
+            Assert.AreEqual(2, gw.Calls, "每次进入都重发请求");
+            Assert.AreEqual(MergeElement.Star, state.ActiveOrders[0].Type, "服务不可用不清空本地订单");
+            Assert.AreEqual(5, state.ActiveOrders[0].Count);
         }
 
-        // ── E3:决策② — 每次进入都重新请求,复位 Ready 后取最新响应再对齐 ──
+        // ── E3:决策② — 每次进入都重新请求,取最新响应覆盖活态 ──
         [Test]
         public void E3_Enter_EachEntry_ReRequestsAndRealigns()
         {
             var gw = new StubEnterGateway();
-            // 第一次进入:ServerVersion=3,classic=100。
-            gw.Queue.Add(new EnterMainGameResult(null, CloudDownloadCode.Success, 3, BlobWithClassicScore(100)));
-            // 第二次进入:ServerVersion=8,classic=200(更新,模拟另一端写过)。
-            gw.Queue.Add(new EnterMainGameResult(null, CloudDownloadCode.Success, 8, BlobWithClassicScore(200)));
+            gw.Queue.Add(new EnterMainGameResult(SnapshotWith(MergeElement.Butterfly, level: 1, count: 2)));
+            gw.Queue.Add(new EnterMainGameResult(SnapshotWith(MergeElement.Scroll, level: 3, count: 7)));
 
-            var sync = NewSync(gw, out var cloud);
+            var (sync, state) = NewSyncWithOpenState(gw);
 
             sync.EnterAsync().GetAwaiter().GetResult();
-            Assert.AreEqual(3, cloud.LocalVersion);
-            Assert.AreEqual("{\"score\":100}", ReadKey(_store, ClassicKey));
+            Assert.AreEqual(MergeElement.Butterfly, state.ActiveOrders[0].Type);
 
-            // 第二次进入:必须重新发请求(Calls=2),且复位 Ready 后取到 v8 覆盖。
             sync.EnterAsync().GetAwaiter().GetResult();
             Assert.AreEqual(2, gw.Calls, "每次进入都重发请求,不复用上次缓存(决策②)");
-            Assert.IsTrue(cloud.IsReady);
-            Assert.AreEqual(8, cloud.LocalVersion, "重对齐到最新 ServerVersion");
-            Assert.AreEqual("{\"score\":200}", ReadKey(_store, ClassicKey), "应用了第二次进入的最新 blob");
+            Assert.AreEqual(MergeElement.Scroll, state.ActiveOrders[0].Type, "重对齐到最新回带快照");
+            Assert.AreEqual(3, state.ActiveOrders[0].Level);
+            Assert.AreEqual(7, state.ActiveOrders[0].Count);
         }
 
-        // ── E4:进入前 Ready 被复位(响应落地前 WhenReady 重新挂起,落地后完成)──
+        // ── E4:窗未开时回带快照缓存到 OrderSync,开窗后应用 ──
         [Test]
-        public void E4_Enter_ResetsReadyBeforeApply()
+        public void E4_Enter_BeforeWindowOpen_AppliesOnOpen()
         {
             var gw = new StubEnterGateway();
-            gw.Queue.Add(new EnterMainGameResult(null, CloudDownloadCode.NoSnapshot, 0, null));
-            var sync = NewSync(gw, out var cloud);
+            gw.Queue.Add(new EnterMainGameResult(SnapshotWith(MergeElement.Chalice, level: 1, count: 4)));
 
-            // 先跑一次置 Ready。
+            var orderSync = new OrderSync(new StubOrderGateway());
+            var sync = new EnterMainGameSync(gw, orderSync);
+
+            // 先进主游戏(窗未开):快照缓存到 OrderSync 的 _pending。
             sync.EnterAsync().GetAwaiter().GetResult();
-            Assert.IsTrue(cloud.IsReady);
 
-            // 手动复位验证语义:复位后未就绪,WhenReady 挂起。
-            cloud.ResetReadyForReentry();
-            Assert.IsFalse(cloud.IsReady, "复位后不就绪");
-            Assert.IsFalse(cloud.WhenReady().Status.IsCompleted(), "复位后 WhenReady 应重新挂起");
+            // 后开窗:应用已缓存快照到活态。
+            var state = new MergeOrderState();
+            orderSync.OnMergeStateReady(state);
 
-            // 再进入应用响应后重新置位。
-            gw.Queue.Add(new EnterMainGameResult(null, CloudDownloadCode.NoSnapshot, 0, null));
-            sync.EnterAsync().GetAwaiter().GetResult();
-            Assert.IsTrue(cloud.IsReady, "再进入响应落地后重新置 Ready");
+            Assert.AreEqual(MergeElement.Chalice, state.ActiveOrders[0].Type, "开窗应用进入时缓存的快照");
+            Assert.AreEqual(4, state.ActiveOrders[0].Count);
         }
     }
 }

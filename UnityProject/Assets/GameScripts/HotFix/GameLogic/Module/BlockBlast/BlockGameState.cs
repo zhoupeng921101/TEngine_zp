@@ -463,7 +463,7 @@ namespace GameLogic.BlockBlast
         /// 只对「本次新填入的槽」(此前为空 / shapeId 变化)分摊元素并出队;此前已持同 shapeId 的槽<b>原样保留</b>
         /// (颜色 + 元素 overlay),不重掷颜色、不重复出队。这样:
         ///   - 整批续发(三槽全空 → 全填新 shapeId):三槽都算新填,整批分摊一次(与服务端整批续发同节律);
-        ///   - 续局重投影(本地已从 <c>MergeIngamePersistence</c> 恢复出手牌 + 元素 + PendingElements):服务端候选与
+        ///   - 续局重投影(宿主已从服务端切片 <c>ImportIngame</c> 恢复出手牌 + 元素 + PendingElements):服务端候选与
         ///     恢复手牌同 shapeId(同一局),全槽保留 → 不二次出队,经济层(元素预算队列)与盘面不双花;
         ///   - 对账覆盖(罕见真发散):仅真正变化的槽重填,其余保留。
         /// </summary>
@@ -571,14 +571,11 @@ namespace GameLogic.BlockBlast
             // 有存档则按「上次记录时刻 → now」补离线恢复;无存档(Reset 后 LastEnergyRegenTime==0)则以 now 初始化、本次不补。
             MergeState.ApplyTimeRegen(MergeMetaPersistence.NowUnixSec());
 
-            // 局内态续存(2026-06-22 决定:真无尽局内态续存):有快照则恢复盘面/元素层/手牌/合成区/订单/连消,
-            // 等价从上次落子处继续;无快照(首次/清档)走原缺省路径(空盘 + 补满 3 块)。
-            // 须在 Reset + ImportMeta 之后:局内字段不与元层重叠,本步只覆盖局内现场。
-            var ingame = MergeIngamePersistence.Load();
-            if (ingame == null || !ImportIngame(ingame, board))
-            {
-                if (board != null) board.ConvertFromArr(SaveArr);
-            }
+            // 局内叠加层续存:cosmetic + 合成经济叠加层作为不透明切片存服务端(GameSessionDoc.SliceJson),
+            // 续局 / 快照恢复时由宿主(MergeOrderWindow)从服务端回带的切片 import(经 ServerDealSync.PendingSliceJson →
+            // MergeIngameSave.Deserialize → ImportIngame),覆盖本步建好的缺省空盘。本地无磁盘投影,本步只建缺省现场:
+            // 首次 / 无切片(新建局)即以此空盘 + 下方补满 3 块起步。
+            if (board != null) board.ConvertFromArr(SaveArr);
 
             // 订单按时整批刷新(含离线):须在 ImportIngame 之后——订单与刷新记录时刻属局内层,先恢复再按真实时差判定。
             // 有记录则按「上次刷新时刻 → now」判是否到点整批换新;无记录(Reset 后 LastOrderRefreshTime==0)则以 now 初始化、本次不刷。
@@ -589,7 +586,7 @@ namespace GameLogic.BlockBlast
 
             RefillPieces(board); // 全空才补:恢复后手牌非空则 no-op;恢复后恰好全空(上次落子未补)则补满
 
-            // 活态就绪钩子(P1):在局内存档加载(ImportIngame)之后触发,接线层据此应用服务端订单快照、覆盖 blob 旧 normal 订单。
+            // 活态就绪钩子(P1):在局内现场建好缺省之后触发,接线层据此应用服务端订单快照、覆盖本地缺省 normal 订单。
             // 钩子内若已缓存登录快照即整份覆盖上面本地建好的订单;无网络/单测时钩子为 null,保持本地订单不变。
             OnMergeStateReady?.Invoke(MergeState);
         }
@@ -727,9 +724,9 @@ namespace GameLogic.BlockBlast
             catch { return false; }
         }
 
-        // ─── 局内态续存:导出/导入对局现场(2026-06-22 决定:真无尽局内态续存)──────────
-        // 与 block_blast_save_v1(Classic 局内键)分开:merge-order 局内现场含 ElementArr + 候选块元素 + MergeState
-        // 经济现场,信息量更大,走独立 DTO/键(MergeIngameSave / MergeIngamePersistence)。本类只管盘面/元素层/手牌/
+        // ─── 局内叠加层导出/导入:对局现场 cosmetic + 合成经济层 ──────────
+        // merge-order 局内现场含 ElementArr + 候选块元素 + MergeState 经济现场,序列化成 MergeIngameSave DTO,
+        // 作为不透明切片经服务端 SliceJson 收发存档(续局/快照回带),本地无磁盘投影。本类只管盘面/元素层/手牌/
         // 得分/连击,合成区/订单/连消委托 MergeState.ExportIngame/ImportIngame。
 
         /// <summary>导出 merge-order 局内现场到 DTO（盘面 + 元素层 + 手牌 + 得分/连击 + 合成区/订单/连消）。纯方法、无 IO。</summary>

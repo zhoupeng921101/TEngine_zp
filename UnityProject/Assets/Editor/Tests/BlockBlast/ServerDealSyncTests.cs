@@ -159,8 +159,8 @@ namespace GameLogic.BlockBlast.Tests
                 return UniTask.FromResult(r);
             }
 
-            public UniTask<PlaceResult> PlaceAsync(long gameId, int baseStep, int candidateIndex, int posX, int posY)
-                => UniTask.FromResult(Sim.Place(candidateIndex, posX, posY));
+            public UniTask<PlaceResult> PlaceAsync(long gameId, int baseStep, int candidateIndex, int posX, int posY, string sliceJson)
+                => UniTask.FromResult(Sim.Place(candidateIndex, posX, posY)); // sliceJson 服务端不透明搬运,sim 忽略
 
             public UniTask<SnapshotResult> GameSnapshotAsync(long gameId)
             {
@@ -169,8 +169,8 @@ namespace GameLogic.BlockBlast.Tests
                 return UniTask.FromResult(r);
             }
 
-            public UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY)
-                => UniTask.FromResult(Sim.ClearTool(posX, posY));
+            public UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY, string sliceJson)
+                => UniTask.FromResult(Sim.ClearTool(posX, posY)); // sliceJson 服务端不透明搬运,sim 忽略
         }
 
         /// <summary>玩家确定性策略(与 GenCoreDeterminismHarness 同口径):首个有合法落点的槽,落点取 GetCanPutPoss 固定序首个。</summary>
@@ -214,7 +214,7 @@ namespace GameLogic.BlockBlast.Tests
                 var predicted = deal.PredictPlace(slot, x, y);
                 Assert.IsTrue(predicted.Accepted, $"step {step}: 预测应接受落子");
 
-                var result = deal.PlaceAsync(baseStep, slot, x, y).GetAwaiter().GetResult();
+                var result = deal.PlaceAsync(baseStep, slot, x, y, string.Empty).GetAwaiter().GetResult();
                 Assert.AreEqual(DealResultCode.Ok, result.Code, $"step {step}: 服务端应 StepAdvanced");
                 Assert.IsFalse(deal.LastReconcileCorrected,
                     $"step {step}: 预测应与服务端逐位一致、对账不应覆盖(预测 step={deal.Step} score={deal.Score})");
@@ -323,7 +323,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(scoreBefore, deal.Score, "终局后预测被拒不应改分");
 
             // 终局后落子被拒:短路回 GameNotFound,不发 RPC。
-            var place = deal.PlaceAsync(stepBefore, 0, 0, 0).GetAwaiter().GetResult();
+            var place = deal.PlaceAsync(stepBefore, 0, 0, 0, string.Empty).GetAwaiter().GetResult();
             Assert.AreEqual(DealResultCode.GameNotFound, place.Code, "终局后 PlaceAsync 应短路回 GameNotFound");
         }
 
@@ -449,7 +449,7 @@ namespace GameLogic.BlockBlast.Tests
                 int baseStep = deal.Step;
                 var predicted = deal.PredictPlace(slot, x, y);
                 Assert.IsTrue(predicted.Accepted, $"step {step}: 复位后预测应接受落子");
-                var result = deal.PlaceAsync(baseStep, slot, x, y).GetAwaiter().GetResult();
+                var result = deal.PlaceAsync(baseStep, slot, x, y, string.Empty).GetAwaiter().GetResult();
                 Assert.AreEqual(DealResultCode.Ok, result.Code, $"step {step}: 服务端应 StepAdvanced");
                 Assert.IsFalse(deal.LastReconcileCorrected,
                     $"step {step}: 完全复位(含游标)后对账不应再覆盖(预测 step={deal.Step} score={deal.Score})");
@@ -610,7 +610,7 @@ namespace GameLogic.BlockBlast.Tests
             var outcome = deal.PredictClearTool(5, 4);
             Assert.IsTrue(outcome.Accepted);
 
-            var result = deal.ClearToolAsync(baseStep, 5, 4).GetAwaiter().GetResult();
+            var result = deal.ClearToolAsync(baseStep, 5, 4, string.Empty).GetAwaiter().GetResult();
             Assert.AreEqual(DealResultCode.Ok, result.Code, "服务端应 Cleared");
             Assert.IsFalse(deal.LastReconcileCorrected, "预测与服务端逐位一致,对账不应覆盖");
             Assert.AreEqual(gateway.Sim.Step, deal.Step, "对账后 step 应一致");
@@ -629,7 +629,7 @@ namespace GameLogic.BlockBlast.Tests
             for (int c = 0; c < BinaryBoard.ColCount; c++) { FillCell(deal.Board, c, 1); FillCell(gateway.Sim.Board, c, 1); }
             int baseStep = deal.Step;
             deal.PredictClearTool(0, 1);
-            deal.ClearToolAsync(baseStep, 0, 1).GetAwaiter().GetResult();
+            deal.ClearToolAsync(baseStep, 0, 1, string.Empty).GetAwaiter().GetResult();
             Assert.IsFalse(deal.LastReconcileCorrected, "消除道具对账不应覆盖");
 
             // 随后落子:预测 + 对账应逐位一致、不覆盖(道具清掉的行不回弹)。
@@ -637,7 +637,7 @@ namespace GameLogic.BlockBlast.Tests
             int placeBase = deal.Step;
             var predicted = deal.PredictPlace(slot, x, y);
             Assert.IsTrue(predicted.Accepted);
-            var place = deal.PlaceAsync(placeBase, slot, x, y).GetAwaiter().GetResult();
+            var place = deal.PlaceAsync(placeBase, slot, x, y, string.Empty).GetAwaiter().GetResult();
             Assert.AreEqual(DealResultCode.Ok, place.Code);
             Assert.IsFalse(deal.LastReconcileCorrected, "消除道具后落子对账不应发散(道具清掉的行列不回弹)");
         }
@@ -698,7 +698,7 @@ namespace GameLogic.BlockBlast.Tests
                 gameOver: true, finalScore: 1, bestScore: 1L));
             Assert.IsTrue(deal.GameOver);
 
-            var result = deal.ClearToolAsync(deal.Step, 0, 0).GetAwaiter().GetResult();
+            var result = deal.ClearToolAsync(deal.Step, 0, 0, string.Empty).GetAwaiter().GetResult();
             Assert.AreEqual(DealResultCode.GameNotFound, result.Code, "终局后 ClearToolAsync 应短路回 GameNotFound");
         }
 

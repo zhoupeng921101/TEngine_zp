@@ -11,8 +11,32 @@ namespace GameLogic.BlockBlast
     [Serializable]
     public sealed class MergeIngameSave
     {
+        /// <summary>当前存档结构版本。破坏性结构变更才升;未来档(version &gt; 当前)由消费方视作无档走缺省。</summary>
+        public const int CurrentVersion = 1;
+
         /// <summary>存档结构版本。</summary>
         public int version;
+
+        /// <summary>DTO → JSON。null 入参视作空档返回空串。切片收发经服务端 SliceJson 不透明搬运,无本地磁盘。</summary>
+        public static string Serialize(MergeIngameSave dto)
+        {
+            if (dto == null) return string.Empty;
+            return UnityEngine.JsonUtility.ToJson(dto);
+        }
+
+        /// <summary>JSON → DTO。空 / null / 非法 JSON / 未来档 → null(视作无切片,消费方走缺省)。</summary>
+        public static MergeIngameSave Deserialize(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return null;
+            try
+            {
+                var dto = UnityEngine.JsonUtility.FromJson<MergeIngameSave>(raw);
+                if (dto == null) return null;
+                if (dto.version > CurrentVersion) return null; // 未来档:不冒险用错位数据
+                return dto;
+            }
+            catch { return null; }
+        }
 
         // ── 盘面 / 元素层 / 手牌（住在 BlockGameState）──────────────
         /// <summary>8×8 棋盘颜色拍平（-1=空，0..7=BlockColor）。</summary>

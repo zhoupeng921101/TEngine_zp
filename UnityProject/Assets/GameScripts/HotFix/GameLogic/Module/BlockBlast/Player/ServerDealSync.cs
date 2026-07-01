@@ -78,6 +78,25 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>终局后该榜当前最佳分(服务端权威,客户端只投影展示;入榜服务不可用时为 0)。</summary>
         public long BestScore { get; private set; }
 
+        /// <summary>
+        /// 最近一次建局(续局)/ 快照恢复回带的局内 cosmetic + 合成经济叠加层切片原文(服务端不透明搬运)。
+        /// 空串 = 无切片(新建局走宿主 Reset 缺省)。本引擎<b>不解析</b>该切片,只透传给宿主(<c>MergeOrderWindow</c>),
+        /// 由宿主经 <c>MergeIngameSave.Deserialize</c> + <c>BlockGameState.ImportIngame</c> 恢复局内叠加层。
+        /// 宿主在 <see cref="OnAuthoritativeChanged"/> 回调里读取本值并 import。
+        /// </summary>
+        public string PendingSliceJson { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// 取出并清空待 import 的切片(一次性消费):返回 <see cref="PendingSliceJson"/> 并置空,
+        /// 使后续对账覆盖触发的重投影不重复 import 同一份旧切片(切片只在建局/快照恢复时有效,落子对账不带切片)。
+        /// </summary>
+        public string ConsumePendingSliceJson()
+        {
+            string s = PendingSliceJson;
+            PendingSliceJson = string.Empty;
+            return s;
+        }
+
         // ─── 建局 ────────────────────────────────────────────────
 
         /// <summary>
@@ -120,6 +139,9 @@ namespace GameLogic.BlockBlast.Player
                 _lastTrioAlgo = offer.Algo;
                 for (int i = 0; i < 3; i++) CandidateQueue.Add(offer.Ids[i]);
             }
+
+            // 局内叠加层切片:续局回带恢复值、新建回带空串。透传给宿主(不解析),宿主在 OnAuthoritativeChanged 里 import。
+            PendingSliceJson = result.SliceJson ?? string.Empty;
 
             HasGame = true;
             // 新建/续局都是一局活态的开始:复位终局态(上一局若已终局,服务端已删档、本次走新建)。
@@ -332,6 +354,9 @@ namespace GameLogic.BlockBlast.Player
                 BuildGenerator(Seed);
             }
 
+            // 局内叠加层切片:快照回带恢复值。透传给宿主(不解析),宿主在 OnAuthoritativeChanged 里 import。
+            PendingSliceJson = result.SliceJson ?? string.Empty;
+
             HasGame = true;
             // 快照恢复的是一局活态对局(服务端仍持有该对局);复位终局态。
             GameOver = false;
@@ -530,12 +555,13 @@ namespace GameLogic.BlockBlast.Player
         /// 返回服务端结果(含是否覆盖了本地预测);失败码下不动预测态。对账发生覆盖时触发 <see cref="OnAuthoritativeChanged"/>。
         /// </summary>
         /// <param name="baseStep">本次落子前的权威步号(= 预测推进前的 Step)。</param>
-        public async UniTask<PlaceResult> PlaceAsync(int baseStep, int candidateIndex, int posX, int posY)
+        /// <param name="sliceJson">当前局内叠加层切片原文(宿主导出),搭车上行由服务端不透明存档。空串 = 无切片。</param>
+        public async UniTask<PlaceResult> PlaceAsync(int baseStep, int candidateIndex, int posX, int posY, string sliceJson)
         {
             if (!HasGame) return PlaceResult.Fail(DealResultCode.GameNotFound);
             // 终局后拒发:本局服务端已删档,再上报落子会被回 GameNotFound,直接短路省一次往返。
             if (GameOver) return PlaceResult.Fail(DealResultCode.GameNotFound);
-            var result = await _gateway.PlaceAsync(GameId, baseStep, candidateIndex, posX, posY);
+            var result = await _gateway.PlaceAsync(GameId, baseStep, candidateIndex, posX, posY, sliceJson);
             bool corrected = ReconcilePlace(result);
             if (corrected) OnAuthoritativeChanged?.Invoke();
             return result;
@@ -548,12 +574,13 @@ namespace GameLogic.BlockBlast.Player
         /// 失败码 / OutOfRange / NotEnoughEnergy 下不动预测态,由宿主按码回滚乐观清。
         /// </summary>
         /// <param name="baseStep">本次消除道具前的权威步号(= 预测推进前的 Step)。</param>
-        public async UniTask<ClearToolResult> ClearToolAsync(int baseStep, int posX, int posY)
+        /// <param name="sliceJson">当前局内叠加层切片原文(宿主导出),搭车上行由服务端不透明存档。空串 = 无切片。</param>
+        public async UniTask<ClearToolResult> ClearToolAsync(int baseStep, int posX, int posY, string sliceJson)
         {
             if (!HasGame) return ClearToolResult.Fail(DealResultCode.GameNotFound);
             // 终局后拒发:本局服务端已删档,再上报会被回 GameNotFound,直接短路省一次往返。
             if (GameOver) return ClearToolResult.Fail(DealResultCode.GameNotFound);
-            var result = await _gateway.ClearToolAsync(GameId, baseStep, posX, posY);
+            var result = await _gateway.ClearToolAsync(GameId, baseStep, posX, posY, sliceJson);
             bool corrected = ReconcileClearTool(result);
             if (corrected) OnAuthoritativeChanged?.Invoke();
             return result;

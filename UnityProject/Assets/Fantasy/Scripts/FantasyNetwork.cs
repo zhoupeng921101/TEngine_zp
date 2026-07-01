@@ -9,7 +9,8 @@ namespace FantasyClient
 {
     /// <summary>
     /// 登录玩家信息快照视图(对应协议 G2C_PlayerInfoSnapshot.Info)。
-    /// 承载基础档案(账号/昵称/等级/经验) + 七属性余额(coin/diamond/stamina + 四玩法货币 soul/piety/guardianExp/energy) + schema 版本,
+    /// 承载基础档案(账号/昵称/等级/经验) + 七属性余额(coin/diamond/stamina + 四玩法货币 soul/piety/guardianExp/energy) +
+    /// 六元层计数器(女神等级/评级、章节解锁数、盲盒计数、神庙已修厅数、神庙修缮游标) + schema 版本,
     /// 经 <see cref="FantasyNetwork.OnPlayerInfoSnapshot"/> 一次性下发到热更区订阅方。
     /// 不可变值类型:Fantasy 协议对象用完即回池,跨边界须复制为独立快照避免引用悬空。
     /// </summary>
@@ -19,25 +20,55 @@ namespace FantasyClient
         public readonly string Nickname;
         public readonly int Level;
         public readonly long Exp;
+        // 改名次数(改名服务端权威·客户端段):服务端权威值,登录快照下发,供 UI 预告下次改名费。
+        public readonly int RenameCount;
         public readonly long Coin;
         public readonly long Diamond;
         public readonly long Stamina;
-        // 四玩法货币(P2 全栈迁移·客户端段):服务端权威值,登录快照下发覆盖本地视图。
+        // 四玩法货币(全栈迁移·客户端段):服务端权威值,登录快照下发覆盖本地视图。
         public readonly long SoulPower;
         public readonly long Piety;
         public readonly long GuardianExp;
         public readonly long Energy;
+        // 六元层计数器(云存档 blob 迁服务端权威第 1 批·客户端段):服务端权威值,登录快照下发覆盖本地视图 + 剔出 blob。
+        public readonly long GoddessLevel;
+        public readonly long GoddessRating;
+        public readonly long UnlockedChapter;
+        public readonly long BlindBoxCount;
+        public readonly long TempleRepaired;
+        public readonly long NextRepairIndex;
+        // 头像/框服务端权威(头像 blob 迁服务端权威·客户端段):当前佩戴 id + 已解锁集合,登录快照下发覆盖本地投影 + 剔出 blob。
+        public readonly int CurrentAvatarId;
+        public readonly int CurrentFrameId;
+        public readonly int[] UnlockedAvatarIds;
+        public readonly int[] UnlockedFrameIds;
+        // 祈愿每日态服务端权威(祈愿 blob 迁服务端权威·客户端段):今日已用次数 + 每日上限,登录快照下发(懒重置后当日值),
+        // 客户端 WishUsedToday 降为投影(今日剩余 = WishDailyLimit - WishUsedToday),不再本地跨天重置。
+        public readonly int WishUsedToday;
+        public readonly int WishDailyLimit;
+        // 皮肤态 + 神庙装饰服务端权威(皮肤/神庙装饰 blob 迁服务端权威·客户端段 3b):是否单色(0/1)+ 当前单色 id(彩色态 -1)+
+        // 已装饰厅数标量(前缀语义,= 已修厅数),登录快照下发覆盖本地投影 + 剔出 blob。
+        public readonly int SkinMono;
+        public readonly int SkinMonoId;
+        public readonly long TempleDecorated;
         public readonly int SchemaVersion;
 
-        public PlayerInfoView(string accountId, string nickname, int level, long exp,
+        public PlayerInfoView(string accountId, string nickname, int level, long exp, int renameCount,
                               long coin, long diamond, long stamina,
                               long soulPower, long piety, long guardianExp, long energy,
+                              long goddessLevel, long goddessRating, long unlockedChapter,
+                              long blindBoxCount, long templeRepaired, long nextRepairIndex,
+                              int currentAvatarId, int currentFrameId,
+                              int[] unlockedAvatarIds, int[] unlockedFrameIds,
+                              int wishUsedToday, int wishDailyLimit,
+                              int skinMono, int skinMonoId, long templeDecorated,
                               int schemaVersion)
         {
             AccountId = accountId;
             Nickname = nickname;
             Level = level;
             Exp = exp;
+            RenameCount = renameCount;
             Coin = coin;
             Diamond = diamond;
             Stamina = stamina;
@@ -45,6 +76,21 @@ namespace FantasyClient
             Piety = piety;
             GuardianExp = guardianExp;
             Energy = energy;
+            GoddessLevel = goddessLevel;
+            GoddessRating = goddessRating;
+            UnlockedChapter = unlockedChapter;
+            BlindBoxCount = blindBoxCount;
+            TempleRepaired = templeRepaired;
+            NextRepairIndex = nextRepairIndex;
+            CurrentAvatarId = currentAvatarId;
+            CurrentFrameId = currentFrameId;
+            UnlockedAvatarIds = unlockedAvatarIds;
+            UnlockedFrameIds = unlockedFrameIds;
+            WishUsedToday = wishUsedToday;
+            WishDailyLimit = wishDailyLimit;
+            SkinMono = skinMono;
+            SkinMonoId = skinMonoId;
+            TempleDecorated = templeDecorated;
             SchemaVersion = schemaVersion;
         }
     }

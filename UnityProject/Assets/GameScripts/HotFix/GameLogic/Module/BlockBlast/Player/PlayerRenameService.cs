@@ -1,95 +1,58 @@
-using System;
 using System.Collections.Generic;
 
 namespace GameLogic.BlockBlast.Player
 {
-    /// <summary>改名拒绝原因（设计 18 §3.2）。供 UI 分支提示。</summary>
-    public enum RenameReject { None, Empty, TooLong, Profanity, NotEnoughDiamond }
-
-    /// <summary>改名结果（结构化，便于 UI 分支提示，设计 18 §3.2）。</summary>
-    public readonly struct RenameResult
-    {
-        /// <summary>是否成功改名。</summary>
-        public readonly bool Success;
-        /// <summary>拒绝原因（成功时 None）。</summary>
-        public readonly RenameReject Reason;
-        /// <summary>本次花费（免费 = 0）。</summary>
-        public readonly int Cost;
-
-        public RenameResult(bool success, RenameReject reason, int cost)
-        {
-            Success = success;
-            Reason = reason;
-            Cost = cost;
-        }
-
-        public static RenameResult Ok(int cost) => new RenameResult(true, RenameReject.None, cost);
-        public static RenameResult Rejected(RenameReject reason) => new RenameResult(false, reason, 0);
-    }
+    /// <summary>改名本地校验拒绝原因(供 UI 分支提示)。仅覆盖客户端本地能判的项(空 / 超长 / 屏蔽字);
+    /// 钻石不足由服务端裁决(改名走 RPC,费用服务端派生),不在此枚举。</summary>
+    public enum RenameReject { None, Empty, TooLong, Profanity }
 
     /// <summary>
-    /// 改名价格配置（设计 18 §3.2）。本轮默认固定价常量；后续要分档或接 Luban 表是局部替换，
-    /// 不动 <see cref="PlayerRenameService.TryRename"/> 逻辑。
+    /// 改名费用预告配置。改名走服务端权威 RPC,真正费用由服务端按自己的 RenameCount 派生;
+    /// 本配置仅供 UI 预告(据服务端权威 RenameCount 预读下次费用),不参与真正扣费。
     /// </summary>
     public static class RenamePriceConfig
     {
-        /// <summary>固定改名价（钻石）。首次免费，之后每次同价。</summary>
+        /// <summary>固定改名价(钻石)。首次免费,之后每次同价。</summary>
         public const int RENAME_PRICE = 100;
 
-        /// <summary>按已改名次数取价（本轮固定价；分档时改这里查表）。</summary>
-        public static int PriceFor(int renameCount) => RENAME_PRICE;
+        /// <summary>按已改名次数取价(本轮固定价):0=首次免费,其余固定价。分档时改这里查表。</summary>
+        public static int PriceFor(int renameCount) => renameCount == 0 ? 0 : RENAME_PRICE;
     }
 
     /// <summary>
-    /// 改名逻辑服务（设计 18 §3.2）。纯逻辑：首次免费、之后读价 + 经数值路径尝试扣钻、屏蔽字匹配。
-    /// 判定顺序（任一不过即拒，后续不执行）：合法性 → 屏蔽字 → 计费 → 写名。
+    /// 改名本地校验(纯逻辑)。改名走服务端权威 RPC:服务端一次原子做完算费 / 扣钻 / 写名 / 计数 +1;
+    /// 客户端只做「先挡明显非法」的本地校验(合法性 / 屏蔽字),减一次无谓往返——不本地扣钻、不本地写名。
     /// </summary>
     /// <remarks>
-    /// 扣费接缝（<c>trySpendDiamond</c>）外置使逻辑可测、不硬依赖钻石实装：钻石 num_id=3 无可花费余额字段
-    /// （item-system 遗留 #19），生产默认实现返 true（去变现：不靠钻石卡改名），待钻石实装接真实扣减不返工（O8）。
-    /// 屏蔽字命中先于计费返回，故不扣费。
+    /// 本地校验先挡空 / 超长 / 屏蔽字后才发 RPC;服务端另做基本 sanity(空 / 全空白 / 超长)兜底(InvalidName)。
+    /// 屏蔽字词表本轮注空表(去变现 / 不阻塞,设计 18 O6),故实际只挡空 / 超长。
     /// </remarks>
     public static class PlayerRenameService
     {
-        /// <summary>名字最小长度（可调旋钮）。</summary>
+        /// <summary>名字最小长度(可调旋钮)。</summary>
         public const int MinLen = 1;
-        /// <summary>名字最大长度（可调旋钮）。</summary>
+        /// <summary>名字最大长度(可调旋钮)。</summary>
         public const int MaxLen = 16;
 
         /// <summary>
-        /// 尝试改名。<paramref name="trySpendDiamond"/> 是注入的「尝试扣钻石」回调（返回是否扣成功）。
+        /// 本地校验新昵称(纯函数,无副作用):合法性(非空 / 不全空白 / 长度 [MinLen,MaxLen])→ 屏蔽字。
+        /// 通过返 <see cref="RenameReject.None"/>,不通过返对应原因(供 UI 分支提示 + 决定是否发 RPC)。
         /// </summary>
-        public static RenameResult TryRename(
-            PlayerInfo p,
-            string newName,
-            IReadOnlyCollection<string> wordList,
-            Func<int, bool> trySpendDiamond)
+        public static RenameReject ValidateLocal(string newName, IReadOnlyCollection<string> wordList)
         {
-            // ① 合法性：非空、不全空白、长度在 [MinLen, MaxLen]。
+            // ① 合法性:非空、不全空白、长度在 [MinLen, MaxLen]。
             if (string.IsNullOrEmpty(newName) || string.IsNullOrWhiteSpace(newName))
-                return RenameResult.Rejected(RenameReject.Empty);
+                return RenameReject.Empty;
             if (newName.Length < MinLen)
-                return RenameResult.Rejected(RenameReject.Empty);
+                return RenameReject.Empty;
             if (newName.Length > MaxLen)
-                return RenameResult.Rejected(RenameReject.TooLong);
+                return RenameReject.TooLong;
 
-            // ② 屏蔽字：不通过直接拒，不扣费（先于计费）。
+            // ② 屏蔽字:命中即拒(空词表下不触发)。
             if (!ProfanityFilter.IsClean(newName, wordList))
-                return RenameResult.Rejected(RenameReject.Profanity);
+                return RenameReject.Profanity;
 
-            // ③ 计费：首次免费，否则读价 + 尝试扣钻。
-            int cost = (p.RenameCount == 0) ? 0 : RenamePriceConfig.PriceFor(p.RenameCount);
-            if (cost > 0)
-            {
-                bool spent = trySpendDiamond != null && trySpendDiamond(cost);
-                if (!spent)
-                    return RenameResult.Rejected(RenameReject.NotEnoughDiamond);
-            }
-
-            // ④ 扣费成功 / 免费 → 写名、计数 +1。
-            p.Name = newName;
-            p.RenameCount++;
-            return RenameResult.Ok(cost);
+            return RenameReject.None;
         }
     }
 }

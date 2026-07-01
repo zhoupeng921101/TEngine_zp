@@ -816,11 +816,11 @@ namespace GameLogic.BlockBlast
         public void ClearSaveDirty() => _saveDirty = false;
 
         /// <summary>
-        /// 导出元层进度到 DTO(设计 14 §3.1 进盘 11 项 + version + 当前祈愿重置日期)。纯方法、无 IO。
-        /// version 置 <see cref="MergeMetaPersistence.CurrentVersion"/>;lastWishResetDate 取 <paramref name="today"/>
-        /// (默认本地日期),保证落盘的日期与「今日祈愿」语义一致(§3.6)。
+        /// 导出元层进度到 DTO(设计 14 §3.1 + version)。纯方法、无 IO。version 置 <see cref="MergeMetaPersistence.CurrentVersion"/>。
+        /// 祈愿今日已用次数 <see cref="WishUsedToday"/> 作投影随缓存持久化(开窗前显示兜底,权威值由登录快照覆盖);
+        /// 祈愿每日重置服务端权威,客户端不再本地按日期跨天归零。
         /// </summary>
-        public MergeMetaSave ExportMeta(string today = null)
+        public MergeMetaSave ExportMeta()
         {
             var dto = new MergeMetaSave
             {
@@ -835,8 +835,7 @@ namespace GameLogic.BlockBlast
                 blindBoxCount = BlindBoxCount,
                 goddessRating = GoddessRating,
                 goddessLevel = GoddessLevel,
-                wishUsedToday = WishUsedToday,
-                lastWishResetDate = today ?? MergeMetaPersistence.Today(),
+                wishUsedToday = WishUsedToday,              // 投影:随缓存持久化供开窗前兜底显示,权威值由登录快照覆盖
                 energy = Energy,                            // 体力进盘（设计 14 §3.7）
                 lastEnergyRegenTime = LastEnergyRegenTime,  // 上次时基恢复结算时刻（离线补算依据，设计 49 §3.2）
             };
@@ -845,23 +844,19 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>
-        /// 用 DTO 覆盖元层进度(设计 14 §3.5 逐字段保底 + §3.6 跨天重置)。纯方法、无 IO。
-        /// 仅覆盖元字段(§3.1 进盘 11 项),不动局内瞬态(棋盘/手牌/订单/合成区)——调用前须先 <see cref="Reset"/>
+        /// 用 DTO 覆盖元层进度(设计 14 §3.5 逐字段保底)。纯方法、无 IO。
+        /// 仅覆盖元字段,不动局内瞬态(棋盘/手牌/订单/合成区)——调用前须先 <see cref="Reset"/>
         /// 建好局内瞬态(两者字段不重叠,§3.4)。<paramref name="dto"/> 为 null 直接返回(保持 Reset 缺省,等价首次)。
         ///
         /// 逐字段保底:即使 version 匹配,本地文件仍可能被篡改/截断,故对任意输入夹值到合法不变量
         /// (神庙数组长 12、女神等级≥1、NextRepairIndex∈[0,HallCount]),不把脏数据带进玩法。
         ///
-        /// 跨天重置(§3.6):以 <paramref name="today"/>(默认本地日期)判定。LoadAsync 已对从盘读出的 DTO 跑过一次
-        /// ApplyDailyReset;此处对 DTO 再判一次,使「直接构造 DTO 调 ImportMeta」(单测路径)也得到正确的跨天语义。
+        /// 祈愿 <see cref="WishUsedToday"/> 从 DTO 读作投影(缓存兜底),不再本地按日期跨天归零——祈愿每日重置服务端权威,
+        /// 权威当日值由登录快照(<c>GameContext.ApplyServerWishSnapshot</c>)覆盖缓存 + 活态。
         /// </summary>
-        public void ImportMeta(MergeMetaSave dto, string today = null)
+        public void ImportMeta(MergeMetaSave dto)
         {
             if (dto == null) return;
-            today ??= MergeMetaPersistence.Today();
-
-            // 跨天重置:对 DTO 就地判定,保证单测「直接构造 DTO」路径也走跨天逻辑(LoadAsync 路径已判过,幂等无害)。
-            MergeMetaPersistence.ApplyDailyReset(dto, today);
 
             Soul = dto.soul;
             Piety = dto.piety;
@@ -883,8 +878,8 @@ namespace GameLogic.BlockBlast
             else if (idx > TempleConfig.HallCount) idx = TempleConfig.HallCount;
             NextRepairIndex = idx;
 
-            // 祈愿:DTO 已经 ApplyDailyReset 夹过(跨天则 0),直接用。
-            WishUsedToday = dto.wishUsedToday;
+            // 祈愿今日已用次数:投影,直接读缓存兜底(权威值由登录快照覆盖;负值防篡改夹 0)。
+            WishUsedToday = dto.wishUsedToday < 0 ? 0 : dto.wishUsedToday;
 
             // 体力 + 时基恢复记录时刻(设计 14 §3.7 / 设计 49 §3.2)：
             // lastEnergyRegenTime==0 = 尚无记录(旧档无此字段 → 缺省 0 / 首次)：此时 energy 也是缺省 0,不可信,

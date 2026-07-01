@@ -18,8 +18,8 @@ namespace GameLogic.BlockBlast.Tests
     ///    灌 DTO / 无 DTO，断言字段。
     /// 2. 窗口逻辑（W3/W5）——bare new 一个 <see cref="PlayerInfoWindow"/>（不 Activate、不加载 prefab，
     ///    UI 组件字段全 null，窗口方法对 null 字段已做空守卫），反射调私有方法断言：
-    ///    改名委托 <see cref="PlayerRenameService.TryRename"/>（观察 Player.Name/RenameCount 变化）、
-    ///    占位点击不抛。窗口真实视觉绑定 / OnRefresh 文本刷新（W2/W4）属 V 组 Play 实测。
+    ///    改名走服务端权威 RPC（<see cref="IRenameGateway"/>）—— 观察 PlayerAttrService.Nickname/RenameCount/Diamond
+    ///    按服务端响应对齐、本地不扣钻不写名；占位点击不抛。窗口真实视觉绑定 / OnRefresh 文本刷新（W2/W4）属 V 组 Play 实测。
     ///
     /// 每例 TearDown Release GameContext，避免单例跨例污染（同 GameContextTests 口径）。
     /// </summary>
@@ -96,15 +96,15 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreSame(p1, p2, "多次访问应是同一 PlayerInfo 实例（持有，不每次新建）");
         }
 
-        // ═══════════════════════ W3：改名贯通数据层（窗口委托 PlayerRenameService）═══════════════════════
+        // ═══════════════════════ W3：改名走服务端权威 RPC（窗口经 IRenameGateway）═══════════════════════
         //
-        // 验收 = 窗口的 OnRenameSubmit 确实委托 PlayerRenameService.TryRename、不自写改名逻辑。
-        // 反射调 bare 窗口的私有 OnRenameSubmit，观察 GameContext.Player 的 Name/RenameCount 是否按
-        // 数据层规则变化（数据层 R1–R5 规则本身已由 PlayerInfoTests 覆盖，此处只证「窗口走的是它」）。
+        // 验收 = 窗口 OnRenameSubmit：① 本地先校验(空/超长/屏蔽字)明显非法直接拒、不发 RPC；
+        // ② 合法则发 C2G_Rename（仅上报新昵称）；③ 据响应对齐 PlayerAttrService.Nickname/RenameCount/Diamond。
+        // 客户端不本地扣钻、不本地写名。用桩 IRenameGateway 注各分支响应，观察 PlayerAttrService 视图与 RPC 调用参数。
 
         // PlayerInfoWindow 迁 MonoBehaviour 体系（UIWindowMono）后不能 new 构造：挂到临时 GameObject 上。
-        // 不 Setup / 不加载 prefab，UI 组件字段（[SerializeField]）全 null，窗口方法对 null 字段已做空守卫，
-        // 故仍只测纯托管逻辑（改名委托 / 占位不抛 / 取色稳定）。建出的 GameObject 在 TearDown 销毁。
+        // 不 Setup / 不加载 prefab，UI 组件字段（[SerializeField]）全 null，窗口方法对 null 字段已做空守卫。
+        // 建出的 GameObject 在 TearDown 销毁。
         private GameObject _bareGo;
 
         private PlayerInfoWindow NewBareWindow()
@@ -122,145 +122,124 @@ namespace GameLogic.BlockBlast.Tests
             m.Invoke(w, new object[] { newName });
         }
 
-        [Test]
-        public void W3_LegalName_RenamesAndCountsUp()
+        /// <summary>装配一个已 Ready 的 PlayerAttr(经快照)+ 指定改名桩,供 W3 用。</summary>
+        private static FakeRenameGateway ArrangeRename(RenameRpcResult stub, long initialDiamond = 0L, string initialNickname = "旧昵称", int initialRenameCount = 0)
         {
-            // 首次改名（RenameCount=0 → 免费），用无 DTO 默认 Player。
             GameContext.Instance.InitPlayerFromMeta(null, new System.Random(1));
-            int before = GameContext.Instance.Player.RenameCount;
-
-            InvokeRenameSubmit(NewBareWindow(), "新名字");
-
-            Assert.AreEqual("新名字", GameContext.Instance.Player.Name, "合法名应改成功（窗口委托 TryRename）");
-            Assert.AreEqual(before + 1, GameContext.Instance.Player.RenameCount, "成功后 RenameCount 应 +1");
+            // PlayerAttr 用默认 RpcGatewayProd 无妨(改名不再经它);但需先应用一次快照置 IsReady + 初始视图。
+            var attr = GameContext.Instance.PlayerAttr;
+            attr.ApplyProfile("acc", initialNickname, 1, 0L, initialRenameCount, 1);
+            attr.ApplySnapshotFull(0, initialDiamond, 0, 0, 0, 0, 0);   // 末尾置 IsReady=true
+            var gw = new FakeRenameGateway(stub);
+            GameContext.Instance.InitRenameWith(gw);
+            return gw;
         }
 
         [Test]
-        public void W3_EmptyName_Rejected_NoChange()
+        public void W3_FirstRename_RpcSuccess_AppliesAuthoritative()
         {
-            GameContext.Instance.InitPlayerFromMeta(KnownDto(), new System.Random(1));
-            string nameBefore = GameContext.Instance.Player.Name;
-            int countBefore = GameContext.Instance.Player.RenameCount;
+            // 首次改名免费:服务端返 Success(RenameCount 1, Diamond 不变 500)。客户端用响应覆盖视图。
+            var gw = ArrangeRename(RenameRpcResult.Ok("新昵称", renameCount: 1, diamond: 500),
+                initialDiamond: 500, initialNickname: "旧昵称", initialRenameCount: 0);
+
+            InvokeRenameSubmit(NewBareWindow(), "新昵称");
+
+            Assert.AreEqual(1, gw.CallCount, "应发一次改名 RPC");
+            Assert.AreEqual("新昵称", gw.LastNickname, "RPC 应上报新昵称");
+            var attr = GameContext.Instance.PlayerAttr;
+            Assert.AreEqual("新昵称", attr.Nickname, "成功后昵称按响应覆盖");
+            Assert.AreEqual(1, attr.RenameCount, "成功后 RenameCount 按响应覆盖");
+            Assert.AreEqual(500L, attr.Diamond, "免费首改钻石不变(按响应对齐)");
+        }
+
+        [Test]
+        public void W3_SecondRename_RpcSuccess_ChargesViaServer()
+        {
+            // 二次改名:服务端扣 100 → 返 Success(RenameCount 3, Diamond 900)。客户端不本地扣钻,按响应覆盖。
+            var gw = ArrangeRename(RenameRpcResult.Ok("付费昵称", renameCount: 3, diamond: 900),
+                initialDiamond: 1000, initialNickname: "旧昵称", initialRenameCount: 2);
+
+            InvokeRenameSubmit(NewBareWindow(), "付费昵称");
+
+            Assert.AreEqual(1, gw.CallCount, "应发一次改名 RPC");
+            var attr = GameContext.Instance.PlayerAttr;
+            Assert.AreEqual("付费昵称", attr.Nickname, "成功后昵称覆盖");
+            Assert.AreEqual(3, attr.RenameCount, "成功后 RenameCount 覆盖");
+            Assert.AreEqual(900L, attr.Diamond, "钻石余额按服务端响应覆盖(服务端扣费,客户端不自扣)");
+        }
+
+        [Test]
+        public void W3_RpcNotEnoughDiamond_Rejected_AlignsAuthoritative()
+        {
+            // 服务端拒(钻不足)→ 昵称不改,但响应回带当前权威值(昵称/次数/余额)对齐视图。
+            var gw = ArrangeRename(RenameRpcResult.Rejected(RenameOutcome.NotEnoughDiamond, "旧昵称", renameCount: 2, diamond: 50),
+                initialDiamond: 50, initialNickname: "旧昵称", initialRenameCount: 2);
+
+            InvokeRenameSubmit(NewBareWindow(), "改不动");
+
+            Assert.AreEqual(1, gw.CallCount, "应发一次 RPC");
+            var attr = GameContext.Instance.PlayerAttr;
+            Assert.AreEqual("旧昵称", attr.Nickname, "钻不足昵称不变(对齐服务端当前值)");
+            Assert.AreEqual(2, attr.RenameCount, "钻不足次数不变");
+            Assert.AreEqual(50L, attr.Diamond, "钻不足响应仍对齐余额");
+        }
+
+        [Test]
+        public void W3_RpcServiceUnavailable_NoViewChange()
+        {
+            // 服务不可用(未收响应)→ 昵称/次数/余额均不动(值不可信,不冒进)。
+            var gw = ArrangeRename(RenameRpcResult.Rejected(RenameOutcome.ServiceUnavailable),
+                initialDiamond: 300, initialNickname: "旧昵称", initialRenameCount: 1);
+
+            InvokeRenameSubmit(NewBareWindow(), "想改名");
+
+            Assert.AreEqual(1, gw.CallCount, "应发一次 RPC");
+            var attr = GameContext.Instance.PlayerAttr;
+            Assert.AreEqual("旧昵称", attr.Nickname, "服务不可用昵称不动");
+            Assert.AreEqual(1, attr.RenameCount, "服务不可用次数不动");
+            Assert.AreEqual(300L, attr.Diamond, "服务不可用余额不动(值不可信)");
+        }
+
+        [Test]
+        public void W3_LocalInvalidName_DoesNotCallRpc()
+        {
+            // 本地校验(空/超长)明显非法 → 直接拒、不发 RPC(减一次无谓往返)。
+            var gw = ArrangeRename(RenameRpcResult.Ok("x", 1, 0), initialNickname: "旧昵称");
 
             InvokeRenameSubmit(NewBareWindow(), "   ");   // 全空白 = 空名
 
-            Assert.AreEqual(nameBefore, GameContext.Instance.Player.Name, "空名应被拒、名字不变");
-            Assert.AreEqual(countBefore, GameContext.Instance.Player.RenameCount, "被拒不应 +RenameCount");
+            Assert.AreEqual(0, gw.CallCount, "本地非法名不应发 RPC");
+            Assert.AreEqual("旧昵称", GameContext.Instance.PlayerAttr.Nickname, "本地拒后昵称不变");
         }
 
         [Test]
-        public void W3_TooLongName_Rejected_NoChange()
+        public void W3_TooLongName_DoesNotCallRpc()
         {
-            GameContext.Instance.InitPlayerFromMeta(KnownDto(), new System.Random(1));
-            string nameBefore = GameContext.Instance.Player.Name;
+            var gw = ArrangeRename(RenameRpcResult.Ok("x", 1, 0), initialNickname: "旧昵称");
+            string tooLong = new string('字', PlayerRenameService.MaxLen + 1);
 
-            string tooLong = new string('字', PlayerRenameService.MaxLen + 1);   // 超 16
             InvokeRenameSubmit(NewBareWindow(), tooLong);
 
-            Assert.AreEqual(nameBefore, GameContext.Instance.Player.Name, "超长名应被拒、名字不变");
-        }
-
-        [Test]
-        public void W3_EmptyWordList_DoesNotTriggerProfanity()
-        {
-            // 窗口注空词表（去变现/不阻塞 O6）→ 任何名都不该因屏蔽字被拒。
-            GameContext.Instance.InitPlayerFromMeta(null, new System.Random(1));
-            InvokeRenameSubmit(NewBareWindow(), "随便起个名");
-            Assert.AreEqual("随便起个名", GameContext.Instance.Player.Name, "空词表下不应触发 Profanity 拒绝");
-        }
-
-        [Test]
-        public void W3_NonFirstRename_RpcSuccess_Succeeds()
-        {
-            // 设计 38 O8 兑现:窗口扣钻接缝改为「调 PlayerAttrService.TryChangeAsync 接服务端校验」(非默认 true)。
-            // 注入桩 IRpcGateway 返 Success → 非首次改名应成功 + 钻石余额按响应 NewAmount 刷视图。
-            var dto = KnownDto();   // RenameCount=2(非首次,需扣钻)
-            GameContext.Instance.InitPlayerFromMeta(dto, new System.Random(1));
-            var gateway = new FakeRpcGateway(ChangeResult.Ok(newBalance: 900));   // 模拟扣 100 后余额 = 900
-            GameContext.Instance.InitPlayerAttrWith(gateway);
-            int before = GameContext.Instance.Player.RenameCount;
-
-            InvokeRenameSubmit(NewBareWindow(), "付费改名");
-
-            Assert.AreEqual(1, gateway.CallCount, "应发一次 RPC 扣钻");
-            Assert.AreEqual(AttrType.Diamond, gateway.LastType, "扣钻类型应是 Diamond");
-            Assert.AreEqual(-RenamePriceConfig.RENAME_PRICE, gateway.LastDelta, "扣钻 delta 应是 -价(100)");
-            Assert.AreEqual("player_rename", gateway.LastReason, "扣钻 reason 应是 player_rename");
-            Assert.AreEqual("付费改名", GameContext.Instance.Player.Name, "RPC 成功后非首次改名应成功");
-            Assert.AreEqual(before + 1, GameContext.Instance.Player.RenameCount, "成功后 RenameCount 应 +1");
-            Assert.AreEqual(900L, GameContext.Instance.PlayerAttr.Diamond, "钻石余额应按 RPC 响应 NewAmount 刷新");
-        }
-
-        [Test]
-        public void W3_NonFirstRename_RpcNotEnough_Rejected_NoChange()
-        {
-            // 设计 38:服务端拒(余额不足)→ 客户端不改名、不冒进;钻石视图按 NewAmount 刷为服务端实际余额(50)。
-            var dto = KnownDto();
-            GameContext.Instance.InitPlayerFromMeta(dto, new System.Random(1));
-            var gateway = new FakeRpcGateway(ChangeResult.Rejected(ChangeReject.NotEnoughBalance, newBalance: 50));
-            GameContext.Instance.InitPlayerAttrWith(gateway);
-            string nameBefore = GameContext.Instance.Player.Name;
-            int countBefore = GameContext.Instance.Player.RenameCount;
-
-            InvokeRenameSubmit(NewBareWindow(), "付费改名");
-
-            Assert.AreEqual(1, gateway.CallCount, "应发一次 RPC");
-            Assert.AreEqual(nameBefore, GameContext.Instance.Player.Name, "服务端拒后名字不变");
-            Assert.AreEqual(countBefore, GameContext.Instance.Player.RenameCount, "服务端拒后 RenameCount 不变");
-            Assert.AreEqual(50L, GameContext.Instance.PlayerAttr.Diamond, "余额不足响应仍应刷视图(为服务端实际余额)");
-        }
-
-        [Test]
-        public void W3_NonFirstRename_RpcServiceUnavailable_NoLocalSpend()
-        {
-            // 设计 38 + 沿 30 兑换码「不本地放行」:服务暂不可用 → 改名拒、本地视图不动(沿 38 §SV5)。
-            var dto = KnownDto();
-            GameContext.Instance.InitPlayerFromMeta(dto, new System.Random(1));
-            var gateway = new FakeRpcGateway(ChangeResult.Rejected(ChangeReject.ServiceUnavailable));
-            GameContext.Instance.InitPlayerAttrWith(gateway);
-            string nameBefore = GameContext.Instance.Player.Name;
-
-            InvokeRenameSubmit(NewBareWindow(), "付费改名");
-
-            Assert.AreEqual(1, gateway.CallCount, "应发一次 RPC");
-            Assert.AreEqual(nameBefore, GameContext.Instance.Player.Name, "服务不可用时名字不变");
-            Assert.AreEqual(0L, GameContext.Instance.PlayerAttr.Diamond, "服务不可用响应不动视图(保持初值 0)");
-        }
-
-        [Test]
-        public void W3_FirstRename_DoesNotCallRpc()
-        {
-            // 首次改名免费(RenameCount=0)→ PlayerRenameService 内 cost=0 不进 trySpendDiamond → 不发 RPC。
-            GameContext.Instance.InitPlayerFromMeta(null, new System.Random(1));
-            var gateway = new FakeRpcGateway(ChangeResult.Ok(0));
-            GameContext.Instance.InitPlayerAttrWith(gateway);
-
-            InvokeRenameSubmit(NewBareWindow(), "首改");
-
-            Assert.AreEqual(0, gateway.CallCount, "首改免费,不应发 RPC(设计 38 §六)");
-            Assert.AreEqual("首改", GameContext.Instance.Player.Name, "首改应成功");
+            Assert.AreEqual(0, gw.CallCount, "本地超长名不应发 RPC");
+            Assert.AreEqual("旧昵称", GameContext.Instance.PlayerAttr.Nickname, "本地拒后昵称不变");
         }
 
         /// <summary>
-        /// 测试用桩 <see cref="IRpcGateway"/>:返预设响应 + 记录调用参数。
-        /// 与服务端同口径(memory「跨框架通用异步与网络库异步」):桩 await CompletedTask 即同步完成 UniTask。
+        /// 测试用桩 <see cref="IRenameGateway"/>:返预设响应 + 记录调用参数。
+        /// 桩 await CompletedTask 即同步完成 UniTask(memory「跨框架通用异步与网络库异步」)。
         /// </summary>
-        private sealed class FakeRpcGateway : IRpcGateway
+        private sealed class FakeRenameGateway : IRenameGateway
         {
-            private readonly ChangeResult _result;
+            private readonly RenameRpcResult _result;
             public int CallCount { get; private set; }
-            public AttrType LastType { get; private set; }
-            public long LastDelta { get; private set; }
-            public string LastReason { get; private set; }
+            public string LastNickname { get; private set; }
 
-            public FakeRpcGateway(ChangeResult result) { _result = result; }
+            public FakeRenameGateway(RenameRpcResult result) { _result = result; }
 
-            public async UniTask<ChangeResult> SendChangeRequestAsync(AttrType type, long delta, string reason)
+            public async UniTask<RenameRpcResult> SendRenameAsync(string newNickname)
             {
                 CallCount++;
-                LastType = type;
-                LastDelta = delta;
-                LastReason = reason;
+                LastNickname = newNickname;
                 await UniTask.CompletedTask;
                 return _result;
             }

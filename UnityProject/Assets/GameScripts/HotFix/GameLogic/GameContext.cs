@@ -38,16 +38,25 @@ namespace GameLogic
         /// <summary>玩家元层属性服务(Coin/Diamond/Stamina 客户端账本视图,设计 38 客户端段)。</summary>
         public PlayerAttrService PlayerAttr { get; private set; }
 
+        /// <summary>改名 RPC 接缝(改名服务端权威·客户端段):发 C2G_RenameRequest,服务端一次原子算费/扣钻/写名/计数。</summary>
+        public IRenameGateway RenameGateway { get; private set; }
+
+        /// <summary>头像/框修饰编排器(头像服务端权威·客户端段):换装乐观 set + 服务端对账、解锁 client-report、登录 bootstrap 上报差集。</summary>
+        public CosmeticService Cosmetic { get; private set; }
+
         /// <summary>四玩法货币(Soul/Piety/Exp/Energy)本地视图 ↔ 服务端权威对账器(P2 全栈迁移·客户端段)。</summary>
         public MetaCurrencySync MetaCurrency { get; private set; }
+
+        /// <summary>祈愿(每日限领体力)服务端权威编排器(祈愿服务端权威·客户端段):发 C2G_WishForEnergyRequest,响应权威值经对账器应用为投影。</summary>
+        public WishService Wish { get; private set; }
+
+        /// <summary>档案状态(皮肤态 + 神庙装饰厅数)服务端权威上报编排器(皮肤/神庙装饰服务端权威·客户端段):变更后全量 SET 上报,fire-and-forget。</summary>
+        public ProfileStateSync ProfileState { get; private set; }
 
         /// <summary>normal 订单本地视图 ↔ 服务端权威投影器(P1 全栈迁移·客户端段:登录快照/推送应用 + 交付 RPC 编排)。</summary>
         public OrderSync OrderSync { get; private set; }
 
-        /// <summary>云存档同步编排(P3 全栈迁移·客户端段):进主游戏下载冲突解决 + 存档边界节流上传(只搬非货币非身份切片)。</summary>
-        public CloudSaveSync CloudSave { get; private set; }
-
-        /// <summary>进主游戏编排(全栈协议改动·客户端段):进融合主游戏时发一次 C2G_EnterMainGameRequest,把订单快照 + 云存档同包回带统一应用。</summary>
+        /// <summary>进主游戏编排(全栈协议改动·客户端段):进融合主游戏时发一次 C2G_EnterMainGameRequest,把订单快照应用到投影。</summary>
         public EnterMainGameSync EnterMainGame { get; private set; }
 
         /// <summary>服务端权威发牌预测/对账引擎(M3 客户端段:开局 C2G_GameStart / 落子 C2G_Place 预测对账 / 重连 C2G_GameSnapshot)。</summary>
@@ -81,21 +90,35 @@ namespace GameLogic
             // 沿设计 38 §五接线落点;Fantasy 程序集受 FANTASY_UNITY 约束,事件订阅须在 #if 内)。
             PlayerAttr = new PlayerAttrService(new RpcGatewayProd());
 
+            // 改名 RPC 接缝(改名服务端权威·客户端段):生产用 RenameGatewayProd(经 Session 发 C2G_RenameRequest);
+            // 费用/扣钻/写名/计数服务端一次原子做完,客户端不再本地扣钻。响应回带最新 Nickname/RenameCount/Diamond 供对齐。
+            RenameGateway = new RenameGatewayProd();
+
+            // 头像/框修饰编排器(头像服务端权威·客户端段):生产用 CosmeticGatewayProd(经 Session 发 C2G_EquipCosmetic/C2G_UnlockCosmetic);
+            // 换装乐观 set + 服务端对账、解锁 client-report、登录 bootstrap 上报差集。snapshot 覆盖本地投影 + bootstrap 接线在 GameApp.StartGameLogic。
+            Cosmetic = new CosmeticService(new CosmeticGatewayProd());
+
             // 四货币对账器(P2 客户端段):复用同一 RPC 接缝(RpcGatewayProd 经 Session 发 C2G_PropertyChangeRequest);
             // 登录快照 → ApplySnapshot 覆盖本地视图 + 基线;落盘边界 → ReportPending 聚合上报。接线在 GameApp.StartGameLogic。
             MetaCurrency = new MetaCurrencySync(new RpcGatewayProd());
+
+            // 祈愿服务端权威编排器(祈愿服务端权威·客户端段):生产用 WishGatewayProd(经 Session 发 C2G_WishForEnergyRequest);
+            // 祈愿非乐观、等响应,把回带的权威 Soul/Energy 经 MetaCurrency.ApplyDeltaPush 应用(不本地预扣、免双减),WishUsedToday 投影 set。
+            Wish = new WishService(new WishGatewayProd(), MetaCurrency);
+
+            // 档案状态服务端权威上报编排器(皮肤/神庙装饰服务端权威·客户端段):生产用 ProfileStateGatewayProd(经 Session 发 C2G_SetProfileStateRequest);
+            // 皮肤切换 / 神庙装饰乐观本地变更后,取当前三态全量 SET 上报,fire-and-forget(失败下次变更再报 / 登录快照对齐)。
+            // snapshot 覆盖本地投影接线在 GameApp.StartGameLogic。
+            ProfileState = new ProfileStateSync(new ProfileStateGatewayProd());
 
             // 订单服务端权威投影器(P1 客户端段):生产用 OrderRpcGatewayProd(经 Session 发 C2G_DeliverOrderRequest);
             // 登录/刷新推送 → OnSnapshotPush 应用快照;开窗 → OnMergeStateReady 切权威 + 接交付钩子。接线在 GameApp.StartGameLogic。
             OrderSync = new OrderSync(new OrderRpcGatewayProd());
 
-            // 云存档同步(P3 客户端段):生产用 CloudSaveGatewayProd(上传路径仍经 Session 发 C2G_CloudSaveUploadRequest);
-            // 下载冲突解决由进主游戏响应同包回带驱动(EnterMainGame),存档边界 → TryUploadThrottled。接线在 GameApp.StartGameLogic。
-            CloudSave = new CloudSaveSync(new CloudSaveGatewayProd());
-
             // 进主游戏编排(全栈协议改动·客户端段):生产用 EnterMainGameGatewayProd(经 Session 发 C2G_EnterMainGameRequest);
-            // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync、云存档 → CloudSave 统一应用。
-            EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync, CloudSave);
+            // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync 统一应用。
+            // (局内 cosmetic + 合成经济叠加层改经 C2G_GameStart/GameSnapshot 的 SliceJson 收发,不再走进主游戏回带的云存档 blob。)
+            EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync);
 
             // 服务端权威发牌预测/对账引擎(M3 客户端段):生产用 BlockGameGatewayProd(经 Session 发 C2G_GameStart/Place/GameSnapshot);
             // 开窗经 OnMergeStateReady 注入到 BlockGameState.ServerDeal,接线在 GameApp.StartGameLogic。
@@ -193,31 +216,36 @@ namespace GameLogic
             // 磁盘已是服务端值 → 跳过冗余落盘；否则（含磁盘缺 playerId 字段 / 无档）落盘。
             var dto = MergeMetaPersistence.Load();
             if (dto != null && dto.playerId == serverPlayerId) return;
-            SavePlayer(fireSavedHook: false); // 回灌写:身份不入云存档 blob,不触发存档边界钩子(避免无意义上传 + version 空涨)
+            SavePlayer(fireSavedHook: false); // 回灌写:身份是服务端回灌值,不触发存档边界钩子(避免无意义空跑上报)
         }
 
         /// <summary>
-        /// 落地服务端登录四货币权威快照(P2 全栈迁移·客户端段)：用服务端值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
-        /// 验收:登录后四货币显示 = 服务端快照值(非本地旧值);单纯改本地 PlayerPrefs 四货币重登录被服务端覆盖。
+        /// 落地服务端登录四货币 + 六元层计数器权威快照(全栈迁移·客户端段)：用服务端值覆盖本地缓存 + 对账器基线 + 已开的玩法态。
+        /// 验收:登录后四货币 + 六计数器显示 = 服务端快照值(非本地旧值/blob 旧值);单纯改本地 PlayerPrefs 重登录被服务端覆盖。
         /// </summary>
         /// <remarks>
         /// 三处一并覆盖,保证后续任一读取路径都拿服务端值:
-        /// ① 缓存 <see cref="MergeMetaSave"/>(soul/piety/exp/energy 字段):玩法窗稍后开窗经 ImportMeta 从缓存读,
+        /// ① 缓存 <see cref="MergeMetaSave"/>(soul/piety/exp/energy + 六计数器字段):玩法窗稍后开窗经 ImportMeta 从缓存读,
         ///    故必须先把权威值写进缓存,否则开窗会用本地旧缓存覆盖显示;
         /// ② 对账器 <see cref="MetaCurrency"/> 基线:钉到服务端值,后续产销 delta 从此基准算;
         /// ③ 若玩法窗已开(MergeState 非空,如挂后台登录重连),直接覆盖活态字段,即时反映。
         /// 体力字段连带把 lastEnergyRegenTime 置 now:服务端值是「此刻权威体力」,本地预测恢复应从此刻起算
         /// (避免用旧记录时刻把已结算过的离线恢复再补一遍)。
+        /// 六计数器与四货币同处理:登录快照是权威初值源,缓存只作开窗前投影兜底(云存档通道已整体退役)。
+        /// 神庙已修厅数 <paramref name="templeRepaired"/> 是标量,写进缓存的布尔数组 templeRepaired 取「前 N 项 true」(顺序解锁前缀)。
         /// </remarks>
-        public void ApplyServerCurrencySnapshot(long soul, long piety, long exp, long energy)
+        public void ApplyServerCurrencySnapshot(long soul, long piety, long exp, long energy,
+            long goddessLevel, long goddessRating, long unlockedChapter,
+            long blindBoxCount, long templeRepaired, long nextRepairIndex)
         {
             var live = BlockGameState.Instance;
             var state = (live != null && live.MergeOrderMode) ? live.MergeState : null;
 
             // ① + ② 经对账器:set 基线,若活态在则一并覆盖活态字段。
-            MetaCurrency?.ApplySnapshot(state, soul, piety, exp, energy);
+            MetaCurrency?.ApplySnapshot(state, soul, piety, exp, energy,
+                goddessLevel, goddessRating, unlockedChapter, blindBoxCount, templeRepaired, nextRepairIndex);
 
-            // ③ 缓存:把四货币权威值写进 MergeMetaSave(保留其余元层字段),供稍后开窗 ImportMeta 读取。
+            // ③ 缓存:把四货币 + 六计数器权威值写进 MergeMetaSave(保留其余元层字段),供稍后开窗 ImportMeta 读取。
             //    energy 连带把 lastEnergyRegenTime 置 now(权威体力从此刻起算本地预测恢复)。
             var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
             dto.soul = (int)soul;
@@ -225,9 +253,115 @@ namespace GameLogic
             dto.exp = (int)exp;
             dto.energy = (int)energy;
             dto.lastEnergyRegenTime = MergeMetaPersistence.NowUnixSec();
-            // 回灌写:货币 + lastEnergyRegenTime 均不入云存档 blob,触发存档边界钩子只会空跑货币上报 +
-            // 传一份内容未变的 blob 空涨 version,故 fireSavedHook=false 只落本地缓存、不惊动上报/上传。
+            dto.goddessLevel = (int)goddessLevel;
+            dto.goddessRating = (int)goddessRating;
+            dto.unlockedChapter = (int)unlockedChapter;
+            dto.blindBoxCount = (int)blindBoxCount;
+            dto.nextRepairIndex = (int)nextRepairIndex;
+            dto.templeRepaired = BuildTempleRepairedArray(templeRepaired);
+            // 回灌写:货币 + 六计数器 + lastEnergyRegenTime 是服务端回灌值,非玩法事件边界,
+            // 触发存档钩子只会空跑一次货币聚合上报,故 fireSavedHook=false 只落本地缓存、不惊动上报。
             MergeMetaPersistence.SaveAsync(dto, fireSavedHook: false).Forget();
+        }
+
+        /// <summary>
+        /// 落地服务端登录头像/框权威快照(头像服务端权威·客户端段):用服务端当前佩戴 + 解锁集覆盖本地投影 <see cref="Player"/>。
+        /// 登录快照是唯一初值源;本地投影只作开窗前兜底(云存档通道已整体退役)。
+        /// 解锁集缺省(首登服务端空集)→ 用服务端值原样覆盖(空数组);随后 bootstrap 上报默认解锁补齐。
+        /// 当前 id 缺省 1/101 与客户端默认一致,登录不闪默认头像。
+        /// </summary>
+        /// <remarks>
+        /// 覆盖本地投影而非另建载体:<see cref="AvatarUnlockService"/> / <see cref="PlayerInfoWindow"/> 换装 / 显示 均读 <see cref="Player"/>,
+        /// 把服务端权威值写进 <see cref="Player"/> 即让所有读取路径拿服务端投影,乐观变更由 <see cref="CosmeticService"/> 对账回写。
+        /// 服务端当前 id ≤ 0(异常缺省)时退客户端默认,保显示不空。
+        /// </remarks>
+        public void ApplyServerCosmeticSnapshot(int currentAvatarId, int currentFrameId,
+            int[] unlockedAvatarIds, int[] unlockedFrameIds)
+        {
+            if (Player == null) return;
+            Player.CurrentAvatarId = currentAvatarId > 0 ? currentAvatarId : PlayerInfo.DefaultAvatarId;
+            Player.CurrentFrameId = currentFrameId > 0 ? currentFrameId : PlayerInfo.DefaultFrameId;
+            Player.UnlockedAvatarIds = unlockedAvatarIds ?? System.Array.Empty<int>();
+            Player.UnlockedFrameIds = unlockedFrameIds ?? System.Array.Empty<int>();
+        }
+
+        /// <summary>
+        /// 落地服务端登录祈愿每日态权威快照(祈愿服务端权威·客户端段):把今日已用次数写进本地缓存 + 已开的玩法态投影。
+        /// 客户端 <see cref="MergeOrderState.WishUsedToday"/> 降为投影,唯一初值源 = 服务端快照(懒重置后当日值),不再本地跨天重置。
+        /// 登录快照是唯一初值源,缓存只作开窗前投影兜底(云存档通道已整体退役)。
+        /// </summary>
+        /// <remarks>
+        /// 两处一并覆盖(仿 <see cref="ApplyServerCurrencySnapshot"/>):
+        /// ① 缓存 <see cref="MergeMetaSave.wishUsedToday"/> + lastWishResetDate(置 today):供稍后开窗 ImportMeta 从缓存读投影;
+        /// ② 若玩法窗已开(MergeState 非空),直接覆盖活态 WishUsedToday。
+        /// WishDailyLimit(每日上限)客户端另有本地常量 <c>MergeOrderConfig.WishPerDayLimit</c> 与服务端一致,故仅需落已用次数;
+        /// 今日剩余次数由 UI 用「上限 - 已用」现算(上限值 UI 可读服务端 <c>WishRpcResult.WishDailyLimit</c> 或本地常量)。
+        /// </remarks>
+        public void ApplyServerWishSnapshot(int wishUsedToday)
+        {
+            int used = wishUsedToday < 0 ? 0 : wishUsedToday;
+
+            var live = BlockGameState.Instance;
+            var state = (live != null && live.MergeOrderMode) ? live.MergeState : null;
+            if (state != null) state.WishUsedToday = used;
+
+            var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
+            dto.wishUsedToday = used;
+            // 缓存日期锚到 today:与服务端「懒重置后当日值」语义一致,使开窗 ImportMeta 的跨天判定视作同日、不再本地清零。
+            dto.lastWishResetDate = MergeMetaPersistence.Today();
+            // 回灌写:祈愿每日态是服务端回灌值,fireSavedHook=false 只落缓存、不触发存档边界钩子(非玩法事件)。
+            MergeMetaPersistence.SaveAsync(dto, fireSavedHook: false).Forget();
+        }
+
+        /// <summary>
+        /// 落地服务端登录皮肤态 + 神庙装饰权威快照(皮肤/神庙装饰服务端权威·客户端段):用服务端值覆盖本地缓存 + 已开的玩法态。
+        /// 登录快照是唯一初值源(云存档通道已整体退役,本地缓存只作开窗前投影兜底)。
+        /// </summary>
+        /// <remarks>
+        /// 三态口径:
+        /// - <paramref name="skinMono"/> 0/1(非 0/1 视作彩色 0);<paramref name="skinMonoId"/> 彩色态 -1(=未选,勿当有效 id 0)。
+        ///   皮肤态经 <see cref="BlockSkinState.Import"/> 校验落地(单色态非法 id → 池内重随机;缺池 → 退彩色),同缓存加载口径。
+        /// - <paramref name="templeDecorated"/> 已装饰厅数标量 → 前缀布尔数组(前 N 项 true,顺序解锁前缀,与批 1 templeRepaired 同口径)。
+        /// 两处一并覆盖(仿 <see cref="ApplyServerCurrencySnapshot"/>):
+        /// ① 若玩法窗已开(MergeState 非空),直接覆盖活态皮肤 + 装饰数组,即时反映;
+        /// ② 缓存 <see cref="MergeMetaSave"/>(skinMono/skinMonoId/templeDecorated):供稍后开窗 ImportMeta 读投影。
+        /// 回灌写:三态均为服务端回灌值,fireSavedHook=false 只落缓存、不触发存档边界钩子(非玩法事件)。
+        /// </remarks>
+        public void ApplyServerProfileStateSnapshot(int skinMono, int skinMonoId, long templeDecorated)
+        {
+            // 构造一份「皮肤态载体」dto 供 BlockSkinState.Import 校验落地(仅用两皮肤字段;templeDecorated 单独处理)。
+            bool mono = skinMono == 1;
+            var skinDto = new MergeMetaSave { skinMono = mono, skinMonoId = mono ? skinMonoId : BlockSkinState.Unselected };
+            var decoratedArr = BuildTempleRepairedArray(templeDecorated); // 前缀布尔数组(与 templeRepaired 同标量→数组转换)
+
+            // ① 活态:窗已开时直接覆盖皮肤 + 装饰数组。
+            var live = BlockGameState.Instance;
+            var state = (live != null && live.MergeOrderMode) ? live.MergeState : null;
+            if (state != null)
+            {
+                state.Skin.Import(skinDto, BlockSkinCatalog.MonoIds);
+                state.TempleDecorated = (bool[])decoratedArr.Clone(); // 深拷贝:活态不与缓存 dto 共享引用
+            }
+
+            // ② 缓存:写三态权威值(保留其余元层字段),供开窗 ImportMeta 读。
+            var dto = MergeMetaPersistence.Load() ?? new MergeMetaSave { version = MergeMetaPersistence.CurrentVersion };
+            dto.skinMono = mono;
+            dto.skinMonoId = mono ? skinMonoId : BlockSkinState.Unselected;
+            dto.templeDecorated = decoratedArr;
+            MergeMetaPersistence.SaveAsync(dto, fireSavedHook: false).Forget();
+        }
+
+        /// <summary>
+        /// 按权威已修厅数构造缓存布尔数组:前 <paramref name="count"/> 项 true、其余 false(顺序解锁前缀,与 MetaCurrencySync 同口径)。
+        /// count 夹到 [0, HallCount]。供快照回灌写缓存 templeRepaired 字段。
+        /// </summary>
+        private static bool[] BuildTempleRepairedArray(long count)
+        {
+            int n = BlockBlast.TempleConfig.HallCount;
+            var arr = new bool[n];
+            int c = count < 0 ? 0 : (count > n ? n : (int)count);
+            for (int i = 0; i < c; i++) arr[i] = true;
+            return arr;
         }
 
         /// <summary>
@@ -236,7 +370,7 @@ namespace GameLogic
         /// 经异步外壳 <see cref="MergeMetaPersistence.SaveAsync"/> 即发即忘落盘。
         /// 无既有 DTO（首次）→ 现场新建一份 DTO（version 由 Save 内序列化承接）。
         /// <paramref name="fireSavedHook"/>=false 用于服务端→本地的身份回写(<see cref="ApplyServerPlayerId"/>):
-        /// 只落盘、不触发存档边界钩子(playerId 不入云存档 blob,非玩法事件)。
+        /// 只落盘、不触发存档边界钩子(playerId 是服务端回灌值,非玩法事件)。
         /// </summary>
         public void SavePlayer(bool fireSavedHook = true)
         {
@@ -311,12 +445,39 @@ namespace GameLogic
         }
 
         /// <summary>
+        /// 测试 / 注入入口:用指定改名 RPC 接缝重建 <see cref="RenameGateway"/>(沿 <see cref="InitPlayerAttrWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IRenameGateway"/>(注桩响应各分支),断言改名走 RPC + 视图对齐,不连网。
+        /// </summary>
+        public void InitRenameWith(IRenameGateway gateway)
+        {
+            RenameGateway = gateway;
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定修饰 RPC 接缝重建 <see cref="Cosmetic"/>(沿 <see cref="InitRenameWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="ICosmeticGateway"/>,断言换装乐观 set + 对账、解锁上报、bootstrap 差集上报,不连网。
+        /// </summary>
+        public void InitCosmeticWith(ICosmeticGateway gateway)
+        {
+            Cosmetic = new CosmeticService(gateway);
+        }
+
+        /// <summary>
         /// 测试 / 注入入口:用指定 RPC 接缝重建 <see cref="MetaCurrency"/>(沿 <see cref="InitPlayerAttrWith"/> 范式)。
         /// EditMode 经它灌入桩 <see cref="IRpcGateway"/>,断言四货币聚合上报 + 对账,不连网。
         /// </summary>
         public void InitMetaCurrencyWith(IRpcGateway gateway)
         {
             MetaCurrency = new MetaCurrencySync(gateway);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定祈愿接缝 + 对账器重建 <see cref="Wish"/>(沿 <see cref="InitMetaCurrencyWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IWishGateway"/>,断言祈愿走 RPC + 权威值应用为投影 + 灵力体力不双减,不连网。
+        /// </summary>
+        public void InitWishWith(IWishGateway gateway, MetaCurrencySync currency)
+        {
+            Wish = new WishService(gateway, currency);
         }
 
         /// <summary>
@@ -329,22 +490,13 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 测试 / 注入入口:用指定接缝(+ 可注入毫秒时钟便于断言节流)重建 <see cref="CloudSave"/>(沿 <see cref="InitMetaCurrencyWith"/> 范式)。
-        /// EditMode 经它灌入桩 <see cref="ICloudSaveGateway"/>,断言下载冲突解决 / 上传节流 / Stale 让位,不连网。
-        /// </summary>
-        public void InitCloudSaveWith(ICloudSaveGateway gateway, System.Func<long> nowMsProvider = null)
-        {
-            CloudSave = new CloudSaveSync(gateway, nowMsProvider);
-        }
-
-        /// <summary>
-        /// 测试 / 注入入口:用指定接缝重建 <see cref="EnterMainGame"/>(沿 <see cref="InitCloudSaveWith"/> 范式),
-        /// 关联当前 <see cref="OrderSync"/> / <see cref="CloudSave"/>。EditMode 经它灌入桩 <see cref="IEnterMainGameGateway"/>,
+        /// 测试 / 注入入口:用指定接缝重建 <see cref="EnterMainGame"/>(沿 <see cref="InitMetaCurrencyWith"/> 范式),
+        /// 关联当前 <see cref="OrderSync"/>。EditMode 经它灌入桩 <see cref="IEnterMainGameGateway"/>,
         /// 断言响应应用 + 每次进入重对齐 + 失败兜底,不连网。
         /// </summary>
         public void InitEnterMainGameWith(IEnterMainGameGateway gateway)
         {
-            EnterMainGame = new EnterMainGameSync(gateway, OrderSync, CloudSave);
+            EnterMainGame = new EnterMainGameSync(gateway, OrderSync);
         }
 
         /// <summary>

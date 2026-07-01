@@ -41,6 +41,28 @@ namespace GameLogic.BlockBlast.Tests
             return new MergeOrderState { Soul = soul, Piety = piety, Exp = exp, Energy = energy };
         }
 
+        /// <summary>四货币快照便捷包装:六计数器初值一律 0(counter 场景由 SnapAll 显式给)。</summary>
+        private static void Snap(MetaCurrencySync sync, MergeOrderState s, long soul, long piety, long exp, long energy)
+            => sync.ApplySnapshot(s, soul, piety, exp, energy, 0, 0, 0, 0, 0, 0);
+
+        /// <summary>全量快照:四货币 + 六计数器(女神等级/评级、章节、盲盒、神庙已修厅数、神庙游标)。</summary>
+        private static void SnapAll(MetaCurrencySync sync, MergeOrderState s,
+            long soul, long piety, long exp, long energy,
+            long goddessLevel, long goddessRating, long unlockedChapter,
+            long blindBoxCount, long templeRepaired, long nextRepairIndex)
+            => sync.ApplySnapshot(s, soul, piety, exp, energy,
+                goddessLevel, goddessRating, unlockedChapter, blindBoxCount, templeRepaired, nextRepairIndex);
+
+        /// <summary>取活态神庙已修厅数(布尔数组 true 项数)。</summary>
+        private static int RepairedCount(MergeOrderState s)
+        {
+            var arr = s.TempleRepaired;
+            if (arr == null) return 0;
+            int n = 0;
+            for (int i = 0; i < arr.Length; i++) if (arr[i]) n++;
+            return n;
+        }
+
         private static void Report(MetaCurrencySync sync, MergeOrderState s)
             => sync.ReportPending(s, "test").GetAwaiter().GetResult();
 
@@ -73,7 +95,7 @@ namespace GameLogic.BlockBlast.Tests
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(999, 999, 999, 999); // 本地旧值
 
-            sync.ApplySnapshot(s, 100, 200, 300, 25); // 服务端权威
+            Snap(sync, s, 100, 200, 300, 25); // 服务端权威
 
             Assert.IsTrue(sync.IsReady);
             Assert.AreEqual(100, s.Soul, "登录覆盖本地 Soul 为服务端值");
@@ -94,7 +116,7 @@ namespace GameLogic.BlockBlast.Tests
             gw.Results[AttrType.Piety] = ChangeResult.Ok(250);
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(100, 200, 300, 25);
-            sync.ApplySnapshot(s, 100, 200, 300, 25);
+            Snap(sync, s, 100, 200, 300, 25);
 
             // 模拟一次玩法事件内级联:Soul 多笔累加后净 +15,Piety 净 +50,Exp/Energy 不变。
             s.Soul = 115;   // 等价多笔 +5/+5/+5 聚合
@@ -122,7 +144,7 @@ namespace GameLogic.BlockBlast.Tests
             gw.Results[AttrType.SoulPower] = ChangeResult.Ok(120); // 服务端权威 120(与乐观 115 不同)
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(100, 0, 0, 0);
-            sync.ApplySnapshot(s, 100, 0, 0, 0);
+            Snap(sync, s, 100, 0, 0, 0);
 
             s.Soul = 115; // 乐观 +15
             Report(sync, s);
@@ -142,7 +164,7 @@ namespace GameLogic.BlockBlast.Tests
             gw.Results[AttrType.Piety] = ChangeResult.Rejected(ChangeReject.NotEnoughBalance, newBalance: 30);
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 50, 0, 0);
-            sync.ApplySnapshot(s, 0, 50, 0, 0);
+            Snap(sync, s, 0, 50, 0, 0);
 
             s.Piety = 10; // 乐观扣 40(买东西),但服务端实际只有 30
             Report(sync, s);
@@ -158,7 +180,7 @@ namespace GameLogic.BlockBlast.Tests
             gw.Results[AttrType.SoulPower] = ChangeResult.Rejected(ChangeReject.ServiceUnavailable);
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(100, 0, 0, 0);
-            sync.ApplySnapshot(s, 100, 0, 0, 0);
+            Snap(sync, s, 100, 0, 0, 0);
 
             s.Soul = 115;
             Report(sync, s);
@@ -179,7 +201,7 @@ namespace GameLogic.BlockBlast.Tests
             gw.Results[AttrType.Energy] = ChangeResult.Ok(18);
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             // 玩法真实扣 5(落子)+ 本地预测恢复 +3(ApplyTimeRegen 累计到 RegenSinceReport):
             // 当前体力 20-5+3=18;待上报应仅 -5(扣),恢复 +3 排除。
@@ -201,7 +223,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             // 仅预测恢复 +5,无玩法扣/奖:当前 25、RegenSinceReport=5 → 待上报 delta = (25-20) - 5 = 0。
             s.Energy = 25;
@@ -219,7 +241,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(10, 20, 30, 5);
-            sync.ApplySnapshot(s, 10, 20, 30, 5);
+            Snap(sync, s, 10, 20, 30, 5);
 
             sync.ApplyDeltaPush(s, AttrType.Piety, 999);
             Assert.AreEqual(999, s.Piety, "推送按 type 覆盖本地视图");
@@ -240,7 +262,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
 
-            Assert.DoesNotThrow(() => sync.ApplySnapshot(null, 100, 200, 300, 25));
+            Assert.DoesNotThrow(() => Snap(sync, null, 100, 200, 300, 25));
             Assert.IsTrue(sync.IsReady, "state=null 仍记基线 + 置 Ready");
             Assert.DoesNotThrow(() => Report(sync, null));
             Assert.AreEqual(0, gw.Calls.Count, "state=null 不上报");
@@ -253,7 +275,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             // 消除道具:本地乐观扣 5(SpendClearToolCost)+ 同步抬基线排除该笔(服务端已权威扣一次,客户端不得再报)。
             s.Energy = 15;                  // 乐观扣 5
@@ -272,7 +294,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             // 时序:乐观扣 + 抬基线(同步瞬间)→ 落盘边界 ReportPending 先跑(响应 / delta-push 尚未到)。
             s.Energy = 15;
@@ -296,7 +318,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             s.Energy = 15;
             sync.ExcludeEnergySpend(-5);
@@ -319,7 +341,7 @@ namespace GameLogic.BlockBlast.Tests
             gw.Results[AttrType.GuardianExp] = ChangeResult.Ok(303);
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(100, 200, 300, 20);
-            sync.ApplySnapshot(s, 100, 200, 300, 20);
+            Snap(sync, s, 100, 200, 300, 20);
 
             // 一手落子(消行,融合经济产 Soul/Piety/Exp):
             // 体力 = eBefore(20) → 扣 PlaceCost 1(-1=19)→ 消行返 2(+2=21);净 +1。宿主捕获后 ExcludeEnergySpend(21-20=+1)。
@@ -349,7 +371,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             // 时序:乐观扣 PlaceCost(1)+ 抬基线(同步瞬间)→ 落盘边界 ReportPending 先跑(Place 响应 / delta-push 尚未到)。
             int eBefore = s.Energy;
@@ -373,7 +395,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 20);
-            sync.ApplySnapshot(s, 0, 0, 0, 20);
+            Snap(sync, s, 0, 0, 0, 20);
 
             // 消行落子:扣 1 返 2 → 净 +1,体力 21。宿主 ExcludeEnergySpend(+1)。
             int eBefore = s.Energy;
@@ -394,7 +416,7 @@ namespace GameLogic.BlockBlast.Tests
             var gw = new StubGateway();
             var sync = new MetaCurrencySync(gw);
             var s = NewStateWith(0, 0, 0, 4); // 体力 4,不够一次消除道具(cost=5)
-            sync.ApplySnapshot(s, 0, 0, 0, 4);
+            Snap(sync, s, 0, 0, 0, 4);
 
             // 乐观扣 5(手感)+ 抬基线排除(此刻还不知会被拒)。
             s.Energy = -1;                  // 乐观扣后(极端:模拟乐观越界,实际 gate 会拦,这里测对账健壮)
@@ -408,6 +430,164 @@ namespace GameLogic.BlockBlast.Tests
 
             Report(sync, s);
             Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "拒绝回滚后无残留虚假 delta,不上报");
+        }
+
+        // ══════════ 六元层计数器(云存档 blob 迁服务端权威第 1 批·客户端段)══════════
+
+        // ── C1:全量快照覆盖六计数器本地视图 + 置 Ready + 对齐基线(随后无变化 → 不发) ──
+        [Test]
+        public void C1_SnapshotAll_OverwritesSixCounters_AndAlignsBaseline()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 0);
+            // 本地旧值(应被快照覆盖)
+            s.GoddessLevel = 9; s.GoddessRating = 9; s.UnlockedChapter = 9;
+            s.BlindBoxCount = 9; s.NextRepairIndex = 9;
+            s.TempleRepaired = new bool[GameLogic.BlockBlast.TempleConfig.HallCount];
+            for (int i = 0; i < 9; i++) s.TempleRepaired[i] = true;
+
+            // 服务端权威:女神等级 3 / 评级 2 / 章节 4 / 盲盒 5 / 已修厅数 6 / 修缮游标 6
+            SnapAll(sync, s, 0, 0, 0, 0, 3, 2, 4, 5, 6, 6);
+
+            Assert.IsTrue(sync.IsReady);
+            Assert.AreEqual(3, s.GoddessLevel, "女神等级覆盖为服务端值");
+            Assert.AreEqual(2, s.GoddessRating);
+            Assert.AreEqual(4, s.UnlockedChapter);
+            Assert.AreEqual(5, s.BlindBoxCount);
+            Assert.AreEqual(6, s.NextRepairIndex);
+            Assert.AreEqual(6, RepairedCount(s), "神庙已修厅数标量覆盖为服务端值(前 6 项 true)");
+
+            Report(sync, s); // 快照后无玩法变化 → 六计数器 delta=0
+            Assert.AreEqual(0, gw.Calls.Count, "基线对齐快照值,无产销则不发");
+        }
+
+        // ── C2:六计数器各净变化,每计数器恰发一笔(聚合上报,delta = 当前 - 基线)──
+        [Test]
+        public void C2_SixCounters_ReportNetDeltaPerCounter()
+        {
+            var gw = new StubGateway();
+            gw.Results[AttrType.GoddessLevel]    = ChangeResult.Ok(4);
+            gw.Results[AttrType.GoddessRating]   = ChangeResult.Ok(3);
+            gw.Results[AttrType.UnlockedChapter] = ChangeResult.Ok(5);
+            gw.Results[AttrType.BlindBoxCount]   = ChangeResult.Ok(7);
+            gw.Results[AttrType.TempleRepaired]  = ChangeResult.Ok(2);
+            gw.Results[AttrType.NextRepairIndex] = ChangeResult.Ok(2);
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 0);
+            SnapAll(sync, s, 0, 0, 0, 0, 3, 2, 4, 5, 1, 1);
+
+            // 一次玩法事件:女神升 1 级、评级 +1、章节 +1、攒盒 +2、又修一厅(已修 1→2、游标 1→2)。
+            s.GoddessLevel = 4;
+            s.GoddessRating = 3;
+            s.UnlockedChapter = 5;
+            s.BlindBoxCount = 7;
+            s.TempleRepaired[1] = true; // 已修 2
+            s.NextRepairIndex = 2;
+
+            Report(sync, s);
+
+            Assert.AreEqual(1, gw.CountOf(AttrType.GoddessLevel));
+            Assert.AreEqual(1, gw.CountOf(AttrType.GoddessRating));
+            Assert.AreEqual(1, gw.CountOf(AttrType.UnlockedChapter));
+            Assert.AreEqual(1, gw.CountOf(AttrType.BlindBoxCount));
+            Assert.AreEqual(1, gw.CountOf(AttrType.TempleRepaired));
+            Assert.AreEqual(1, gw.CountOf(AttrType.NextRepairIndex));
+            Assert.AreEqual(1L, gw.Calls.Find(c => c.type == AttrType.GoddessLevel).delta, "女神等级净 +1");
+            Assert.AreEqual(1L, gw.Calls.Find(c => c.type == AttrType.GoddessRating).delta);
+            Assert.AreEqual(1L, gw.Calls.Find(c => c.type == AttrType.UnlockedChapter).delta);
+            Assert.AreEqual(2L, gw.Calls.Find(c => c.type == AttrType.BlindBoxCount).delta, "盲盒净 +2");
+            Assert.AreEqual(1L, gw.Calls.Find(c => c.type == AttrType.TempleRepaired).delta, "已修厅数净 +1");
+            Assert.AreEqual(1L, gw.Calls.Find(c => c.type == AttrType.NextRepairIndex).delta, "修缮游标净 +1");
+        }
+
+        // ── C3:BlindBoxCount 可减(开盒)—— 净负 delta 正常上报,对账覆盖 ──
+        [Test]
+        public void C3_BlindBoxCount_CanDecrease_ReportsNegativeDelta()
+        {
+            var gw = new StubGateway();
+            gw.Results[AttrType.BlindBoxCount] = ChangeResult.Ok(3); // 服务端权威扣后余额 3
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 0);
+            SnapAll(sync, s, 0, 0, 0, 0, 1, 0, 0, 5, 0, 0); // 盲盒基线 5
+
+            s.BlindBoxCount = 3; // 开出 2 盒
+            Report(sync, s);
+
+            Assert.AreEqual(1, gw.CountOf(AttrType.BlindBoxCount));
+            Assert.AreEqual(-2L, gw.Calls.Find(c => c.type == AttrType.BlindBoxCount).delta, "开盒净 -2 上报");
+            Assert.AreEqual(3, s.BlindBoxCount, "对账采用服务端权威余额");
+
+            Report(sync, s);
+            Assert.AreEqual(1, gw.CountOf(AttrType.BlindBoxCount), "基线已对齐,无新变化不重报");
+        }
+
+        // ── C4:delta-push 覆盖六计数器之一(按 type set 本地字段 + 基线,幂等)──
+        [Test]
+        public void C4_ApplyDeltaPush_OverwritesCounterByType()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 0);
+            SnapAll(sync, s, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0);
+
+            sync.ApplyDeltaPush(s, AttrType.GoddessLevel, 7);
+            Assert.AreEqual(7, s.GoddessLevel, "推送按 type 覆盖女神等级");
+
+            // 神庙已修厅数:push 标量 → 布尔数组前 N 项 true。
+            sync.ApplyDeltaPush(s, AttrType.TempleRepaired, 4);
+            Assert.AreEqual(4, RepairedCount(s), "推送已修厅数标量 → 前 4 项 true");
+
+            // 推送已对齐基线 → 无玩法变化不重报。
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.GoddessLevel), "推送已对齐基线,不重报");
+            Assert.AreEqual(0, gw.CountOf(AttrType.TempleRepaired), "推送已对齐基线,不重报");
+        }
+
+        // ── C5:RebindBaseline 把六计数器基线重对齐到活态(开窗 ImportMeta 后,免首刀把缓存值当产出重报)──
+        [Test]
+        public void C5_RebindBaseline_RealignsSixCountersToState()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+
+            // 登录窗未开:快照只记基线(女神等级 2 / 已修厅数 3),state=null。
+            sync.ApplySnapshot(null, 0, 0, 0, 0, 2, 0, 0, 0, 3, 3);
+
+            // 开窗新建 state,ImportMeta 从本地缓存读出计数器(与快照基线不同:女神 2、已修 3,缓存也是 2/3 一致场景)。
+            var s = NewStateWith(0, 0, 0, 0);
+            s.GoddessLevel = 2;
+            s.NextRepairIndex = 3;
+            s.TempleRepaired = new bool[GameLogic.BlockBlast.TempleConfig.HallCount];
+            for (int i = 0; i < 3; i++) s.TempleRepaired[i] = true;
+
+            sync.RebindBaseline(s);
+
+            // 无玩法变化 → 首刀不发(基线已重对齐到活态)。
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.GoddessLevel), "重对齐后无产销不发");
+            Assert.AreEqual(0, gw.CountOf(AttrType.TempleRepaired));
+            Assert.AreEqual(0, gw.CountOf(AttrType.NextRepairIndex));
+
+            // 之后真升一级 → 只上报本次开窗后的真实增量。
+            gw.Results[AttrType.GoddessLevel] = ChangeResult.Ok(3);
+            s.GoddessLevel = 3;
+            Report(sync, s);
+            Assert.AreEqual(1, gw.CountOf(AttrType.GoddessLevel));
+            Assert.AreEqual(1L, gw.Calls.Find(c => c.type == AttrType.GoddessLevel).delta, "只报本次真实 +1");
+        }
+
+        // ── C6:纯快照(无产销)六计数器全 0 → 不发任何计数器请求 ──
+        [Test]
+        public void C6_SnapshotOnly_NoCounterReport()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 0);
+            SnapAll(sync, s, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0);
+
+            Report(sync, s);
+            Assert.AreEqual(0, gw.Calls.Count, "快照后无变化,四货币 + 六计数器均不发");
         }
     }
 }

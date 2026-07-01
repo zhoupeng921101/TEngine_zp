@@ -4,11 +4,11 @@ using Cysharp.Threading.Tasks;
 namespace GameLogic.BlockBlast
 {
     /// <summary>
-    /// 跨会话磁盘存档的序列化 / 落盘 / 读盘 / 版本迁移 / 跨天重置（设计 14 §3.2–§3.6）。
+    /// 跨会话磁盘存档的序列化 / 落盘 / 读盘 / 版本迁移（设计 14 §3.2–§3.5）。
     ///
     /// 分两层（设计 14 §3.3）：
-    /// - 同步纯逻辑（不碰磁盘、可单测）：<see cref="Serialize"/> / <see cref="Deserialize"/> / <see cref="Migrate"/> /
-    ///   <see cref="ApplyDailyReset"/>。断言全落在 string / DTO 上，不依赖真实文件 / 不依赖 UniTask 运行。
+    /// - 同步纯逻辑（不碰磁盘、可单测）：<see cref="Serialize"/> / <see cref="Deserialize"/> / <see cref="Migrate"/>。
+    ///   断言全落在 string / DTO 上，不依赖真实文件 / 不依赖 UniTask 运行。
     /// - 异步 IO 外壳（生产侧落盘，满足 CLAUDE.md「禁同步 IO」红线）：<see cref="SaveAsync"/> / <see cref="LoadAsync"/>。
     ///   内部经 <see cref="Persistence.Provider"/>（生产 PlayerPrefs / 测试 InMemory）读写，沿用工程既有持久化接缝，不引入新存储栈。
     ///
@@ -28,11 +28,11 @@ namespace GameLogic.BlockBlast
 
         /// <summary>
         /// 落盘后钩子:每次 <see cref="SaveAsync"/> 写盘完成后触发一次,代表一次「玩法事件」存档边界。
-        /// 由接线层(GameApp.StartGameLogic)注册,驱动两件事:四货币本地净变化聚合上报服务端
-        /// (<c>MetaCurrencySync.ReportPending</c>)+ 云存档节流上传(<c>CloudSaveSync.TryUploadThrottled</c>)。
-        /// 本类保持对二者无知(decouple:不引用 Player/GameContext),仅暴露这一回调点。
+        /// 由接线层(GameApp.StartGameLogic)注册,驱动四货币本地净变化聚合上报服务端
+        /// (<c>MetaCurrencySync.ReportPending</c>)。云存档通道已整体退役,此边界不再触发 blob 上传。
+        /// 本类保持对上报层无知(decouple:不引用 Player/GameContext),仅暴露这一回调点。
         /// 服务端→本地的回灌写(登录快照 / 身份回写)经 <see cref="SaveAsync"/> 的 fireSavedHook=false 绕开本钩子
-        /// (非玩法事件边界,触发只会空跑上报 + 传一份内容未变的 blob 空涨 version)。
+        /// (非玩法事件边界,触发只会空跑一次货币聚合上报)。
         /// null = 未注册(无网络平台 / 测试)时不触发。
         /// </summary>
         public static Action OnSaved;
@@ -78,22 +78,9 @@ namespace GameLogic.BlockBlast
             return true;
         }
 
-        /// <summary>
-        /// 跨天重置祈愿（§3.6，纯逻辑，便于单测注入 today）：
-        /// - 缺日期字段（旧档 / 篡改）→ 视作需重置：WishUsedToday=0、日期设为 today（宽松：宁可多给一次每日额度）。
-        /// - lastWishResetDate != today → 跨天：WishUsedToday=0、日期更新为 today。
-        /// - lastWishResetDate == today → 同日：沿用 dto.wishUsedToday，仅确保日期为 today。
-        /// 就地修改 dto；入参 null 直接返回。today 为本地日期 yyyy-MM-dd。
-        /// </summary>
-        public static void ApplyDailyReset(MergeMetaSave dto, string today)
-        {
-            if (dto == null) return;
-            if (string.IsNullOrEmpty(dto.lastWishResetDate) || dto.lastWishResetDate != today)
-            {
-                dto.wishUsedToday = 0;
-            }
-            dto.lastWishResetDate = today;
-        }
+        // 祈愿每日重置(wishUsedToday/lastWishResetDate)已迁服务端权威(祈愿服务端权威·客户端段):服务端按其本地日期懒每日重置,
+        // 登录快照下发懒重置后当日值。客户端 wishUsedToday 降为投影(GameContext.ApplyServerWishSnapshot 缓存 + 活态覆盖),
+        // 不再本地按日期跨天归零——本地重置会绕过服务端每日闸(送免费额度但服务端仍拒),故彻底移除,免两端漂移。
 
         /// <summary>当前本地日期字符串（生产用；测试用构造日期绕开真实时钟，见 §3.6）。</summary>
         public static string Today() => DateTime.Now.ToString(DateFormat);
@@ -122,7 +109,7 @@ namespace GameLogic.BlockBlast
             }
             catch { /* ignore：落盘失败不阻断玩法 */ }
 
-            // 玩法事件边界:落盘后触发存档边界钩子(货币聚合上报 + 云存档上传)。失败吞掉,不阻断玩法、不影响本地落盘。
+            // 玩法事件边界:落盘后触发存档边界钩子(货币聚合上报)。失败吞掉,不阻断玩法、不影响本地落盘。
             if (fireSavedHook)
             {
                 try { OnSaved?.Invoke(); }
@@ -132,11 +119,10 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>
-        /// 读盘（读存储 + 反序列化 + 迁移 + 跨天重置），返回可用 DTO 或 null（无存档 / 加载失败 → 调用方走缺省）。
-        /// 经 <see cref="Persistence.Provider"/> 读取。失败吞掉返回 null（仿 BlockGameState.Load）。
-        /// today 默认取本地日期；测试可注入。返回 UniTask 以满足异步红线。
+        /// 读盘（读存储 + 反序列化 + 迁移），返回可用 DTO 或 null（无存档 / 加载失败 → 调用方走缺省）。
+        /// 经 <see cref="Persistence.Provider"/> 读取。失败吞掉返回 null（仿 BlockGameState.Load）。返回 UniTask 以满足异步红线。
         /// </summary>
-        public static UniTask<MergeMetaSave> LoadAsync(string today = null)
+        public static UniTask<MergeMetaSave> LoadAsync()
         {
             try
             {
@@ -147,7 +133,7 @@ namespace GameLogic.BlockBlast
                 if (dto == null) return UniTask.FromResult<MergeMetaSave>(null);
                 if (!Migrate(dto)) return UniTask.FromResult<MergeMetaSave>(null); // 未来档 → 缺省重置
 
-                ApplyDailyReset(dto, today ?? Today());
+                // 祈愿每日重置已迁服务端权威:本地不再跨天归零 wishUsedToday(读出即投影,由登录快照覆盖为权威当日值)。
                 return UniTask.FromResult(dto);
             }
             catch
@@ -157,13 +143,13 @@ namespace GameLogic.BlockBlast
         }
 
         /// <summary>
-        /// 同步读盘（读存储 + 反序列化 + 迁移 + 跨天重置），返回可用 DTO 或 null。与 <see cref="LoadAsync"/> 共享纯管线。
+        /// 同步读盘（读存储 + 反序列化 + 迁移），返回可用 DTO 或 null。与 <see cref="LoadAsync"/> 共享纯管线。
         ///
         /// 加载路径走同步:经 <see cref="Persistence.Provider"/> 读取(生产 PlayerPrefs 为非阻塞内存级读、不触「禁阻塞 IO」红线,
         /// 与既有 <c>BlockGameState.Load</c> / <c>DynamicWeightDiff.Load</c> 同口径)。落盘(写)路径用 <see cref="SaveAsync"/> 异步外壳。
         /// 这样 <c>ResetForMergeOrder</c> 可保持同步、不被迫改成 async,而写盘仍满足异步红线。
         /// </summary>
-        public static MergeMetaSave Load(string today = null)
+        public static MergeMetaSave Load()
         {
             try
             {
@@ -174,7 +160,7 @@ namespace GameLogic.BlockBlast
                 if (dto == null) return null;
                 if (!Migrate(dto)) return null; // 未来档 → 缺省重置
 
-                ApplyDailyReset(dto, today ?? Today());
+                // 祈愿每日重置已迁服务端权威:本地不再跨天归零 wishUsedToday(读出即投影,由登录快照覆盖为权威当日值)。
                 return dto;
             }
             catch

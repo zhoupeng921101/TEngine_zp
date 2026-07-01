@@ -20,8 +20,9 @@ namespace GameLogic.BlockBlast.Player
         /// <summary>
         /// 落子:只上报玩家输入(候选槽位 + 落点),形状服务端权威。
         /// baseStep = 客户端当前权威步号,服务端按 ==/&lt;/&gt; 分三分支(推进 / 幂等 / 超前)。
+        /// sliceJson = 当前局内 cosmetic + 合成经济叠加层序列化原文(服务端不透明搬运存档,续局/快照回带)。
         /// </summary>
-        UniTask<PlaceResult> PlaceAsync(long gameId, int baseStep, int candidateIndex, int posX, int posY);
+        UniTask<PlaceResult> PlaceAsync(long gameId, int baseStep, int candidateIndex, int posX, int posY, string sliceJson);
 
         /// <summary>取本局权威快照(恢复 / 重连用):board / score / step / 候选队列 / 发牌器态。</summary>
         UniTask<SnapshotResult> GameSnapshotAsync(long gameId);
@@ -30,7 +31,8 @@ namespace GameLogic.BlockBlast.Player
         /// 消除道具:只上报玩家输入(gameId + baseStep + 目标格 posX/posY),服务端权威扣体力 + 清整行整列 + 推进 Step。
         /// baseStep = 客户端预测推进前的权威步号,服务端按 ==/&lt;/&gt; 分三分支(执行 / 幂等 / 超前)。
         /// 响应回带最新权威态(board/step/genState)+ 体力绝对值(NewEnergy),供宿主对账 + 体力校正。
+        /// sliceJson = 当前局内 cosmetic + 合成经济叠加层序列化原文(服务端不透明搬运存档)。
         /// </summary>
-        UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY);
+        UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY, string sliceJson);
     }
 }

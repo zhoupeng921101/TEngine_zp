@@ -227,6 +227,10 @@ namespace GameLogic
             var dto = _merge.ExportMeta();
             _merge.ClearSaveDirty();
             MergeMetaPersistence.SaveAsync(dto).Forget(); // Forget 即发即忘,异步写不阻塞主线程
+
+            // 神庙装饰服务端权威(客户端段 3b):修复即置该厅已装饰,取当前三态全量 SET 上报,fire-and-forget
+            // (失败下次变更再报 / 登录快照对齐)。皮肤态随同带,SET 语义。
+            GameContext.Instance?.ProfileState?.Report(_merge);
         }
     }
 }

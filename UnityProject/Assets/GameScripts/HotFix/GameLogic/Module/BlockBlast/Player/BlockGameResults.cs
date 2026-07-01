@@ -89,10 +89,15 @@ namespace GameLogic.BlockBlast.Player
         public readonly int Score;
         /// <summary>当前权威棋盘 8 行位掩码(新建=空盘;续局=恢复盘面)。</summary>
         public readonly List<int> Board;
+        /// <summary>
+        /// 局内 cosmetic + 合成经济叠加层不透明切片(续局=恢复出的切片原文;新建=空串)。
+        /// 服务端只搬运不解析,宿主经 <c>MergeIngameSave.Deserialize</c> + <c>BlockGameState.ImportIngame</c> 恢复局内叠加层。
+        /// </summary>
+        public readonly string SliceJson;
 
         public GameStartResult(DealResultCode code, long gameId, long seed,
             List<int> initialTrio, int step, GenStateView gen,
-            bool resumed = false, int score = 0, List<int> board = null)
+            bool resumed = false, int score = 0, List<int> board = null, string sliceJson = null)
         {
             Code = code;
             GameId = gameId;
@@ -103,6 +108,7 @@ namespace GameLogic.BlockBlast.Player
             Resumed = resumed;
             Score = score;
             Board = board ?? new List<int>();
+            SliceJson = sliceJson ?? string.Empty;
         }
 
         public static GameStartResult Fail(DealResultCode code)
@@ -215,9 +221,14 @@ namespace GameLogic.BlockBlast.Player
         public readonly int Step;
         public readonly List<int> CandidateQueue;
         public readonly GenStateView Gen;
+        /// <summary>
+        /// 局内 cosmetic + 合成经济叠加层不透明切片(恢复出的切片原文;缺省=空串)。
+        /// 服务端只搬运不解析,宿主经 <c>MergeIngameSave.Deserialize</c> + <c>BlockGameState.ImportIngame</c> 恢复局内叠加层。
+        /// </summary>
+        public readonly string SliceJson;
 
         public SnapshotResult(DealResultCode code, List<int> board, int score, int step,
-            List<int> candidateQueue, GenStateView gen)
+            List<int> candidateQueue, GenStateView gen, string sliceJson = null)
         {
             Code = code;
             Board = board ?? new List<int>();
@@ -225,6 +236,7 @@ namespace GameLogic.BlockBlast.Player
             Step = step;
             CandidateQueue = candidateQueue ?? new List<int>();
             Gen = gen;
+            SliceJson = sliceJson ?? string.Empty;
         }
 
         public static SnapshotResult Fail(DealResultCode code)

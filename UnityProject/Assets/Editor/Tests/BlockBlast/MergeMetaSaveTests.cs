@@ -7,10 +7,13 @@ namespace GameLogic.BlockBlast.Tests
 {
     /// <summary>
     /// 跨会话磁盘存档（设计 14）单测：序列化往返保真、bool[12] 往返、无存档缺省、缺字段补缺、
-    /// 版本迁移 / 未来版降级重置、非法截断兜底、跨天 / 同日 / 缺日期祈愿重置、
-    /// 旧路径零回归、MergeOrderState 仍纯逻辑。验收点对应设计 14 §六 A1–A13。
-    /// 全部锚在同步纯方法（ExportMeta/ImportMeta/Serialize/Deserialize/Migrate/ApplyDailyReset）+ InMemory Provider，
+    /// 版本迁移 / 未来版降级重置、非法截断兜底、祈愿今日已用次数作投影往返、
+    /// 旧路径零回归、MergeOrderState 仍纯逻辑。
+    /// 全部锚在同步纯方法（ExportMeta/ImportMeta/Serialize/Deserialize/Migrate）+ InMemory Provider，
     /// 不依赖真实磁盘 / 不依赖 UniTask 运行。SetUp 仿 TempleRepairTests（InMemory Provider）。
+    ///
+    /// 祈愿每日重置已迁服务端权威(祈愿服务端权威·客户端段):客户端不再本地按日期跨天归零 wishUsedToday,
+    /// 它降为投影(缓存往返保真、由登录快照覆盖为权威当日值),故原「跨天/同日/缺日期本地重置」用例已删。
     /// </summary>
     [TestFixture]
     public class MergeMetaSaveTests
@@ -61,13 +64,13 @@ namespace GameLogic.BlockBlast.Tests
             var src = NonDefaultState();
 
             // Export → Serialize → Deserialize → ImportMeta 到新 state（同一天，无跨天干扰）。
-            var dto = src.ExportMeta(Today);
+            var dto = src.ExportMeta();
             string json = MergeMetaPersistence.Serialize(dto);
             var back = MergeMetaPersistence.Deserialize(json);
             Assert.IsNotNull(back, "往返反序列化不应为 null");
 
             var dst = FreshState();
-            dst.ImportMeta(back, Today);
+            dst.ImportMeta(back);
 
             // §3.1「是」的 11 项逐一相等。
             Assert.AreEqual(src.Soul, dst.Soul, "Soul");
@@ -96,11 +99,11 @@ namespace GameLogic.BlockBlast.Tests
             foreach (int i in repairedTrue) src.TempleRepaired[i] = true;
             foreach (int i in decoratedTrue) src.TempleDecorated[i] = true;
 
-            var dto = src.ExportMeta(Today);
+            var dto = src.ExportMeta();
             string json = MergeMetaPersistence.Serialize(dto);
             var back = MergeMetaPersistence.Deserialize(json);
             var dst = FreshState();
-            dst.ImportMeta(back, Today);
+            dst.ImportMeta(back);
 
             Assert.AreEqual(TempleConfig.HallCount, dst.TempleRepaired.Length, "TempleRepaired 长度仍 12");
             Assert.AreEqual(TempleConfig.HallCount, dst.TempleDecorated.Length, "TempleDecorated 长度仍 12");
@@ -125,7 +128,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = FreshState();
             // ImportMeta(null) 应保持 Reset 缺省（等价首次）。
-            m.ImportMeta(null, Today);
+            m.ImportMeta(null);
             Assert.AreEqual(0, m.Piety, "Piety=0");
             Assert.AreEqual(0, m.Soul, "Soul=0");
             Assert.AreEqual(0, m.Exp, "Exp=0");
@@ -151,7 +154,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(0, dto.goddessLevel, "缺字段 → 0");
 
             var m = FreshState();
-            Assert.DoesNotThrow(() => m.ImportMeta(dto, Today), "ImportMeta 不抛");
+            Assert.DoesNotThrow(() => m.ImportMeta(dto), "ImportMeta 不抛");
             Assert.AreEqual(TempleConfig.HallCount, m.TempleRepaired.Length, "数组重建长 12");
             Assert.AreEqual(TempleConfig.HallCount, m.TempleDecorated.Length, "装饰数组重建长 12");
             for (int i = 0; i < TempleConfig.HallCount; i++)
@@ -178,7 +181,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(MergeMetaPersistence.CurrentVersion, dto.version, "version 归一为 CurrentVersion");
 
             var m = FreshState();
-            Assert.DoesNotThrow(() => m.ImportMeta(dto, Today));
+            Assert.DoesNotThrow(() => m.ImportMeta(dto));
             Assert.AreEqual(120, m.Piety, "字段照常导入");
             Assert.AreEqual(1, m.GoddessLevel, "goddessLevel 补缺合理(夹到 1)");
             Assert.AreEqual(TempleConfig.HallCount, m.TempleRepaired.Length, "数组补缺长 12");
@@ -196,7 +199,7 @@ namespace GameLogic.BlockBlast.Tests
 
             // 经存储层 Load 路径:未来档 → 返回 null(调用方走缺省重置,等价首次)。
             Persistence.Provider.Set(MergeMetaPersistence.StorageKey, json);
-            var loaded = MergeMetaPersistence.Load(Today);
+            var loaded = MergeMetaPersistence.Load();
             Assert.IsNull(loaded, "未来档 Load → null → 缺省重置");
         }
 
@@ -220,11 +223,10 @@ namespace GameLogic.BlockBlast.Tests
                 goddessLevel = 0,
                 templeRepaired = new bool[] { true, false, true }, // 长度 3 ≠ 12
                 templeDecorated = null,
-                lastWishResetDate = Today,
             };
 
             var m = FreshState();
-            Assert.DoesNotThrow(() => m.ImportMeta(dto, Today), "越界输入 ImportMeta 不抛");
+            Assert.DoesNotThrow(() => m.ImportMeta(dto), "越界输入 ImportMeta 不抛");
             Assert.AreEqual(TempleConfig.HallCount, m.NextRepairIndex, "nextRepairIndex 夹到 [0,HallCount]");
             Assert.IsTrue(m.NextRepairIndex >= 0 && m.NextRepairIndex <= TempleConfig.HallCount, "index 落在合法区间");
             Assert.AreEqual(1, m.GoddessLevel, "goddessLevel 夹到 ≥1");
@@ -241,18 +243,20 @@ namespace GameLogic.BlockBlast.Tests
                 version = MergeMetaPersistence.CurrentVersion,
                 nextRepairIndex = -5,
                 goddessLevel = 2,
-                lastWishResetDate = Today,
             };
             var m = FreshState();
-            m.ImportMeta(dto, Today);
+            m.ImportMeta(dto);
             Assert.AreEqual(0, m.NextRepairIndex, "负 index 夹到 0");
         }
 
-        // ───────────── A8 跨天重置祈愿 ─────────────
+        // ───────────── A8 祈愿今日已用次数作投影:ImportMeta 读缓存值原样、不按日期本地重置 ─────────────
+        // 祈愿每日重置已迁服务端权威(祈愿服务端权威·客户端段):客户端 wishUsedToday 降为投影,
+        // ImportMeta 无论缓存日期是昨天/今天/缺失,一律读缓存值原样(权威当日值由登录快照覆盖),不再本地跨天归零。
 
         [Test]
-        public void A8_CrossDay_ResetsWish()
+        public void A8_Wish_ReadAsProjection_StaleDate_NoLocalReset()
         {
+            // 缓存日期是「昨天」(旧客户端会本地重置为 0),现在应原样读出 3(不本地重置)。
             var dto = new MergeMetaSave
             {
                 version = MergeMetaPersistence.CurrentVersion,
@@ -261,15 +265,12 @@ namespace GameLogic.BlockBlast.Tests
                 goddessLevel = 1,
             };
             var m = FreshState();
-            m.ImportMeta(dto, Today); // 以「今天」导入
-            Assert.AreEqual(0, m.WishUsedToday, "跨天 → 祈愿重置为 0");
-            Assert.AreEqual(Today, dto.lastWishResetDate, "重置日期更新为今天");
+            m.ImportMeta(dto);
+            Assert.AreEqual(3, m.WishUsedToday, "投影:昨天日期的缓存值原样读出,不本地跨天归零");
         }
 
-        // ───────────── A9 同日不重置祈愿 ─────────────
-
         [Test]
-        public void A9_SameDay_KeepsWish()
+        public void A8_Wish_ReadAsProjection_SameDate_KeptAsIs()
         {
             var dto = new MergeMetaSave
             {
@@ -279,14 +280,12 @@ namespace GameLogic.BlockBlast.Tests
                 goddessLevel = 1,
             };
             var m = FreshState();
-            m.ImportMeta(dto, Today);
-            Assert.AreEqual(2, m.WishUsedToday, "同日 → 沿用 wishUsedToday(不清零)");
+            m.ImportMeta(dto);
+            Assert.AreEqual(2, m.WishUsedToday, "投影:今日缓存值原样读出");
         }
 
-        // ───────────── A10 缺日期字段宽松重置 ─────────────
-
         [Test]
-        public void A10_MissingDate_LenientReset()
+        public void A8_Wish_ReadAsProjection_MissingDate_KeptAsIs()
         {
             var dto = new MergeMetaSave
             {
@@ -296,9 +295,22 @@ namespace GameLogic.BlockBlast.Tests
                 goddessLevel = 1,
             };
             var m = FreshState();
-            m.ImportMeta(dto, Today);
-            Assert.AreEqual(0, m.WishUsedToday, "缺日期 → 宽松重置为 0");
-            Assert.AreEqual(Today, dto.lastWishResetDate, "日期设为今天");
+            m.ImportMeta(dto);
+            Assert.AreEqual(3, m.WishUsedToday, "投影:缺日期的缓存值原样读出,不本地重置");
+        }
+
+        [Test]
+        public void A8_Wish_NegativeProjection_ClampedToZero()
+        {
+            var dto = new MergeMetaSave
+            {
+                version = MergeMetaPersistence.CurrentVersion,
+                wishUsedToday = -5, // 篡改
+                goddessLevel = 1,
+            };
+            var m = FreshState();
+            m.ImportMeta(dto);
+            Assert.AreEqual(0, m.WishUsedToday, "投影:负值(篡改)夹到 0");
         }
 
         // ───────────── A12 旧路径零回归（含存储层往返）─────────────
@@ -307,7 +319,7 @@ namespace GameLogic.BlockBlast.Tests
         public void A12_FreshLoad_NoSave_EquivalentToFirstPlay()
         {
             // Provider 空(SetUp 注入的 InMemory 无键)→ Load 返回 null → ResetForMergeOrder 保持 Reset 缺省。
-            var loaded = MergeMetaPersistence.Load(Today);
+            var loaded = MergeMetaPersistence.Load();
             Assert.IsNull(loaded, "无存档 Load → null");
 
             var s = BlockGameState.Instance;
@@ -325,13 +337,13 @@ namespace GameLogic.BlockBlast.Tests
         {
             // 经存储层(Set → Load)往返:写一份 DTO 到 Provider,Load 读回应等值(同日)。
             var src = NonDefaultState();
-            var dto = src.ExportMeta(Today);
+            var dto = src.ExportMeta();
             Persistence.Provider.Set(MergeMetaPersistence.StorageKey, MergeMetaPersistence.Serialize(dto));
 
-            var loaded = MergeMetaPersistence.Load(Today);
+            var loaded = MergeMetaPersistence.Load();
             Assert.IsNotNull(loaded, "Load 读回非 null");
             var dst = FreshState();
-            dst.ImportMeta(loaded, Today);
+            dst.ImportMeta(loaded);
             Assert.AreEqual(src.Piety, dst.Piety, "经 Provider 往返 Piety 保真");
             Assert.AreEqual(src.BlindBoxCount, dst.BlindBoxCount, "经 Provider 往返盲盒计数保真");
             CollectionAssert.AreEqual(src.TempleRepaired, dst.TempleRepaired, "经 Provider 往返神庙数组保真");
@@ -342,7 +354,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             // 写一份存档 → 进入 merge-order 应被 ImportMeta 覆盖(元层来自存档,非缺省)。
             var src = NonDefaultState();
-            var dto = src.ExportMeta(Today);
+            var dto = src.ExportMeta();
             Persistence.Provider.Set(MergeMetaPersistence.StorageKey, MergeMetaPersistence.Serialize(dto));
 
             var s = BlockGameState.Instance;
@@ -368,13 +380,13 @@ namespace GameLogic.BlockBlast.Tests
             var m = new MergeOrderState();
             m.Reset();
             m.Piety = 42;
-            var dto = m.ExportMeta(Today);          // 同步返回 DTO
+            var dto = m.ExportMeta();          // 同步返回 DTO
             Assert.IsNotNull(dto);
             Assert.AreEqual(42, dto.piety);
 
             var m2 = new MergeOrderState();
             m2.Reset();
-            m2.ImportMeta(dto, Today);              // 同步覆盖
+            m2.ImportMeta(dto);              // 同步覆盖
             Assert.AreEqual(42, m2.Piety, "纯同步往返成立(不依赖 UniTask 运行)");
         }
 
@@ -390,12 +402,12 @@ namespace GameLogic.BlockBlast.Tests
             prev.Piety = 99;                                          // 真元层字段,须随档保留作对照
 
             // 导出 → 序列化往返 → 下一会话 Reset 后 ImportMeta(模拟 ResetForMergeOrder 链)。
-            var dto = prev.ExportMeta(Today);
+            var dto = prev.ExportMeta();
             string json = MergeMetaPersistence.Serialize(dto);
             var back = MergeMetaPersistence.Deserialize(json);
 
             var next = FreshState();          // Reset 已置 CompletedOrders=0/TotalScore=0
-            next.ImportMeta(back, Today);
+            next.ImportMeta(back);
 
             Assert.AreEqual(0, next.CompletedOrders, "完成单数本阶段不进盘,新会话须为 0");
             Assert.AreEqual(0, next.TotalScore, "本局得分本阶段不进盘,新会话须为 0");
@@ -415,7 +427,7 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsNotNull(back, "旧档应正常反序列化");
 
             var m = FreshState();
-            Assert.DoesNotThrow(() => m.ImportMeta(back, Today), "旧档 ImportMeta 不应抛");
+            Assert.DoesNotThrow(() => m.ImportMeta(back), "旧档 ImportMeta 不应抛");
             Assert.AreEqual(77, m.Piety, "真元层字段从旧档读出");
             Assert.AreEqual(0, m.CompletedOrders, "旧档里的 completedOrders 被忽略,新局为 0");
             Assert.AreEqual(0, m.TotalScore, "旧档里的 totalScore 被忽略,新局为 0");
@@ -430,32 +442,6 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsTrue(m.IsSaveDirty, "标脏后为真");
             m.ClearSaveDirty();
             Assert.IsFalse(m.IsSaveDirty, "清脏后为假");
-        }
-
-        // ───────────── 补充:跨天判定纯函数 ApplyDailyReset ─────────────
-
-        [Test]
-        public void ApplyDailyReset_PureFunction_Behaviors()
-        {
-            // 跨天
-            var d1 = new MergeMetaSave { wishUsedToday = 3, lastWishResetDate = Yesterday };
-            MergeMetaPersistence.ApplyDailyReset(d1, Today);
-            Assert.AreEqual(0, d1.wishUsedToday);
-            Assert.AreEqual(Today, d1.lastWishResetDate);
-
-            // 同日
-            var d2 = new MergeMetaSave { wishUsedToday = 2, lastWishResetDate = Today };
-            MergeMetaPersistence.ApplyDailyReset(d2, Today);
-            Assert.AreEqual(2, d2.wishUsedToday);
-
-            // 缺日期
-            var d3 = new MergeMetaSave { wishUsedToday = 1, lastWishResetDate = null };
-            MergeMetaPersistence.ApplyDailyReset(d3, Today);
-            Assert.AreEqual(0, d3.wishUsedToday);
-            Assert.AreEqual(Today, d3.lastWishResetDate);
-
-            // null 入参不抛
-            Assert.DoesNotThrow(() => MergeMetaPersistence.ApplyDailyReset(null, Today));
         }
 
         // ───────────── 时机层补全:全清结算改元层 → 须标脏落盘（设计 14 §3.4 ①）─────────────

@@ -36,14 +36,15 @@ namespace GameLogic.BlockBlast.Player
                 CopyGen(response.GeneratorState),
                 response.Resumed,
                 response.Score,
-                CopyInts(response.Board));
+                CopyInts(response.Board),
+                response.SliceJson);
 #else
             await UniTask.CompletedTask;
             return GameStartResult.Fail(DealResultCode.ServiceUnavailable);
 #endif
         }
 
-        public async UniTask<PlaceResult> PlaceAsync(long gameId, int baseStep, int candidateIndex, int posX, int posY)
+        public async UniTask<PlaceResult> PlaceAsync(long gameId, int baseStep, int candidateIndex, int posX, int posY, string sliceJson)
         {
 #if FANTASY_UNITY
             var session = FantasyClient.FantasyNetwork.Session;
@@ -53,7 +54,7 @@ namespace GameLogic.BlockBlast.Player
                 return PlaceResult.Fail(DealResultCode.NotLoggedIn);
 
             G2C_PlaceResponse response;
-            try { response = await session.C2G_PlaceRequest(gameId, baseStep, candidateIndex, posX, posY); }
+            try { response = await session.C2G_PlaceRequest(gameId, baseStep, candidateIndex, posX, posY, sliceJson ?? string.Empty); }
             catch { return PlaceResult.Fail(DealResultCode.ServiceUnavailable); }
             if (response == null) return PlaceResult.Fail(DealResultCode.ServiceUnavailable);
 
@@ -95,14 +96,15 @@ namespace GameLogic.BlockBlast.Player
                 response.Score,
                 response.Step,
                 CopyInts(response.CandidateQueue),
-                CopyGen(response.GeneratorState));
+                CopyGen(response.GeneratorState),
+                response.SliceJson);
 #else
             await UniTask.CompletedTask;
             return SnapshotResult.Fail(DealResultCode.ServiceUnavailable);
 #endif
         }
 
-        public async UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY)
+        public async UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY, string sliceJson)
         {
 #if FANTASY_UNITY
             var session = FantasyClient.FantasyNetwork.Session;
@@ -112,7 +114,7 @@ namespace GameLogic.BlockBlast.Player
                 return ClearToolResult.Fail(DealResultCode.NotLoggedIn);
 
             G2C_ClearToolResponse response;
-            try { response = await session.C2G_ClearToolRequest(gameId, baseStep, posX, posY); }
+            try { response = await session.C2G_ClearToolRequest(gameId, baseStep, posX, posY, sliceJson ?? string.Empty); }
             catch { return ClearToolResult.Fail(DealResultCode.ServiceUnavailable); }
             if (response == null) return ClearToolResult.Fail(DealResultCode.ServiceUnavailable);
 
