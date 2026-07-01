@@ -10,7 +10,8 @@ namespace GameLogic.BlockBlast.Tests
     /// 四货币对账器 <see cref="MetaCurrencySync"/> EditMode 单测(P2 全栈迁移·客户端段)。
     /// 纯逻辑、不依赖 UnityEngine / 不连网 — 用桩 <see cref="IRpcGateway"/> 注入响应,断言:
     /// 登录覆盖、聚合上报(每货币每事件一笔)、对账方向(NewAmount 覆盖)、delta=0 不发、
-    /// 体力预测恢复排除、未 Ready 不报、服务不可用不漂移、推送覆盖。
+    /// 体力预测恢复排除、未 Ready 不报、服务不可用不漂移、推送覆盖;
+    /// 消除道具 / 落子体力「服务端派生」防双扣(ExcludeEnergySpend 抬基线,零体力上报,同手 Soul/Piety/Exp 仍上报)。
     /// 同步驱动 UniTask 用 GetAwaiter().GetResult()(桩 await CompletedTask 同步完成,沿 PlayerAttrServiceTests 范式)。
     /// </summary>
     [TestFixture]
@@ -243,6 +244,170 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsTrue(sync.IsReady, "state=null 仍记基线 + 置 Ready");
             Assert.DoesNotThrow(() => Report(sync, null));
             Assert.AreEqual(0, gw.Calls.Count, "state=null 不上报");
+        }
+
+        // ── T12:消除道具体力「服务端派生」防双扣 — 乐观扣 + ExcludeEnergySpend 抬基线 → ReportPending 不上报体力 ──
+        [Test]
+        public void T12_ClearToolSpend_ExcludedFromReport_NoDoubleCharge()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 20);
+            sync.ApplySnapshot(s, 0, 0, 0, 20);
+
+            // 消除道具:本地乐观扣 5(SpendClearToolCost)+ 同步抬基线排除该笔(服务端已权威扣一次,客户端不得再报)。
+            s.Energy = 15;                  // 乐观扣 5
+            sync.ExcludeEnergySpend(-5);    // 基线一并降 5:待上报 delta = (15-20) - (-5) = 0
+
+            Report(sync, s);
+
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "消除道具乐观扣不应上报(服务端已扣,防双扣)");
+            Assert.AreEqual(15, s.Energy, "本地体力保持乐观扣后值(HUD)");
+        }
+
+        // ── T13:落盘边界抢在 ClearTool RPC 响应之前跑(push 晚到)— 仍不双扣 ──
+        [Test]
+        public void T13_SaveBoundaryBeforeResponse_StillNoDoubleCharge()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 20);
+            sync.ApplySnapshot(s, 0, 0, 0, 20);
+
+            // 时序:乐观扣 + 抬基线(同步瞬间)→ 落盘边界 ReportPending 先跑(响应 / delta-push 尚未到)。
+            s.Energy = 15;
+            sync.ExcludeEnergySpend(-5);
+            Report(sync, s); // 抢跑:此刻不应把 -5 当净产出上报
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "响应前落盘边界抢跑也不应上报体力(基线已抬平)");
+
+            // 随后 ClearTool 响应 NewEnergy=15(服务端扣后余额)经 ApplyDeltaPush 到达:set 体力 + 基线到权威值(幂等对齐)。
+            sync.ApplyDeltaPush(s, AttrType.Energy, 15);
+            Assert.AreEqual(15, s.Energy, "响应后体力对齐服务端权威扣后余额");
+
+            // 再一次落盘边界:基线已 = 15,无新变化 → 仍不发。
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "响应到达对齐后仍不重报(总计零上报,无双扣)");
+        }
+
+        // ── T14:delta-push 晚到与响应对齐同值 — 幂等,不产生额外 delta ──
+        [Test]
+        public void T14_LateDeltaPush_Idempotent()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 20);
+            sync.ApplySnapshot(s, 0, 0, 0, 20);
+
+            s.Energy = 15;
+            sync.ExcludeEnergySpend(-5);
+            sync.ApplyDeltaPush(s, AttrType.Energy, 15); // 响应 NewEnergy 先对齐
+            sync.ApplyDeltaPush(s, AttrType.Energy, 15); // delta-push 晚到,同值,幂等
+
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "响应 + 晚到 push 同值幂等,零上报");
+            Assert.AreEqual(15, s.Energy);
+        }
+
+        // ── T16:落子体力「服务端派生」防双扣 — 不消行落子:乐观扣 PlaceCost + ExcludeEnergySpend 抬基线 → 体力零上报 ──
+        // 且同一手若产 Soul/Piety/Exp(消行融合经济)仍被正常上报(本批只排除 Energy)。
+        [Test]
+        public void T16_PlaceSpend_ExcludedFromReport_SoulPietyExpStillReported()
+        {
+            var gw = new StubGateway();
+            gw.Results[AttrType.SoulPower] = ChangeResult.Ok(112);
+            gw.Results[AttrType.Piety] = ChangeResult.Ok(205);
+            gw.Results[AttrType.GuardianExp] = ChangeResult.Ok(303);
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(100, 200, 300, 20);
+            sync.ApplySnapshot(s, 100, 200, 300, 20);
+
+            // 一手落子(消行,融合经济产 Soul/Piety/Exp):
+            // 体力 = eBefore(20) → 扣 PlaceCost 1(-1=19)→ 消行返 2(+2=21);净 +1。宿主捕获后 ExcludeEnergySpend(21-20=+1)。
+            int eBefore = s.Energy;
+            s.Energy = 19;            // SpendPlaceCost
+            s.Energy = 21;            // RefundEnergy(2 lines)
+            s.Soul = 112;             // 融合产出 +12
+            s.Piety = 205;            // +5
+            s.Exp = 303;              // +3
+            sync.ExcludeEnergySpend(s.Energy - eBefore);   // 只动 _baseEnergy,不碰 Soul/Piety/Exp 基线
+
+            Report(sync, s);
+
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "落子体力服务端派生,客户端不上报(防双扣)");
+            Assert.AreEqual(1, gw.CountOf(AttrType.SoulPower), "同一手 Soul 仍正常上报(本批只排除 Energy)");
+            Assert.AreEqual(1, gw.CountOf(AttrType.Piety), "同一手 Piety 仍正常上报");
+            Assert.AreEqual(1, gw.CountOf(AttrType.GuardianExp), "同一手 Exp 仍正常上报");
+            Assert.AreEqual(12L, gw.Calls.Find(c => c.type == AttrType.SoulPower).delta, "Soul 上报净 +12");
+            Assert.AreEqual(5L, gw.Calls.Find(c => c.type == AttrType.Piety).delta, "Piety 上报净 +5");
+            Assert.AreEqual(3L, gw.Calls.Find(c => c.type == AttrType.GuardianExp).delta, "Exp 上报净 +3");
+        }
+
+        // ── T17:不消行普通落子 + 落盘边界抢在 Place 响应之前跑 — 仍不双扣、零体力上报 ──
+        [Test]
+        public void T17_PlaceSaveBoundaryBeforeResponse_StillNoDoubleCharge()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 20);
+            sync.ApplySnapshot(s, 0, 0, 0, 20);
+
+            // 时序:乐观扣 PlaceCost(1)+ 抬基线(同步瞬间)→ 落盘边界 ReportPending 先跑(Place 响应 / delta-push 尚未到)。
+            int eBefore = s.Energy;
+            s.Energy = 19;                              // 不消行:仅扣 1
+            sync.ExcludeEnergySpend(s.Energy - eBefore); // -1
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "响应前落盘边界抢跑也不上报体力(基线已抬平)");
+
+            // 随后 Place 响应 NewEnergy=19(服务端派生扣后余额)经 ApplyDeltaPush 到达:set 体力 + 基线到权威值。
+            sync.ApplyDeltaPush(s, AttrType.Energy, 19);
+            Assert.AreEqual(19, s.Energy, "响应后体力对齐服务端派生余额");
+
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "对齐后仍不重报(总计零上报,无双扣)");
+        }
+
+        // ── T18:Place 响应 NewEnergy 与晚到 delta-push 同值 — 幂等,零上报 ──
+        [Test]
+        public void T18_PlaceLateDeltaPush_Idempotent()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 20);
+            sync.ApplySnapshot(s, 0, 0, 0, 20);
+
+            // 消行落子:扣 1 返 2 → 净 +1,体力 21。宿主 ExcludeEnergySpend(+1)。
+            int eBefore = s.Energy;
+            s.Energy = 21;
+            sync.ExcludeEnergySpend(s.Energy - eBefore);
+            sync.ApplyDeltaPush(s, AttrType.Energy, 21); // 响应 NewEnergy 先对齐(服务端派生同值)
+            sync.ApplyDeltaPush(s, AttrType.Energy, 21); // delta-push 晚到,同值,幂等
+
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "响应 + 晚到 push 同值幂等,零上报");
+            Assert.AreEqual(21, s.Energy);
+        }
+
+        // ── T15:体力不足被拒 — 撤销基线排除 + 回滚乐观扣,不误报、不双扣 ──
+        [Test]
+        public void T15_NotEnoughEnergy_RollbackExclusion_NoSpuriousReport()
+        {
+            var gw = new StubGateway();
+            var sync = new MetaCurrencySync(gw);
+            var s = NewStateWith(0, 0, 0, 4); // 体力 4,不够一次消除道具(cost=5)
+            sync.ApplySnapshot(s, 0, 0, 0, 4);
+
+            // 乐观扣 5(手感)+ 抬基线排除(此刻还不知会被拒)。
+            s.Energy = -1;                  // 乐观扣后(极端:模拟乐观越界,实际 gate 会拦,这里测对账健壮)
+            sync.ExcludeEnergySpend(-5);
+
+            // 服务端拒(NotEnoughEnergy):宿主回滚——撤销基线排除(+5)+ 以服务端回带当前余额对齐体力 + 基线。
+            sync.ExcludeEnergySpend(5);     // 撤销排除:基线回 4
+            sync.ApplyDeltaPush(s, AttrType.Energy, 4); // 服务端当前余额(未扣):对齐体力 + 基线
+
+            Assert.AreEqual(4, s.Energy, "拒绝后体力回滚到服务端权威余额");
+
+            Report(sync, s);
+            Assert.AreEqual(0, gw.CountOf(AttrType.Energy), "拒绝回滚后无残留虚假 delta,不上报");
         }
     }
 }

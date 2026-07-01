@@ -25,5 +25,12 @@ namespace GameLogic.BlockBlast.Player
 
         /// <summary>取本局权威快照(恢复 / 重连用):board / score / step / 候选队列 / 发牌器态。</summary>
         UniTask<SnapshotResult> GameSnapshotAsync(long gameId);
+
+        /// <summary>
+        /// 消除道具:只上报玩家输入(gameId + baseStep + 目标格 posX/posY),服务端权威扣体力 + 清整行整列 + 推进 Step。
+        /// baseStep = 客户端预测推进前的权威步号,服务端按 ==/&lt;/&gt; 分三分支(执行 / 幂等 / 超前)。
+        /// 响应回带最新权威态(board/step/genState)+ 体力绝对值(NewEnergy),供宿主对账 + 体力校正。
+        /// </summary>
+        UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY);
     }
 }

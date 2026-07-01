@@ -67,7 +67,8 @@ namespace GameLogic.BlockBlast.Player
                 CopyGen(response.GeneratorState),
                 response.GameOver,
                 response.FinalScore,
-                response.BestScore);
+                response.BestScore,
+                response.NewEnergy);
 #else
             await UniTask.CompletedTask;
             return PlaceResult.Fail(DealResultCode.ServiceUnavailable);
@@ -98,6 +99,34 @@ namespace GameLogic.BlockBlast.Player
 #else
             await UniTask.CompletedTask;
             return SnapshotResult.Fail(DealResultCode.ServiceUnavailable);
+#endif
+        }
+
+        public async UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY)
+        {
+#if FANTASY_UNITY
+            var session = FantasyClient.FantasyNetwork.Session;
+            if (session == null || !FantasyClient.FantasyNetwork.IsConnected)
+                return ClearToolResult.Fail(DealResultCode.NetworkDown);
+            if (!FantasyClient.FantasyNetwork.IsLoggedIn)
+                return ClearToolResult.Fail(DealResultCode.NotLoggedIn);
+
+            G2C_ClearToolResponse response;
+            try { response = await session.C2G_ClearToolRequest(gameId, baseStep, posX, posY); }
+            catch { return ClearToolResult.Fail(DealResultCode.ServiceUnavailable); }
+            if (response == null) return ClearToolResult.Fail(DealResultCode.ServiceUnavailable);
+
+            return new ClearToolResult(
+                MapClearToolCode(response.ResultCode),
+                response.Step,
+                response.Score,
+                response.ClearedCells,
+                CopyInts(response.Board),
+                CopyGen(response.GeneratorState),
+                response.NewEnergy);
+#else
+            await UniTask.CompletedTask;
+            return ClearToolResult.Fail(DealResultCode.ServiceUnavailable);
 #endif
         }
 
@@ -138,6 +167,21 @@ namespace GameLogic.BlockBlast.Player
                 case PlaceResultCode.IllegalPlacement: return DealResultCode.IllegalPlacement;
                 case PlaceResultCode.GameNotFound: return DealResultCode.GameNotFound;
                 case PlaceResultCode.NotLoggedIn: return DealResultCode.NotLoggedIn;
+                default: return DealResultCode.ServiceUnavailable;
+            }
+        }
+
+        private static DealResultCode MapClearToolCode(ClearToolResultCode code)
+        {
+            switch (code)
+            {
+                case ClearToolResultCode.Cleared: return DealResultCode.Ok;
+                case ClearToolResultCode.IdempotentReplay: return DealResultCode.IdempotentReplay;
+                case ClearToolResultCode.StepAhead: return DealResultCode.StepAhead;
+                case ClearToolResultCode.OutOfRange: return DealResultCode.OutOfRange;
+                case ClearToolResultCode.NotEnoughEnergy: return DealResultCode.NotEnoughEnergy;
+                case ClearToolResultCode.GameNotFound: return DealResultCode.GameNotFound;
+                case ClearToolResultCode.NotLoggedIn: return DealResultCode.NotLoggedIn;
                 default: return DealResultCode.ServiceUnavailable;
             }
         }

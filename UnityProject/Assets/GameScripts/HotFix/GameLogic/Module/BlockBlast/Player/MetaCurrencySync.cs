@@ -157,6 +157,27 @@ namespace GameLogic.BlockBlast.Player
         }
 
         /// <summary>
+        /// 消除道具体力「服务端派生」防双扣:在乐观扣体力(<see cref="MergeOrderState.SpendClearToolCost"/>)的<b>同一同步边界</b>
+        /// 把该笔扣减一并抬进 Energy 基线(<c>_baseEnergy += signedDelta</c>,扣为负),使这笔乐观扣减从 <see cref="ReportPending"/> 的
+        /// 待上报 delta 中排除、净算为 0——服务端 ClearTool 已权威扣过一次,客户端<b>不得</b>再经 <c>C2G_PropertyChange</c> 重报。
+        ///
+        /// 时序竞态根治:消除道具乐观扣与后续落盘边界(<c>OnSaved→ReportPending</c>)、服务端 <c>NewEnergy</c> 回带 / <c>G2C_PropertyDeltaPush</c>
+        /// 到达三者异步交错。若只依赖响应到达后 <see cref="ApplyDeltaPush"/> 校正,而 ReportPending 抢先在响应前跑,就会把 -cost 当净产出上报
+        /// → 服务端双扣。故本方法在<b>扣减发生的同步瞬间</b>就把基线抬平,无论 ReportPending 何时跑,该笔 delta 恒为 0;真实权威值随后由
+        /// <see cref="ApplyDeltaPush"/>(响应 NewEnergy 或 delta-push)整体对齐(幂等,重复 set 同值无害)。
+        ///
+        /// 与 <see cref="MergeOrderState.RegenSinceReport"/> 同源(「已并入活态值、须从上报排除的累加器」),但恢复走 state 字段累积、
+        /// 于 ReportPending 内并入;消除道具扣减单笔即时、直接抬基线,故独立一入口。回滚(NotEnoughEnergy 拒绝)时以相反符号再调一次撤销。
+        /// 未 Ready(登录快照未到)直接跳过:此刻无权威基线可锚,交随后快照接管。
+        /// </summary>
+        /// <param name="signedDelta">带符号的本地乐观变更量(消除道具扣体力为 <c>-cost</c>;回滚撤销传 <c>+cost</c>)。</param>
+        public void ExcludeEnergySpend(long signedDelta)
+        {
+            if (!IsReady) return;
+            _baseEnergy += signedDelta;
+        }
+
+        /// <summary>
         /// 应用服务端主动推送(G2C_PropertyDeltaPush)到四货币之一:按 type 直接 set 本地字段 + 基线为权威 NewAmount。
         /// type 非四货币(Coin/Diamond/Stamina/All)直接忽略(那些由 PlayerAttrService 处理)。state 为 null 仅更基线。
         ///

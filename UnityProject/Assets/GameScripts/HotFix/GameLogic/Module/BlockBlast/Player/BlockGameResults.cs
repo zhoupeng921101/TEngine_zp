@@ -64,6 +64,10 @@ namespace GameLogic.BlockBlast.Player
         NetworkDown = 6,
         /// <summary>服务不可用(超时 / 异常 / 空响应)。</summary>
         ServiceUnavailable = 7,
+        /// <summary>消除道具目标格越界(row/col 不在 0..7)。仅 ClearTool 用。</summary>
+        OutOfRange = 8,
+        /// <summary>消除道具体力不足(不够一次代价)。仅 ClearTool 用,服务端拒绝、回带当前体力供回滚乐观清。</summary>
+        NotEnoughEnergy = 9,
     }
 
     /// <summary>
@@ -126,10 +130,16 @@ namespace GameLogic.BlockBlast.Player
         public readonly int FinalScore;
         /// <summary>终局入榜后该榜当前最佳分(<see cref="GameOver"/>=true 且入榜服务可用时有效;否则 0)。服务端权威,客户端只投影展示。</summary>
         public readonly long BestScore;
+        /// <summary>
+        /// 落子后玩家体力绝对值(服务端派生:先扣 PlaceCost、再按消行数返还,夹 EnergyCap)。
+        /// Ok/IdempotentReplay/StepAhead 分支为当前权威余额,宿主经 <c>MetaCurrencySync.ApplyDeltaPush</c> 对齐;
+        /// 其余失败码(IllegalPlacement/GameNotFound/NetworkDown/ServiceUnavailable)为 0,宿主按 Code 忽略,靠属性推送/快照对齐。
+        /// </summary>
+        public readonly long NewEnergy;
 
         public PlaceResult(DealResultCode code, int step, int score, int eliminatedLines,
             int newCandidate, List<int> board, GenStateView gen,
-            bool gameOver = false, int finalScore = 0, long bestScore = 0)
+            bool gameOver = false, int finalScore = 0, long bestScore = 0, long newEnergy = 0)
         {
             Code = code;
             Step = step;
@@ -141,10 +151,59 @@ namespace GameLogic.BlockBlast.Player
             GameOver = gameOver;
             FinalScore = finalScore;
             BestScore = bestScore;
+            NewEnergy = newEnergy;
         }
 
         public static PlaceResult Fail(DealResultCode code)
             => new PlaceResult(code, 0, 0, 0, -1, null, null);
+    }
+
+    /// <summary>
+    /// C2G_ClearTool 响应(消除道具裁决 + 最新权威态)。消除道具作为 board-mutating 动作推进 Step +1,
+    /// 但不消耗候选、不推进发牌调度、不续发,故 <see cref="Gen"/> 回带的是当前(未变)发牌器态,对账时用它对齐即可。
+    /// </summary>
+    /// <remarks>
+    /// 结果码语义(与协议 <c>ClearToolResultCode</c> 一一映射,经 <c>BlockGameGatewayProd.MapClearToolCode</c> 收敛):
+    ///   - <see cref="DealResultCode.Ok"/>(Cleared):baseStep==权威 step,已扣体力已清行列,回带扣后余额(<see cref="NewEnergy"/>);
+    ///   - <see cref="DealResultCode.IdempotentReplay"/>:已执行步的重发,回带当前权威态、不重复清/扣;
+    ///   - <see cref="DealResultCode.StepAhead"/>:客户端超前,回带当前权威态供重同步;
+    ///   - <see cref="DealResultCode.OutOfRange"/>:目标格越界,不清/不扣,回带当前权威态;
+    ///   - <see cref="DealResultCode.NotEnoughEnergy"/>:体力不足被拒,不清/不扣,回带当前体力余额(<see cref="NewEnergy"/>)供回滚乐观清;
+    ///   - 其余失败码(GameNotFound / NotLoggedIn / NetworkDown / ServiceUnavailable):board/gen/NewEnergy 无效,宿主按码兜底。
+    /// </remarks>
+    public sealed class ClearToolResult
+    {
+        public readonly DealResultCode Code;
+        /// <summary>执行后(或当前)权威步号。</summary>
+        public readonly int Step;
+        /// <summary>当前权威分数(消除道具不计分,回带当前值供对账)。</summary>
+        public readonly int Score;
+        /// <summary>本次清掉的格数(Cleared 时有效)。</summary>
+        public readonly int ClearedCells;
+        /// <summary>最新权威棋盘 8 行位掩码。</summary>
+        public readonly List<int> Board;
+        /// <summary>最新发牌器状态向量(消除道具不推进发牌,回带当前态供对账)。</summary>
+        public readonly GenStateView Gen;
+        /// <summary>
+        /// 玩家体力绝对值:Cleared=扣费后余额 / NotEnoughEnergy=当前余额(供回滚乐观清);
+        /// 其余不改体力的分支为 0(宿主按 Code 忽略,靠属性推送/快照对齐)。
+        /// </summary>
+        public readonly long NewEnergy;
+
+        public ClearToolResult(DealResultCode code, int step, int score, int clearedCells,
+            List<int> board, GenStateView gen, long newEnergy)
+        {
+            Code = code;
+            Step = step;
+            Score = score;
+            ClearedCells = clearedCells;
+            Board = board ?? new List<int>();
+            Gen = gen;
+            NewEnergy = newEnergy;
+        }
+
+        public static ClearToolResult Fail(DealResultCode code)
+            => new ClearToolResult(code, 0, 0, 0, null, null, 0);
     }
 
     /// <summary>C2G_GameSnapshot 响应(恢复/重连用的权威全态)。</summary>

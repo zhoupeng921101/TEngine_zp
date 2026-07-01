@@ -734,7 +734,11 @@ namespace GameLogic
             RefreshClearTool();
         }
 
-        /// <summary>玩家在 arming 模式下点棋盘格 (col,row)：清该格所在一行一列、扣体力、刷新；越界则取消 arming。</summary>
+        /// <summary>
+        /// 玩家在 arming 模式下点棋盘格 (col,row):走服务端权威消除道具(与落子 C2G_Place 同构)——
+        /// 本地乐观清一行一列(棋盘 + deal 预测态同步保手感)+ 乐观扣体力(仅即时 HUD)→ 发 C2G_ClearTool 对账。
+        /// 越界点击取消 arming(不扣体力);建局未成(无服务端对局)时退回纯本地清(兜底可玩)。
+        /// </summary>
         private void OnBoardTapForClearTool(int col, int row)
         {
             if (!_clearToolArming) return;
@@ -744,10 +748,29 @@ namespace GameLogic
             // 二次 gate(防 arming 期间体力被其它路径耗低)：不够则取消、弹短提示（自动消失）。
             if (!_merge.CanUseClearTool) { CancelClearToolArming(); ShowClearToolHint("体力不足，等恢复", autoHide: true); return; }
 
+            var deal = _state.ServerDeal;
+
+            // 乐观扣体力(仅即时 HUD)。服务端权威模式下体力「服务端派生」:在扣减同一同步边界把该笔一并抬进 MetaCurrencySync
+            // 基线(ExcludeEnergySpend(-cost)),使这笔乐观扣减从随后的 ReportPending 待上报 delta 中排除、净算为 0——
+            // 服务端 ClearTool 已权威扣一次,客户端不得再经 C2G_PropertyChange 重报(否则双扣)。真实权威值随后由响应 NewEnergy /
+            // delta-push 经 ApplyDeltaPush 整体对齐。抬基线放在扣减瞬间(而非等响应)是为根治落盘边界抢在响应前跑的时序竞态。
+            int cost = MergeOrderConfig.ClearToolCost;
             _merge.SpendClearToolCost();                  // 扣体力（已确认 CanUseClearTool）
+            var currency = GameContext.Instance?.MetaCurrency;
+            currency?.ExcludeEnergySpend(-cost);          // 服务端权威模式:把乐观扣减排除出上报基线(未 Ready 内部跳过)
+
             _state.ClearToolRowCol(_board, row, col);     // 清一行一列（同步 SaveArr / ElementArr / BinaryBoard）
             // 设计 49 §四 / §3.1：清一行一列不清空全盘、不触发全清判定——此处不调 ClearSettlement，
             // 全清奖只由正常消除清空棋盘触发，不被消除道具重复领取（B13）。
+
+            // 服务端权威发牌模式:同步推进 deal 预测态(清 deal.Board 目标行列 + Step +1),使 deal.Board 与 _board 同步、
+            // 下一步落子对账不把道具清掉的行列覆盖回来(本任务修复的对账发散根因)。baseStep 取预测推进前的权威步号。
+            int serverBaseStep = -1;
+            if (deal != null && deal.HasGame && !deal.GameOver)
+            {
+                serverBaseStep = deal.Step;
+                deal.PredictClearTool(col, row);          // PosX=col, PosY=row(与服务端 ClearTool 同口径)
+            }
 
             CancelClearToolArming();                      // 退出 arming
             ClearGhost();
@@ -756,6 +779,90 @@ namespace GameLogic
             RefreshClearTool();                           // 体力变，gate 态刷新
 
             MarkAndFlushSave();                           // 体力进盘(设计 14 §3.7)：用消除道具后标脏 + 落盘
+
+            // 发 C2G_ClearTool 上报输入并对账。对账覆盖(预测与权威不一致)经 OnAuthoritativeChanged → ReprojectServerState 整屏重绘;
+            // NotEnoughEnergy 被服务端拒 → 回滚本地乐观清 + 体力。建局未成(serverBaseStep<0)则退回纯本地清(不发,兜底可玩)。
+            if (deal != null && serverBaseStep >= 0)
+                SendClearToolAndReconcile(deal, serverBaseStep, col, row, cost).Forget();
+        }
+
+        /// <summary>
+        /// 发 C2G_ClearTool 上报消除道具输入并对账。乐观清 + 乐观扣 + 基线排除已在 <see cref="OnBoardTapForClearTool"/> 同步完成,
+        /// 本方法只负责网络往返:
+        ///   - Cleared / IdempotentReplay / StepAhead:回带权威态,ServerDealSync 内部对账(不一致触发整屏重绘);
+        ///     并以响应 NewEnergy 经 <c>MetaCurrencySync.ApplyDeltaPush</c> 把本地体力 + 基线校正到服务端扣后余额(与 delta-push 幂等)。
+        ///   - NotEnoughEnergy:服务端拒(体力刚好不够),回滚本地乐观清(棋盘 + deal 预测)+ 体力(撤销扣减与基线排除),提示体力不足。
+        ///   - GameNotFound / 断网 / 服务不可用:记日志,保留本地态(下次开窗重新建局 / 快照恢复对齐)。
+        /// async void 经 .Forget() 调,全程吞异常不外逃。
+        /// </summary>
+        private async UniTaskVoid SendClearToolAndReconcile(
+            GameLogic.BlockBlast.Player.ServerDealSync deal, int baseStep, int col, int row, int cost)
+        {
+            try
+            {
+                var result = await deal.ClearToolAsync(baseStep, col, row);
+                var currency = GameContext.Instance?.MetaCurrency;
+
+                switch (result.Code)
+                {
+                    case GameLogic.BlockBlast.Player.DealResultCode.Ok:
+                    case GameLogic.BlockBlast.Player.DealResultCode.IdempotentReplay:
+                    case GameLogic.BlockBlast.Player.DealResultCode.StepAhead:
+                        // 权威体力校正:响应 NewEnergy = 服务端扣后余额,set 本地体力 + 基线到权威值(与随后 delta-push 幂等)。
+                        // 注意:StepAhead/幂等分支服务端未必扣本笔,但 NewEnergy 仍是当前权威余额,直接对齐即正确。
+                        if (currency != null)
+                            currency.ApplyDeltaPush(_merge, GameLogic.BlockBlast.Player.AttrType.Energy, result.NewEnergy);
+                        RefreshEnergy();
+                        RefreshClearTool();
+                        break;
+
+                    case GameLogic.BlockBlast.Player.DealResultCode.NotEnoughEnergy:
+                        // 服务端拒(体力刚好不够):回滚乐观清(棋盘 + deal 预测态)+ 体力。
+                        RollbackClearTool(deal);
+                        // 撤销扣减的基线排除(ExcludeEnergySpend(-cost) 的反向),再以服务端回带的当前余额对齐体力 + 基线。
+                        currency?.ExcludeEnergySpend(cost);
+                        if (currency != null)
+                            currency.ApplyDeltaPush(_merge, GameLogic.BlockBlast.Player.AttrType.Energy, result.NewEnergy);
+                        RefreshEnergy();
+                        RefreshClearTool();
+                        ShowClearToolHint("体力不足，等恢复", autoHide: true);
+                        break;
+
+                    case GameLogic.BlockBlast.Player.DealResultCode.OutOfRange:
+                        // 理论不达(客户端已界内 gate);防御:服务端未扣未清 → 回滚乐观清 + 撤销基线排除(此码 NewEnergy=0,
+                        // 体力退回本地视图,权威值交随后快照/delta-push 对齐)。撤销排除:不撤则基线仍低 cost,下次 ReportPending 误报 +cost。
+                        RollbackClearTool(deal);
+                        currency?.ExcludeEnergySpend(cost);
+                        RefreshEnergy();
+                        RefreshClearTool();
+                        break;
+
+                    default:
+                        // GameNotFound / NotLoggedIn / NetworkDown / ServiceUnavailable:保留本地乐观态,记日志。
+                        // 体力基线排除已抬平,本地乐观扣不会被 ReportPending 重报;下次快照/登录对齐真值。
+                        if (result.Code == GameLogic.BlockBlast.Player.DealResultCode.GameNotFound)
+                            Log.Warning("[MergeOrderWindow] C2G_ClearTool 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+                        break;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Log.Warning($"[MergeOrderWindow] C2G_ClearTool 异常,保留本地态:{e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 回滚一次消除道具的乐观清 + 乐观扣体力(服务端拒 / 越界防御):体力退回 cost、deal 预测态与本地棋盘经服务端权威快照对齐。
+        /// deal 预测清无法逐格逆运算(整行整列清零丢失原占用),故用服务端快照整体覆盖恢复;快照到达经 OnAuthoritativeChanged →
+        /// ReprojectServerState 整屏重绘,盘面回到消除道具前的权威态。体力退回在调用侧(SendClearToolAndReconcile)以 NewEnergy 对齐。
+        /// </summary>
+        private void RollbackClearTool(GameLogic.BlockBlast.Player.ServerDealSync deal)
+        {
+            // 体力退回本地视图(即时 HUD);权威值随后由 SendClearToolAndReconcile 以 NewEnergy 覆盖对齐。
+            _merge.Energy = System.Math.Min(_merge.Energy + MergeOrderConfig.ClearToolCost, MergeOrderConfig.EnergyCap);
+            // 棋盘回滚:deal 预测清是整行整列清零(有损),无法本地逆算原占用。发快照取服务端权威盘面整体覆盖恢复。
+            if (deal != null && deal.HasGame)
+                deal.RefreshSnapshotAsync().Forget();
         }
 
         /// <summary>退出指定格模式：清 arming 标志 + 隐 overlay/提示 + 刷新按钮态。可重复安全调用。</summary>
@@ -1204,6 +1311,13 @@ namespace GameLogic
                 deal.PredictPlace(slotIdx, col, row); // 推进预测态(供整批消耗后 RefillPieces→ProjectServerCandidates 取下一批)
             }
 
+            // 服务端权威模式:落子体力「服务端派生」(服务端 C2G_Place 裁决时先扣 PlaceCost、再按消行返还,回带 NewEnergy)。
+            // 客户端本地乐观扣/返仅供即时 HUD,不得再经 ReportPending 自报(否则与服务端派生双扣)。捕获本手体力净变化区间:
+            // eBefore 记于扣减之前,本手所有体力增减(下方 SpendPlaceCost 扣 + 消行 RefundEnergy 返)完成后一并抬进 Energy 基线
+            // (ExcludeEnergySpend(净值)),使这笔从待上报 delta 净算为 0。区间内除落子扣/消行返外无其它路径改 Energy
+            // (时基恢复 ApplyTimeRegen 走每秒轮询、不在本同步栈内),故净值 = -PlaceCost + 消行返还,恰为落子体力派生量。
+            int energyBefore = _merge.Energy;
+
             _state.PlacePiece(slotIdx, _board, col, row);  // 含元素转移（门控）
             _merge.SpendPlaceCost();
 
@@ -1295,6 +1409,12 @@ namespace GameLogic
             }
 
             RefreshEnergy();
+
+            // 本手体力增减已定(SpendPlaceCost 扣 + 可能的消行 RefundEnergy 返)。把净变化并入 Energy 基线,使这笔从
+            // ReportPending 待上报 delta 排除、净算为 0——服务端 C2G_Place 已权威派生本笔体力,客户端不得再经 C2G_PropertyChange 重报。
+            // ExcludeEnergySpend 只动 _baseEnergy(不碰 Soul/Piety/Exp 基线),故本手若产 Soul/Piety/Exp 仍由 ReportPending 正常上报(本批只搬体力)。
+            GameContext.Instance?.MetaCurrency?.ExcludeEnergySpend(_merge.Energy - energyBefore);
+
             RefreshOrders();
             RefreshSynthesis();
             // 收集飞行动画（纯表现层）：须在 RefreshSynthesis 之后发——新类型会新建 token、升级会改等级，
@@ -1338,8 +1458,29 @@ namespace GameLogic
             try
             {
                 var result = await deal.PlaceAsync(baseStep, slotIdx, col, row);
-                if (result != null && result.Code == GameLogic.BlockBlast.Player.DealResultCode.GameNotFound)
-                    Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+
+                // 权威体力校正:落子体力服务端派生,响应 NewEnergy = 服务端裁决后余额(先扣 PlaceCost、按消行返还、夹 EnergyCap)。
+                // Ok/IdempotentReplay/StepAhead 回带当前权威余额,set 本地体力 + 基线到该值(与随后 delta-push 幂等,绝对值重复 set 无害),
+                // 消解本地乐观扣/返与服务端派生的任何偏差。失败码(GameNotFound/断网/ServiceUnavailable)NewEnergy 无效(=0),不拿它 set:
+                // 保留本地乐观态,基线排除已抬平 → ReportPending 净算 0、不误报,下次快照/登录对齐真值(与消除道具 default 分支同理)。
+                if (result != null)
+                {
+                    switch (result.Code)
+                    {
+                        case GameLogic.BlockBlast.Player.DealResultCode.Ok:
+                        case GameLogic.BlockBlast.Player.DealResultCode.IdempotentReplay:
+                        case GameLogic.BlockBlast.Player.DealResultCode.StepAhead:
+                            GameContext.Instance?.MetaCurrency?.ApplyDeltaPush(
+                                _merge, GameLogic.BlockBlast.Player.AttrType.Energy, result.NewEnergy);
+                            RefreshEnergy();
+                            RefreshClearTool();
+                            break;
+                        case GameLogic.BlockBlast.Player.DealResultCode.GameNotFound:
+                            Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+                            break;
+                        // 其余(断网/服务不可用/未登录/非法):保留本地乐观态,基线排除已抬平不误报,不拿 NewEnergy(=0) 覆盖。
+                    }
+                }
                 // 终局以服务端信号为准:对账后 deal.GameOver=true 即走结算 + 停止落子(本局服务端已删档)。
                 if (deal.GameOver)
                     ShowGameOverSettlement(deal.FinalScore, deal.BestScore);

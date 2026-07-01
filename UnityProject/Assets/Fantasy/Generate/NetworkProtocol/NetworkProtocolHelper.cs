@@ -49,6 +49,21 @@ namespace Fantasy
 			return (G2C_PlaceResponse)await session.Call(C2G_PlaceRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_ClearToolResponse> C2G_ClearToolRequest(this Session session, C2G_ClearToolRequest C2G_ClearToolRequest_request)
+		{
+			return (G2C_ClearToolResponse)await session.Call(C2G_ClearToolRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_ClearToolResponse> C2G_ClearToolRequest(this Session session, long gameId, int baseStep, int posX, int posY)
+		{
+			using var C2G_ClearToolRequest_request = Fantasy.C2G_ClearToolRequest.Create();
+			C2G_ClearToolRequest_request.GameId = gameId;
+			C2G_ClearToolRequest_request.BaseStep = baseStep;
+			C2G_ClearToolRequest_request.PosX = posX;
+			C2G_ClearToolRequest_request.PosY = posY;
+			return (G2C_ClearToolResponse)await session.Call(C2G_ClearToolRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_GameSnapshotResponse> C2G_GameSnapshotRequest(this Session session, C2G_GameSnapshotRequest C2G_GameSnapshotRequest_request)
 		{
 			return (G2C_GameSnapshotResponse)await session.Call(C2G_GameSnapshotRequest_request);

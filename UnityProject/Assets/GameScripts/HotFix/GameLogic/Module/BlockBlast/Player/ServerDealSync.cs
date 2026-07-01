@@ -200,6 +200,48 @@ namespace GameLogic.BlockBlast.Player
             return outcome;
         }
 
+        // ─── 消除道具预测 ─────────────────────────────────────────
+
+        /// <summary>消除道具预测结果(供宿主即时刷新 UI;权威以随后的对账为准)。</summary>
+        public sealed class ClearToolOutcome
+        {
+            public bool Accepted;   // 预测层是否接受(已建局 + 非终局 + 目标格在界内)
+            public int Step;        // 预测推进后的步号(接受时 = 原 step + 1)
+            public int PosX;        // 目标格列(回带供宿主/单测核对)
+            public int PosY;        // 目标格行
+        }
+
+        /// <summary>
+        /// 本地预测消除道具(乐观推进预测态,与服务端 <c>GameSessionHelper.ClearTool</c> 逐操作同口径):
+        /// 清目标格 (posX,posY) 所在整行整列(整行位掩码清零 + 每行清目标列位)、Step +1。
+        /// <b>不动候选队列、不动发牌器、不计分、不触发全清判定</b>(与落子不同,消除道具只是 board-mutating 脱困动作)。
+        /// 未建局 / 终局后 / 目标格越界返回 Accepted=false 且不改态(与服务端 OutOfRange / GameNotFound 同口径)。
+        /// </summary>
+        public ClearToolOutcome PredictClearTool(int posX, int posY)
+        {
+            var outcome = new ClearToolOutcome { Step = Step, PosX = posX, PosY = posY };
+            if (!HasGame) return outcome;
+            // 终局后拒绝:本局服务端已删档,继续预测会让本地态偏离权威(且无对应可上报的对局)。
+            if (GameOver) return outcome;
+            // 越界:目标格必须在 8×8 界内(与服务端 handler 越界回 OutOfRange 同口径,不推进 Step)。
+            if (posX < 0 || posX >= BinaryBoard.ColCount || posY < 0 || posY >= BinaryBoard.RowCount)
+                return outcome;
+
+            // 清整行:该行位掩码全清零。
+            Board.RowBinary[posY] = 0;
+            // 清整列:每行清掉目标列对应的那一位(位序与 BinaryBoard 一致:bit (ColCount-col-1))。
+            int colClearMask = ~(1 << (BinaryBoard.ColCount - posX - 1)) & BinaryBoard.FullRow;
+            for (int r = 0; r < BinaryBoard.RowCount; r++)
+                Board.RowBinary[r] &= colClearMask;
+
+            // 消除道具作为 board-mutating 动作推进 Step +1,但不消耗候选、不 AddWeight、不 OfferTrio、不续发。
+            Step++;
+
+            outcome.Accepted = true;
+            outcome.Step = Step;
+            return outcome;
+        }
+
         // ─── 对账 ────────────────────────────────────────────────
 
         /// <summary>
@@ -233,6 +275,34 @@ namespace GameLogic.BlockBlast.Player
                     return diverged;
                 default:
                     // 失败码:不动预测态(board/gen 无效)。宿主据码决策(如重发 Snapshot / GameStart)。
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// 应用 <c>G2C_ClearTool</c> 对账:三类回带权威态的码(Cleared / IdempotentReplay / StepAhead)以服务端 board/step/genState
+        /// 对齐预测态,不一致触发覆盖并置 <see cref="LastReconcileCorrected"/>=true。
+        /// 失败码(OutOfRange / NotEnoughEnergy / GameNotFound / NotLoggedIn / NetworkDown / ServiceUnavailable)<b>不覆盖预测态</b>
+        /// (board/gen 字段无效或语义上不应覆盖):由宿主按码回滚乐观清(NotEnoughEnergy)或走本地兜底(其余)。
+        /// 返回是否发生了覆盖(供宿主决定整屏重绘)。
+        /// </summary>
+        public bool ReconcileClearTool(ClearToolResult result)
+        {
+            LastReconcileCorrected = false;
+            if (result == null) return false;
+
+            switch (result.Code)
+            {
+                case DealResultCode.Ok:
+                case DealResultCode.IdempotentReplay:
+                case DealResultCode.StepAhead:
+                    // 这三类服务端都回带当前权威态;以服务端为准对齐(消除道具不动发牌器,gen 回带的是当前态)。
+                    bool diverged = IsDivergentClearTool(result);
+                    OverwriteFromClearTool(result);
+                    LastReconcileCorrected = diverged;
+                    return diverged;
+                default:
+                    // OutOfRange / NotEnoughEnergy / 失败码:不动预测态,宿主据码回滚乐观清或兜底。
                     return false;
             }
         }
@@ -332,6 +402,33 @@ namespace GameLogic.BlockBlast.Player
                 if (bc.cooldown != result.Gen.BcCooldown) return true;
             }
             return false;
+        }
+
+        /// <summary>预测态与服务端 ClearTool 响应是否有任何分歧(step/board/候选/genState;消除道具不计分,不比 score)。</summary>
+        private bool IsDivergentClearTool(ClearToolResult result)
+        {
+            if (Step != result.Step) return true;
+            if (!SameBoard(result.Board)) return true;
+            if (result.Gen != null)
+            {
+                if (!SameList(CandidateQueue, result.Gen.CandidateQueue)) return true;
+                if (_gen.DynamicWeight != result.Gen.DynamicWeight) return true;
+                if (_gen.InternalPreDynamicWeight != result.Gen.PreDynamicWeight) return true;
+                if (_gen.InternalRefillIndex != result.Gen.RefillIndex) return true;
+                var bc = _gen.GetBoardClearState();
+                if (bc.inWindow != result.Gen.BcInWindow) return true;
+                if (bc.cooldown != result.Gen.BcCooldown) return true;
+            }
+            return false;
+        }
+
+        /// <summary>以服务端 ClearTool 权威态整体覆盖预测态(step/board/genState;score 回带当前值一并对齐)。</summary>
+        private void OverwriteFromClearTool(ClearToolResult result)
+        {
+            Step = result.Step;
+            Score = result.Score;
+            LoadBoard(result.Board);
+            ApplyGen(result.Gen);
         }
 
         private bool SameBoard(List<int> serverRows)
@@ -440,6 +537,24 @@ namespace GameLogic.BlockBlast.Player
             if (GameOver) return PlaceResult.Fail(DealResultCode.GameNotFound);
             var result = await _gateway.PlaceAsync(GameId, baseStep, candidateIndex, posX, posY);
             bool corrected = ReconcilePlace(result);
+            if (corrected) OnAuthoritativeChanged?.Invoke();
+            return result;
+        }
+
+        /// <summary>
+        /// 发 <c>C2G_ClearTool</c> 上报消除道具输入并对账。<b>调用前宿主应已 <see cref="PredictClearTool"/> 乐观推进</b>
+        /// (用预测前的 Step 作 baseStep)。本方法用<b>预测前的 baseStep</b>(= 预测 step - 1)上报,服务端按 ==/&lt;/&gt; 分三分支。
+        /// 返回服务端结果(含最新权威态 + 体力绝对值 NewEnergy);对账发生覆盖时触发 <see cref="OnAuthoritativeChanged"/>。
+        /// 失败码 / OutOfRange / NotEnoughEnergy 下不动预测态,由宿主按码回滚乐观清。
+        /// </summary>
+        /// <param name="baseStep">本次消除道具前的权威步号(= 预测推进前的 Step)。</param>
+        public async UniTask<ClearToolResult> ClearToolAsync(int baseStep, int posX, int posY)
+        {
+            if (!HasGame) return ClearToolResult.Fail(DealResultCode.GameNotFound);
+            // 终局后拒发:本局服务端已删档,再上报会被回 GameNotFound,直接短路省一次往返。
+            if (GameOver) return ClearToolResult.Fail(DealResultCode.GameNotFound);
+            var result = await _gateway.ClearToolAsync(GameId, baseStep, posX, posY);
+            bool corrected = ReconcileClearTool(result);
             if (corrected) OnAuthoritativeChanged?.Invoke();
             return result;
         }

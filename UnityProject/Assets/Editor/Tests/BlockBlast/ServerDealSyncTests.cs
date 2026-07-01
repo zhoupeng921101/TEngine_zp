@@ -102,6 +102,32 @@ namespace GameLogic.BlockBlast.Tests
                 return new PlaceResult(DealResultCode.Ok, Step, Score, lines, newCandidate, BoardRows(), Gen());
             }
 
+            /// <summary>权威消除道具(与 GameSessionHelper.ClearTool 同口径):清整行整列 + Step +1,不动候选/发牌器/分数。</summary>
+            public ClearToolResult ClearTool(int posX, int posY)
+            {
+                if (posX < 0 || posX >= BinaryBoard.ColCount || posY < 0 || posY >= BinaryBoard.RowCount)
+                    return ClearToolResult.Fail(DealResultCode.OutOfRange);
+
+                int before = CountOccupied(Board);
+                Board.RowBinary[posY] = 0;
+                int colClearMask = ~(1 << (BinaryBoard.ColCount - posX - 1)) & BinaryBoard.FullRow;
+                for (int r = 0; r < BinaryBoard.RowCount; r++) Board.RowBinary[r] &= colClearMask;
+                int cleared = before - CountOccupied(Board);
+                Step++; // 消除道具作为 board-mutating 动作推进 Step,但不消耗候选、不推进发牌
+                return new ClearToolResult(DealResultCode.Ok, Step, Score, cleared, BoardRows(), Gen(), newEnergy: 0);
+            }
+
+            private static int CountOccupied(BinaryBoard board)
+            {
+                int count = 0;
+                for (int r = 0; r < BinaryBoard.RowCount; r++)
+                {
+                    int bits = board.RowBinary[r] & BinaryBoard.FullRow;
+                    while (bits != 0) { bits &= bits - 1; count++; }
+                }
+                return count;
+            }
+
             private int RefillTrio()
             {
                 var offer = _gen.OfferTrio(Board, Score);
@@ -142,6 +168,9 @@ namespace GameLogic.BlockBlast.Tests
                     new List<int>(Sim.CandidateQueue), Sim.Gen());
                 return UniTask.FromResult(r);
             }
+
+            public UniTask<ClearToolResult> ClearToolAsync(long gameId, int baseStep, int posX, int posY)
+                => UniTask.FromResult(Sim.ClearTool(posX, posY));
         }
 
         /// <summary>玩家确定性策略(与 GenCoreDeterminismHarness 同口径):首个有合法落点的槽,落点取 GetCanPutPoss 固定序首个。</summary>
@@ -479,6 +508,198 @@ namespace GameLogic.BlockBlast.Tests
                 Assert.AreEqual(0, deal.Board.RowBinary[r], $"新建应空盘(row {r})");
             Assert.IsFalse(deal.LastReconcileCorrected, "新建不强制整屏重绘标志");
             CollectionAssert.AreEqual(gateway.Sim.CandidateQueue, deal.CandidateQueue, "新建首批候选应与服务端一致");
+        }
+
+        // ─── 消除道具预测 / 对账 ─────────────────────────────────────
+
+        /// <summary>在 deal 预测盘上放一个满行/满列前的可见占用图案(不经候选,直接写位掩码)供消除道具测试。</summary>
+        private static void FillCell(BinaryBoard b, int col, int row)
+            => b.RowBinary[row] |= 1 << (BinaryBoard.ColCount - col - 1);
+
+        [Test]
+        public void ClearTool_Predict_ClearsRowAndCol_StepPlusOne_NoCandidateNorGenChange()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            // 预置占用:目标格 (col=3,row=2) 所在整行 + 整列 + 一个不在行列上的对照格 (col=0,row=0)。
+            for (int c = 0; c < BinaryBoard.ColCount; c++) FillCell(deal.Board, c, 2); // 行 2 全占
+            for (int r = 0; r < BinaryBoard.RowCount; r++) FillCell(deal.Board, 3, r); // 列 3 全占
+            FillCell(deal.Board, 0, 0);                                                 // 对照:不该被清
+
+            int stepBefore = deal.Step;
+            var candBefore = new List<int>(deal.CandidateQueue);
+            var genBefore = deal.ExportGenFullState();
+
+            var outcome = deal.PredictClearTool(3, 2); // PosX=col=3, PosY=row=2
+
+            Assert.IsTrue(outcome.Accepted, "界内消除道具预测应接受");
+            Assert.AreEqual(stepBefore + 1, deal.Step, "消除道具应推进 Step +1");
+            Assert.AreEqual(deal.Step, outcome.Step, "outcome.Step 应为推进后步号");
+
+            // 行 2 全清、列 3 全清。
+            Assert.AreEqual(0, deal.Board.RowBinary[2], "目标行应整行清零");
+            for (int r = 0; r < BinaryBoard.RowCount; r++)
+            {
+                int colBit = 1 << (BinaryBoard.ColCount - 3 - 1);
+                Assert.AreEqual(0, deal.Board.RowBinary[r] & colBit, $"目标列在行 {r} 应清零");
+            }
+            // 对照格 (0,0) 不在目标行列上,应保留。
+            Assert.AreNotEqual(0, deal.Board.RowBinary[0] & (1 << (BinaryBoard.ColCount - 0 - 1)), "非目标行列的占用格应保留");
+
+            // 候选队列 + 发牌器态不动(消除道具不消耗候选、不推进发牌)。
+            CollectionAssert.AreEqual(candBefore, deal.CandidateQueue, "消除道具不应动候选队列");
+            var genAfter = deal.ExportGenFullState();
+            Assert.AreEqual(genBefore.RngS0, genAfter.RngS0, "消除道具不应推进 PRNG 游标 s0");
+            Assert.AreEqual(genBefore.RngS1, genAfter.RngS1, "消除道具不应推进 PRNG 游标 s1");
+            Assert.AreEqual(genBefore.DynamicWeight, genAfter.DynamicWeight, "消除道具不应改 DynamicWeight");
+            Assert.AreEqual(genBefore.RefillIndex, genAfter.RefillIndex, "消除道具不应改 RefillIndex");
+        }
+
+        [Test]
+        public void ClearTool_Predict_RejectsOutOfRange_NoStateChange()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+            int stepBefore = deal.Step;
+
+            foreach (var (x, y) in new[] { (-1, 0), (0, -1), (8, 0), (0, 8) })
+            {
+                var outcome = deal.PredictClearTool(x, y);
+                Assert.IsFalse(outcome.Accepted, $"越界 ({x},{y}) 应拒绝");
+                Assert.AreEqual(stepBefore, deal.Step, "越界预测不应推进 Step");
+            }
+        }
+
+        [Test]
+        public void ClearTool_Predict_RejectedAfterGameOver()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            // 令终局。
+            PickPlacement(deal.CandidateQueue, deal.Board, out int slot, out int x, out int y);
+            deal.PredictPlace(slot, x, y);
+            deal.ReconcilePlace(new PlaceResult(DealResultCode.Ok, deal.Step, deal.Score, 0, -1,
+                BoardRows(deal.Board), new GenStateView(new List<int>(deal.CandidateQueue), 0, 0, 0, false, 0),
+                gameOver: true, finalScore: 1, bestScore: 1L));
+            Assert.IsTrue(deal.GameOver);
+
+            int stepBefore = deal.Step;
+            var outcome = deal.PredictClearTool(0, 0);
+            Assert.IsFalse(outcome.Accepted, "终局后消除道具预测应拒绝");
+            Assert.AreEqual(stepBefore, deal.Step, "终局后消除道具预测不应推进 Step");
+        }
+
+        [Test]
+        public void ClearTool_PredictThenReconcile_MatchesServer_NoCorrection()
+        {
+            // 预测消除道具 + 对账真权威态(经 SimGateway 驱动 ServerSim.ClearTool),二者同口径 → 对账不应覆盖。
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            // 客户端预测盘与服务端盘同步预置占用(行 4 全占 + 列 5 全占),再消除道具 (col=5,row=4)。
+            for (int c = 0; c < BinaryBoard.ColCount; c++) { FillCell(deal.Board, c, 4); FillCell(gateway.Sim.Board, c, 4); }
+            for (int r = 0; r < BinaryBoard.RowCount; r++) { FillCell(deal.Board, 5, r); FillCell(gateway.Sim.Board, 5, r); }
+
+            int baseStep = deal.Step;
+            var outcome = deal.PredictClearTool(5, 4);
+            Assert.IsTrue(outcome.Accepted);
+
+            var result = deal.ClearToolAsync(baseStep, 5, 4).GetAwaiter().GetResult();
+            Assert.AreEqual(DealResultCode.Ok, result.Code, "服务端应 Cleared");
+            Assert.IsFalse(deal.LastReconcileCorrected, "预测与服务端逐位一致,对账不应覆盖");
+            Assert.AreEqual(gateway.Sim.Step, deal.Step, "对账后 step 应一致");
+            CollectionAssert.AreEqual(gateway.Sim.BoardRows(), BoardRows(deal.Board), "对账后盘面应一致");
+        }
+
+        [Test]
+        public void ClearTool_ThenPlace_NoReconcileDivergence()
+        {
+            // 本任务修复的核心:消除道具后 deal.Board 与服务端权威一致 → 下一步落子对账不再把道具清掉的行列覆盖回来。
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            // 客户端 + 服务端同步预置占用后消除道具。
+            for (int c = 0; c < BinaryBoard.ColCount; c++) { FillCell(deal.Board, c, 1); FillCell(gateway.Sim.Board, c, 1); }
+            int baseStep = deal.Step;
+            deal.PredictClearTool(0, 1);
+            deal.ClearToolAsync(baseStep, 0, 1).GetAwaiter().GetResult();
+            Assert.IsFalse(deal.LastReconcileCorrected, "消除道具对账不应覆盖");
+
+            // 随后落子:预测 + 对账应逐位一致、不覆盖(道具清掉的行不回弹)。
+            Assert.IsTrue(PickPlacement(deal.CandidateQueue, deal.Board, out int slot, out int x, out int y));
+            int placeBase = deal.Step;
+            var predicted = deal.PredictPlace(slot, x, y);
+            Assert.IsTrue(predicted.Accepted);
+            var place = deal.PlaceAsync(placeBase, slot, x, y).GetAwaiter().GetResult();
+            Assert.AreEqual(DealResultCode.Ok, place.Code);
+            Assert.IsFalse(deal.LastReconcileCorrected, "消除道具后落子对账不应发散(道具清掉的行列不回弹)");
+        }
+
+        [Test]
+        public void ClearTool_Reconcile_OverwritesWhenServerDiverges()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            int baseStep = deal.Step;
+            deal.PredictClearTool(0, 0);
+
+            // 造分歧:服务端回一个与预测不同的盘面 + 候选。
+            var divergent = new ClearToolResult(DealResultCode.Ok, deal.Step, deal.Score, 8,
+                new List<int> { 255, 0, 0, 0, 0, 0, 0, 0 },
+                new GenStateView(new List<int> { 7, 7, 7 }, 3, 1, 5, false, 0), newEnergy: 12);
+            bool corrected = deal.ReconcileClearTool(divergent);
+
+            Assert.IsTrue(corrected, "分歧响应应触发对账覆盖");
+            Assert.IsTrue(deal.LastReconcileCorrected);
+            Assert.AreEqual(255, deal.Board.RowBinary[0], "对账后盘面应取服务端权威");
+            CollectionAssert.AreEqual(new List<int> { 7, 7, 7 }, deal.CandidateQueue, "对账后候选应取服务端权威");
+        }
+
+        [Test]
+        public void ClearTool_Reconcile_NotEnoughEnergy_DoesNotOverwritePredictedState()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            int baseStep = deal.Step;
+            deal.PredictClearTool(0, 0); // 乐观清 + Step +1
+            int stepAfterPredict = deal.Step;
+
+            // 服务端拒(体力不足):不应覆盖预测态(由宿主回滚乐观清)。
+            var reject = ClearToolResult.Fail(DealResultCode.NotEnoughEnergy);
+            bool corrected = deal.ReconcileClearTool(reject);
+
+            Assert.IsFalse(corrected, "NotEnoughEnergy 不应触发覆盖");
+            Assert.IsFalse(deal.LastReconcileCorrected);
+            Assert.AreEqual(stepAfterPredict, deal.Step, "失败码不应改预测 step(宿主负责回滚)");
+        }
+
+        [Test]
+        public void ClearTool_AsyncRejected_AfterGameOver_NoRpc()
+        {
+            var gateway = new SimGateway(Seed);
+            var deal = new ServerDealSync(gateway);
+            deal.StartGameAsync().GetAwaiter().GetResult();
+
+            PickPlacement(deal.CandidateQueue, deal.Board, out int slot, out int x, out int y);
+            deal.PredictPlace(slot, x, y);
+            deal.ReconcilePlace(new PlaceResult(DealResultCode.Ok, deal.Step, deal.Score, 0, -1,
+                BoardRows(deal.Board), new GenStateView(new List<int>(deal.CandidateQueue), 0, 0, 0, false, 0),
+                gameOver: true, finalScore: 1, bestScore: 1L));
+            Assert.IsTrue(deal.GameOver);
+
+            var result = deal.ClearToolAsync(deal.Step, 0, 0).GetAwaiter().GetResult();
+            Assert.AreEqual(DealResultCode.GameNotFound, result.Code, "终局后 ClearToolAsync 应短路回 GameNotFound");
         }
 
         /// <summary>从服务端 sim 取全态(经 GenStateView 中转,逐字段镜像)供断言对照。</summary>
