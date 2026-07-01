@@ -900,3 +900,30 @@
 - 怎么测:先正常玩一局让本地有各类缓存;触发清档流程(客户端清档入口,服务端清档成功后调 ClearAll);重登同账号进玩法。
 - 预期结果:重登后局内现场以服务端为准(服务端已清则空盘新局 / 服务端仍持则续局切片),本地不会冒出旧盘面 / 旧合成态。即使本地曾遗留 block_blast_merge_ingame_v1 旧 blob(历史版本写入),清档已防御性删除,不复活。
 - (依赖 MongoDB 不可达则标注「待用户在有库环境手验」,本条暂挂。)
+
+---
+
+## 待测条目(死代码清理·经典棋盘本地存档退役)
+
+> 本轮删经典时代遗留的本地持久化死代码:`BlockGameState.Save/Load` + `SaveData/PendingPieceData` 嵌套类 + `StorageKey`(键 `block_blast_save_v1`)已删,`MainMenuWindow.OnCreate` 里残留的 `state.Load()`(返回值未用)已删。经典 GameWindow 入口早已下线、无活写者,唯一读者是那句 vestigial 调用。
+> 动态权重持久化(键 `block_blast_dynamic_v1`)本轮**未删**:核查发现它在现构建仍有活写盘路径(`MergeOrderWindow` 每次开窗经 `_state.Dynamic.Reset()` 写盘、`Dynamic.Init` 读盘),不属死代码,保留不动。
+> `PlayerDataLocalReset` 对两键的防御性字面清除保留(清老玩家机上旧档)。
+> 无行为变化预期——纯删死代码;安全网为 batchmode 编译 0 error + 全量 EditMode 单测通过(dev 自检门已过:total=604 passed=586 failed=0 skipped=18,CS 错误=0)。以下为门覆盖不到的实机 UI 路径手测。
+
+### [ ] DC1 · 改动后客户端工程编译通过(Editor 内确认)
+
+- 测什么:删 `BlockGameState.Save/Load/SaveData/PendingPieceData/StorageKey`、删 `MainMenuWindow` 的 `state.Load()` 两行、删两个失效单测(`BlockGameStateTests.SaveAndLoad_RoundTrips` / `Load_NoSaveExists_ReturnsFalse`)后,客户端工程能否随 Editor 编译通过。
+- 怎么测:用 Unity 打开本工程(`D:\work\TEngine_block\UnityProject`),等 Editor 编译完成,看 Console 有无红色 error;Window > General > Test Runner(EditMode)能否正常列出 `BlockGameStateTests`(应少了上面两条已删用例,其余仍在)。
+- 预期结果:0 编译错误(warning 不卡)。`BlockGameStateTests` 仍列出但不含 `SaveAndLoad_RoundTrips` / `Load_NoSaveExists_ReturnsFalse`;其余 BlockBlast.Tests 用例正常列出。
+
+### [ ] DC2 · 主菜单正常打开、BEST 分正常显示(删 state.Load() 无副作用)
+
+- 测什么:`MainMenuWindow.OnCreate` 删掉 `var state = BlockGameState.Instance; state.Load();` 后,主菜单仍能正常打开,BEST 分正常显示(BEST 来自排行榜个人最佳分投影,本就不依赖被删的 Load)。
+- 怎么测:Play 模式正常登录 → 进主菜单。观察标题 / 「开始游戏」按钮 / BEST 分是否正常渲染;Console 有无红色异常。
+- 预期结果:主菜单正常显示,BEST 分为排行榜个人最佳分(与改动前一致);无 Console 报错,无空引用异常。
+
+### [ ] DC3 · 进玩法窗、玩一局、退出重进正常(经典本地存档删除后主流程无回归)
+
+- 测什么:经典棋盘本地存档删除后,融合主玩法(MergeOrderWindow,唯一玩法入口)开局 / 落子 / 消除 / 补牌 / 计分 / 退出重进全链路正常。局内现场续存已是服务端权威切片,不依赖被删的 `block_blast_save_v1`。
+- 怎么测:Play 模式登录 → 主菜单「开始游戏」进玩法窗,玩几手(落子、凑行列消除、三块用完自动补 3 块、分数增长);退出玩法窗回主菜单,再进一次玩法窗。
+- 预期结果:开局 / 落子 / 消除 / 补牌 / 计分全部正常,Console 无红;退出重进不因经典本地存档缺失而报错或卡住(局内续存以服务端为准,不受本轮删除影响)。

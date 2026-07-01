@@ -24,8 +24,6 @@ namespace GameLogic
 
         protected override void OnCreate()
         {
-            var state = BlockGameState.Instance;
-            state.Load();
             // 最高分权威源 = 排行榜个人最佳分（服务端 RankScoreDoc.BestScore，经 G2C_RankQueryResponse.MyScore 下发 →
             // RankService 本地展示缓存投影）。元层 highScore 不再是最高分权威载体，此处不再从元层读。
             int bestScore = LoadBestScoreFromRank();

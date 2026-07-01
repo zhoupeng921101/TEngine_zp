@@ -12,8 +12,6 @@ namespace GameLogic.BlockBlast
     /// </summary>
     public sealed class BlockGameState : SimpleSingleton<BlockGameState>
     {
-        private const string StorageKey = "block_blast_save_v1";
-
         /// <summary>8×8 棋盘：-1=空，0..7=BlockColor 索引。</summary>
         public int[][] SaveArr;
 
@@ -617,7 +615,7 @@ namespace GameLogic.BlockBlast
         // 经典「最高分」是跨会话长期指标，并入 MergeMetaSave 元层、与元层进度同一加载/落盘时机
         // （由 GameContext 在 LoadPlayer / SavePlayer 中枢节点串联，与 PlayerInfo 同口径）。
         // 纯方法、无 IO：在 HighScore 字段与 DTO 平铺字段之间转换，落盘外壳仍是既有 MergeMetaPersistence。
-        // 与 block_blast_save_v1（棋盘/手牌/分数 = 局内瞬态）分层：局内瞬态每局重开、不进元层（设计 14 判据）。
+        // 与局内瞬态（棋盘/手牌/分数，属服务端权威会话切片）分层：局内瞬态每局重开、不进元层（设计 14 判据）。
 
         /// <summary>把当前 <see cref="HighScore"/> 写进元层 DTO（增量，不动既有玩法/玩家字段）。纯方法、无 IO。</summary>
         public void ExportHighScoreToMeta(MergeMetaSave dto)
@@ -634,94 +632,6 @@ namespace GameLogic.BlockBlast
         {
             if (dto == null) return;
             HighScore = dto.highScore > 0 ? dto.highScore : 0;
-        }
-
-        // ─── 持久化（局内瞬态：棋盘/手牌/分数，键 block_blast_save_v1，每局重建不进元层）────
-
-        [Serializable]
-        private sealed class SaveData
-        {
-            public int[] flatBoard; // 8×8 拍平
-            public PendingPieceData[] opera;
-            public int score;
-            public int highScore;
-        }
-
-        [Serializable]
-        private sealed class PendingPieceData
-        {
-            public bool isNull;
-            public int shapeId;
-            public int color;
-            public bool hasAlgo;
-            public int algo;
-        }
-
-        public void Save()
-        {
-            try
-            {
-                var data = new SaveData
-                {
-                    flatBoard = new int[64],
-                    opera = new PendingPieceData[3],
-                    score = Score,
-                    highScore = HighScore,
-                };
-                for (int r = 0; r < 8; r++)
-                    for (int c = 0; c < 8; c++)
-                        data.flatBoard[r * 8 + c] = SaveArr[r][c];
-                for (int i = 0; i < 3; i++)
-                {
-                    var p = OperaArr[i];
-                    var pd = new PendingPieceData();
-                    if (p == null) pd.isNull = true;
-                    else
-                    {
-                        pd.isNull = false;
-                        pd.shapeId = p.ShapeId;
-                        pd.color = (int)p.Color;
-                        pd.hasAlgo = p.HasAlgo;
-                        pd.algo = (int)p.Algo;
-                    }
-                    data.opera[i] = pd;
-                }
-                Persistence.Provider.Set(StorageKey, UnityEngine.JsonUtility.ToJson(data));
-            }
-            catch { /* ignore */ }
-        }
-
-        public bool Load()
-        {
-            try
-            {
-                if (!Persistence.Provider.TryGet(StorageKey, out string raw) || string.IsNullOrEmpty(raw)) return false;
-                var data = UnityEngine.JsonUtility.FromJson<SaveData>(raw);
-                if (data == null) return false;
-                if (data.flatBoard != null && data.flatBoard.Length == 64)
-                {
-                    SaveArr = MakeEmptyBoard();
-                    for (int r = 0; r < 8; r++)
-                        for (int c = 0; c < 8; c++)
-                            SaveArr[r][c] = data.flatBoard[r * 8 + c];
-                }
-                OperaArr = new PendingPiece[3];
-                if (data.opera != null)
-                {
-                    for (int i = 0; i < 3 && i < data.opera.Length; i++)
-                    {
-                        var pd = data.opera[i];
-                        if (pd == null || pd.isNull) { OperaArr[i] = null; continue; }
-                        var p = new PendingPiece(pd.shapeId, (BlockColor)pd.color);
-                        if (pd.hasAlgo) p.SetAlgo((AlgorithmKind)pd.algo);
-                        OperaArr[i] = p;
-                    }
-                }
-                Score = data.score;
-                HighScore = data.highScore;
-                return true;
-            }
-            catch { return false; }
         }
 
         // ─── 局内叠加层导出/导入:对局现场 cosmetic + 合成经济层 ──────────

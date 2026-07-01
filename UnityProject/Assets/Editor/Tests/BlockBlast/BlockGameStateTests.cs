@@ -112,32 +112,5 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreSame(snapshot, s.OperaArr[0]);
         }
 
-        [Test]
-        public void SaveAndLoad_RoundTrips()
-        {
-            var s = BlockGameState.Instance;
-            s.SetFirstHand();
-            s.SaveArr[3][4] = 5; // 写一格色
-            s.Score = 1234;
-            s.HighScore = 5678;
-            s.Save();
-
-            s.Release();
-            var s2 = BlockGameState.Instance;
-            Assert.IsTrue(s2.Load());
-            Assert.AreEqual(1234, s2.Score);
-            Assert.AreEqual(5678, s2.HighScore);
-            Assert.AreEqual(5, s2.SaveArr[3][4]);
-            Assert.AreEqual(9, s2.OperaArr[0].ShapeId);
-            Assert.AreEqual(39, s2.OperaArr[1].ShapeId);
-            Assert.AreEqual(24, s2.OperaArr[2].ShapeId);
-        }
-
-        [Test]
-        public void Load_NoSaveExists_ReturnsFalse()
-        {
-            var s = BlockGameState.Instance;
-            Assert.IsFalse(s.Load());
-        }
     }
 }
