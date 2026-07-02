@@ -2,26 +2,49 @@ using Cysharp.Threading.Tasks;
 
 namespace GameLogic.BlockBlast.Player
 {
+    /// <summary>单条道具持有的框架中立投影(对应协议 <c>Fantasy.ItemHolding</c>:itemId → 权威持有量)。</summary>
+    public readonly struct ItemHoldingData
+    {
+        public readonly int ItemId;
+        public readonly long Count;
+
+        public ItemHoldingData(int itemId, long count)
+        {
+            ItemId = itemId;
+            Count = count;
+        }
+    }
+
     /// <summary>
     /// 进主游戏一次性原子响应快照(已脱离 Fantasy 对象池,字段可安全跨边界持有)。
     /// 由 <see cref="IEnterMainGameGateway.EnterAsync"/> 把协议 <c>G2C_EnterMainGameResponse</c> 拷成框架中立值类型。
     /// </summary>
     /// <remarks>
-    /// 携带订单当前激活快照(<see cref="OrderSnapshot"/>,喂 <see cref="OrderSync.OnSnapshotPush"/>)。
-    /// 任何往返失败 → <see cref="OrderSnapshot"/>=null(调用方按"无订单"降级)。
-    /// (局内 cosmetic + 合成经济叠加层改经 C2G_GameStart/GameSnapshot 的 SliceJson 收发,不再由进主游戏回带。)
+    /// 携带:订单当前激活快照(<see cref="OrderSnapshot"/>,喂 <see cref="OrderSync.OnSnapshotPush"/>)
+    /// + 道具持有整份快照(<see cref="ItemHoldings"/>,整份覆盖 <c>ItemBag</c> 投影)
+    /// + 已合成塔罗牌全集(<see cref="CollectedTarotIds"/>,整份覆盖 <c>TarotCollection</c> 投影)。
+    /// 任何往返失败 → 三者均 null(调用方保留已有投影降级,不清空)。
     /// </remarks>
     public readonly struct EnterMainGameResult
     {
         /// <summary>订单当前激活快照(已转框架中立 DTO;服务不可用 / 无订单 → null,调用方按"无订单"降级)。</summary>
         public readonly OrderSnapshotData OrderSnapshot;
 
-        public EnterMainGameResult(OrderSnapshotData orderSnapshot)
+        /// <summary>道具持有整份快照(服务不可用 → null,调用方保留本地投影;空数组 = 权威空持有,照常覆盖清空)。</summary>
+        public readonly ItemHoldingData[] ItemHoldings;
+
+        /// <summary>已合成塔罗牌 id 全集(服务不可用 → null,调用方保留本地投影;空数组 = 权威空收集,照常覆盖)。</summary>
+        public readonly int[] CollectedTarotIds;
+
+        public EnterMainGameResult(OrderSnapshotData orderSnapshot,
+            ItemHoldingData[] itemHoldings = null, int[] collectedTarotIds = null)
         {
             OrderSnapshot = orderSnapshot;
+            ItemHoldings = itemHoldings;
+            CollectedTarotIds = collectedTarotIds;
         }
 
-        /// <summary>服务不可用兜底:无订单快照(调用方保留本地)。</summary>
+        /// <summary>服务不可用兜底:无任何快照(调用方保留本地)。</summary>
         public static EnterMainGameResult Unavailable()
             => new EnterMainGameResult(null);
     }

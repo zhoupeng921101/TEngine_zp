@@ -21,14 +21,21 @@ namespace GameLogic.BlockBlast.Player
     {
         private readonly IEnterMainGameGateway _gateway;
         private readonly OrderSync _orderSync;
+        private readonly Item.ItemBag _bag;
+        private readonly TarotCollection _tarot;
 
         // 防重入:在途的进主游戏任务(Preserve 后可多次 await,供等待期二次调用复用)。保证一次进入只发一次请求。
         private UniTask? _inFlight;
 
-        public EnterMainGameSync(IEnterMainGameGateway gateway, OrderSync orderSync)
+        /// <param name="bag">背包投影(可空;非空时响应的道具持有整份覆盖它)。</param>
+        /// <param name="tarot">塔罗收集投影(可空;非空时响应的已合成全集整份覆盖它)。</param>
+        public EnterMainGameSync(IEnterMainGameGateway gateway, OrderSync orderSync,
+            Item.ItemBag bag = null, TarotCollection tarot = null)
         {
             _gateway = gateway ?? throw new ArgumentNullException(nameof(gateway));
             _orderSync = orderSync;
+            _bag = bag;
+            _tarot = tarot;
         }
 
         /// <summary>
@@ -59,11 +66,27 @@ namespace GameLogic.BlockBlast.Player
                 // 订单:非空才喂(服务不可用 / 无订单 → 保留已有投影,不清空)。
                 if (result.OrderSnapshot != null)
                     _orderSync?.OnSnapshotPush(result.OrderSnapshot);
+
+                // 道具持有 + 塔罗收集:非 null 才整份覆盖(null = 往返失败,保留已有投影;
+                // 空数组 = 服务端权威空集,照常覆盖清空——语义区分见 EnterMainGameResult 字段注)。
+                if (result.ItemHoldings != null && _bag != null)
+                {
+                    _bag.ApplyAuthoritativeSnapshot(ToTuples(result.ItemHoldings));
+                }
+                if (result.CollectedTarotIds != null)
+                    _tarot?.ApplyCollectedSnapshot(result.CollectedTarotIds);
             }
             finally
             {
                 _inFlight = null; // 异步完成路径:清在途,下次进入重新发(同步完成路径由 EnterAsync 自身不挂在途)
             }
+        }
+
+        /// <summary>把持有 DTO 数组转 ItemBag 权威覆盖入口的 (id, count) 序列(惰性,不额外分配列表)。</summary>
+        private static System.Collections.Generic.IEnumerable<(int id, long count)> ToTuples(ItemHoldingData[] holdings)
+        {
+            for (int i = 0; i < holdings.Length; i++)
+                yield return (holdings[i].ItemId, holdings[i].Count);
         }
     }
 }

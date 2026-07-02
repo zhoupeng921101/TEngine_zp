@@ -101,6 +101,9 @@ namespace GameLogic
         private bool _gameOver;
         private RectTransform _gameOverPanel;
 
+        /// <summary>对局重同步(断线重连自愈)进行中标志:见 <see cref="ResyncServerGameAsync"/>,防重连重登与多条 GameNotFound 并发重建。</summary>
+        private bool _resyncing;
+
         /// <summary>
         /// 消除道具提示条自动隐藏倒计时（秒，&gt;0 时由 OnUpdate 递减到 0 后隐藏）。
         /// 只用于「体力不足」这类短提示（toast）；arming 指令提示需常驻直到玩家操作，不设倒计时。
@@ -203,6 +206,10 @@ namespace GameLogic
                 deal.OnAuthoritativeChanged = ReprojectServerState;
                 StartServerGameThenProject(deal).Forget();
             }
+
+            // 断线重连自愈:订阅重登事件,重连+自动重登后在本窗内自动重发 C2G_GameStart 重建对局(见 OnNetworkReloggedIn)。
+            // OnLoggedIn 是 static event,OnDestroyWindow 必须对称退订,否则关窗后仍持窗引用被触发。
+            FantasyClient.FantasyNetwork.OnLoggedIn += OnNetworkReloggedIn;
         }
 
         /// <summary>
@@ -213,6 +220,39 @@ namespace GameLogic
         {
             try { await deal.StartGameAsync(); }
             catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] C2G_GameStart 异常,保留本地兜底:{e.Message}"); }
+        }
+
+        /// <summary>
+        /// 断线重连后自动重登(FantasyNetwork 底层自动重连成功即自动重登,触发 OnLoggedIn)。服务端内存对局绑在网络会话上,
+        /// 重连后是新会话、无对局,客户端仍持旧 gameId 继续落子会被持续回 GameNotFound。收到重登信号即重同步重建对局。
+        /// 初次登录也触发 OnLoggedIn,但那时本窗未开、未订阅本回调,不会误触发;ResyncServerGameAsync 内守卫再兜任何时序。
+        /// </summary>
+        private void OnNetworkReloggedIn()
+        {
+            ResyncServerGameAsync("重连重登").Forget();
+        }
+
+        /// <summary>
+        /// 对局重同步自愈:重发 C2G_GameStart。服务端按 playerId Load 持久 Doc → Rehydrate(gameId 不变)在新会话上重建内存对局,
+        /// 成功后 ServerDealSync.ApplyGameStart + OnAuthoritativeChanged → <see cref="ReprojectServerState"/> 以服务端权威态整屏覆盖。
+        /// 语义即「以服务端为准」:断网窗口期内未抵达服务端的乐观落子被权威态回滚(data-authority 唯一事实源,非 bug,是可见效果)。
+        /// 恢复只能用 GameStart:C2G_GameSnapshot 同样要求会话上已有内存对局,新会话上会同样回 GameNotFound,故不用快照。
+        /// <paramref name="_resyncing"/> 守卫:重连重登与多条落子/道具同时回 GameNotFound 时只重建一次,防重同步风暴。
+        /// 守卫「有局且未终局」:终局服务端已删档、不复活;无局(未开局/已退窗 Close)无可恢复。async void 经 .Forget() 调,吞异常不外逃。
+        /// </summary>
+        private async UniTaskVoid ResyncServerGameAsync(string trigger)
+        {
+            var deal = _state?.ServerDeal;
+            if (deal == null || !deal.HasGame || deal.GameOver) return;
+            if (_resyncing) return;
+            _resyncing = true;
+            try
+            {
+                Log.Info($"[MergeOrderWindow] 对局重同步({trigger}):重发 C2G_GameStart 恢复服务端权威态。");
+                await deal.StartGameAsync();
+            }
+            catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] 对局重同步异常({trigger}):{e.Message}"); }
+            finally { _resyncing = false; }
         }
 
         /// <summary>
@@ -847,8 +887,12 @@ namespace GameLogic
                     default:
                         // GameNotFound / NotLoggedIn / NetworkDown / ServiceUnavailable:保留本地乐观态,记日志。
                         // 体力基线排除已抬平,本地乐观扣不会被 ReportPending 重报;下次快照/登录对齐真值。
+                        // GameNotFound 额外兜底自愈:重连后对局失效即重同步重建(与 Place 同,_resyncing 守卫防并发风暴)。
                         if (result.Code == GameLogic.BlockBlast.Player.DealResultCode.GameNotFound)
-                            Log.Warning("[MergeOrderWindow] C2G_ClearTool 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+                        {
+                            Log.Warning("[MergeOrderWindow] C2G_ClearTool 回 GameNotFound(对局已失效),触发重同步重建对局。");
+                            ResyncServerGameAsync("ClearTool-GameNotFound").Forget();
+                        }
                         break;
                 }
             }
@@ -1501,7 +1545,10 @@ namespace GameLogic
                             RefreshClearTool();
                             break;
                         case GameLogic.BlockBlast.Player.DealResultCode.GameNotFound:
-                            Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),保留本地态,下次开窗重新建局。");
+                            // 兜底自愈:通常由重连重登的 OnLoggedIn 先触发重同步;此处覆盖「重连后重同步尚未完成又落子」等漏网时序。
+                            // _resyncing 守卫使并发的多条 GameNotFound 只重建一次。
+                            Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),触发重同步重建对局。");
+                            ResyncServerGameAsync("Place-GameNotFound").Forget();
                             break;
                         // 其余(断网/服务不可用/未登录/非法):保留本地乐观态,基线排除已抬平不误报,不拿 NewEnergy(=0) 覆盖。
                     }
@@ -1945,6 +1992,8 @@ namespace GameLogic
             // 服务端权威发牌(M3):解除对账重绘回调,避免销毁后到达的对账/快照回包仍调进已死窗口。
             // ServerDealSync 实例常驻 GameContext(寿命长于本窗),其 OnAuthoritativeChanged 指向本窗方法,须显式置空。
             if (_state?.ServerDeal != null) _state.ServerDeal.OnAuthoritativeChanged = null;
+            // 断线重连自愈:对称退订重登事件(static event,不退会泄漏窗引用、关窗后仍被触发)。
+            FantasyClient.FantasyNetwork.OnLoggedIn -= OnNetworkReloggedIn;
             // 跨会话存档兜底（设计 14 §3.4 ③）：离开前脏则强制落盘，须在 ExitMergeOrder 丢弃 MergeState 之前落盘。
             FlushSaveIfDirty();
             // 离开必定关闭门控，确保后续 Classic / 08 行为无残留（含 ExitMergeOrder→OnMergeStateClosed→ServerDeal.Close + 清引用）。

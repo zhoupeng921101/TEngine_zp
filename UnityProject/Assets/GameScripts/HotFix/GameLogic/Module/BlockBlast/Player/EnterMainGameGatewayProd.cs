@@ -39,9 +39,35 @@ namespace GameLogic.BlockBlast.Player
             if (response == null)
                 return EnterMainGameResult.Unavailable();
 
-            // 立即复制出值类型(协议对象随 await 后回池):订单快照转独立 DTO。
+            // 立即复制出值类型(协议对象随 await 后回池):订单快照 + 道具持有 + 塔罗收集均转独立 DTO/数组。
             var order = OrderRpcGatewayProd.ToSnapshot(response.OrderSnapshot);
-            return new EnterMainGameResult(order);
+
+            // ItemDataLoaded=false = 服务端降级(读库失败等),持有/收集两段转 null,
+            // EnterMainGameSync 对 null 保留既有投影;true 时空列表 = 权威空集,照常整份覆盖。
+            ItemHoldingData[] holdings = null;
+            int[] collected = null;
+            if (response.ItemDataLoaded)
+            {
+                if (response.ItemHoldings != null)
+                {
+                    holdings = new ItemHoldingData[response.ItemHoldings.Count];
+                    for (int i = 0; i < response.ItemHoldings.Count; i++)
+                    {
+                        var h = response.ItemHoldings[i];
+                        holdings[i] = h != null ? new ItemHoldingData(h.ItemId, h.Count) : default;
+                    }
+                }
+                else
+                {
+                    holdings = System.Array.Empty<ItemHoldingData>();
+                }
+
+                collected = response.CollectedTarotIds != null
+                    ? response.CollectedTarotIds.ToArray()
+                    : System.Array.Empty<int>();
+            }
+
+            return new EnterMainGameResult(order, holdings, collected);
 #else
             await UniTask.CompletedTask;
             return EnterMainGameResult.Unavailable();

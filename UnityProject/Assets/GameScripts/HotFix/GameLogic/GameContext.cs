@@ -53,6 +53,12 @@ namespace GameLogic
         /// <summary>档案状态(皮肤态 + 神庙装饰厅数)服务端权威上报编排器(皮肤/神庙装饰服务端权威·客户端段):变更后全量 SET 上报,fire-and-forget。</summary>
         public ProfileStateSync ProfileState { get; private set; }
 
+        /// <summary>道具背包投影(服务端道具持有 PlayerDoc.ItemHoldings 的客户端投影;当前业务方 = 塔罗碎片)。</summary>
+        public GameLogic.BlockBlast.Item.ItemBag Items { get; private set; }
+
+        /// <summary>塔罗牌收集投影(已合成集合 + 合成 RPC 编排;碎片进度由 UI 按 TbTarotCard 查 Items 现算)。</summary>
+        public TarotCollection Tarot { get; private set; }
+
         /// <summary>normal 订单本地视图 ↔ 服务端权威投影器(P1 全栈迁移·客户端段:登录快照/推送应用 + 交付 RPC 编排)。</summary>
         public OrderSync OrderSync { get; private set; }
 
@@ -111,14 +117,25 @@ namespace GameLogic
             // snapshot 覆盖本地投影接线在 GameApp.StartGameLogic。
             ProfileState = new ProfileStateSync(new ProfileStateGatewayProd());
 
+            // 道具背包投影(塔罗收集·客户端段):服务端持有是唯一事实源,本容器经进主游戏快照整份覆盖 +
+            // 交付/合成响应权威余额对账保鲜;本地丢失可由服务端重建(可丢缓存),不接存档。
+            Items = new GameLogic.BlockBlast.Item.ItemBag();
+
+            // 塔罗收集投影(塔罗收集·客户端段):生产用 TarotRpcGatewayProd(经 Session 发 C2G_TarotSynthesizeRequest);
+            // 已合成集合由进主游戏快照 / 合成响应整份覆盖;合成成功的碎片扣减经注入的 Items 对齐。
+            Tarot = new TarotCollection(new TarotRpcGatewayProd(), Items);
+
             // 订单服务端权威投影器(P1 客户端段):生产用 OrderRpcGatewayProd(经 Session 发 C2G_DeliverOrderRequest);
             // 登录/刷新推送 → OnSnapshotPush 应用快照;开窗 → OnMergeStateReady 切权威 + 接交付钩子。接线在 GameApp.StartGameLogic。
-            OrderSync = new OrderSync(new OrderRpcGatewayProd());
+            // 注入 MetaCurrency:交付成功后按响应回带的权威绝对余额对账 Energy/Piety(取代原对发起方的 delta-push);
+            // 注入 Items:交付掉落的塔罗碎片按响应权威余额对齐背包计数。
+            OrderSync = new OrderSync(new OrderRpcGatewayProd(), MetaCurrency, Items);
 
             // 进主游戏编排(全栈协议改动·客户端段):生产用 EnterMainGameGatewayProd(经 Session 发 C2G_EnterMainGameRequest);
-            // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync 统一应用。
+            // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync 统一应用,
+            // 道具持有 → Items 整份覆盖,塔罗收集 → Tarot 整份覆盖。
             // (局内 cosmetic + 合成经济叠加层改经 C2G_GameStart/GameSnapshot 的 SliceJson 收发,不再走进主游戏回带的云存档 blob。)
-            EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync);
+            EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync, Items, Tarot);
 
             // 服务端权威发牌预测/对账引擎(M3 客户端段):生产用 BlockGameGatewayProd(经 Session 发 C2G_GameStart/Place/GameSnapshot);
             // 开窗经 OnMergeStateReady 注入到 BlockGameState.ServerDeal,接线在 GameApp.StartGameLogic。
@@ -491,12 +508,25 @@ namespace GameLogic
 
         /// <summary>
         /// 测试 / 注入入口:用指定接缝重建 <see cref="EnterMainGame"/>(沿 <see cref="InitMetaCurrencyWith"/> 范式),
-        /// 关联当前 <see cref="OrderSync"/>。EditMode 经它灌入桩 <see cref="IEnterMainGameGateway"/>,
-        /// 断言响应应用 + 每次进入重对齐 + 失败兜底,不连网。
+        /// 关联当前 <see cref="OrderSync"/> / <see cref="Items"/> / <see cref="Tarot"/>。
+        /// EditMode 经它灌入桩 <see cref="IEnterMainGameGateway"/>,断言响应应用 + 每次进入重对齐 + 失败兜底,不连网。
         /// </summary>
         public void InitEnterMainGameWith(IEnterMainGameGateway gateway)
         {
-            EnterMainGame = new EnterMainGameSync(gateway, OrderSync);
+            EnterMainGame = new EnterMainGameSync(gateway, OrderSync, Items, Tarot);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定合成接缝重建 <see cref="Tarot"/>(沿 <see cref="InitOrderSyncWith"/> 范式)。
+        /// **复用既有 <see cref="Items"/> 实例并清空**(仅缺失时新建):OrderSync / EnterMainGame 构造期捕获了
+        /// Items 引用,若此处换新实例会造成"交付写旧背包、塔罗读新背包"的投影分叉。
+        /// EditMode 经它灌入桩 <see cref="ITarotRpcGateway"/>,断言合成结果应用 + 快照整份覆盖 + 碎片余额对齐,不连网。
+        /// </summary>
+        public void InitTarotWith(ITarotRpcGateway gateway)
+        {
+            if (Items == null) Items = new GameLogic.BlockBlast.Item.ItemBag();
+            else Items.Clear();
+            Tarot = new TarotCollection(gateway, Items);
         }
 
         /// <summary>

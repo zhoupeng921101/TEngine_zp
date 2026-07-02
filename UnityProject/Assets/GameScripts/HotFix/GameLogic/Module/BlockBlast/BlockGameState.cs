@@ -134,8 +134,9 @@ namespace GameLogic.BlockBlast
         /// <summary>
         /// merge-order 模式补牌:把 <see cref="MergeOrderState.PendingElements"/> 队头元素按「trio 级容量加权
         /// 随机」分摊到 3 块候选块。每元素以 1 格 = 1 票的均权抽签落入某块,大块(cellCount 高)统计上拿到更多、
-        /// 小块少但每块都有机会;队列吃光或 3 块全满止。各块内部按入桶序填到 Elements 前若干格(余格 None),
-        /// 与 <see cref="PlacePiece"/> 行优先转移到 ElementArr 的顺序同源。
+        /// 小块少但每块都有机会;队列吃光或 3 块全满止。落入某块后再在该块剩余空格中随机挑一格放置,使块内
+        /// 元素与空格随机穿插(视觉散布),而非堆在前若干格。Elements 下标恒按填充格「行优先顺序」编址,与
+        /// <see cref="PlacePiece"/> 转移到 ElementArr 的遍历同源,故随机只决定哪些格非空、不改下标语义。
         /// </summary>
         /// <remarks>短路条件:模式 off / 无 MergeState / 队列空 / trio 总容量 0。off 时 piece.Elements 全保持
         /// null,经典模式逐字节零回归。</remarks>
@@ -160,7 +161,7 @@ namespace GameLogic.BlockBlast
             }
             if (totalCap == 0) return;
 
-            // 入桶序由抽签顺序决定;桶预设为每块 cellCount(末尾余格保持 None)
+            // 桶预设为每块 cellCount 长、初值全 None;元素随机落入空格,未落中的格保持 None
             var buckets = new MergeElement[n][];
             var bucketWrite = new int[n];
             for (int i = 0; i < n; i++)
@@ -182,7 +183,19 @@ namespace GameLogic.BlockBlast
                 }
                 if (target < 0) break; // 防御:理论上 totalCap>0 时必命中
 
-                buckets[target][bucketWrite[target]++] = queue.Dequeue();
+                // 块内落格随机化:capacity[target] = 该块当前剩余 None 空格数,
+                // 在其中随机挑第 emptySlot 个空格落入,使元素与空格随机穿插而非顺序前填。
+                var bucket = buckets[target];
+                int emptySlot = RandomSource.Index(capacity[target]); // [0, 剩余空格数)
+                int slotIdx = -1;
+                for (int k = 0; k < bucket.Length; k++)
+                {
+                    if (bucket[k] != MergeElement.None) continue;
+                    if (emptySlot == 0) { slotIdx = k; break; }
+                    emptySlot--;
+                }
+                bucket[slotIdx] = queue.Dequeue();
+                bucketWrite[target]++; // 仅计数,驱动写回条件(命中过的块才挂 Elements)
                 capacity[target]--;
                 totalCap--;
             }

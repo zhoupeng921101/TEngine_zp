@@ -10,7 +10,13 @@ namespace GameLogic.BlockBlast.Item
     /// <remarks>
     /// 叠不叠查 <c>ItemConfigMgr.GetItem(id).Stacking</c> 决定（查不到当不可叠，保守占格）。
     /// 溢出（超 999 / 超 100 格）本轮丢弃 + 记 TODO，不发邮件（设计 16 §七 O6）。
-    /// 本轮纯内存容器，不接存档（O10）。本类不读写 MergeOrderState，可纯逻辑单测。
+    /// 本类不读写 MergeOrderState，可纯逻辑单测。
+    ///
+    /// 服务端权威投影（塔罗收集·客户端段）：服务端道具持有(PlayerDoc.ItemHoldings)是唯一事实源,
+    /// 本容器经 <see cref="ApplyAuthoritativeSnapshot"/>(进主游戏整份覆盖)与 <see cref="SetAuthoritativeCount"/>
+    /// (交付/合成响应单条对账)接权威值——该两入口按「id→计数」直落可叠表、不受 999/100 客户端上限钳制
+    /// (上限是本地增量 Add 的防灌爆规则,权威对齐以服务端为准;显示仍经 <see cref="FormatCount"/> 收口)。
+    /// 本地缓存丢失可由服务端快照重建(可丢缓存,合 data-authority 白名单),不接存档。
     /// </remarks>
     public sealed class ItemBag
     {
@@ -118,6 +124,39 @@ namespace GameLogic.BlockBlast.Item
         {
             _stack.Clear();
             _nonStack.Clear();
+        }
+
+        // ── 服务端权威对齐入口(塔罗收集·客户端段)────────────────────
+        // 与增量 Add/Remove 分开:权威对齐是「set 绝对值」语义,直落可叠表(服务端持有本质是 id→计数),
+        // 不受 999/100 客户端上限钳制。count 夹到 int 上限防溢出(服务端 long)。
+
+        /// <summary>
+        /// 单条权威绝对值对齐(交付掉碎片 / 合成扣碎片的响应回带余额)。count ≤ 0 → 该 id 移除(释放格子)。
+        /// </summary>
+        public void SetAuthoritativeCount(int id, long count)
+        {
+            _nonStack.Remove(id); // 权威对齐统一按计数存可叠表;若此前被本地 Add 误入不可叠表,一并收编
+            if (count <= 0)
+            {
+                _stack.Remove(id);
+                return;
+            }
+            _stack[id] = count > int.MaxValue ? int.MaxValue : (int)count;
+        }
+
+        /// <summary>
+        /// 整份权威快照覆盖(进主游戏响应的道具持有全集):先清空、再逐条对齐。
+        /// holdings 为 null 视作空集(全清)。服务端未含的 id 即被清除,保证投影不残留脏数据。
+        /// </summary>
+        public void ApplyAuthoritativeSnapshot(IEnumerable<(int id, long count)> holdings)
+        {
+            Clear();
+            if (holdings == null) return;
+            foreach (var (id, count) in holdings)
+            {
+                if (id <= 0) continue;
+                SetAuthoritativeCount(id, count);
+            }
         }
 
         /// <summary>显示用计数格式化：≥999 返 "999+"，否则原值（设计 16 §3.8）。纯函数。</summary>

@@ -44,7 +44,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             var orders = new List<OrderItemData> { new OrderItemData((int)type, level, count) };
             return new OrderSnapshotData(orders, orderCursor: 0, lastOrderRefreshMs: 0,
-                orderRefreshIntervalSec: 0, orderRewardEnergy: 0);
+                orderRefreshIntervalSec: 0);
         }
 
         // 组一套 OrderSync + 已开窗活态,供观测进主游戏回带的订单是否落地到活态。
@@ -54,6 +54,39 @@ namespace GameLogic.BlockBlast.Tests
             var state = new MergeOrderState();
             orderSync.OnMergeStateReady(state); // 开窗:切服务端权威 + 记活态,后续 OnSnapshotPush 直接覆盖活态
             return (new EnterMainGameSync(gw, orderSync), state);
+        }
+
+        // 惰性桩合成 gateway(TarotCollection 构造需接缝;本编排路径不触发合成)。
+        private sealed class StubTarotGateway : ITarotRpcGateway
+        {
+            public async UniTask<TarotSynthesizeResult> SynthesizeAsync(int cardId)
+            { await UniTask.CompletedTask; return new TarotSynthesizeResult(TarotSynthCode.ServiceUnavailable, cardId); }
+        }
+
+        // ── EH1:响应回带道具持有 + 塔罗收集 → 整份覆盖背包与收集投影;null 字段保留既有投影 ──
+        [Test]
+        public void EH1_Enter_HoldingsAndTarot_OverwriteProjections_NullKeeps()
+        {
+            var bag = new GameLogic.BlockBlast.Item.ItemBag();
+            bag.SetAuthoritativeCount(31002, 5L); // 服务端快照未含 → 应被整份覆盖清掉
+            var tarot = new TarotCollection(new StubTarotGateway(), bag);
+
+            var gw = new StubEnterGateway();
+            gw.Queue.Add(new EnterMainGameResult(null,
+                itemHoldings: new[] { new ItemHoldingData(31001, 3L) },
+                collectedTarotIds: new[] { 2 }));
+            var sync = new EnterMainGameSync(gw, orderSync: null, bag, tarot);
+
+            sync.EnterAsync().GetAwaiter().GetResult();
+
+            Assert.AreEqual(3, bag.Count(31001), "持有快照应整份覆盖落入");
+            Assert.AreEqual(0, bag.Count(31002), "服务端未含 id 应被清除");
+            Assert.IsTrue(tarot.IsCollected(2), "已合成全集应覆盖进投影");
+
+            // 第二次进入:往返失败(Unavailable → 三字段 null)→ 保留既有投影,不清空。
+            sync.EnterAsync().GetAwaiter().GetResult();
+            Assert.AreEqual(3, bag.Count(31001), "null 持有(未取到权威值):背包投影保留");
+            Assert.IsTrue(tarot.IsCollected(2), "null 全集:收集投影保留");
         }
 
         // ── E1:进主游戏响应回带订单快照 → 喂 OrderSync 覆盖活态订单 ──

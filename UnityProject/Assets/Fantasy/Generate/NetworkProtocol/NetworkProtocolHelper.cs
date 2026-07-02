@@ -720,6 +720,18 @@ namespace Fantasy
 			return (G2C_RenameResponse)await session.Call(C2G_RenameRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_TarotSynthesizeResponse> C2G_TarotSynthesizeRequest(this Session session, C2G_TarotSynthesizeRequest C2G_TarotSynthesizeRequest_request)
+		{
+			return (G2C_TarotSynthesizeResponse)await session.Call(C2G_TarotSynthesizeRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_TarotSynthesizeResponse> C2G_TarotSynthesizeRequest(this Session session, int cardId)
+		{
+			using var C2G_TarotSynthesizeRequest_request = Fantasy.C2G_TarotSynthesizeRequest.Create();
+			C2G_TarotSynthesizeRequest_request.CardId = cardId;
+			return (G2C_TarotSynthesizeResponse)await session.Call(C2G_TarotSynthesizeRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static void C2G_TestEnumMessage(this Session session, C2G_TestEnumMessage C2G_TestEnumMessage_message)
 		{
 			session.Send(C2G_TestEnumMessage_message);

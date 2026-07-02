@@ -28,6 +28,31 @@ namespace GameLogic.BlockBlast
     }
 
     /// <summary>
+    /// 单槽订单的奖励展示投影(服务端按 TbMergeOrder 表派生、随快照下发;客户端只显示,实发以交付响应为准)。
+    /// 与 <see cref="MergeOrderState.ActiveOrders"/> 同下标平行存放于 <see cref="MergeOrderState.ActiveOrderRewards"/>。
+    /// 空槽 / 本地权威分支(单测、无网络平台)为 default(全 0),UI 据 0 值不显示奖励角标。
+    /// </summary>
+    public readonly struct OrderReward
+    {
+        /// <summary>交付奖励体力。</summary>
+        public readonly int Energy;
+        /// <summary>交付奖励虔诚币。</summary>
+        public readonly long Piety;
+        /// <summary>交付掉落塔罗碎片道具 id(= item.TbItemDef 行;0 = 无碎片)。</summary>
+        public readonly int FragmentItemId;
+        /// <summary>交付掉落碎片数量。</summary>
+        public readonly int FragmentCount;
+
+        public OrderReward(int energy, long piety, int fragmentItemId, int fragmentCount)
+        {
+            Energy = energy;
+            Piety = piety;
+            FragmentItemId = fragmentItemId;
+            FragmentCount = fragmentCount;
+        }
+    }
+
+    /// <summary>
     /// 一次神庙修复的结果详情（设计 13），供 UI 弹字展示。修复失败时 Success=false、其余字段为 0/默认。
     /// </summary>
     public readonly struct TempleRepairResult
@@ -100,6 +125,12 @@ namespace GameLogic.BlockBlast
 
         /// <summary>当前激活订单（长度 = MergeOrderConfig.ActiveOrders）。</summary>
         public Order[] ActiveOrders;
+
+        /// <summary>
+        /// 与 <see cref="ActiveOrders"/> 同下标平行的奖励展示投影(服务端权威模式由快照填充;
+        /// 本地权威分支不填,恒 null/default — UI 读时按空处理)。
+        /// </summary>
+        public OrderReward[] ActiveOrderRewards;
 
         /// <summary>循环订单池游标（下一张待取的索引，按池长取模）。</summary>
         public int OrderCursor;
@@ -472,6 +503,8 @@ namespace GameLogic.BlockBlast
             if (ActiveOrders == null || ActiveOrders.Length != count)
                 ActiveOrders = new Order[count];
             for (int i = 0; i < ActiveOrders.Length; i++) ActiveOrders[i] = NextOrder();
+            // 本地权威分支不产奖励展示投影(该投影只来自服务端快照),整批换单后清掉可能残留的旧快照投影。
+            ActiveOrderRewards = null;
         }
 
         /// <summary>合成区库存是否满足该订单槽要求。</summary>
@@ -508,6 +541,7 @@ namespace GameLogic.BlockBlast
                 // 本地不发 Energy/Piety——故 MetaCurrencySync.ReportPending 基线 diff 看不到交付增量、不会双计上报。
                 // 槽位乐观置空(UI 即时反馈),发起交付 RPC;失败时 OrderSync 经 RefundInventoryForFailedDeliver 退还库存 + 回滚计数。
                 ActiveOrders[slot] = default;
+                ClearRewardSlot(slot); // 奖励展示投影随槽位同步置空,空槽不显示幽灵奖励角标
                 DeliverHook?.Invoke(slot, o);
                 return true;
             }
@@ -518,7 +552,15 @@ namespace GameLogic.BlockBlast
             AddPiety(o.Difficulty * TempleConfig.PietyPerDifficulty);
 
             ActiveOrders[slot] = default; // 该槽置空，不补单；全空或到时整批刷新
+            ClearRewardSlot(slot);
             return true;
+        }
+
+        /// <summary>奖励展示投影槽位置空(与 <see cref="ActiveOrders"/> 槽位变更同步调;数组缺失/越界时 no-op)。</summary>
+        private void ClearRewardSlot(int slot)
+        {
+            if (ActiveOrderRewards != null && slot >= 0 && slot < ActiveOrderRewards.Length)
+                ActiveOrderRewards[slot] = default;
         }
 
         /// <summary>
@@ -548,14 +590,21 @@ namespace GameLogic.BlockBlast
             var src = snapshot.ActiveOrders;
             int n = src?.Count ?? 0;
             var arr = new Order[n];
+            var rewards = new OrderReward[n];
             for (int i = 0; i < n; i++)
             {
                 var it = src[i];
-                arr[i] = (it.Type != (int)MergeElement.None && it.Level >= 1 && it.Count > 0)
+                bool valid = it.Type != (int)MergeElement.None && it.Level >= 1 && it.Count > 0;
+                arr[i] = valid
                     ? new Order((MergeElement)it.Type, it.Level, it.Count)
                     : default; // 空槽 / 非法项 → 空槽（与 ImportIngame 同口径）
+                // 奖励展示投影与槽位同源同批覆盖(空槽保持 default,UI 按 0 值不显示角标)。
+                rewards[i] = valid
+                    ? new OrderReward(it.EnergyReward, it.PietyReward, it.FragmentItemId, it.FragmentCount)
+                    : default;
             }
             ActiveOrders = arr;
+            ActiveOrderRewards = rewards;
             OrderCursor = snapshot.OrderCursor;
             // 服务端权威时钟为毫秒;客户端倒计时按 Unix 秒显示(LastOrderRefreshTime 单位秒,与 ApplyTimeRegen 同口径)。
             if (snapshot.LastOrderRefreshMs > 0) LastOrderRefreshTime = snapshot.LastOrderRefreshMs / 1000L;

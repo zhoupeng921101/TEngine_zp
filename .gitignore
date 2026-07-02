@@ -20,6 +20,9 @@ Tools/GameEventSourceGenerator/*/.idea
 Tools/GameEventSourceGenerator/*/bin
 Tools/GameEventSourceGenerator/*/obj
 
+#pipeline-lite self-check twin (junction twin of UnityProject; not source)
+UnityProject_selftest/
+
 #openspec
 openspec/
 UnityProject/Assets/Screenshots/

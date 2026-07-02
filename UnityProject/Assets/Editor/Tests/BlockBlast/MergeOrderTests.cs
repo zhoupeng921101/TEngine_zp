@@ -522,6 +522,43 @@ namespace GameLogic.BlockBlast.Tests
             }
         }
 
+        [Test]
+        public void DistributeElements_ScattersWithinBlock_NotFrontPacked()
+        {
+            // 块内落格随机:分到某块的元素应能与空格随机穿插,而非恒定堆在前若干格。
+            // 单块「填充格数 > 分到元素数」、多种子跑:前部堆叠恒使非空占 0..count-1(last==count-1),
+            // 出现 last>count-1 即证有空格穿插(散布);跨多种子取证,免单一种子偶合前部堆叠的脆性。
+            var s = BlockGameState.Instance;
+            var board = new BinaryBoard();
+            var mi = typeof(BlockGameState).GetMethod(
+                "DistributePendingElementsAcrossTrio",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.IsNotNull(mi, "私有方法签名应稳定");
+
+            bool sawGap = false;
+            for (int seed = 1; seed <= 12 && !sawGap; seed++)
+            {
+                RandomSource.SetSeed(seed);
+                s.ResetForMergeOrder(board);
+                var m = s.MergeState;
+                m.PendingElements.Clear();
+                m.EnqueueScoreElements(3); // 3 个元素
+
+                // 单块 3x3(shapeId=13, 9 格),3 个元素必全落此块 → 块内落格随机可观测
+                var trio = new PendingPiece[] { new PendingPiece(13, BlockColor.Red) };
+                mi.Invoke(s, new object[] { trio });
+
+                var els = trio[0].Elements;
+                Assert.IsNotNull(els, "命中块应挂上 Elements");
+                int last = -1, count = 0;
+                for (int k = 0; k < els.Length; k++)
+                    if (els[k] != MergeElement.None) { last = k; count++; }
+                Assert.AreEqual(3, count, "元素总数守恒(随机只改落格、不改数量)");
+                if (last > count - 1) sawGap = true;
+            }
+            Assert.IsTrue(sawGap, "多种子内应至少一次元素与空格穿插(证块内落格随机、非前部堆叠)");
+        }
+
         private static int CountNonNoneInTrio(BlockGameState s)
         {
             int n = 0;

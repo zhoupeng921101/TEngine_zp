@@ -225,6 +225,48 @@ public partial class Tables
             m_TbGlobal.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 订单池表(池序=id升序;奖励直配值;碎片=塔罗收集掉落源)
+    /// </summary>
+    private block.TbMergeOrder m_TbMergeOrder;
+    public block.TbMergeOrder TbMergeOrder 
+    {
+        get
+        {
+            if (m_TbMergeOrder == null)
+            {
+                m_TbMergeOrder = new block.TbMergeOrder(defaultLoader("block_tbmergeorder"));
+                m_TbMergeOrder.ResolveRef(this);
+            }
+            return m_TbMergeOrder;
+        }
+        set
+        {
+            m_TbMergeOrder = value;
+            m_TbMergeOrder.ResolveRef(this);
+        }
+    }
+    /// <summary>
+    /// 塔罗牌收集表(22张大阿卡纳;碎片凑齐手动合成)
+    /// </summary>
+    private block.TbTarotCard m_TbTarotCard;
+    public block.TbTarotCard TbTarotCard 
+    {
+        get
+        {
+            if (m_TbTarotCard == null)
+            {
+                m_TbTarotCard = new block.TbTarotCard(defaultLoader("block_tbtarotcard"));
+                m_TbTarotCard.ResolveRef(this);
+            }
+            return m_TbTarotCard;
+        }
+        set
+        {
+            m_TbTarotCard = value;
+            m_TbTarotCard.ResolveRef(this);
+        }
+    }
 
     #endregion
 

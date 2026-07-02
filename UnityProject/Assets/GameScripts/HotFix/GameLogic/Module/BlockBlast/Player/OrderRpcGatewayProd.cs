@@ -48,7 +48,11 @@ namespace GameLogic.BlockBlast.Player
                 return new OrderDeliverResult(DeliverCode.ServiceUnavailable, null);
             }
 
-            return new OrderDeliverResult(MapCode(response.ResultCode), ToSnapshot(response.Snapshot));
+            // EnergyBalance / PietyBalance / FragmentBalance:交付后权威绝对余额(-1 哨兵时客户端不据此 set),
+            // 供 OrderSync 对账应用体力/虔诚币/背包碎片计数。
+            return new OrderDeliverResult(MapCode(response.ResultCode), ToSnapshot(response.Snapshot),
+                response.EnergyBalance, response.PietyBalance,
+                response.FragmentItemId, response.FragmentReward, response.FragmentBalance);
 #else
             // FANTASY_UNITY 关闭(无网络平台):降级为服务不可用,不抛
             await UniTask.CompletedTask;
@@ -84,11 +88,12 @@ namespace GameLogic.BlockBlast.Player
                 foreach (var it in snapshot.ActiveOrders)
                 {
                     if (it == null) continue;
-                    orders.Add(new OrderItemData(it.Type, it.Level, it.Count));
+                    orders.Add(new OrderItemData(it.Type, it.Level, it.Count,
+                        it.EnergyReward, it.PietyReward, it.FragmentItemId, it.FragmentCount));
                 }
             }
             return new OrderSnapshotData(orders, snapshot.OrderCursor,
-                snapshot.LastOrderRefreshMs, snapshot.OrderRefreshIntervalSec, snapshot.OrderRewardEnergy);
+                snapshot.LastOrderRefreshMs, snapshot.OrderRefreshIntervalSec);
         }
 #endif
     }
