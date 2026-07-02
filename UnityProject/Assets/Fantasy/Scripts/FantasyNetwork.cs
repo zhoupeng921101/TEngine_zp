@@ -310,8 +310,8 @@ namespace FantasyClient
             if (response.ErrorCode != 0)
             {
                 Log.Error($"[Fantasy] ❌ 登录失败 ErrorCode={response.ErrorCode} Msg={response.ErrorMessage}");
-                // 入口失败通知:登录被服务端拒绝(连接仍在),让入口 UI 切到重试态、阻断进入。
-                // 此路径无自动重连(自动重连只覆盖连接断开),需用户经 UI 手动 RetryLogin。
+                // 入口失败通知:登录被服务端拒绝(连接仍在),让入口 UI(登录窗)显示原因、阻断进入。
+                // 此路径无自动重连(自动重连只覆盖连接断开),需用户经登录窗重输账号重登。
                 // 文案优先用服务端回带的具体中文原因(ErrorMessage);为空时回退错误码兜底。
                 string loginFailReason = string.IsNullOrEmpty(response.ErrorMessage)
                     ? $"登录被拒绝（错误码 {response.ErrorCode}）"
@@ -336,31 +336,6 @@ namespace FantasyClient
             Log.Info($"[Fantasy] ✅ 登录成功 account={accountName}");
             OnLoggedIn?.Invoke();
             return 0;
-        }
-
-        /// <summary>
-        /// 手动重试入口登录(供入口重试 UI 调用)。按当前连接态选路:
-        /// 未连接 → 重新发起连接(<see cref="Connect"/>),连上后 <see cref="OnConnectComplete"/> 自动重登;
-        /// 已连接但未登录 → 直接重发登录 RPC。已登录则忽略(入口已通过)。
-        /// 与底层自动重连不冲突:_intentionalClose 仍为 false,二者最终都汇入同一登录流程。
-        /// </summary>
-        public static void RetryLogin()
-        {
-            if (IsLoggedIn)
-            {
-                return;
-            }
-            if (IsConnected)
-            {
-                if (!string.IsNullOrEmpty(_account))
-                {
-                    LoginAsync(_account).Coroutine();
-                }
-                return;
-            }
-            // 未连接:重置重连计数后立即重连(connectFail 兜底仍会按退避自动重连)。
-            _reconnectAttempt = 0;
-            Connect();
         }
 
         /// <summary>关闭网络：销毁 Scene 会级联清理连接与 Fantasy 功能（不会触发重连）。</summary>

@@ -95,12 +95,12 @@ namespace GameLogic.UI
             // ── IP 行 ──
             UGuiFactory.CreateText(content, "HostLabel", 300, 600, 280, 64, "服务器 IP", 40,
                 Color.white, TextAnchor.MiddleLeft);
-            _inputHost = CreateInputField(content, "HostInput", 700, 600, 460, 96, "192.168.x.x");
+            _inputHost = UGuiFactory.CreateInputField(content, "HostInput", 700, 600, 460, 96, "192.168.x.x", FieldColor);
 
             // ── 端口行 ──
             UGuiFactory.CreateText(content, "PortLabel", 300, 740, 280, 64, "端口", 40,
                 Color.white, TextAnchor.MiddleLeft);
-            _inputPort = CreateInputField(content, "PortInput", 700, 740, 460, 96, "20000");
+            _inputPort = UGuiFactory.CreateInputField(content, "PortInput", 700, 740, 460, 96, "20000", FieldColor);
             _inputPort.contentType = InputField.ContentType.IntegerNumber;
 
             // ── 协议行（两段式 KCP / WebSocket）──
@@ -592,52 +592,5 @@ namespace GameLogic.UI
         }
 #endif
 
-        /// <summary>
-        /// 创建一个 legacy InputField（含文本 + 占位文本）。UGuiFactory 无输入框工厂，故就地构建。
-        /// 中文走内置 LegacyRuntime 字体（项目无 CJK TMP 字体），与 UGuiFactory 文本同口径。
-        /// </summary>
-        private InputField CreateInputField(Transform parent, string name, float designCx, float designCy,
-            float w, float h, string placeholder)
-        {
-            var img = UGuiFactory.CreateImage(parent, name, designCx, designCy, w, h, FieldColor);
-            img.raycastTarget = true;
-            var rt = img.rectTransform;
-
-            var input = img.gameObject.AddComponent<InputField>();
-            input.targetGraphic = img;
-            input.lineType = InputField.LineType.SingleLine;
-
-            // 占位文本（无输入时显示）。
-            var ph = NewChildText(rt, "Placeholder", placeholder, 36, new Color(1, 1, 1, 0.35f));
-            input.placeholder = ph;
-
-            // 实际文本。
-            var txt = NewChildText(rt, "Text", string.Empty, 36, Color.white);
-            input.textComponent = txt;
-
-            return input;
-        }
-
-        // 创建充满父矩形的子文本（左对齐留内边距），供输入框文本 / 占位复用。
-        private static Text NewChildText(RectTransform parent, string name, string content, int fontSize, Color color)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
-            var rt = go.GetComponent<RectTransform>();
-            rt.SetParent(parent, false);
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = new Vector2(16, 6);
-            rt.offsetMax = new Vector2(-16, -6);
-            var t = go.GetComponent<Text>();
-            t.font = UIFont;
-            t.text = content;
-            t.fontSize = fontSize;
-            t.color = color;
-            t.alignment = TextAnchor.MiddleLeft;
-            t.supportRichText = false;
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
-            t.verticalOverflow = VerticalWrapMode.Truncate;
-            return t;
-        }
     }
 }

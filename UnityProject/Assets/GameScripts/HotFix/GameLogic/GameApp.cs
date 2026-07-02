@@ -63,12 +63,11 @@ public partial class GameApp
         _snapshotApplied = false;
         _mainMenuOpened = false;
 
-        // 启动 Fantasy 客户端网络：初始化运行时 -> 连接服务器 Gate -> 自动登录。
-        // 地址/账号取自 FantasyClient.FantasyNetworkConfig；业务可订阅 FantasyNetwork.OnLoggedIn 进主流程。
-        FantasyClient.FantasyNetwork.Boot();
+        // Fantasy 客户端网络的启动(Boot)不在此处无条件发起:登录改为账号驱动,由启动尾段按「本地是否已存账号」
+        // 决定自动登录还是先出登录窗(见下方入口分流)。事件订阅须先于任一登录发起完成,故全部集中在 Boot 之前挂好。
 
         // 玩家元层属性接线(设计 38 §五):把 Fantasy 推送/快照分发到热更区 PlayerAttrService。
-        // 早挂(在 Boot 之后、登录前)保登录快照不丢;事件已在网络主线程触发,可直安全刷视图。
+        // 先于任何登录发起挂好,保登录快照不丢;事件已在网络主线程触发,可直安全刷视图。
         FantasyClient.FantasyNetwork.OnPlayerInfoSnapshot += view =>
         {
             var ctx = GameLogic.GameContext.Instance;
@@ -177,8 +176,25 @@ public partial class GameApp
         // 入口闸信号②:登录成功(OnLoggedIn 在 OnPlayerIdIssued 之后由登录 RPC 回包触发,ErrorCode==0)。
         FantasyClient.FantasyNetwork.OnLoggedIn += () =>
         {
+            // 保存登录账号供下次启动自动登录(账号名为可丢便捷缓存、非权威;权威 playerId 由服务端签发)。
+            GameLogic.LoginAccountStore.Save(FantasyClient.FantasyNetwork.AccountName);
             _loginSucceeded = true;
             TryOpenMainMenu();
+        };
+
+        // 入口登录失败(连不上/超时/账号被服务端拒):回退到登录窗让用户重输账号重试。
+        // 仅入口阶段处理(_mainMenuOpened==false,尚未放行进游戏);已进游戏后的中途登录失败不打断,
+        // 维持底层自动重连语义。先 Shutdown 停后台自动重连——否则用户停留登录窗期间后台重连+重登可能悄悄成功、
+        // 绕过登录窗直接放行。再关闸窗、开登录窗并回带失败原因。
+        FantasyClient.FantasyNetwork.OnLoginFailed += reason =>
+        {
+            if (_mainMenuOpened)
+            {
+                return;
+            }
+            FantasyClient.FantasyNetwork.Shutdown();
+            GameModule.UI.CloseUI<GameLogic.UI.ConnectingWindow>();
+            GameModule.UI.ShowUIAsync<GameLogic.UI.LoginWindow>(reason);
         };
 #endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
@@ -194,10 +210,22 @@ public partial class GameApp
         settings.SetMusic(settings.Audio.MusicOn);
         settings.SetSound(settings.Audio.SoundOn);
 
-        // 闸窗立即摆上（同步路径，不等预载）：网络登录与异步预载并行，登录回调回来时闸窗必已在栈，
-        // CloseUI 才能命中（修复回归：闸窗曾被推到 await 之后才 show，导致登录先到时 CloseUI 落空、闸窗后摆且无人关）。
+        // 入口分流(账号驱动登录):本地已存账号 → 直接用它自动登录 + 立即摆闸窗;无 → 先出登录窗由用户输入账号,
+        // 点登录才发起(见 BeginLogin)。闸窗须走同步路径立即摆上——网络登录与异步预载并行,登录回调回来时闸窗必已在栈,
+        // CloseUI 才能命中(修复回归:闸窗曾被推到 await 之后才 show,导致登录先到时 CloseUI 落空、闸窗后摆且无人关)。
 #if FANTASY_UNITY
-        ShowConnectingGate();
+        string savedAccount = GameLogic.LoginAccountStore.Get();
+        if (!string.IsNullOrEmpty(savedAccount))
+        {
+            // 已存账号 → 自动登录:闸窗等待,登录成功放行;失败由 OnLoginFailed 回退登录窗(预填该账号供重试)。
+            FantasyClient.FantasyNetwork.Boot(null, savedAccount);
+            ShowConnectingGate();
+        }
+        else
+        {
+            // 无已存账号(首次)→ 先出登录窗,不发起 Boot;由用户输入账号点登录经 BeginLogin 发起。
+            GameModule.UI.ShowUIAsync<GameLogic.UI.LoginWindow>();
+        }
 #else
         // 网络模块未启用(无 Fantasy 栈,无登录流程):退回旧行为直接开主菜单,避免闸永不满足而卡死。
         GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
@@ -209,20 +237,20 @@ public partial class GameApp
     }
 
     /// <summary>
-    /// 异步启动尾段：先预载配置二进制（ConfigSystem）+ 玩法 UI/特效预制（UIPreloader），
-    /// 使玩法窗内同步实例化 widget 全部命中内存缓存 / 资源池，
-    /// 在 WebGL 下不触发任何 bundle 同步加载。预载失败不阻断启动（逐项记 Error，尽力放行）。
-    /// 末尾置入口闸第三信号 _preloadDone 并触发放行检查：保证玩法窗只在 widget 必已预载驻留后才开。
+    /// 异步启动尾段：构建配置 Tables（ConfigSystem.Load）+ 预载玩法 UI/特效预制与字体（UIPreloader），
+    /// 让玩法窗内同步实例化的 widget 命中资源池、UGuiFactory 文本命中已驻留字体。各步失败不阻断启动
+    ///（逐项记 Error，尽力放行）。末尾置入口闸第三信号 _preloadDone 并触发放行检查：保证玩法窗只在预制必已驻留后才开。
     /// </summary>
     private static async UniTaskVoid PreloadThenStart()
     {
         try
         {
-            await ConfigSystem.Instance.PreloadAsync();
+            // 构建配置 Tables:ConfigSystem 为同步 Load(仅建懒加载 loader,各表首次访问才读字节),不做异步全表预载。
+            ConfigSystem.Instance.Load();
         }
         catch (System.Exception e)
         {
-            Log.Error($"[GameApp] 配置预载异常，部分表可能落回同步加载（WebGL 将报错）：{e}");
+            Log.Error($"[GameApp] 配置构建异常：{e}");
         }
 
         try
@@ -251,6 +279,22 @@ public partial class GameApp
     }
 
 #if FANTASY_UNITY
+    /// <summary>
+    /// 登录窗提交入口:用输入账号发起一次入口登录。teardown+reboot(Shutdown → Boot,与 <see cref="RestartAfterDataReset"/>
+    /// 同款、已验证的安全范式)清掉任何半开连接 / 后台重连再从头连,规避重复连接叠加。复位入口闸的登录 / 快照 / 放行标志
+    /// (不动 _preloadDone:预载在启动尾段已完成且与网络无关,重置会让闸第三信号永缺、永不放行),摆连接闸窗等待。
+    /// 成功由 TryOpenMainMenu 放行进游戏,失败由 OnLoginFailed 回退登录窗。
+    /// </summary>
+    public static void BeginLogin(string account)
+    {
+        _loginSucceeded = false;
+        _snapshotApplied = false;
+        _mainMenuOpened = false;
+        FantasyClient.FantasyNetwork.Shutdown();
+        FantasyClient.FantasyNetwork.Boot(null, account);
+        ShowConnectingGate();
+    }
+
     /// <summary>
     /// 摆上连接闸窗（守卫：闸已放行 _mainMenuOpened==true 时不再摆，避免重复闸窗盖死已开的玩法窗且无人关）。
     /// 冷启动与清档软重启都经此摆窗；两处调用前均已复位 _mainMenuOpened=false，正常路径守卫不触发，仅防意外重入。
@@ -361,9 +405,15 @@ public partial class GameApp
         if (GameLogic.BlockBlast.BlockGameState.IsValid) GameLogic.BlockBlast.BlockGameState.Instance.Release();
 
         // ④ 重连重登:Shutdown 复位静态网络态(_initialized/Scene),Boot 走完整初始化 → 登录 → 快照 → 入口流程。
-        //    闸窗立即摆上(同步,与网络登录 + 预载并行);登录 + 快照 + 预载三者俱备前不放行(沿强制联网入口语义)。
+        //    用当前账号重登(而非配置的设备默认账号):优先内存已登录账号,回退本地已存账号——清档只重置玩家数据、
+        //    不改账号身份,故仍登同一账号。闸窗立即摆上(同步,与网络登录 + 预载并行);三信号俱备前不放行(沿强制联网入口语义)。
+        string reloginAccount = FantasyClient.FantasyNetwork.AccountName;
+        if (string.IsNullOrEmpty(reloginAccount))
+        {
+            reloginAccount = GameLogic.LoginAccountStore.Get();
+        }
         FantasyClient.FantasyNetwork.Shutdown();
-        FantasyClient.FantasyNetwork.Boot();
+        FantasyClient.FantasyNetwork.Boot(null, reloginAccount);
         ShowConnectingGate();
 
         // ⑤ 重跑预载并重置闸第三信号:配置已预载进字节缓存(幂等去重,直接命中)、widget 预制重新确保驻留资源池

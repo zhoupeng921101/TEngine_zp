@@ -145,5 +145,50 @@ namespace GameLogic
             labelText.raycastTarget = false;
             return btn;
         }
+
+        /// <summary>
+        /// 单行输入框(Image 底板 + <see cref="InputField"/> + 占位/实文本)。文本走 <see cref="DefaultFont"/>(预载 GBK,含中文),
+        /// 与工厂其它文本同口径。调用方可对返回值继续设 <c>contentType</c> 等。
+        /// </summary>
+        public static InputField CreateInputField(Transform parent, string name, float designCx, float designCy,
+            float w, float h, string placeholder, Color bgColor, int fontSize = 36)
+        {
+            var img = CreateImage(parent, name, designCx, designCy, w, h, bgColor);
+            img.raycastTarget = true;
+            var rt = img.rectTransform;
+
+            var input = img.gameObject.AddComponent<InputField>();
+            input.targetGraphic = img;
+            input.lineType = InputField.LineType.SingleLine;
+
+            // 占位文本(无输入时显示)。
+            input.placeholder = CreateInputChildText(rt, "Placeholder", placeholder, fontSize, new Color(1, 1, 1, 0.35f));
+            // 实际文本。
+            input.textComponent = CreateInputChildText(rt, "Text", string.Empty, fontSize, Color.white);
+
+            return input;
+        }
+
+        /// <summary>充满父矩形的单行子文本(左对齐留内边距),供输入框实文本/占位复用。</summary>
+        private static Text CreateInputChildText(RectTransform parent, string name, string content, int fontSize, Color color)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(16, 6);
+            rt.offsetMax = new Vector2(-16, -6);
+            var t = go.GetComponent<Text>();
+            t.font = DefaultFont;
+            t.text = content;
+            t.fontSize = fontSize;
+            t.color = color;
+            t.alignment = TextAnchor.MiddleLeft;
+            t.supportRichText = false;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Truncate;
+            return t;
+        }
     }
 }
