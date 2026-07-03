@@ -1,0 +1,12 @@
+{
+    "items": [
+        {
+            "zh": "背包文字",
+            "en": "BackpackText"
+        },
+        {
+            "zh": "寻找图片按钮",
+            "en": "FindImageButton"
+        }
+    ]
+}
