@@ -42,9 +42,9 @@ lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 Bind
 4. **实现**:按 target 用 Skill 工具调用对应子 skill(client=`pipeline-lite-dev`,含新 UI 窗口先 `pipeline-lite-ui`;server=`pipeline-lite-server-dev`),在会话内直接实现;子 skill 跑完回到本流程继续。
 5. **自检**:
    - **客户端**:实现段先探 UnityMCP(`unity-check` 三步探针,会话没挂载 `mcp__unityMCP__*` 视同不可用)。**连到活的 UnityProject** → 即时 `mcp__unityMCP__run_tests`(mode=EditMode)驱动已开 Editor 跑全量、当场判绿,交付即过。**不可用**(server 没起 / 未挂载 / Unity 没开)→ 把自检条目入队 `.claude/pipeline-lite/pending-test.md`,交付标注「自检待跑」,由用户 `/pipeline-lite-selftest` 用 junction 孪生工程 `UnityProject_selftest`(主 Editor 可开着)batchmode 补跑。
-   - **服务端**:交付前直接 `dotnet build`(不入队),未过先修再复跑。
+   - **服务端**:交付前直接 `dotnet build`(不入队),未过先修再复跑;过后按 server-dev 卡更新重启本机开发服(运行中的旧进程不加载新构建)。
    - **这是本管线唯一的自动验证兜底**——去用户手测后,EditMode/编译测不到的路径无结构化验证。
-6. **自审(裁定权仍以非作者视角自持)**:对本次改动跑 `/code-review`(默认 low/med——少而准、合轻量;大改可升 high),以本轮文件清单为范围,忽略工作树里的并发无关改动。查出真缺陷 → 本轮内自行修复(客户端:即时通道复跑 `run_tests` / 队列通道同步更新条目;服务端复跑 `dotnet build`)。改动触及安全面(server 鉴权/网络/持久化,或客户端处理不可信输入)才追加 `/security-review`,否则跳过。
+6. **自审(裁定权仍以非作者视角自持)**:对本次改动跑 `/code-review`(默认 low/med——少而准、合轻量;大改可升 high),以本轮文件清单为范围,忽略工作树里的并发无关改动。查出真缺陷 → 本轮内自行修复(客户端:即时通道复跑 `run_tests` / 队列通道同步更新条目;服务端复跑 `dotnet build` 并再次更新重启本机开发服)。改动触及安全面(server 鉴权/网络/持久化,或客户端处理不可信输入)才追加 `/security-review`,否则跳过。
 7. **提交(gate 实绿才提交)**:自检+自审均过、gate 实绿时自动提交本轮改动——精确 `git add` 本轮呈报文件清单(**禁 `git add -A`**:工作树常有并发无关改动)、conventions 格式 commit message + 结尾 `Co-Authored-By` trailer(按环境 git 约定)、**只 commit 不 push**;当前在主干(main)则先切分支再提。**队列通道例外**:客户端自检入队(交付标『自检待跑』、gate 未实绿)时本步推迟,由 `/pipeline-lite-selftest` PASS 时补提交。
 8. **呈报**:把改动摘要 + 文件清单 + 审查结论 + 本轮 commit hash 呈报用户;回退提示 `git reset --hard <基线 HEAD>`(退到本轮提交前)。
 

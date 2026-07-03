@@ -1,6 +1,6 @@
 ---
 name: pipeline-lite-server-dev
-description: 轻型流水线服务端实现段。在 Fantasy(Fantasy.Net)服务端工程实现功能,dotnet 编译自检后交付。由 pipeline-lite 主会话流程在 server 实现段用 Skill 工具调用,不单独触发。
+description: 轻型流水线服务端实现段。在 Fantasy(Fantasy.Net)服务端工程实现功能,dotnet 编译自检、更新重启本机开发服后交付。由 pipeline-lite 主会话流程在 server 实现段用 Skill 工具调用,不单独触发。
 ---
 
 # 轻型流水线 · 服务端实现段
@@ -27,6 +27,15 @@ pipeline-lite 主会话在 server 实现段调用本 skill:基于需求级简报
 2. **源生成器产物核对**:Handler / 协议 / SceneType 注册按预期生成(不手改 `.g.cs`、改注册改源重 build)。
 3. **若改协议**:按 fantasy-net `references/protocol/*` 改源 + 跑导出,**把客户端生成物同步进 UnityProject 的 Fantasy Generate 目录**(漏同步 = 前后端协议错位,全栈最高风险点),在呈报里声明同步状态。
 4. **过异常路径不只 happy path**:挑改动涉及机制最可能崩的一类——空/null、断线重连、并发消息、Entity 未就绪、跨 Scene 路由失败;能跑就手验,依赖 MongoDB 不可达则在呈报标注「待用户在有库环境自行核」。
+
+## 更新重启本机开发服(自检过后必做)
+
+运行中的服务端进程不加载新构建;自检过后不重启,编辑器 Play Mode(默认连本机 127.0.0.1 Gate)测到的仍是旧代码。
+1. **停旧进程**:按可执行文件路径匹配杀掉 Fantasy 仓库下的服务端进程(`Get-Process Main` 中 Path 位于 `Fantasy\examples` 者 → `Stop-Process`;其 `dotnet run` 宿主随子进程退出)。自检 build 若报产物文件被占用,同样先做本步再复跑 build。
+2. **起新服**:Fantasy 仓库根后台执行 `dotnet run --project examples/Server/APP/Main/Main.csproj -- --m Develop`。
+3. **核对**:新 Main 进程在、启动日志无 error;失败(端口占用/启动报错)不反复重启,在呈报里带报错。呈报中声明重启状态。
+
+外网服不在本步范围:一键部署(`examples/Server/APP/deploy/deploy.bat`,publish+上传+重启,细节见该目录 README.md)仅在用户明确要求发布外网时执行。
 
 ## 红线
 - 疑似需求/方案有错时先取证(读相关代码/接缝、核对验收点),确是实现层绕不过的才停手回主流程重审需求级方案,不越界自改需求。
