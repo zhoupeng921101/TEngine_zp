@@ -737,20 +737,20 @@ namespace GameLogic.BlockBlast
 
         // ── 女神（全清累计好评进度，设计 11 §十）──────────────────
 
+        /// <summary>好评条是否已满档（可领取一次奖励）。满档后 <see cref="AdvanceGoddess"/> 封顶不再涨，等玩家领取清零。</summary>
+        public bool CanClaimGoddess => GoddessRating >= MergeOrderConfig.GoddessRatingGoal;
+
         /// <summary>
-        /// 推进女神好评条 1 格（每次全清调用）。满 GoddessRatingGoal → 清零、好感等级+1（只升不降）。
-        /// 返回 true 表示本次推进触发了升档（窗口据此发档位奖励 + 换背景）。
+        /// 推进女神清屏计数 1 格（每次全清调用）。封顶于 <see cref="MergeOrderConfig.GoddessRatingGoal"/>：
+        /// 满档即停住等领取，不自动清零、不再推进好感等级（等级机制已废弃）。
+        /// 返回 true 表示本次推进「恰好达到满档」（供窗口点亮领取按钮 + 红点）；已满档再全清不涨、返回 false。
+        /// 清零由领取流程驱动：服务端裁定满档后清零 GoddessRating，客户端经 MetaCurrencySync 对账为 0（不在本地自动清）。
         /// </summary>
         public bool AdvanceGoddess()
         {
+            if (GoddessRating >= MergeOrderConfig.GoddessRatingGoal) return false; // 已满档：封顶，等领取
             GoddessRating += 1;
-            if (GoddessRating >= MergeOrderConfig.GoddessRatingGoal)
-            {
-                GoddessRating = 0;
-                GoddessLevel += 1;
-                return true;
-            }
-            return false;
+            return GoddessRating >= MergeOrderConfig.GoddessRatingGoal; // 本次恰好满档
         }
 
         // ── 神秘塔罗盲盒（持有式即时开盒，设计 12）──────────────

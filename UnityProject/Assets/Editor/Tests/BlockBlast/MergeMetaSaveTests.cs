@@ -445,8 +445,8 @@ namespace GameLogic.BlockBlast.Tests
         }
 
         // ───────────── 时机层补全:全清结算改元层 → 须标脏落盘（设计 14 §3.4 ①）─────────────
-        // 窗口 PlaceAndResolve 用谓词 metaChangedBySettle = AllClearRewarded || GoddessLeveledUp || BlindBoxGained>0
-        // 判定「本手结算是否改了进盘字段(女神/盲盒)」,为真则落盘。下面直接对 ClearSettlement.Settle 验证
+        // 窗口 PlaceAndResolve 用谓词 metaChangedBySettle = AllClearRewarded || GoddessBecameFull || BlindBoxGained>0
+        // 判定「本手结算是否改了进盘字段(女神清屏计数/盲盒)」,为真则落盘。下面直接对 ClearSettlement.Settle 验证
         // 该谓词与「持久化字段确实变了」一致——纯同步,不经窗口、不依赖 UniTask。
 
         [Test]
@@ -454,22 +454,22 @@ namespace GameLogic.BlockBlast.Tests
         {
             var m = FreshState();
             m.AllClearArmed = true;          // 武装全清(本手可发奖)
-            m.GoddessRating = MergeOrderConfig.GoddessRatingGoal - 1; // 再推进 1 即升档
+            m.GoddessRating = MergeOrderConfig.GoddessRatingGoal - 1; // 再推进 1 即满档
             int boxBefore = m.BlindBoxCount;
-            int levelBefore = m.GoddessLevel;
+            int ratingBefore = m.GoddessRating;
 
             // boardEmptyAfter=true + 已武装 → 走全清分支:AdvanceGoddess + AddBlindBox(均改进盘字段)。
             var settle = ClearSettlement.Settle(m, lines: 2, clearedCells: 18, boardEmptyAfter: true,
                 milestoneType: MergeElement.Butterfly);
 
-            bool metaChangedBySettle = settle.AllClearRewarded || settle.GoddessLeveledUp || settle.BlindBoxGained > 0;
+            bool metaChangedBySettle = settle.AllClearRewarded || settle.GoddessBecameFull || settle.BlindBoxGained > 0;
             Assert.IsTrue(metaChangedBySettle, "全清结算 → 谓词须为真(应触发标脏落盘)");
             Assert.IsTrue(settle.AllClearRewarded, "全清发奖位为真");
-            Assert.IsTrue(settle.GoddessLeveledUp, "好评条满档 → 本手升档");
+            Assert.IsTrue(settle.GoddessBecameFull, "好评条满档 → 本手恰好满档");
 
-            // 持久化字段确实变了:盲盒 +1、女神升 1 档(rating 归零)。
+            // 持久化字段确实变了:盲盒 +1、女神清屏计数 +1(封顶满档,不自动清零)。
             Assert.AreEqual(boxBefore + 1, m.BlindBoxCount, "全清发盲盒 → 进盘 blindBoxCount 改变");
-            Assert.AreEqual(levelBefore + 1, m.GoddessLevel, "全清推女神升档 → 进盘 goddessLevel 改变");
+            Assert.AreEqual(ratingBefore + 1, m.GoddessRating, "全清推女神清屏计数 +1 → 进盘 goddessRating 改变");
         }
 
         [Test]
@@ -478,17 +478,15 @@ namespace GameLogic.BlockBlast.Tests
             var m = FreshState();
             m.AllClearArmed = true;
             int boxBefore = m.BlindBoxCount;
-            int levelBefore = m.GoddessLevel;
             int ratingBefore = m.GoddessRating;
 
             // lines<=0 → 无消除分支:不发盲盒、不推女神。谓词须为假(无需落盘)。
             var settle = ClearSettlement.Settle(m, lines: 0, clearedCells: 0, boardEmptyAfter: false,
                 milestoneType: MergeElement.None);
 
-            bool metaChangedBySettle = settle.AllClearRewarded || settle.GoddessLeveledUp || settle.BlindBoxGained > 0;
+            bool metaChangedBySettle = settle.AllClearRewarded || settle.GoddessBecameFull || settle.BlindBoxGained > 0;
             Assert.IsFalse(metaChangedBySettle, "无消除结算 → 谓词须为假(不触发落盘)");
             Assert.AreEqual(boxBefore, m.BlindBoxCount, "无消除 → 盲盒计数不变");
-            Assert.AreEqual(levelBefore, m.GoddessLevel, "无消除 → 女神等级不变");
             Assert.AreEqual(ratingBefore, m.GoddessRating, "无消除 → 好评条不变");
         }
     }

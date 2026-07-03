@@ -77,6 +77,14 @@ namespace GameLogic
                 GameModule.UI.ShowUIAsync<GameLogic.UI.RankWindow>();
             });
 
+            // 背包入口（背包系统·客户端段）：左下角，开悬浮背包窗（非弹框，主菜单仍可见）。
+            var btnBackpack = UGuiFactory.CreateButton(content, "BtnBackpack", 180, 1760, 260, 150, "背包", 56,
+                new Color32(0x7B, 0x86, 0xC2, 0xFF), Color.white, out _, out _);
+            btnBackpack.onClick.AddListener(() =>
+            {
+                GameModule.UI.ShowUIAsync<GameLogic.BackpackWindow>();
+            });
+
             // 服务器配置入口（局域网联调：运行时改 IP / 端口 / 协议并重连，见 ServerConfigWindow）。
             // 置于顶部角落（测试工具），不挤占下方主功能按钮列。
             var btnServer = UGuiFactory.CreateButton(content, "BtnServer", 860, 120, 380, 96, "服务器配置", 40,

@@ -158,8 +158,11 @@ namespace GameLogic.BlockBlast
         public const int AllClearRewardCount = 1;
 
         // ── 女神（全清累计进度）─ 设计 11 §十 ───────────────────
-        /// <summary>好评条满档所需全清次数（显示 N/GoddessRatingGoal）。</summary>
-        public const int GoddessRatingGoal = 10;
+        /// <summary>
+        /// 满档所需全清次数（显示 N/GoddessRatingGoal，攒满可领取一次奖励，可循环）。
+        /// 运行时读 global 表（id=7），缺键回退默认 10；与服务端 GoddessRatingUpperBound 同源（服务端读同一 id）。
+        /// </summary>
+        public static int GoddessRatingGoal => GlobalConfigMgr.GoddessMaxCountValue;
 
         // ── 智能生成 R1–R3 仲裁阈值 ─ 设计 11 §八 ────────────────
         /// <summary>R2 防卡死：连续未消除落子数阈值（≥ 此值发可消方块）。</summary>

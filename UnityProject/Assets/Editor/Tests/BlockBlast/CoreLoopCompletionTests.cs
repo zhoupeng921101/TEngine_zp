@@ -296,21 +296,25 @@ namespace GameLogic.BlockBlast.Tests
             Assert.AreEqual(8, MergeOrderConfig.HammerCost, "消除锤代价 = 8（设计 11 §7.2 拍板）");
         }
 
-        // ───────────── 设计 11 §十 女神 ─────────────
+        // ───────────── 设计 11 §十 女神（累积清屏次数 → 满档等领取，可循环）─────────────
 
         [Test]
-        public void Goddess_TenAllClears_LevelsUpAndResets()
+        public void Goddess_AccumulatesToFull_ThenCapsAwaitingClaim()
         {
             var m = FreshState();
-            Assert.AreEqual(1, m.GoddessLevel);
-            for (int i = 0; i < MergeOrderConfig.GoddessRatingGoal - 1; i++)
+            int goal = MergeOrderConfig.GoddessRatingGoal;
+            for (int i = 0; i < goal - 1; i++)
             {
-                Assert.IsFalse(m.AdvanceGoddess(), "未满档不升级");
+                Assert.IsFalse(m.AdvanceGoddess(), "未满档：推进不返满档信号");
+                Assert.IsFalse(m.CanClaimGoddess, "未满档不可领取");
             }
-            Assert.AreEqual(MergeOrderConfig.GoddessRatingGoal - 1, m.GoddessRating);
-            Assert.IsTrue(m.AdvanceGoddess(), "第 10 次升档");
-            Assert.AreEqual(0, m.GoddessRating, "升档后好评条清零");
-            Assert.AreEqual(2, m.GoddessLevel, "好感等级 +1（只升不降）");
+            Assert.AreEqual(goal - 1, m.GoddessRating);
+            Assert.IsTrue(m.AdvanceGoddess(), "第 goal 次：恰好满档");
+            Assert.AreEqual(goal, m.GoddessRating, "满档计数 = goal（不自动清零，等领取）");
+            Assert.IsTrue(m.CanClaimGoddess, "满档可领取");
+            // 已满档再全清：封顶不涨、不再返满档信号（等玩家领取，领取后由服务端对账清零）。
+            Assert.IsFalse(m.AdvanceGoddess(), "已满档：封顶不再涨");
+            Assert.AreEqual(goal, m.GoddessRating, "封顶：计数保持满档值");
         }
 
         // ───────────── 设计 11 §八 智能生成 R1–R3 仲裁 ─────────────

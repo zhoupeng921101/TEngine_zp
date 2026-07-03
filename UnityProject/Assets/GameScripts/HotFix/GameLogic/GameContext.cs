@@ -50,6 +50,9 @@ namespace GameLogic
         /// <summary>祈愿(每日限领体力)服务端权威编排器(祈愿服务端权威·客户端段):发 C2G_WishForEnergyRequest,响应权威值经对账器应用为投影。</summary>
         public WishService Wish { get; private set; }
 
+        /// <summary>女神满档领取服务端权威编排器(女神系统·客户端段):发 C2G_GoddessClaimRequest,成功回带奖励元素入合成区 + 对账 GoddessRating=0。</summary>
+        public GoddessClaimService GoddessClaim { get; private set; }
+
         /// <summary>档案状态(皮肤态 + 神庙装饰厅数)服务端权威上报编排器(皮肤/神庙装饰服务端权威·客户端段):变更后全量 SET 上报,fire-and-forget。</summary>
         public ProfileStateSync ProfileState { get; private set; }
 
@@ -58,6 +61,9 @@ namespace GameLogic
 
         /// <summary>塔罗牌收集投影(已合成集合 + 合成 RPC 编排;碎片进度由 UI 按 TbTarotCard 查 Items 现算)。</summary>
         public TarotCollection Tarot { get; private set; }
+
+        /// <summary>背包批次轨投影 + 使用事务(背包系统·客户端段:有有效期道具的投影/倒计时/使用 RPC;堆叠轨由 <see cref="Items"/> 承载)。</summary>
+        public InventoryService Inventory { get; private set; }
 
         /// <summary>normal 订单本地视图 ↔ 服务端权威投影器(P1 全栈迁移·客户端段:登录快照/推送应用 + 交付 RPC 编排)。</summary>
         public OrderSync OrderSync { get; private set; }
@@ -112,6 +118,10 @@ namespace GameLogic
             // 祈愿非乐观、等响应,把回带的权威 Soul/Energy 经 MetaCurrency.ApplyDeltaPush 应用(不本地预扣、免双减),WishUsedToday 投影 set。
             Wish = new WishService(new WishGatewayProd(), MetaCurrency);
 
+            // 女神满档领取编排器(女神系统·客户端段):生产用 GoddessClaimGatewayProd(经 Session 发 C2G_GoddessClaimRequest);
+            // 领取非乐观、等响应,成功时把奖励元素逐档 AddDirect 入合成区 + 经 MetaCurrency.ApplyDeltaPush 对账 GoddessRating=0。
+            GoddessClaim = new GoddessClaimService(new GoddessClaimGatewayProd(), MetaCurrency);
+
             // 档案状态服务端权威上报编排器(皮肤/神庙装饰服务端权威·客户端段):生产用 ProfileStateGatewayProd(经 Session 发 C2G_SetProfileStateRequest);
             // 皮肤切换 / 神庙装饰乐观本地变更后,取当前三态全量 SET 上报,fire-and-forget(失败下次变更再报 / 登录快照对齐)。
             // snapshot 覆盖本地投影接线在 GameApp.StartGameLogic。
@@ -124,6 +134,11 @@ namespace GameLogic
             // 塔罗收集投影(塔罗收集·客户端段):生产用 TarotRpcGatewayProd(经 Session 发 C2G_TarotSynthesizeRequest);
             // 已合成集合由进主游戏快照 / 合成响应整份覆盖;合成成功的碎片扣减经注入的 Items 对齐。
             Tarot = new TarotCollection(new TarotRpcGatewayProd(), Items);
+
+            // 背包批次轨投影 + 使用事务(背包系统·客户端段):生产用 InventoryRpcGatewayProd(经 Session 发 C2G_UseItem);
+            // 登录快照/背包推送 → ApplyLotsSnapshot 整份覆盖批次 + 锚定服务端时间基准;使用走 TryUseAsync(reqSeq 幂等)。
+            // 堆叠轨(碎片等)仍由 Items 承载,快照/推送的 Holdings 段由接线层应用到 Items。接线在 GameApp.StartGameLogic。
+            Inventory = new InventoryService(new InventoryRpcGatewayProd());
 
             // 订单服务端权威投影器(P1 客户端段):生产用 OrderRpcGatewayProd(经 Session 发 C2G_DeliverOrderRequest);
             // 登录/刷新推送 → OnSnapshotPush 应用快照;开窗 → OnMergeStateReady 切权威 + 接交付钩子。接线在 GameApp.StartGameLogic。
@@ -527,6 +542,15 @@ namespace GameLogic
             if (Items == null) Items = new GameLogic.BlockBlast.Item.ItemBag();
             else Items.Clear();
             Tarot = new TarotCollection(gateway, Items);
+        }
+
+        /// <summary>
+        /// 测试 / 注入入口:用指定使用道具接缝(+ 可选时钟)重建 <see cref="Inventory"/>(沿 <see cref="InitTarotWith"/> 范式)。
+        /// EditMode 经它灌入桩 <see cref="IInventoryRpcGateway"/> + 定值时钟,断言批次快照三态覆盖 / 过期倒计时 / 使用结果码 / reqSeq 单调,不连网。
+        /// </summary>
+        public void InitInventoryWith(IInventoryRpcGateway gateway, System.Func<long> nowMsProvider = null)
+        {
+            Inventory = new InventoryService(gateway, nowMsProvider);
         }
 
         /// <summary>

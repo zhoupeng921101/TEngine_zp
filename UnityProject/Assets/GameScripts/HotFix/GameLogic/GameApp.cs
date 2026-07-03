@@ -101,6 +101,10 @@ public partial class GameApp
             // 登录快照是唯一初值源。变更(全清换皮 / 神庙装饰)由 ProfileState 全量 SET 上报,fire-and-forget。
             ctx.ApplyServerProfileStateSnapshot(view.SkinMono, view.SkinMonoId, view.TempleDecorated);
 
+            // 背包(背包系统·客户端段):用服务端快照两轨全量覆盖投影(loaded 门控三态)——堆叠轨→Items、批次轨→Inventory,
+            // 服务端时刻锚定批次倒计时基准。降级空占位(loaded=false)保留本地投影不清空。
+            ApplyServerInventorySnapshot(ctx, view.Inventory);
+
             // 进主游戏订单快照对齐不在登录侧发起:改由进主游戏请求(EnterMainGame)同包回带驱动(决策②每次进入重新对齐)。
             // 接线在 MainMenuWindow「开始游戏」入口闸 → ctx.EnterMainGame.EnterAsync()。
 
@@ -118,6 +122,12 @@ public partial class GameApp
             var live = GameLogic.BlockBlast.BlockGameState.Instance;
             var state = (live != null && live.MergeOrderMode) ? live.MergeState : null;
             ctx.MetaCurrency?.ApplyDeltaPush(state, attrType, newAmount);
+        };
+
+        // 背包推送(背包系统·客户端段):获得 / 使用 / 过期后服务端起推整份背包,整份覆盖两轨投影(loaded 门控三态)。
+        FantasyClient.FantasyNetwork.OnInventoryDeltaPush += inv =>
+        {
+            ApplyServerInventorySnapshot(GameLogic.GameContext.Instance, inv);
         };
 
         // normal 订单服务端权威投影(P1 客户端段):
@@ -368,6 +378,49 @@ public partial class GameApp
         catch { all = null; } // 配置未就绪:退 null,BootstrapUnlocksAsync 仍会补默认 id
 
         cosmetic.BootstrapUnlocksAsync(player, all).Forget();
+    }
+
+    /// <summary>
+    /// 应用服务端背包整份快照 / 推送到两轨投影(背包系统·客户端段)。
+    /// loaded=false(服务端读库降级的空占位)→ 保留本地投影不清空(三态防误清);loaded=true → 整份覆盖:
+    /// 堆叠轨 Holdings→<see cref="GameLogic.BlockBlast.Item.ItemBag"/>(服务端未含 id 被清)、批次轨 Lots→<see cref="GameLogic.BlockBlast.Player.InventoryService"/>,
+    /// ServerNowMs 锚定批次倒计时基准。跨边界视图已是独立值类型,直接读用。
+    /// </summary>
+    private static void ApplyServerInventorySnapshot(GameLogic.GameContext ctx, FantasyClient.InventorySnapshotView inv)
+    {
+        if (ctx == null || !inv.Loaded)
+        {
+            return; // 三态:降级空占位不覆盖、不清空。
+        }
+
+        // 堆叠轨 → ItemBag(整份权威覆盖)。
+        var items = ctx.Items;
+        if (items != null)
+        {
+            var holdings = new System.Collections.Generic.List<(int, long)>(inv.Holdings?.Length ?? 0);
+            if (inv.Holdings != null)
+            {
+                foreach (var h in inv.Holdings) holdings.Add((h.ItemId, h.Count));
+            }
+            items.ApplyAuthoritativeSnapshot(holdings);
+        }
+
+        // 批次轨 → InventoryService(整份覆盖 + 锚定服务端时间基准)。
+        var inventory = ctx.Inventory;
+        if (inventory != null)
+        {
+            var lots = new System.Collections.Generic.List<GameLogic.BlockBlast.Player.InventoryLot>(inv.Lots?.Length ?? 0);
+            if (inv.Lots != null)
+            {
+                foreach (var l in inv.Lots)
+                {
+                    lots.Add(new GameLogic.BlockBlast.Player.InventoryLot(l.LotId, l.ItemId, l.Count, l.AcquireMs, l.ExpireMs));
+                }
+            }
+            inventory.ApplyLotsSnapshot(lots, inv.ServerNowMs, true);
+            // 登录 seed 使用幂等锚底(推送 LastUseReqSeq=0 时 no-op):保重登后首个使用序号 > 服务端已处理值。
+            inventory.SeedReqSeq(inv.LastUseReqSeq);
+        }
     }
 
 #endif

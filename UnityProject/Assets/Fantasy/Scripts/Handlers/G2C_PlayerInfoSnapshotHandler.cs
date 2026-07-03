@@ -59,6 +59,10 @@ namespace FantasyClient
             int[] unlockedAvatarIds = CopyIds(info.UnlockedAvatarIds);
             int[] unlockedFrameIds = CopyIds(info.UnlockedFrameIds);
 
+            // 背包服务端权威(背包系统·客户端段):两轨全量 + 服务端时间基准 + loaded 标志,复制为跨边界视图。
+            var inventory = InventoryProtocolMapper.Build(
+                info.Holdings, info.Lots, info.ServerNowMs, info.InventoryLoaded, info.LastUseReqSeq);
+
             var view = new PlayerInfoView(
                 info.AccountId, info.Nickname, info.Level, info.Exp, info.RenameCount,
                 coin, diamond, stamina, soulPower, piety, guardianExp, energy,
@@ -66,7 +70,7 @@ namespace FantasyClient
                 info.CurrentAvatarId, info.CurrentFrameId, unlockedAvatarIds, unlockedFrameIds,
                 info.WishUsedToday, info.WishDailyLimit,
                 info.SkinMono, info.SkinMonoId, info.TempleDecorated,
-                info.SchemaVersion);
+                info.SchemaVersion, inventory);
 
             FantasyNetwork.RaisePlayerInfoSnapshot(view);
             await FTask.CompletedTask;

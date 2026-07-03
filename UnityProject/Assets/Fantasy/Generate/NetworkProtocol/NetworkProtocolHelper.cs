@@ -140,6 +140,47 @@ namespace Fantasy
 			return (G2C_LoginGameResponse)await session.Call(C2G_LoginGameRequest_request);
 		}
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_GoddessClaimResponse> C2G_GoddessClaimRequest(this Session session, C2G_GoddessClaimRequest C2G_GoddessClaimRequest_request)
+		{
+			return (G2C_GoddessClaimResponse)await session.Call(C2G_GoddessClaimRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_GoddessClaimResponse> C2G_GoddessClaimRequest(this Session session, int reserved)
+		{
+			using var C2G_GoddessClaimRequest_request = Fantasy.C2G_GoddessClaimRequest.Create();
+			C2G_GoddessClaimRequest_request.Reserved = reserved;
+			return (G2C_GoddessClaimResponse)await session.Call(C2G_GoddessClaimRequest_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_UseItemResponse> C2G_UseItem(this Session session, C2G_UseItem C2G_UseItem_request)
+		{
+			return (G2C_UseItemResponse)await session.Call(C2G_UseItem_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static async FTask<G2C_UseItemResponse> C2G_UseItem(this Session session, int itemId, long count, long reqSeq)
+		{
+			using var C2G_UseItem_request = Fantasy.C2G_UseItem.Create();
+			C2G_UseItem_request.ItemId = itemId;
+			C2G_UseItem_request.Count = count;
+			C2G_UseItem_request.ReqSeq = reqSeq;
+			return (G2C_UseItemResponse)await session.Call(C2G_UseItem_request);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_InventoryDeltaPush(this Session session, G2C_InventoryDeltaPush G2C_InventoryDeltaPush_message)
+		{
+			session.Send(G2C_InventoryDeltaPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void G2C_InventoryDeltaPush(this Session session, List<InventoryHolding> holdings, List<InventoryLot> lots, long serverNowMs, bool loaded)
+		{
+			using var G2C_InventoryDeltaPush_message = Fantasy.G2C_InventoryDeltaPush.Create();
+			G2C_InventoryDeltaPush_message.Holdings = holdings;
+			G2C_InventoryDeltaPush_message.Lots = lots;
+			G2C_InventoryDeltaPush_message.ServerNowMs = serverNowMs;
+			G2C_InventoryDeltaPush_message.Loaded = loaded;
+			session.Send(G2C_InventoryDeltaPush_message);
+		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static async FTask<G2C_MailListResponse> C2G_MailListRequest(this Session session, C2G_MailListRequest C2G_MailListRequest_request)
 		{
 			return (G2C_MailListResponse)await session.Call(C2G_MailListRequest_request);

@@ -1,0 +1,203 @@
+<meta charset="utf-8">
+<title>背包系统设计</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d222b; --ink:#e6e9ef; --sub:#9aa4b2;
+    --line:#2a303c; --accent:#5b9dff; --good:#4cc38a; --warn:#e0a458; --bad:#e06c75;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",Roboto,sans-serif}
+  .wrap{max-width:940px;margin:0 auto;padding:40px 24px 96px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:.3px}
+  .lede{color:var(--sub);margin:0 0 8px}
+  .meta{color:var(--sub);font-size:12.5px;font-family:var(--mono);border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);padding:8px 0;margin:18px 0 34px}
+  h2{font-size:20px;margin:44px 0 12px;padding-left:11px;border-left:3px solid var(--accent)}
+  h3{font-size:16px;margin:26px 0 8px;color:#cdd6e4}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:5px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--panel2);padding:1.5px 6px;
+    border-radius:4px;color:#d7e0ee}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:14px 0}
+  .why{border-left:3px solid var(--warn);background:var(--panel2);padding:10px 16px;margin:12px 0;
+    border-radius:0 8px 8px 0;color:var(--sub);font-size:13.5px}
+  .why b{color:var(--warn);font-weight:600}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:13.5px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cdd6e4;font-weight:600;white-space:nowrap}
+  td:first-child{white-space:nowrap;color:#cdd6e4}
+  .tag{display:inline-block;font-size:11px;font-family:var(--mono);padding:1px 7px;border-radius:20px;
+    border:1px solid var(--line);color:var(--sub);margin-left:6px;vertical-align:middle}
+  .tag.srv{color:var(--good);border-color:#2c4a3c}
+  .tag.cli{color:var(--accent);border-color:#28405e}
+  .ac{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:12px 0;overflow:hidden}
+  .ac h4{margin:0;padding:11px 18px;background:var(--panel2);font-size:14px;border-bottom:1px solid var(--line)}
+  .ac ul{margin:0;padding:14px 18px 16px 40px}
+  .ac li{margin:7px 0}
+  .k{color:var(--good);font-family:var(--mono);font-size:11.5px}
+  a{color:var(--accent)}
+  .foot{margin-top:60px;color:var(--sub);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+
+<div class="wrap">
+
+<h1>背包系统设计</h1>
+<p class="lede">道具入包 · 使用道具 · 有效期过期结算 · 前后端数据同步</p>
+<div class="meta">状态:设计定稿(待实现) &nbsp;·&nbsp; 归属:服务端权威 &nbsp;·&nbsp; 端:全栈(Fantasy 服务端 + Unity 客户端)</div>
+
+<h2>1 · 目标与归属</h2>
+<p>为玩家提供一个持久背包:能获得道具并存入、查看、使用道具产生效果、道具到有效期后自动失效。背包内容代表「玩家拥有什么」,属于玩家资产。</p>
+<div class="panel">
+<b>归属定性:服务端是道具数据的唯一事实源。</b> 客户端只持有服务端数据的投影,不持权威副本。道具的获得、消耗、过期一律由服务端裁定;客户端的显示与操作都以服务端下发的状态为准。
+</div>
+<div class="why"><b>为什么不放本地:</b> 道具是玩家资产,一旦客户端可写权威值,改存档即可无中生有。留在本地的只有「排序方式、红点已读」这类换设备不必带走的设备偏好。</div>
+
+<h2>2 · 数据模型:两轨制</h2>
+<p>道具按「是否携带独立状态(尤其有效期)」分两轨存储。混成一种结构会在有效期上出错。</p>
+
+<table>
+<tr><th>轨</th><th>单位</th><th>适用道具</th><th>说明</th></tr>
+<tr><td>堆叠轨</td><td>道具 → 数量</td><td>材料、碎片、永久道具等无独立状态、可无限合并的道具</td><td>沿用现有的堆叠持有结构,同种道具只记一个总数</td></tr>
+<tr><td>批次轨</td><td>批次(一次获得一条)</td><td>限时道具,以及带独立状态(耐久/强化)的道具</td><td>每条批次记:道具、数量、获得时刻、过期时刻、来源</td></tr>
+</table>
+
+<h3>批次是有效期的最小单位</h3>
+<p>同一种限时道具,不同时间获得的两批,过期时刻不同,不能合并成一个数量。因此批次轨以「一次获得 = 一条批次」为单位,每条批次独立持有自己的过期时刻。消耗时按过期时刻从早到晚扣减(先出快过期的)。</p>
+<div class="why"><b>为什么不把过期塞进堆叠轨:</b> 「道具→数量」结构无法承载每一批各自的过期时刻;强行给整种道具挂一个过期时间,会绑死「同种道具必须同时过期」,与「分批领取、分批过期」的真实语义冲突。</div>
+
+<h3>道具定义与道具实例分离</h3>
+<p>道具的静态定义(名称、图标、品质、堆叠上限、是否有有效期、有效期时长、使用效果、过期是否补偿)走配置表,双端共享,不进玩家数据。玩家数据里只存「拥有哪些、多少、哪批何时过期」。</p>
+
+<h2>3 · 有效期</h2>
+
+<h3>存绝对时刻,不存剩余时长</h3>
+<p>道具入包时,服务端以权威时钟算出过期的绝对时刻并固化;之后判定只做「当前时刻是否已过该时刻」的比较。</p>
+<div class="why"><b>为什么不存剩余时长:</b> 剩余时长需要持续递减、依赖客户端时钟、跨登录难维护。绝对时刻由服务端时钟一次签发、之后只读,稳定可靠。</div>
+
+<h3>过期判定用服务端权威时钟</h3>
+<p>是否过期由服务端裁定。客户端只做展示层倒计时:登录时锚定一次服务端时间基准,倒计时用「过期时刻 − 校正后的当前时间」推算,不信客户端本地系统时间。</p>
+<div class="why"><b>为什么不信本地时钟:</b> 玩家改系统时间不得延长或伪造有效期。客户端本地倒计时仅用于显示,过期与否的结论以服务端为准。</div>
+
+<h3>惰性过期,不做全库定时扫描</h3>
+<p>过期清理在玩家真正触碰数据的时刻结算,不跑定时任务全库扫描:</p>
+<ul>
+<li><b>登录拉快照时</b> — 服务端过滤已过期批次,快照只下发有效道具;对刚过期的批次做一次结算。</li>
+<li><b>使用道具时</b> — 服务端二次校验目标批次是否已过期,过期则拒绝并回收。</li>
+<li><b>在线时</b> — 客户端本地倒计时到 0 自行置灰;不需要服务端为每个道具的过期时刻单独推送。</li>
+</ul>
+<div class="why"><b>为什么不用定时扫描:</b> 全库扫描删过期道具浪费且时机难控;惰性过期把成本摊到玩家真正读取/使用数据的那一刻,是联网背包的标准做法。</div>
+
+<h3>过期补偿</h3>
+<p>批次过期结算时,若该道具配置了过期补偿,服务端发放补偿(返还资源 / 发邮件)并记流水。补偿是否发放、发放什么,由道具定义决定,挂在惰性过期的结算点上。</p>
+
+<h2>4 · 使用道具</h2>
+
+<h3>专用事务,不并入通用数值变更</h3>
+<p>使用道具作为一次独立的服务端事务处理:客户端提交「用哪个道具、用几个、请求序号」,服务端校验后执行效果,把「扣道具 + 产出效果」作为一个原子事务落账,再把结果(消耗清单 + 产出清单)回给客户端。</p>
+<div class="why"><b>为什么不复用通用数值变更通道:</b> 通用数值变更的前提是「客户端知道自己要加减多少」。而使用道具的产出由服务端逻辑裁定(开箱随机产出、buff、回血),客户端预测不了;且「扣道具 + 产出」必须原子、可回滚,单条数值增减表达不了。这不是绕过权威造新通道,而是权威体系内的一个业务动作。</div>
+
+<h3>幂等:请求序号防重复扣</h3>
+<p>使用请求携带唯一请求序号。服务端对同一玩家的同一序号去重:重复到达的请求返回首次结果,不重复执行。</p>
+<div class="why"><b>为什么必须幂等:</b> 弱网重连会导致同一使用请求被发送两次。没有请求级去重,就会双扣道具、双发产出。频率闸(限流)挡不住「同一请求被重发」,必须按请求序号去重。</div>
+
+<h3>客户端乐观边界</h3>
+<p>客户端可做轻量乐观反馈(按钮置灰、数量减一动画),但产出必须等服务端结果,不预测产出;服务端拒绝则回滚乐观显示。</p>
+
+<h2>5 · 数据同步</h2>
+
+<table>
+<tr><th>路径</th><th>触发</th><th>机制</th></tr>
+<tr><td>读 · 初始化</td><td>登录</td><td>背包并入登录快照一次性下发(堆叠轨全量 + 批次轨已过滤过期),不另起查询请求</td></tr>
+<tr><td>写 · 获得</td><td>掉落 / 购买 / 任务奖励等服务端行为</td><td>服务端入包 + 记流水,再增量推送给在线客户端;客户端不能自行造道具</td></tr>
+<tr><td>写 · 使用</td><td>客户端发起</td><td>使用事务(见 §4),结果回执 + 增量推送同步背包变更</td></tr>
+<tr><td>推送 · 保鲜</td><td>背包发生变更</td><td>背包增量推送:携带变更后的道具/批次状态,推给该玩家在线会话</td></tr>
+</table>
+
+<h3>推送语义与对账</h3>
+<ul>
+<li>推送携带「变更后的状态」,不是需要客户端累加的相对流水。</li>
+<li>推送丢失 = 下次登录拉快照对齐,不做重试;离线则丢弃。</li>
+<li>客户端乐观值与服务端下发值不一致时,以服务端为准强制校正。</li>
+</ul>
+<div class="why"><b>为什么复用快照 + 增量推送:</b> 现有玩家数据同步已是「登录快照初始化 + 增量推送保鲜 + 登录兜底对齐」骨架。背包沿用同一骨架,不自造查询/同步通道。</div>
+
+<h2>6 · 边界与规则</h2>
+<ul>
+<li><b>堆叠上限 / 背包容量</b> — 由服务端按道具定义校验。超上限 / 背包满的处理(拒绝入包 / 溢出转邮件)按业务定,但裁决在服务端。</li>
+<li><b>流水</b> — 获得、使用、过期、补偿都记账,可追溯,用于丢件纠纷核对。</li>
+<li><b>旧档兼容</b> — 老玩家没有批次轨数据,登录时自动补为空,不报错、不丢原有堆叠道具。</li>
+</ul>
+
+<h2>7 · 验收标准</h2>
+<p>行为级、可观测。实现交付以此逐条核对。</p>
+
+<div class="ac">
+<h4>A · 获得与存入 <span class="tag srv">服务端</span></h4>
+<ul>
+<li><span class="k">AC-1</span> 通过服务端行为获得堆叠道具后,该道具数量在服务端正确累加,并推送到在线客户端;客户端背包显示更新。</li>
+<li><span class="k">AC-2</span> 获得限时道具后,服务端生成一条批次,其过期时刻 = 获得时刻 + 配置时长(以服务端时钟为准)。</li>
+<li><span class="k">AC-3</span> 同种限时道具分两次获得,服务端产生两条独立批次,各自过期时刻不同,不被合并。</li>
+<li><span class="k">AC-4</span> 每次获得都写入流水,含来源标识。</li>
+<li><span class="k">AC-5</span> 客户端无法通过任何本地操作凭空增加道具;道具增加只能源于服务端下发。</li>
+</ul>
+</div>
+
+<div class="ac">
+<h4>B · 使用道具 <span class="tag srv">服务端</span> <span class="tag cli">客户端</span></h4>
+<ul>
+<li><span class="k">AC-6</span> 使用道具后,服务端原子完成「扣道具 + 产出效果」,回执含消耗清单与产出清单;客户端据回执刷新。</li>
+<li><span class="k">AC-7</span> 数量不足 / 道具不存在 / 已过期 / 未达使用条件时,服务端拒绝,不扣不产出,回执带明确原因。</li>
+<li><span class="k">AC-8</span> 同一使用请求被重复提交(相同请求序号),服务端只执行一次,重复请求返回首次结果,道具不被双扣。</li>
+<li><span class="k">AC-9</span> 使用限时道具时按过期时刻从早到晚扣减(先消耗快过期的批次)。</li>
+<li><span class="k">AC-10</span> 客户端乐观反馈后若服务端拒绝,客户端回滚到服务端值。</li>
+</ul>
+</div>
+
+<div class="ac">
+<h4>C · 有效期与过期 <span class="tag srv">服务端</span> <span class="tag cli">客户端</span></h4>
+<ul>
+<li><span class="k">AC-11</span> 登录拉快照时,已过期批次不出现在下发的背包里。</li>
+<li><span class="k">AC-12</span> 试图使用已过期道具被服务端拒绝并回收该批次。</li>
+<li><span class="k">AC-13</span> 配置了过期补偿的道具过期后,玩家收到补偿(资源返还 / 邮件),且补偿记入流水。</li>
+<li><span class="k">AC-14</span> 客户端背包倒计时基于服务端时间基准;修改客户端本地系统时间不改变服务端的过期判定。</li>
+<li><span class="k">AC-15</span> 在线时客户端倒计时到 0,该道具本地置灰;此后对它的使用请求被服务端拒绝。</li>
+</ul>
+</div>
+
+<div class="ac">
+<h4>D · 同步一致性 <span class="tag srv">服务端</span> <span class="tag cli">客户端</span></h4>
+<ul>
+<li><span class="k">AC-16</span> 背包全量随登录快照一次性到达客户端,无需额外查询请求。</li>
+<li><span class="k">AC-17</span> 背包任何变更(获得/使用/过期)都推送到该玩家全部在线会话。</li>
+<li><span class="k">AC-18</span> 推送丢失后重新登录,客户端背包与服务端一致(快照兜底对齐)。</li>
+<li><span class="k">AC-19</span> 客户端乐观值与推送值冲突时,最终显示为服务端值。</li>
+</ul>
+</div>
+
+<div class="ac">
+<h4>E · 边界与兼容 <span class="tag srv">服务端</span></h4>
+<ul>
+<li><span class="k">AC-20</span> 获得超过堆叠上限 / 背包容量时按既定策略处理(拒绝或溢出转邮件),不产生非法状态。</li>
+<li><span class="k">AC-21</span> 无背包批次数据的老玩家登录不报错,原有堆叠道具不丢失。</li>
+</ul>
+</div>
+
+<h2>8 · 关键决策记录</h2>
+<table>
+<tr><th>决策</th><th>取舍</th></tr>
+<tr><td>两轨制(堆叠 + 批次)</td><td>相对「单一数量字典」:批次轨才能表达分批过期;相对「全部实例化」:堆叠轨保留避免无状态道具膨胀成大量实例</td></tr>
+<tr><td>有效期存绝对时刻</td><td>相对「存剩余时长」:免持续递减、免依赖客户端时钟、跨登录稳定</td></tr>
+<tr><td>惰性过期</td><td>相对「定时全库扫描」:省成本、时机随玩家访问自然触发</td></tr>
+<tr><td>使用道具用专用事务</td><td>相对「复用通用数值变更」:承载服务端裁定的产出 + 原子回滚,通用增减做不到</td></tr>
+<tr><td>请求序号幂等</td><td>相对「仅靠限流」:限流挡不住同一请求重发导致的双扣</td></tr>
+</table>
+
+<div class="foot">
+本稿为设计意图与行为级验收,不含代码符号/文件路径/改动清单——实现层定位在实现段依代码现场推导。<br>
+有效期语义:限时道具为「分批领取、分批过期」,批次轨按 §2 以批次为最小单位。
+</div>
+
+</div>

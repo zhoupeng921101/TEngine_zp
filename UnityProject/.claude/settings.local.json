@@ -10,5 +10,8 @@
       "mcp__ide__getDiagnostics",
       "Read(//d/work/TEngine_block/**)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "unityMCP"
+  ]
 }

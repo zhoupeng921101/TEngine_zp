@@ -52,6 +52,8 @@ namespace FantasyClient
         public readonly int SkinMonoId;
         public readonly long TempleDecorated;
         public readonly int SchemaVersion;
+        // 背包服务端权威(背包系统·客户端段):两轨全量 + 服务端时间基准 + loaded 三态标志,登录快照下发。
+        public readonly InventorySnapshotView Inventory;
 
         public PlayerInfoView(string accountId, string nickname, int level, long exp, int renameCount,
                               long coin, long diamond, long stamina,
@@ -62,7 +64,7 @@ namespace FantasyClient
                               int[] unlockedAvatarIds, int[] unlockedFrameIds,
                               int wishUsedToday, int wishDailyLimit,
                               int skinMono, int skinMonoId, long templeDecorated,
-                              int schemaVersion)
+                              int schemaVersion, InventorySnapshotView inventory)
         {
             AccountId = accountId;
             Nickname = nickname;
@@ -92,6 +94,7 @@ namespace FantasyClient
             SkinMonoId = skinMonoId;
             TempleDecorated = templeDecorated;
             SchemaVersion = schemaVersion;
+            Inventory = inventory;
         }
     }
 
@@ -147,6 +150,12 @@ namespace FantasyClient
         public static event Action<int, long, string> OnPropertyDeltaPush;
 
         /// <summary>
+        /// 服务端背包变更主动推送到达(背包系统·客户端段)。参数 = 整份背包快照视图(两轨全量 + 服务端时间基准 + loaded 标志)。
+        /// 获得 / 使用 / 过期后服务端起推;丢失 = 下次登录拉快照对齐(不重试)。<see cref="G2C_InventoryDeltaPushHandler"/> 内置薄壳分发。
+        /// </summary>
+        public static event Action<InventorySnapshotView> OnInventoryDeltaPush;
+
+        /// <summary>
         /// 登录上行的本地 playerId 提供者(P0 全栈迁移·客户端段)。
         /// <see cref="LoginAsync"/> 发 C2G_LoginGameRequest 前读取它填 LocalPlayerId,把本地已持久化的
         /// playerId 上交服务端认领;返回 null/空 → 传空串(新装/无本地值)。
@@ -168,6 +177,10 @@ namespace FantasyClient
         /// <summary>由 <see cref="G2C_PropertyDeltaPushHandler"/> 调,把分发交给热更区订阅方。</summary>
         internal static void RaisePropertyDeltaPush(int type, long newAmount, string reason)
             => OnPropertyDeltaPush?.Invoke(type, newAmount, reason);
+
+        /// <summary>由 <see cref="G2C_InventoryDeltaPushHandler"/> 调,把背包推送分发交给热更区订阅方。</summary>
+        internal static void RaiseInventoryDeltaPush(InventorySnapshotView view)
+            => OnInventoryDeltaPush?.Invoke(view);
 
         private static string _address;
         private static string _account;

@@ -20,15 +20,15 @@ namespace GameLogic.BlockBlast
         public readonly string MultiLabel;
         /// <summary>本手是否发生全清且发奖（武装位曾为 true）。</summary>
         public readonly bool AllClearRewarded;
-        /// <summary>全清发奖触发的女神升档（仅 AllClearRewarded 时有意义）。</summary>
-        public readonly bool GoddessLeveledUp;
+        /// <summary>本手全清推进使女神清屏计数「恰好达到满档」（仅 AllClearRewarded 时有意义；供窗口点亮领取按钮 + 红点）。</summary>
+        public readonly bool GoddessBecameFull;
         /// <summary>本手 Lv1 元素产出数（按 N 表，已入预算队列）。</summary>
         public readonly int BaseElementsK;
         /// <summary>本手获得的盲盒数（全清解锁 + 连消阈值解锁，设计 12 §3.4）。供窗口弹「+1 🔮」提示。</summary>
         public readonly int BlindBoxGained;
 
         public SettlementResult(int lines, int baseScore, int displayScore, int comboChain,
-            string multiLabel, bool allClearRewarded, bool goddessLeveledUp, int baseElementsK,
+            string multiLabel, bool allClearRewarded, bool goddessBecameFull, int baseElementsK,
             int blindBoxGained)
         {
             Lines = lines;
@@ -37,7 +37,7 @@ namespace GameLogic.BlockBlast
             ComboChain = comboChain;
             MultiLabel = multiLabel;
             AllClearRewarded = allClearRewarded;
-            GoddessLeveledUp = goddessLeveledUp;
+            GoddessBecameFull = goddessBecameFull;
             BaseElementsK = baseElementsK;
             BlindBoxGained = blindBoxGained;
         }
@@ -106,14 +106,14 @@ namespace GameLogic.BlockBlast
 
             // —— 步 6：全清判定（用棋盘空 + 武装位，与连消倍率无关）——
             bool allClearRewarded = false;
-            bool goddessLeveledUp = false;
+            bool goddessBecameFull = false;
             if (boardEmptyAfter && m.AllClearArmed)
             {
                 // 全清奖：1 个 Lv3 高级图案（设计 11 §5.4）
                 m.AddDirect(milestoneType, MergeOrderConfig.AllClearRewardLevel,
                     MergeOrderConfig.AllClearRewardCount);
-                // 推进女神好评条 +1（换背景统一归女神升级触发，设计 11 §十·去重）
-                goddessLeveledUp = m.AdvanceGoddess();
+                // 推进女神清屏计数 +1（封顶满档等领取；满档奖励改由玩家手动领取一次，可循环）
+                goddessBecameFull = m.AdvanceGoddess();
                 // 全清解锁盲盒 +1（设计 12 §3.4，复用全清武装位：连续第 2 次全清不发）
                 m.AddBlindBox(1);
                 blindBoxGained += 1;
@@ -129,7 +129,7 @@ namespace GameLogic.BlockBlast
             return new SettlementResult(
                 lines, baseScore, displayScore, m.ComboChain,
                 MergeOrderConfig.MultiClearLabelFor(lines),
-                allClearRewarded, goddessLeveledUp, lv1, blindBoxGained);
+                allClearRewarded, goddessBecameFull, lv1, blindBoxGained);
         }
     }
 }

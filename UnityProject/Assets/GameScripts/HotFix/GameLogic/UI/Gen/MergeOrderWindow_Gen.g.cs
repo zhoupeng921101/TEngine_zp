@@ -47,6 +47,9 @@ namespace GameLogic
 		[SerializeField] private Image m_img_ClearHintBg = null!;
 		[SerializeField] private Text m_text_ClearHint = null!;
 		[SerializeField] private RectTransform m_rect_GhostLayer = null!;
+		[SerializeField] private Text m_text_Goddess = null!;
+		[SerializeField] private Button m_btn_GoddessClaim = null!;
+		[SerializeField] private Image m_img_GoddessRedDot = null!;
 
 		protected override void ScriptGenerator()
 		{
@@ -60,6 +63,8 @@ namespace GameLogic
 			m_btn_Temple.onClick.AddListener(OnClick_TempleBtn);
 			m_btn_Exit.onClick.RemoveAllListeners();
 			m_btn_Exit.onClick.AddListener(OnClick_ExitBtn);
+			m_btn_GoddessClaim.onClick.RemoveAllListeners();
+			m_btn_GoddessClaim.onClick.AddListener(OnClick_GoddessClaimBtn);
 		}
 
 		#endregion
@@ -75,6 +80,8 @@ namespace GameLogic
 		private partial void OnClick_TempleBtn();
 
 		private partial void OnClick_ExitBtn();
+
+		private partial void OnClick_GoddessClaimBtn();
 
 		#endregion
 	}

@@ -187,6 +187,7 @@ namespace GameLogic
             RefreshSynthesis();
             RefreshBlindBox();
             RefreshPiety();
+            RefreshGoddess();
             RefreshClearTool();
             // 初次绘制倒计时（OnUpdate 每秒轮询前先填一帧，避免首秒显示 prefab 占位文本）。
             RefreshCountdowns(MergeMetaPersistence.NowUnixSec());
@@ -709,6 +710,28 @@ namespace GameLogic
             m_text_Piety.text = $"✦ {NumericDisplay.Format(_merge.Piety)}";
             // 顶部虔诚币槽数字（CoinIcon 对应）。
             if (m_text_CoinNum != null) m_text_CoinNum.text = NumericDisplay.Format(_merge.Piety);
+        }
+
+        // ── 女神满档领取（设计 11 §十）：进度文本 + 满档红点 + 领取按钮态。开窗 / 全清结算 / 领取后刷新 ──
+        private void RefreshGoddess()
+        {
+            bool canClaim = _merge.CanClaimGoddess;
+            if (m_text_Goddess != null)
+                m_text_Goddess.text = canClaim
+                    ? "女神 满档"
+                    : $"女神 {_merge.GoddessRating}/{MergeOrderConfig.GoddessRatingGoal}";
+            // 满档红点：仅满档可领时亮。
+            if (m_img_GoddessRedDot != null)
+                m_img_GoddessRedDot.gameObject.SetActive(canClaim);
+            // 领取按钮：满档可点（亮粉），未满档置灰不可点。
+            if (m_btn_GoddessClaim != null)
+            {
+                m_btn_GoddessClaim.interactable = canClaim;
+                if (m_btn_GoddessClaim.image != null)
+                    m_btn_GoddessClaim.image.color = canClaim
+                        ? new Color32(0xff, 0x73, 0x8c, 0xFF)
+                        : new Color32(0x5a, 0x4a, 0x50, 0xFF);
+            }
         }
 
         // ── 「神庙」按钮（m_btn_Temple，生成代码接线）：叠层打开 TempleWindow（不关本窗、不丢局），关闭后刷新虔诚币 ──
@@ -1429,10 +1452,10 @@ namespace GameLogic
                 var settle = ClearSettlement.Settle(_merge, lines, clearedCells, _board.IsEmpty(), milestoneType);
                 _state.Combo = settle.ComboChain >= 2 ? settle.ComboChain : 0; // 镜像到视觉连击（≥2 才显示）
 
-                // 元层判定（设计 14 §3.4）：全清推女神 / 全清或连消阈值发盲盒，都改进盘字段
-                // （goddessLevel / goddessRating / blindBoxCount）。AllClearRewarded 隐含女神 + 盲盒；
-                // GoddessLeveledUp 与 BlindBoxGained 并列，确保无后续交付 / 开盒时这一手的女神 / 盲盒进度也落盘。
-                metaChangedBySettle = settle.AllClearRewarded || settle.GoddessLeveledUp || settle.BlindBoxGained > 0;
+                // 元层判定（设计 14 §3.4）：全清推女神清屏计数 / 全清或连消阈值发盲盒，都改进盘字段
+                // （goddessRating / blindBoxCount）。AllClearRewarded 隐含女神 + 盲盒；
+                // GoddessBecameFull 与 BlindBoxGained 并列，确保无后续交付 / 开盒时这一手的女神 / 盲盒进度也落盘。
+                metaChangedBySettle = settle.AllClearRewarded || settle.GoddessBecameFull || settle.BlindBoxGained > 0;
 
                 // 方块皮肤切换（设计 50 §三）：全清发奖时触发换皮——彩色→单色（首次）/ 单色换一张排除当前（后续）。
                 // 纯视觉附加，不改上方全清结算（设计 50 §三 规则 5 / A9）。皮肤态进元层存档（设计 50 §六），
@@ -1485,6 +1508,7 @@ namespace GameLogic
             // token 池此刻才稳定，飞行落点（按类型匹配）才能正确定位。数字已在 RefreshSynthesis 立即更新，飞行只叠加视觉。
             SpawnCollectFly(flySources);
             RefreshBlindBox();
+            RefreshGoddess(); // 全清结算推进 GoddessRating → 进度文本 / 满档红点 / 领取按钮态刷新
             RefreshPiety(); // 女神升档可能改长期主线展示态(保险刷新)
             RefreshClearTool(); // 落子扣体力 → gate 态须刷新
 
@@ -2013,6 +2037,47 @@ namespace GameLogic
         private partial void OnClick_ConfigOfConnectionBtn()
         {
             GameModule.UI.ShowUIAsync<GameLogic.UI.ServerConfigWindow>();
+        }
+
+        // ── 女神满档领取按钮（m_btn_GoddessClaim，生成代码接线，设计 11 §十）──
+        // 未满档点击弹提示不发请求；满档则发 C2G_GoddessClaimRequest（非乐观、等响应）。
+        private partial void OnClick_GoddessClaimBtn()
+        {
+            if (!_merge.CanClaimGoddess)
+            {
+                ShowClearToolHint("女神好评未满档", autoHide: true);
+                return;
+            }
+            ClaimGoddessAsync().Forget();
+        }
+
+        /// <summary>
+        /// 发女神领取请求并按服务端响应应用（非乐观、等响应）：成功回带奖励元素已由服务编排器入合成区 +
+        /// GoddessRating 对账归 0，此处只补表现层刷新（弹字 / 合成区 / 女神态 / 存盘）。async void 经 .Forget() 调，吞异常不外逃。
+        /// </summary>
+        private async UniTaskVoid ClaimGoddessAsync()
+        {
+            var svc = GameContext.Instance?.GoddessClaim;
+            if (svc == null) return;
+
+            var result = await svc.ClaimAsync(_merge);
+            switch (result.Outcome)
+            {
+                case GameLogic.BlockBlast.Player.GoddessClaimOutcome.Success:
+                    BurstText.Spawn(transform, BlockLayout.DesignWidth / 2f, 763, "女神赐福！", 69,
+                        new Color32(0xff, 0xd0, 0x50, 0xFF));
+                    RefreshSynthesis(); // 奖励元素已入合成区
+                    RefreshGoddess();   // GoddessRating 已对账归 0 → 红点灭、按钮灰、文本归零
+                    MarkAndFlushSave(); // 元层（女神计数）标脏落盘；合成区元素随下次落子切片上行
+                    break;
+                case GameLogic.BlockBlast.Player.GoddessClaimOutcome.NotFull:
+                    ShowClearToolHint("女神好评未满档", autoHide: true);
+                    RefreshGoddess(); // 与服务端对账（可能并发已被领，本地态刷新）
+                    break;
+                default:
+                    ShowClearToolHint("领取失败，请稍后再试", autoHide: true);
+                    break;
+            }
         }
     }
 }

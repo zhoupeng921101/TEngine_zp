@@ -52,6 +52,15 @@ namespace GameLogic.BlockBlast.Item
             return 0;
         }
 
+        /// <summary>枚举当前持有 (id→数量)，供背包 UI 展示（可叠与不可叠合并，顺序不保证）。计数 &gt; 0 才产出。</summary>
+        public IEnumerable<(int id, int count)> Entries()
+        {
+            foreach (var kv in _stack)
+                if (kv.Value > 0) yield return (kv.Key, kv.Value);
+            foreach (var kv in _nonStack)
+                if (kv.Value > 0) yield return (kv.Key, kv.Value);
+        }
+
         /// <summary>查该 id 是否可叠（查不到当不可叠，保守）。</summary>
         private static bool IsStackable(int id)
         {

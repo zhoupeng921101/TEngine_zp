@@ -288,6 +288,27 @@ public partial class Tables
             m_TbAudio.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 女神满档领取奖励表(行=等级+数量;元素类型运行时取当前未交付订单所需类型)
+    /// </summary>
+    private block.TbGoddessReward m_TbGoddessReward;
+    public block.TbGoddessReward TbGoddessReward 
+    {
+        get
+        {
+            if (m_TbGoddessReward == null)
+            {
+                m_TbGoddessReward = new block.TbGoddessReward(defaultLoader("block_tbgoddessreward"));
+                m_TbGoddessReward.ResolveRef(this);
+            }
+            return m_TbGoddessReward;
+        }
+        set
+        {
+            m_TbGoddessReward = value;
+            m_TbGoddessReward.ResolveRef(this);
+        }
+    }
 
     #endregion
 
