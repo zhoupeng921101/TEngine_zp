@@ -16,7 +16,6 @@ namespace GameLogic
 	{
 		#region 脚本工具生成的代码
 
-		[SerializeField] private Button m_btn_ConfigOfConnection = null!;
 		[SerializeField] private Image m_img_EnergyIcon = null!;
 		[SerializeField] private Text m_text_EnergyNum = null!;
 		[SerializeField] private Text m_text_Goal = null!;
@@ -53,8 +52,6 @@ namespace GameLogic
 
 		protected override void ScriptGenerator()
 		{
-			m_btn_ConfigOfConnection.onClick.RemoveAllListeners();
-			m_btn_ConfigOfConnection.onClick.AddListener(OnClick_ConfigOfConnectionBtn);
 			m_btn_OpenBox.onClick.RemoveAllListeners();
 			m_btn_OpenBox.onClick.AddListener(OnClick_OpenBoxBtn);
 			m_btn_ClearTool.onClick.RemoveAllListeners();
@@ -70,8 +67,6 @@ namespace GameLogic
 		#endregion
 
 		#region 事件
-
-		private partial void OnClick_ConfigOfConnectionBtn();
 
 		private partial void OnClick_OpenBoxBtn();
 

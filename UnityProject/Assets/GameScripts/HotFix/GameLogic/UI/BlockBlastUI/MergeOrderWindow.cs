@@ -2034,11 +2034,6 @@ namespace GameLogic
             GameModule.UI.ShowUIAsync<MainMenuWindow>();
         }
 
-        private partial void OnClick_ConfigOfConnectionBtn()
-        {
-            GameModule.UI.ShowUIAsync<GameLogic.UI.ServerConfigWindow>();
-        }
-
         // ── 女神满档领取按钮（m_btn_GoddessClaim，生成代码接线，设计 11 §十）──
         // 未满档点击弹提示不发请求；满档则发 C2G_GoddessClaimRequest（非乐观、等响应）。
         private partial void OnClick_GoddessClaimBtn()

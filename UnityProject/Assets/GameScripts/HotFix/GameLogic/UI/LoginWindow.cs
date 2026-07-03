@@ -9,7 +9,7 @@ namespace GameLogic.UI
     /// 登录窗(强制联网入口的账号输入步)。进入游戏前展示:输入账号 → 点「登录」→ 发起登录,
     /// 成功由 <see cref="GameApp"/> 入口闸放行进游戏。本地无已存账号时启动即开本窗;
     /// 自动登录失败时由 GameApp 回退到本窗并回带失败原因(经 <see cref="UIBaseMono.UserData"/> 传入)。
-    /// 纯代码搭 UI(仿 <see cref="ConnectingWindow"/> / <see cref="ServerConfigWindow"/>),prefab 为空壳根节点,无 m_* 绑定。
+    /// 纯代码搭 UI(仿 <see cref="ConnectingWindow"/>),prefab 为空壳根节点,无 m_* 绑定。
     ///
     /// 字体时序(WebGL 关键,同 ConnectingWindow):本窗在启动同步路径上摆出、先于字体异步预载完成。
     /// UGuiFactory 文本首次取字体会把进程级字体缓存钉死,若在预载前建文本则 WebGL 下同步取 GBK 失败、
@@ -84,10 +84,6 @@ namespace GameLogic.UI
             var btnLogin = UGuiFactory.CreateButton(_content, "BtnLogin", Cx, 1240, 680, 120,
                 "登录", 52, new Color32(0x44, 0x77, 0xff, 0xFF), Color.white, out _, out _);
             btnLogin.onClick.AddListener(OnLogin);
-
-            var btnConfig = UGuiFactory.CreateButton(_content, "BtnConfig", Cx, 1400, 680, 100,
-                "服务器配置", 42, new Color32(0x55, 0x5b, 0x6b, 0xFF), Color.white, out _, out _);
-            btnConfig.onClick.AddListener(OnOpenServerConfig);
         }
 
         protected override void OnRefresh()
@@ -117,11 +113,6 @@ namespace GameLogic.UI
 #else
             _textError.text = "网络模块未启用(FANTASY_UNITY 未定义)";
 #endif
-        }
-
-        private void OnOpenServerConfig()
-        {
-            GameModule.UI.ShowUIAsync<ServerConfigWindow>();
         }
     }
 }

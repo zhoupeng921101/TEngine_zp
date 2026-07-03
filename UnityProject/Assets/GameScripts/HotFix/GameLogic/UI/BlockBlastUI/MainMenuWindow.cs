@@ -85,14 +85,6 @@ namespace GameLogic
                 GameModule.UI.ShowUIAsync<GameLogic.BackpackWindow>();
             });
 
-            // 服务器配置入口（局域网联调：运行时改 IP / 端口 / 协议并重连，见 ServerConfigWindow）。
-            // 置于顶部角落（测试工具），不挤占下方主功能按钮列。
-            var btnServer = UGuiFactory.CreateButton(content, "BtnServer", 860, 120, 380, 96, "服务器配置", 40,
-                new Color32(0x66, 0x77, 0x99, 0xFF), Color.white, out _, out _);
-            btnServer.onClick.AddListener(() =>
-            {
-                GameModule.UI.ShowUIAsync<GameLogic.UI.ServerConfigWindow>();
-            });
         }
 
         /// <summary>
