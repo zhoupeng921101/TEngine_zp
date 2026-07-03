@@ -21,6 +21,7 @@ namespace GameLogic.Config
         public const int EnergyRecoverSeconds = 3;// 体力恢复时间(每点间隔秒)
         public const int EnergyRecoverCap = 4;    // 体力恢复上限
         public const int ClearToolEnergyCost = 5; // 消除道具(清行列)消耗体力
+        public const int AudioDefaultCooldown = 6; // 音频全局默认防连点时间(秒)
 
         private static Dictionary<int, string> _cache; // 懒加载缓存：id → value(原始字符串)
 
@@ -95,6 +96,7 @@ namespace GameLogic.Config
         public static int OrderRefreshSecondsValue => GetInt(OrderRefreshSeconds, 300);
         public static int EnergyRecoverCapValue => GetInt(EnergyRecoverCap, 30);
         public static int ClearToolEnergyCostValue => GetInt(ClearToolEnergyCost, 5);
+        public static float AudioDefaultCooldownValue => GetFloat(AudioDefaultCooldown, 0.05f);
 
         // ── 体力恢复（"点数#间隔秒"，id=3）──
         // value 格式 "amount#interval"：每 interval 秒恢复 amount 点体力。

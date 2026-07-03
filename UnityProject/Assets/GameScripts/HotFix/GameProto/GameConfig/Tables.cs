@@ -267,6 +267,27 @@ public partial class Tables
             m_TbTarotCard.ResolveRef(this);
         }
     }
+    /// <summary>
+    /// 音频资源配置表(数据驱动播放)
+    /// </summary>
+    private audio.TbAudio m_TbAudio;
+    public audio.TbAudio TbAudio 
+    {
+        get
+        {
+            if (m_TbAudio == null)
+            {
+                m_TbAudio = new audio.TbAudio(defaultLoader("audio_tbaudio"));
+                m_TbAudio.ResolveRef(this);
+            }
+            return m_TbAudio;
+        }
+        set
+        {
+            m_TbAudio = value;
+            m_TbAudio.ResolveRef(this);
+        }
+    }
 
     #endregion
 
