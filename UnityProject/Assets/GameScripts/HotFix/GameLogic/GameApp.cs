@@ -106,7 +106,7 @@ public partial class GameApp
             ApplyServerInventorySnapshot(ctx, view.Inventory);
 
             // 进主游戏订单快照对齐不在登录侧发起:改由进主游戏请求(EnterMainGame)同包回带驱动(决策②每次进入重新对齐)。
-            // 接线在 UIMainMenuPanel「开始游戏」入口闸 → ctx.EnterMainGame.EnterAsync()。
+            // 接线在入口闸放行处(TryOpenMainMenu → EnterMergeOrder) → ctx.EnterMainGame.EnterAsync()。
 
             // 入口闸信号①:服务端玩家信息快照已应用。
             _snapshotApplied = true;
@@ -155,7 +155,7 @@ public partial class GameApp
             GameLogic.BlockBlast.BlockGameState.Instance.ServerDeal = null;
         };
         // ③ 服务端订单快照来源:改由进主游戏请求(EnterMainGame)同包回带 → ctx.EnterMainGame 内部喂 OrderSync.OnSnapshotPush。
-        //    登录侧不再单独推订单快照(G2C_MergeOrderSnapshotPush 已退役)。接线在 UIMainMenuPanel「开始游戏」入口闸。
+        //    登录侧不再单独推订单快照(G2C_MergeOrderSnapshotPush 已退役)。接线在入口闸放行处(EnterMergeOrder)。
 
         // 货币聚合上报钩子(P2 客户端段):每次元层落盘(MergeMetaPersistence.SaveAsync,= 一次玩法事件边界)后,
         // 把四货币本地净变化聚合成一笔上报服务端。钩子注册在接线层(本类),使 MergeMetaPersistence 对货币同步无知。
@@ -237,8 +237,8 @@ public partial class GameApp
             GameModule.UI.ShowUIAsync<GameLogic.UI.UILoginPanel>();
         }
 #else
-        // 网络模块未启用(无 Fantasy 栈,无登录流程):退回旧行为直接开主菜单,避免闸永不满足而卡死。
-        GameModule.UI.ShowUIAsync<GameLogic.UIMainMenuPanel>();
+        // 网络模块未启用(无 Fantasy 栈,无登录流程):直接开玩法窗,避免闸永不满足而卡死。
+        GameModule.UI.ShowUIAsync<GameLogic.UIMergeOrderPanel>();
 #endif
 
         // 配置 / UI 预制依赖配置的启动尾段移到异步：WebGL 禁止同步加载未驻留 bundle，故先 await 预载
@@ -333,7 +333,6 @@ public partial class GameApp
         _mainMenuOpened = true;
         GameModule.UI.CloseUI<GameLogic.UI.UIConnectingPanel>();
         EnterMergeOrder().Forget();
-        // GameModule.UI.ShowUIAsync<GameLogic.UIMainMenuPanel>();
         Log.Info("[GameApp] 入口闸放行:登录成功 + 快照就绪 + 预载完成,打开玩法窗。");
     }
     
@@ -349,17 +348,14 @@ public partial class GameApp
                 await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(8000, ignoreTimeScale: true));
             }
 
-            GameModule.UI.CloseUI<UIMainMenuPanel>();
             GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
         catch (System.Exception e)
         {
-            // 任何异常都不得让 async void 逃逸崩主菜单:本地兜底放行。
-            Log.Warning($"[UIMainMenuPanel] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
-            GameModule.UI.CloseUI<UIMainMenuPanel>();
+            // 任何异常都不得让 async void 逃逸崩启动:本地兜底放行进玩法。
+            Log.Warning($"[GameApp] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
             GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
-        // 不重置 _entering / 按钮 interactable:成功路径下本窗已 Close 销毁,无需还原。
     }
 
     /// <summary>

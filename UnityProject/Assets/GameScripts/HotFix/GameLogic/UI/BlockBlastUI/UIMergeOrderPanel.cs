@@ -1811,10 +1811,10 @@ namespace GameLogic
                 "再来一局", 56, new Color32(0x4a, 0xc0, 0x6a, 0xFF), Color.white, out _, out _);
             againBtn.onClick.AddListener(RestartForNewGame);
 
-            // 返回主菜单(复用退出路径:落盘元层 + 关门控 + 关窗 + 回主菜单)。
+            // 返回(主菜单已移除:落盘元层 + 关门控 + 关窗 + 重开玩法)。
             var backBtn = UGuiFactory.CreateButton(_gameOverPanel, "BackBtn", cx, cy - 410, 520, 110,
                 "返回", 50, new Color32(0x55, 0x4a, 0x6a, 0xFF), Color.white, out _, out _);
-            backBtn.onClick.AddListener(BackToMainMenuFromSettlement);
+            backBtn.onClick.AddListener(BackFromSettlement);
         }
 
         /// <summary>「再来一局」:关本窗 + 重开本窗。重开触发 OnCreate → C2G_GameStart,服务端已删本局档故回 Resumed=false = 新局。</summary>
@@ -1827,13 +1827,13 @@ namespace GameLogic
             GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
 
-        /// <summary>结算面板「返回」:复用退出路径回主菜单(落盘 + 关门控 + 关窗 + 回主菜单)。</summary>
-        private void BackToMainMenuFromSettlement()
+        /// <summary>结算面板「返回」(主菜单已移除):落盘 + 关门控 + 关窗 + 重开玩法。</summary>
+        private void BackFromSettlement()
         {
             FlushSaveIfDirty();
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<UIMergeOrderPanel>();
-            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
+            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
 
         // ── ghost 落点高亮（与 GameWindow 同构） ──
@@ -2024,14 +2024,14 @@ namespace GameLogic
             if (_state != null) _state.ExitMergeOrder();
         }
 
-        // ── 退出按钮（m_btn_Exit，生成代码接线）：关门控 + 关本窗 + 回主菜单 ──
+        // ── 退出按钮（m_btn_Exit，生成代码接线）：关门控 + 关本窗 + 重开玩法（主菜单已移除）──
         private partial void OnClick_ExitBtn()
         {
             // 局内态续存：先落盘对局现场，再 ExitMergeOrder 丢弃 MergeState/ElementArr（顺序不可换，否则写空盘覆盖有效快照）。
             FlushSaveIfDirty();
             _state.ExitMergeOrder();
             GameModule.UI.CloseUI<UIMergeOrderPanel>();
-            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
+            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
 
         // ── 女神满档领取按钮（m_btn_GoddessClaim，生成代码接线，设计 11 §十）──

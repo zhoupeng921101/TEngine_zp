@@ -147,7 +147,7 @@ namespace GameLogic
             OrderSync = new OrderSync(new OrderRpcGatewayProd(), MetaCurrency, Items);
 
             // 进主游戏编排(全栈协议改动·客户端段):生产用 EnterMainGameGatewayProd(经 Session 发 C2G_EnterMainGameRequest);
-            // 进融合主游戏(UIMainMenuPanel 开始游戏)时发请求,响应回带订单快照 → OrderSync 统一应用,
+            // 进融合主游戏时发请求,响应回带订单快照 → OrderSync 统一应用,
             // 道具持有 → Items 整份覆盖,塔罗收集 → Tarot 整份覆盖。
             // (局内 cosmetic + 合成经济叠加层改经 C2G_GameStart/GameSnapshot 的 SliceJson 收发,不再走进主游戏回带的云存档 blob。)
             EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync, Items, Tarot);
