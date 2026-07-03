@@ -14,8 +14,7 @@ pipeline-lite 主会话在 server 实现段调用本 skill:基于需求级简报
 
 ## 知识源(全部引用,不在此复制——副本必漂移)
 - 强制工作流 / 编码红线 / ECS / 协议 / 数据库 / 时钟等:开工 Read `D:\work\TEngine_block\Fantasy\Skills\fantasy-net\SKILL.md`,顺导航跳本任务相关 `references/*.md`;构建命令与约定 Read `D:\work\TEngine_block\Fantasy\CLAUDE.md`「常用命令」。
-- 共享 server-dev 经验库 `.claude/agent-memory/pipeline-server-dev/`(与重型 server-dev 同一经验库,本 skill 不被系统自动注入,手动 Read)。
-- 协议跨仓库同步、dotnet build/run 坑等流水线视角整理:`.claude/agents/pipeline-server-dev.md`(以 fantasy-net + `Fantasy/CLAUDE.md` 为准,该卡是便捷汇总)。
+- 共享 server-dev 经验库 `.claude/agent-memory/pipeline-server-dev/`(本 skill 不被系统自动注入,手动 Read)。
 
 ## 输入
 主会话的 self-contained 简报即规格:需求 + 需求级方案 + 用户视角验收点 + 基线 HEAD(Fantasy 仓库)。**无 design-docs、无 plan.md**。
