@@ -56,7 +56,7 @@ namespace GameLogic.Editor
         {
             var component = (UIBaseMono)target;
             string className = component.GetType().Name;
-            string uiGenTypeName = component is UIWindowMono ? "UIWindowMono" : "UIWidgetMono";
+            string uiGenTypeName = component is UIPanelMono ? "UIPanelMono" : "UIWidgetMono";
             string savePath = ScriptGeneratorSetting.GetGenCodePath();
 
             bool ok = ScriptGenerator.GenerateCSharpScript(

@@ -25,7 +25,7 @@ public partial class GameApp
     // 故各置一标志位、每个信号到达时检查「三者俱备」。进主游戏订单快照对齐尽力而为、不入闸：登录已成功即服务器可达，
     // 对齐失败有本地兜底，不挡门。_mainMenuOpened 守卫确保玩法窗只开一次。
     //
-    // _preloadDone 入闸的根由（修复异步预载引入的时序回归）：闸窗（ConnectingWindow）在 StartGameLogic 同步路径立即摆上、
+    // _preloadDone 入闸的根由（修复异步预载引入的时序回归）：闸窗（UIConnectingPanel）在 StartGameLogic 同步路径立即摆上、
     // 网络登录与预载并行；若登录 + 快照先于预载完成放行、而玩法窗内 widget 此刻尚未预载驻留，WebGL 上 widget 同步加载会报错。
     // 把预载完成纳入闸条件，保证玩法窗只在 widget 必已驻留后才开。
     private static bool _loginSucceeded;
@@ -106,7 +106,7 @@ public partial class GameApp
             ApplyServerInventorySnapshot(ctx, view.Inventory);
 
             // 进主游戏订单快照对齐不在登录侧发起:改由进主游戏请求(EnterMainGame)同包回带驱动(决策②每次进入重新对齐)。
-            // 接线在 MainMenuWindow「开始游戏」入口闸 → ctx.EnterMainGame.EnterAsync()。
+            // 接线在 UIMainMenuPanel「开始游戏」入口闸 → ctx.EnterMainGame.EnterAsync()。
 
             // 入口闸信号①:服务端玩家信息快照已应用。
             _snapshotApplied = true;
@@ -143,7 +143,7 @@ public partial class GameApp
             c.OrderSync?.OnMergeStateReady(state);
             c.MetaCurrency?.RebindBaseline(state);
             // 服务端权威发牌(M3):把 ServerDealSync 注入玩法态,使发牌入口(开局/落子/补牌)切服务端权威。
-            // 实际建局 RPC(C2G_GameStart)由 MergeOrderWindow.OnCreate 发起,本步只接好引用;开窗即清旧局标志,避免读到上局。
+            // 实际建局 RPC(C2G_GameStart)由 UIMergeOrderPanel.OnCreate 发起,本步只接好引用;开窗即清旧局标志,避免读到上局。
             GameLogic.BlockBlast.BlockGameState.Instance.ServerDeal = c.ServerDeal;
             c.ServerDeal?.Close();
         };
@@ -155,7 +155,7 @@ public partial class GameApp
             GameLogic.BlockBlast.BlockGameState.Instance.ServerDeal = null;
         };
         // ③ 服务端订单快照来源:改由进主游戏请求(EnterMainGame)同包回带 → ctx.EnterMainGame 内部喂 OrderSync.OnSnapshotPush。
-        //    登录侧不再单独推订单快照(G2C_MergeOrderSnapshotPush 已退役)。接线在 MainMenuWindow「开始游戏」入口闸。
+        //    登录侧不再单独推订单快照(G2C_MergeOrderSnapshotPush 已退役)。接线在 UIMainMenuPanel「开始游戏」入口闸。
 
         // 货币聚合上报钩子(P2 客户端段):每次元层落盘(MergeMetaPersistence.SaveAsync,= 一次玩法事件边界)后,
         // 把四货币本地净变化聚合成一笔上报服务端。钩子注册在接线层(本类),使 MergeMetaPersistence 对货币同步无知。
@@ -203,8 +203,8 @@ public partial class GameApp
                 return;
             }
             FantasyClient.FantasyNetwork.Shutdown();
-            GameModule.UI.CloseUI<GameLogic.UI.ConnectingWindow>();
-            GameModule.UI.ShowUIAsync<GameLogic.UI.LoginWindow>(reason);
+            GameModule.UI.CloseUI<GameLogic.UI.UIConnectingPanel>();
+            GameModule.UI.ShowUIAsync<GameLogic.UI.UILoginPanel>(reason);
         };
 #endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
@@ -234,11 +234,11 @@ public partial class GameApp
         else
         {
             // 无已存账号(首次)→ 先出登录窗,不发起 Boot;由用户输入账号点登录经 BeginLogin 发起。
-            GameModule.UI.ShowUIAsync<GameLogic.UI.LoginWindow>();
+            GameModule.UI.ShowUIAsync<GameLogic.UI.UILoginPanel>();
         }
 #else
         // 网络模块未启用(无 Fantasy 栈,无登录流程):退回旧行为直接开主菜单,避免闸永不满足而卡死。
-        GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+        GameModule.UI.ShowUIAsync<GameLogic.UIMainMenuPanel>();
 #endif
 
         // 配置 / UI 预制依赖配置的启动尾段移到异步：WebGL 禁止同步加载未驻留 bundle，故先 await 预载
@@ -316,7 +316,7 @@ public partial class GameApp
             Log.Warning("[GameApp] 闸已放行(_mainMenuOpened),跳过重复摆连接闸窗,避免盖死玩法窗。");
             return;
         }
-        GameModule.UI.ShowUIAsync<GameLogic.UI.ConnectingWindow>();
+        GameModule.UI.ShowUIAsync<GameLogic.UI.UIConnectingPanel>();
     }
 
     /// <summary>
@@ -331,9 +331,9 @@ public partial class GameApp
             return;
         }
         _mainMenuOpened = true;
-        GameModule.UI.CloseUI<GameLogic.UI.ConnectingWindow>();
+        GameModule.UI.CloseUI<GameLogic.UI.UIConnectingPanel>();
         EnterMergeOrder().Forget();
-        // GameModule.UI.ShowUIAsync<GameLogic.MainMenuWindow>();
+        // GameModule.UI.ShowUIAsync<GameLogic.UIMainMenuPanel>();
         Log.Info("[GameApp] 入口闸放行:登录成功 + 快照就绪 + 预载完成,打开玩法窗。");
     }
     
@@ -349,15 +349,15 @@ public partial class GameApp
                 await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(8000, ignoreTimeScale: true));
             }
 
-            GameModule.UI.CloseUI<MainMenuWindow>();
-            GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+            GameModule.UI.CloseUI<UIMainMenuPanel>();
+            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
         catch (System.Exception e)
         {
             // 任何异常都不得让 async void 逃逸崩主菜单:本地兜底放行。
-            Log.Warning($"[MainMenuWindow] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
-            GameModule.UI.CloseUI<MainMenuWindow>();
-            GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+            Log.Warning($"[UIMainMenuPanel] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
+            GameModule.UI.CloseUI<UIMainMenuPanel>();
+            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
         // 不重置 _entering / 按钮 interactable:成功路径下本窗已 Close 销毁,无需还原。
     }

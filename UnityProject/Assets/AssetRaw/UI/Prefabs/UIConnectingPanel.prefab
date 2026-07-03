@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 5670704784844930628}
   - component: {fileID: 8847990082349169287}
   m_Layer: 0
-  m_Name: ConnectingWindow
+  m_Name: UIConnectingPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -90,4 +90,4 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0330fcddf5d10c841ab30725581ce110, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GameLogic::GameLogic.UI.ConnectingWindow
+  m_EditorClassIdentifier: GameLogic::GameLogic.UI.UIConnectingPanel

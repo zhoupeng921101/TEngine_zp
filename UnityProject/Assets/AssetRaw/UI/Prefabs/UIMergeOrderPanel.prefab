@@ -3108,7 +3108,7 @@ GameObject:
   - component: {fileID: 5670704784844930628}
   - component: {fileID: 611771147439835040}
   m_Layer: 5
-  m_Name: MergeOrderWindow
+  m_Name: UIMergeOrderPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3200,7 +3200,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2a27ce34552148d418778b79bfd3f673, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GameLogic::GameLogic.MergeOrderWindow
+  m_EditorClassIdentifier: GameLogic::GameLogic.UIMergeOrderPanel
   m_img_EnergyIcon: {fileID: 8096303311098011138}
   m_text_EnergyNum: {fileID: 3852744874764345840}
   m_text_Goal: {fileID: 2434977075504903147}

@@ -2,7 +2,7 @@ namespace GameLogic.BlockBlast
 {
     /// <summary>
     /// Block Blast 计分公式的单一信息源。Classic（<c>GameWindow</c>）与合成订单切片
-    /// （<c>MergeOrderWindow</c>）共用，保证两条路径计分同源——改公式只改这一处。
+    /// （<c>UIMergeOrderPanel</c>）共用，保证两条路径计分同源——改公式只改这一处。
     /// 合成订单切片仅借 <see cref="ClearScore"/> 作元素生成的内部驱动量，不计入玩家订单得分。
     /// </summary>
     public static class BlockScoring

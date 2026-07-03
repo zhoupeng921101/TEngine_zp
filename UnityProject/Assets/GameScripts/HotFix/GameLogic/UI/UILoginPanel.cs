@@ -9,15 +9,15 @@ namespace GameLogic.UI
     /// 登录窗(强制联网入口的账号输入步)。进入游戏前展示:输入账号 → 点「登录」→ 发起登录,
     /// 成功由 <see cref="GameApp"/> 入口闸放行进游戏。本地无已存账号时启动即开本窗;
     /// 自动登录失败时由 GameApp 回退到本窗并回带失败原因(经 <see cref="UIBaseMono.UserData"/> 传入)。
-    /// 纯代码搭 UI(仿 <see cref="ConnectingWindow"/>),prefab 为空壳根节点,无 m_* 绑定。
+    /// 纯代码搭 UI(仿 <see cref="UIConnectingPanel"/>),prefab 为空壳根节点,无 m_* 绑定。
     ///
-    /// 字体时序(WebGL 关键,同 ConnectingWindow):本窗在启动同步路径上摆出、先于字体异步预载完成。
+    /// 字体时序(WebGL 关键,同 UIConnectingPanel):本窗在启动同步路径上摆出、先于字体异步预载完成。
     /// UGuiFactory 文本首次取字体会把进程级字体缓存钉死,若在预载前建文本则 WebGL 下同步取 GBK 失败、
     /// 回退内置字体被钉死 → 全局中文无字形。故 OnCreate 分两段:① 同步建遮屏背景(不依赖字体);
     /// ② 依赖字体的标题/输入框/按钮延后到 <see cref="UIPreloader.PreloadFontsAsync"/> 完成后再建。
     /// </summary>
-    [Window(UILayer.Top, location: "LoginWindow", fullScreen: true)]
-    public sealed class LoginWindow : UIWindowMono
+    [Window(UILayer.Top, location: "UILoginPanel", fullScreen: true)]
+    public sealed class UILoginPanel : UIPanelMono
     {
         // 设计坐标系(1080×1920,左上原点、Y 下正),与 UGuiFactory 同口径。
         private const float Cx = 540f;
@@ -49,7 +49,7 @@ namespace GameLogic.UI
 
         /// <summary>
         /// await 字体预载完成后建依赖字体的标题/输入框/按钮,再应用累积的失败原因 + 预填上次账号。
-        /// race 守卫:await 期间窗可能被关闭/销毁(点登录 → CloseUI&lt;LoginWindow&gt;),
+        /// race 守卫:await 期间窗可能被关闭/销毁(点登录 → CloseUI&lt;UILoginPanel&gt;),
         /// 返回后触碰任何对象前先判窗已否销毁。
         /// </summary>
         private async UniTaskVoid BuildAfterFontReady()
@@ -88,7 +88,7 @@ namespace GameLogic.UI
 
         protected override void OnRefresh()
         {
-            // 失败原因经 ShowUIAsync<LoginWindow>(reason) 传入,取 UserData。文本未就绪则缓存,就绪后由 BuildAfterFontReady 应用。
+            // 失败原因经 ShowUIAsync<UILoginPanel>(reason) 传入,取 UserData。文本未就绪则缓存,就绪后由 BuildAfterFontReady 应用。
             _pendingReason = UserData as string ?? string.Empty;
             if (_textsReady)
             {
@@ -108,7 +108,7 @@ namespace GameLogic.UI
 #if FANTASY_UNITY
             _textError.text = string.Empty;
             // 关本窗、由 GameApp 驱动 teardown+reboot 登录并摆连接闸窗;成功放行进游戏,失败回退本窗并回带原因。
-            GameModule.UI.CloseUI<LoginWindow>();
+            GameModule.UI.CloseUI<UILoginPanel>();
             GameApp.BeginLogin(account);
 #else
             _textError.text = "网络模块未启用(FANTASY_UNITY 未定义)";

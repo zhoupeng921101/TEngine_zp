@@ -185,7 +185,7 @@ namespace GameLogic.BlockBlast.Item
 
         /// <summary>
         /// EVENT 解锁适配器（设计 41 §3.5）：纯静态、查无即静默。落盘归调用方触发（D3）。
-        /// PlayerInfo 来源：<c>GameContext.Instance.Player</c>（沿设计 18/25 范式，与 PlayerInfoWindow 同源）；
+        /// PlayerInfo 来源：<c>GameContext.Instance.Player</c>（沿设计 18/25 范式，与 UIPlayerInfoPanel 同源）；
         /// 配置查询：<see cref="AvatarConfigMgr.GetAvatar"/>（查无返 null 不抛）；
         /// 写入分流：<see cref="AvatarUnlockService.GrantUnlock"/> 内 <c>AvatarEntry.Type</c> 自动分流头像/框集合 + AppendDistinct 幂等。
         /// </summary>

@@ -217,7 +217,7 @@ public static class TEngineUISettingsProvider
                 {
                     // 规则说明
                     EditorGUILayout.HelpBox(
-                        "• 窗口: public partial class TestWindow : UIWindowMono\n" +
+                        "• 窗口: public partial class TestWindow : UIPanelMono\n" +
                         "• 组件: public partial class TestWidget : UIWidgetMono",
                         MessageType.Info);
 
@@ -536,7 +536,7 @@ public static class TEngineUISettingsProvider
 
                     // 设置默认值
                     SerializedProperty newElement = list.serializedProperty.GetArrayElementAtIndex(newIndex);
-                    newElement.FindPropertyRelative("uiTypeName").stringValue = "UIWindowMono";
+                    newElement.FindPropertyRelative("uiTypeName").stringValue = "UIPanelMono";
                     newElement.FindPropertyRelative("isGeneric").boolValue = false;
 
                     serializedObject.ApplyModifiedProperties();

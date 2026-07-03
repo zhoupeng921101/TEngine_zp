@@ -7,7 +7,7 @@ namespace GameLogic.UI
     /// <summary>
     /// 入口连接闸窗(强制联网入口)。登录在途时摆出、遮住背后,在「登录成功 + 服务端数据就绪 + 预载完成」之前
     /// 阻断进入玩法窗(开/关由 <see cref="GameApp"/> 的入口闸控制)。仅一态「连接中…」:不感知失败——
-    /// 登录失败由 GameApp 回退到 <see cref="LoginWindow"/> 处理(闸窗只负责在途遮屏与等待)。
+    /// 登录失败由 GameApp 回退到 <see cref="UILoginPanel"/> 处理(闸窗只负责在途遮屏与等待)。
     /// 纯代码搭 UI,prefab 为空壳根节点,无 m_* 绑定。
     ///
     /// 字体时序(WebGL 关键):本窗在 <see cref="GameApp"/> 同步启动路径上立即摆出(先于字体异步预载完成),
@@ -17,8 +17,8 @@ namespace GameLogic.UI
     ///   ② 文本(依赖字体)延后到 <see cref="UIPreloader.PreloadFontsAsync"/> await 完成后再建。
     /// 窗的「显示」仍走同步路径不动(推迟 show 会破坏登录回调 CloseUI 命中、致闸窗永久盖死)。
     /// </summary>
-    [Window(UILayer.Top, location: "ConnectingWindow", fullScreen: true)]
-    public sealed class ConnectingWindow : UIWindowMono
+    [Window(UILayer.Top, location: "UIConnectingPanel", fullScreen: true)]
+    public sealed class UIConnectingPanel : UIPanelMono
     {
         // 设计坐标系(1080×1920,左上原点、Y 下正),与 UGuiFactory 同口径。
         private const float Cx = 540f;
@@ -43,7 +43,7 @@ namespace GameLogic.UI
 
         /// <summary>
         /// await 字体预载完成后建依赖字体的文本。
-        /// race 守卫:await 期间窗可能被关闭/销毁(登录成功 → GameApp.CloseUI&lt;ConnectingWindow&gt;)。
+        /// race 守卫:await 期间窗可能被关闭/销毁(登录成功 → GameApp.CloseUI&lt;UIConnectingPanel&gt;)。
         /// 返回后触碰任何 GameObject/组件前先判窗是否已销毁,已销毁直接 return。
         /// </summary>
         private async UniTaskVoid BuildTextsAfterFontReady()

@@ -17,7 +17,7 @@ namespace GameLogic.BlockBlast.Tests
     /// 测试<b>不</b>引 Fantasy 协议类型(test asmdef 无 Fantasy.Unity 引用,memory「客户端段单测别给 test asmdef 加 Fantasy.Unity 引用」)。
     /// 等价计数(PV6)锚在「service 层连续调 N 次 = N 次推送、不自带防重」,
     /// 用 <c>FakeActivityIncrementSource.IncrementCalls</c> 计数 + 注入到 <see cref="GameContext.Activity"/> 直驱
-    /// <see cref="RemoteActivityService.IncrementAndLogAsync"/>。无尽模型(设计 49)下 MergeOrderWindow 无「局」终点,
+    /// <see cref="RemoteActivityService.IncrementAndLogAsync"/>。无尽模型(设计 49)下 UIMergeOrderPanel 无「局」终点,
     /// 不触发 AccumulatePlayCount 活动,源文本核对(Source_MergeOrderWindow_*)断言其 hook 缺席(沿 26 settlement-window 范式读源核行)。
     /// </remarks>
     [TestFixture]
@@ -307,40 +307,40 @@ namespace GameLogic.BlockBlast.Tests
         // ════════════ PV13 + PV14 + PV15 ⑧ 源码文本核:hook 落点 + 防重前置 + 不动玩法核心
         //              沿 26 settlement-window memory「整窗 hook 走读源文件 grep 关键行」范式 ════════════
 
-        // 无尽模型（设计 49）善后:MergeOrderWindow 删 TriggerWin / TriggerGameOver(无通关 / 无 GameOver),
+        // 无尽模型（设计 49）善后:UIMergeOrderPanel 删 TriggerWin / TriggerGameOver(无通关 / 无 GameOver),
         // 「累计游戏 N 局」活动原挂这两个终点 hook 上,无「局」后失效——本窗不再触发该活动(善后 follow-up 交 boss/plan 重定)。
         // 原 Source_MergeOrderWindow_TriggerGameOver / TriggerWin _HasActivityHookAfterDedup 翻转为「不再存在」断言。
         [Test]
         public void Source_MergeOrderWindow_NoWinOrGameOverTrigger()
         {
-            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs");
+            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/UIMergeOrderPanel.cs");
             Assert.IsFalse(src.Contains("private void TriggerWin()"),
-                "无尽模型:MergeOrderWindow 不再有 TriggerWin(无通关终点)");
+                "无尽模型:UIMergeOrderPanel 不再有 TriggerWin(无通关终点)");
             Assert.IsFalse(src.Contains("private void TriggerGameOver"),
-                "无尽模型:MergeOrderWindow 不再有 TriggerGameOver(无软/硬 GameOver)");
+                "无尽模型:UIMergeOrderPanel 不再有 TriggerGameOver(无软/硬 GameOver)");
         }
 
         [Test]
         public void Source_MergeOrderWindow_NoAccumulatePlayCountHook()
         {
-            // 无尽模型善后:MergeOrderWindow 不再触发 AccumulatePlayCount 活动(原挂在 Win/GameOver 终点)。
-            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs");
+            // 无尽模型善后:UIMergeOrderPanel 不再触发 AccumulatePlayCount 活动(原挂在 Win/GameOver 终点)。
+            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/UIMergeOrderPanel.cs");
             Assert.IsFalse(src.Contains("ActivityIds.AccumulatePlayCount"),
-                "无尽模型:MergeOrderWindow 不再触发 AccumulatePlayCount(无「局」概念)");
+                "无尽模型:UIMergeOrderPanel 不再触发 AccumulatePlayCount(无「局」概念)");
         }
 
         [Test]
         public void Source_MergeOrderWindow_NoActivityHookAtAll()
         {
-            // 无尽模型善后:MergeOrderWindow 删 Win/GameOver 终点后,活动 hook 字面 0 次(原 2 次 = TriggerGameOver + TriggerWin)。
-            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs");
+            // 无尽模型善后:UIMergeOrderPanel 删 Win/GameOver 终点后,活动 hook 字面 0 次(原 2 次 = TriggerGameOver + TriggerWin)。
+            var src = System.IO.File.ReadAllText("Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/UIMergeOrderPanel.cs");
             int count = 0; int pos = 0;
             while ((pos = src.IndexOf("Activity?.IncrementAndLogAsync(", pos, StringComparison.Ordinal)) >= 0)
             {
                 count++;
                 pos += 1;
             }
-            Assert.AreEqual(0, count, "无尽模型:MergeOrderWindow.cs 不再有任何活动 hook(Win/GameOver 终点已删)");
+            Assert.AreEqual(0, count, "无尽模型:UIMergeOrderPanel.cs 不再有任何活动 hook(Win/GameOver 终点已删)");
         }
 
         // ════════════ PV14 反证 业务层不直引 Fantasy.* 命名空间 ════════════
@@ -348,7 +348,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void Source_BusinessLayer_DoesNotImportFantasy()
         {
-            // RemoteActivityService / IActivityIncrementSource / MergeOrderWindow.cs 不引 Fantasy.*
+            // RemoteActivityService / IActivityIncrementSource / UIMergeOrderPanel.cs 不引 Fantasy.*
             // (RemoteActivityIncrementSource 经 #if FANTASY_UNITY 引,沿 38 §五 IRpcGateway 范式)
             string[] businessFiles =
             {
@@ -357,7 +357,7 @@ namespace GameLogic.BlockBlast.Tests
                 "Assets/GameScripts/HotFix/GameLogic/Module/Activity/ActivityIncrementResult.cs",
                 "Assets/GameScripts/HotFix/GameLogic/Module/Activity/ActivityIncrementCode.cs",
                 "Assets/GameScripts/HotFix/GameLogic/Module/Activity/ActivityIds.cs",
-                "Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/MergeOrderWindow.cs",
+                "Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/UIMergeOrderPanel.cs",
             };
             foreach (var path in businessFiles)
             {

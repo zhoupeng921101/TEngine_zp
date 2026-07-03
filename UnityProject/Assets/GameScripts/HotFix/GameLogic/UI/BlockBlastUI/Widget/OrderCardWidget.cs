@@ -5,14 +5,14 @@ using TEngine;
 namespace GameLogic
 {
     /// <summary>
-    /// 订单卡 Widget（MergeOrderWindow 固定 2 张复用）。
-    /// 数据填充由 MergeOrderWindow 调用 <see cref="SetData"/> 完成；
+    /// 订单卡 Widget（UIMergeOrderPanel 固定 2 张复用）。
+    /// 数据填充由 UIMergeOrderPanel 调用 <see cref="SetData"/> 完成；
     /// 交付按钮点击通过 <see cref="OnDeliver"/> 回调暴露给窗口，窗口注入槽位索引闭包。
     /// 绑定字段由 OrderCardWidget_Gen.g.cs 的 ScriptGenerator() 负责，本文件不重复定义。
     /// </summary>
     public partial class OrderCardWidget : UIWidgetMono
     {
-        /// <summary>交付按钮点击回调，由 MergeOrderWindow 在 CreateWidget 后注入。</summary>
+        /// <summary>交付按钮点击回调，由 UIMergeOrderPanel 在 CreateWidget 后注入。</summary>
         public System.Action OnDeliver;
 
         /// <summary>Gen 生成的按钮事件入口，转发到外部回调。</summary>

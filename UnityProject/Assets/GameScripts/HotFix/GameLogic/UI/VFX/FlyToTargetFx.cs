@@ -12,7 +12,7 @@ namespace GameLogic
     /// 从 owner 的子组件列表正规摘除，不残留悬空引用。
     ///
     /// 坐标系：起点 / 终点在生成时已换算为「飞行父层本地 anchoredPosition」（父层须为设计居中 overlay，如
-    /// MergeOrderWindow 的 m_rect_Content），本组件只在该本地空间内做插值，不再触碰世界坐标，避免父层偏移错算。
+    /// UIMergeOrderPanel 的 m_rect_Content），本组件只在该本地空间内做插值，不再触碰世界坐标，避免父层偏移错算。
     /// </summary>
     public sealed class FlyToTargetFx : MonoBehaviour
     {

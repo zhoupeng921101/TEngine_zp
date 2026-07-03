@@ -13,16 +13,16 @@ namespace GameLogic
     public abstract class UIWidgetMono : UIBaseMono
     {
         /// <summary>
-        /// 所属的窗口（向上沿父链查找首个 <see cref="UIWindowMono"/>）。
+        /// 所属的窗口（向上沿父链查找首个 <see cref="UIPanelMono"/>）。
         /// </summary>
-        public UIWindowMono OwnerWindow
+        public UIPanelMono OwnerWindow
         {
             get
             {
                 var parentUI = _parent;
                 while (parentUI != null)
                 {
-                    if (parentUI is UIWindowMono window)
+                    if (parentUI is UIPanelMono window)
                     {
                         return window;
                     }

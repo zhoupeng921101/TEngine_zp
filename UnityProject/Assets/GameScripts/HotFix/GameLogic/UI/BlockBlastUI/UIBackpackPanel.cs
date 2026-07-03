@@ -16,14 +16,14 @@ namespace GameLogic
     /// 点格子发起「使用」事务（<see cref="InventoryService.TryUseAsync"/>），服务端裁定并推送新投影；本窗只持投影、不本地改库存。
     /// </summary>
     /// <remarks>
-    /// 全代码构建（沿 <see cref="MainMenuWindow"/> / <c>RankWindow</c> 全代码生成范式，prefab 仅为空壳承载脚本，无 Inspector 拖线）。
+    /// 全代码构建（沿 <see cref="UIMainMenuPanel"/> / <c>UIRankPanel</c> 全代码生成范式，prefab 仅为空壳承载脚本，无 Inspector 拖线）。
     /// 数据权威在服务端（data-authority）：格子内容由登录快照 / 背包推送整份覆盖后经 <see cref="InventoryService.OnInventoryChanged"/>
     /// 触发重绘；批次倒计时基于服务端时间基准（<see cref="InventoryService.RemainingMs"/>），不信本地墙钟。
     /// 使用结果只做提示（成功产出的货币由属性推送刷新 HUD，本窗不展示货币栏），投影刷新一律等服务端推送，不乐观改本地。
     /// 本轮不做滚动：当前道具种类少，固定网格直排；种类增多时补 ScrollRect（本窗留待后续）。
     /// </remarks>
-    [Window(UILayer.UI, location: "BackpackWindow", fullScreen: false)]
-    public sealed class BackpackWindow : UIWindowMono
+    [Window(UILayer.UI, location: "UIBackpackPanel", fullScreen: false)]
+    public sealed class UIBackpackPanel : UIPanelMono
     {
         // ── 浮层面板几何（设计坐标：左上原点、Y 下正，原生 1080×1920）──
         private const float PanelCx = BlockLayout.DesignWidth / 2f;   // 540
@@ -290,7 +290,7 @@ namespace GameLogic
             }
             catch (System.Exception e)
             {
-                Log.Warning($"[BackpackWindow] 使用道具异常：{e.Message}");
+                Log.Warning($"[UIBackpackPanel] 使用道具异常：{e.Message}");
             }
             finally
             {
@@ -344,6 +344,6 @@ namespace GameLogic
             BurstText.Spawn(parent, PanelCx, PanelCy, msg, 48, new Color32(0x55, 0x44, 0x88, 0xFF));
         }
 
-        private void OnClose() => GameModule.UI.CloseUI<BackpackWindow>();
+        private void OnClose() => GameModule.UI.CloseUI<UIBackpackPanel>();
     }
 }

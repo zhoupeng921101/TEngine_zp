@@ -81,7 +81,7 @@ namespace TEngine.Editor.UI
 
             if (uiGenType == null)
             {
-                return "UIWindowMono";
+                return "UIPanelMono";
             }
             return !uiGenType.isGeneric ? uiGenType.uiTypeName : $"{uiGenType.uiTypeName}<{fileName}>";
         }
@@ -123,7 +123,7 @@ namespace TEngine.Editor.UI
             string uiTypeName = GetUITypeName(uiGenTypeName, className);
             if (!isAutoGenerate)
             {
-                uiTypeName = "UIWindowMono";
+                uiTypeName = "UIPanelMono";
                 if (root.name.StartsWith(widgetPrefix))
                 {
                     uiTypeName = "UIWidgetMono";
@@ -131,7 +131,7 @@ namespace TEngine.Editor.UI
                 }
             }
 
-            // 窗口体系统一为 MonoBehaviour（UIWindowMono / UIWidgetMono）：引用走 [SerializeField] 具名拖拽，
+            // 窗口体系统一为 MonoBehaviour（UIPanelMono / UIWidgetMono）：引用走 [SerializeField] 具名拖拽，
             // 字段生成 [SerializeField] private T m_x; ScriptGenerator() 只挂事件，不取 index。
             AutoErgodic(root, root, ref strVar, ref strBind, ref strOnCreate, ref strCallback, isUniTask, isMono: true);
             StringBuilder strFile = new StringBuilder();
@@ -383,7 +383,7 @@ namespace TEngine.Editor.UI
             strFile.AppendLine("{");
             {
                 if (string.Equals(uiTypeName, "UIWindow", StringComparison.Ordinal)
-                    || string.Equals(uiTypeName, "UIWindowMono", StringComparison.Ordinal))
+                    || string.Equals(uiTypeName, "UIPanelMono", StringComparison.Ordinal))
                 {
                     strFile.AppendLine($"\t[Window(UILayer.UI, location : \"{fileName.Replace(".cs", "")}\")]");
                 }

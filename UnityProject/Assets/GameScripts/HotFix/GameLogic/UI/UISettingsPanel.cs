@@ -25,8 +25,8 @@ namespace GameLogic.UI
     ///   下排 5 图标 clear（清存档）/Player_music（音乐♪）/Volume_up（音效🔊）/help（帮助灯泡）/printer（隐私人形）。
     ///   B4：下排实图含「音乐♪」「音效🔊」两位 → 音乐 + 音效双开关进窗。
     /// </remarks>
-    [Window(UILayer.Top, location: "SettingsWindow", fullScreen: false)]
-    public sealed class SettingsWindow : UIWindowMono
+    [Window(UILayer.Top, location: "UISettingsPanel", fullScreen: false)]
+    public sealed class UISettingsPanel : UIPanelMono
     {
         private const string Atlas = "Sheet_settings";
 
@@ -220,6 +220,6 @@ namespace GameLogic.UI
         /// <summary>占位统一反馈（V5：不死按钮）。工程暂无 Toast / 飘字系统 → 临时 Log.Info；待建后替换。</summary>
         private void ShowPlaceholder(string msg) => Log.Info($"[设置窗·待建] {msg}");
 
-        // 关闭走基类 UIWindowMono.Close()（= UIModule.CloseUI(GetType())，等价 CloseUI<SettingsWindow>()）。
+        // 关闭走基类 UIPanelMono.Close()（= UIModule.CloseUI(GetType())，等价 CloseUI<UISettingsPanel>()）。
     }
 }

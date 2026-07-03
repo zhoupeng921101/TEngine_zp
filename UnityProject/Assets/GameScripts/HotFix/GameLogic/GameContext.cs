@@ -147,7 +147,7 @@ namespace GameLogic
             OrderSync = new OrderSync(new OrderRpcGatewayProd(), MetaCurrency, Items);
 
             // 进主游戏编排(全栈协议改动·客户端段):生产用 EnterMainGameGatewayProd(经 Session 发 C2G_EnterMainGameRequest);
-            // 进融合主游戏(MainMenuWindow 开始游戏)时发请求,响应回带订单快照 → OrderSync 统一应用,
+            // 进融合主游戏(UIMainMenuPanel 开始游戏)时发请求,响应回带订单快照 → OrderSync 统一应用,
             // 道具持有 → Items 整份覆盖,塔罗收集 → Tarot 整份覆盖。
             // (局内 cosmetic + 合成经济叠加层改经 C2G_GameStart/GameSnapshot 的 SliceJson 收发,不再走进主游戏回带的云存档 blob。)
             EnterMainGame = new EnterMainGameSync(new EnterMainGameGatewayProd(), OrderSync, Items, Tarot);
@@ -303,7 +303,7 @@ namespace GameLogic
         /// 当前 id 缺省 1/101 与客户端默认一致,登录不闪默认头像。
         /// </summary>
         /// <remarks>
-        /// 覆盖本地投影而非另建载体:<see cref="AvatarUnlockService"/> / <see cref="PlayerInfoWindow"/> 换装 / 显示 均读 <see cref="Player"/>,
+        /// 覆盖本地投影而非另建载体:<see cref="AvatarUnlockService"/> / <see cref="UIPlayerInfoPanel"/> 换装 / 显示 均读 <see cref="Player"/>,
         /// 把服务端权威值写进 <see cref="Player"/> 即让所有读取路径拿服务端投影,乐观变更由 <see cref="CosmeticService"/> 对账回写。
         /// 服务端当前 id ≤ 0(异常缺省)时退客户端默认,保显示不空。
         /// </remarks>

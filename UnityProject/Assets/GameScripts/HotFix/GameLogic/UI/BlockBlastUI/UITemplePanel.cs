@@ -10,11 +10,11 @@ namespace GameLogic
     /// 神庙面板（长期主线，设计 13 §五）：顶部主线信息行（虔诚币 / 守护者等级 / 本级经验进度 / 已解锁章节）
     /// + 12 厅三态卡片（已修 / 可修 / 币不足 / 未解锁）+ 修复按钮（币不足或未解锁置灰）。
     /// glyph + 纯色、零美术，复用 <see cref="UGuiFactory"/> / <see cref="BurstText"/>，与 demo 一致。
-    /// 读同一份 <see cref="BlockGameState.Instance"/>.MergeState（与 <see cref="MergeOrderWindow"/> 同源引用），
-    /// 叠层打开不丢当前局；修复后刷新本窗，返回 MergeOrderWindow 时虔诚币自然反映扣减。
+    /// 读同一份 <see cref="BlockGameState.Instance"/>.MergeState（与 <see cref="UIMergeOrderPanel"/> 同源引用），
+    /// 叠层打开不丢当前局；修复后刷新本窗，返回 UIMergeOrderPanel 时虔诚币自然反映扣减。
     /// </summary>
-    [Window(UILayer.UI, location: "TempleWindow", fullScreen: true)]
-    public sealed class TempleWindow : UIWindowMono
+    [Window(UILayer.UI, location: "UITemplePanel", fullScreen: true)]
+    public sealed class UITemplePanel : UIPanelMono
     {
         private const int Cols = 3;   // 3 列 × 4 行 = 12 厅
 
@@ -29,7 +29,7 @@ namespace GameLogic
         private Text _expText;
         private Text _chapterText;
 
-        // 关窗回调：返回 MergeOrderWindow 时让其刷新虔诚币显示（叠层不丢局，UserData[0] 传入）。
+        // 关窗回调：返回 UIMergeOrderPanel 时让其刷新虔诚币显示（叠层不丢局，UserData[0] 传入）。
         private System.Action _onClosed;
 
         protected override void OnCreate()
@@ -60,10 +60,10 @@ namespace GameLogic
             UGuiFactory.CreateText(_content, "Title", cx, 86, 864, 86, "神庙修复", 58,
                 new Color32(0xff, 0xcf, 0x5c, 0xFF));
 
-            // 退出（返回 MergeOrderWindow，不丢局：只关本窗）
+            // 退出（返回 UIMergeOrderPanel，不丢局：只关本窗）
             var exit = UGuiFactory.CreateButton(_content, "Exit", BlockLayout.DesignWidth - 79, 86, 101, 86, "×", 63,
                 new Color(0, 0, 0, 0), Color.white, out _, out _);
-            exit.onClick.AddListener(() => GameModule.UI.CloseUI<TempleWindow>());
+            exit.onClick.AddListener(() => GameModule.UI.CloseUI<UITemplePanel>());
 
             // 顶部主线信息行（两行）
             UGuiFactory.CreateImage(_content, "HeaderBg", cx, 238, 1008, 187, new Color(0, 0, 0, 0.25f));
@@ -221,7 +221,7 @@ namespace GameLogic
             RefreshTempleList();
 
             // 跨会话存档（设计 14 §3.4）：修复改虔诚币/经验/章节/神庙数组等元层 → 标脏 + 异步落盘。
-            // 与 MergeOrderWindow 共享同一 MergeState 引用,落盘的是同一份元层进度。
+            // 与 UIMergeOrderPanel 共享同一 MergeState 引用,落盘的是同一份元层进度。
             if (_merge == null) return;
             _merge.RequestSave();
             var dto = _merge.ExportMeta();

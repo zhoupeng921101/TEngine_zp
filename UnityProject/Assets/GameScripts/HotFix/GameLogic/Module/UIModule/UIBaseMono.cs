@@ -8,7 +8,7 @@ namespace GameLogic
 {
     /// <summary>
     /// MonoBehaviour UI 基类：UI 共享面（节点访问走 MonoBehaviour 原生）。
-    /// 由 <see cref="UIWindowMono"/> 与 <see cref="UIWidgetMono"/> 共同继承，承载父子链、FindChild、事件、
+    /// 由 <see cref="UIPanelMono"/> 与 <see cref="UIWidgetMono"/> 共同继承，承载父子链、FindChild、事件、
     /// CreateWidget 工厂家族与子树更新（<see cref="UpdateChildren"/>）。
     /// 引用绑定走 <c>[SerializeField]</c> 具名拖拽。
     /// </summary>

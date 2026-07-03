@@ -80,7 +80,7 @@ namespace GameLogic.BlockBlast.Player
 
         /// <summary>
         /// 最近一次建局(续局)/ 快照恢复回带的局内 cosmetic + 合成经济叠加层切片原文(服务端不透明搬运)。
-        /// 空串 = 无切片(新建局走宿主 Reset 缺省)。本引擎<b>不解析</b>该切片,只透传给宿主(<c>MergeOrderWindow</c>),
+        /// 空串 = 无切片(新建局走宿主 Reset 缺省)。本引擎<b>不解析</b>该切片,只透传给宿主(<c>UIMergeOrderPanel</c>),
         /// 由宿主经 <c>MergeIngameSave.Deserialize</c> + <c>BlockGameState.ImportIngame</c> 恢复局内叠加层。
         /// 宿主在 <see cref="OnAuthoritativeChanged"/> 回调里读取本值并 import。
         /// </summary>

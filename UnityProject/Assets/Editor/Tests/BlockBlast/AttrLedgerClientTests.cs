@@ -273,7 +273,7 @@ namespace GameLogic.BlockBlast.Tests
             long ts5MinAgo = new DateTimeOffset(now.AddMinutes(-5)).ToUnixTimeMilliseconds();
 
             var entry = Entry(ts5MinAgo, AttrType.Coin, 1000, 1500, AttrChangeSource.RankSettleReward, "rank_1");
-            var vm = PlayerAttrLedgerWindow.BuildRowVM(entry, now);
+            var vm = UIPlayerAttrLedgerPanel.BuildRowVM(entry, now);
 
             Assert.AreEqual("5 分钟前", vm.TimeText);
             Assert.AreEqual(AttrType.Coin, vm.Kind);
@@ -289,7 +289,7 @@ namespace GameLogic.BlockBlast.Tests
             var now = new DateTime(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc);
             var entry = Entry(new DateTimeOffset(now.AddSeconds(-30)).ToUnixTimeMilliseconds(),
                 AttrType.Diamond, 100, 50, AttrChangeSource.ChangeNameSpend, "player_rename");
-            var vm = PlayerAttrLedgerWindow.BuildRowVM(entry, now);
+            var vm = UIPlayerAttrLedgerPanel.BuildRowVM(entry, now);
 
             Assert.AreEqual("刚刚", vm.TimeText);
             Assert.AreEqual("钻石", vm.KindText);
@@ -304,7 +304,7 @@ namespace GameLogic.BlockBlast.Tests
             var now = new DateTime(2026, 6, 21, 12, 0, 0, DateTimeKind.Utc);
             var entry = Entry(new DateTimeOffset(now.AddMinutes(-1)).ToUnixTimeMilliseconds(),
                 AttrType.Stamina, 5, 0, (AttrChangeSource)99, "future_source");
-            var vm = PlayerAttrLedgerWindow.BuildRowVM(entry, now);
+            var vm = UIPlayerAttrLedgerPanel.BuildRowVM(entry, now);
 
             Assert.AreEqual("其他", vm.SourceText, "未来扩 source 整数 → default「其他」兜底");
             Assert.AreEqual("体力", vm.KindText);
@@ -316,7 +316,7 @@ namespace GameLogic.BlockBlast.Tests
         {
             Assert.DoesNotThrow(() =>
             {
-                var vm = PlayerAttrLedgerWindow.BuildRowVM(null, DateTime.UtcNow);
+                var vm = UIPlayerAttrLedgerPanel.BuildRowVM(null, DateTime.UtcNow);
             });
         }
 

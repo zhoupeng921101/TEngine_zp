@@ -12,11 +12,11 @@ namespace GameLogic
     /// 生命周期由 <see cref="UIModule"/> 显式驱动，不写 Awake/Start/OnEnable/Update 等魔法方法
     /// （<see cref="OnDestroy"/> 为 Unity 魔法回调，故用 <see cref="IsDestroyed"/> 守卫防双触发）。
     /// </summary>
-    public abstract class UIWindowMono : UIBaseMono
+    public abstract class UIPanelMono : UIBaseMono
     {
         #region Properties
 
-        private Action<UIWindowMono> _prepareCallback;
+        private Action<UIPanelMono> _prepareCallback;
 
         private bool _isCreate = false;
 
@@ -155,7 +155,7 @@ namespace GameLogic
         /// <summary>
         /// 初始化 panel（抓取 Canvas / 子 Canvas / Raycaster，置就绪并回调，由 <see cref="UIModule"/> 加载完成后驱动）。
         /// </summary>
-        internal void Setup(GameObject panel, Action<UIWindowMono> prepareCallback, object[] userDatas)
+        internal void Setup(GameObject panel, Action<UIPanelMono> prepareCallback, object[] userDatas)
         {
             _prepareCallback = prepareCallback;
             _userDatas = userDatas;
@@ -182,7 +182,7 @@ namespace GameLogic
             _prepareCallback?.Invoke(this);
         }
 
-        public void TryInvoke(Action<UIWindowMono> prepareCallback, object[] userDatas)
+        public void TryInvoke(Action<UIPanelMono> prepareCallback, object[] userDatas)
         {
             CancelHideToCloseTimer();
             _userDatas = userDatas;

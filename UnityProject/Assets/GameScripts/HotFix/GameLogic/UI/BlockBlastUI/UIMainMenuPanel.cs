@@ -8,10 +8,10 @@ namespace GameLogic
 {
     /// <summary>
     /// 主菜单（玩法融合单入口，设计 29 §3.1）：标题 + 「开始游戏」按钮 → 融合玩法窗口 + 历史最高分。
-    /// 经典纯无尽（GameWindow）入口下线，融合主玩法 = 承载完整经济的 MergeOrderWindow。
+    /// 经典纯无尽（GameWindow）入口下线，融合主玩法 = 承载完整经济的 UIMergeOrderPanel。
     /// </summary>
-    [Window(UILayer.UI, location: "MainMenuWindow", fullScreen: true)]
-    public sealed class MainMenuWindow : UIWindowMono
+    [Window(UILayer.UI, location: "UIMainMenuPanel", fullScreen: true)]
+    public sealed class UIMainMenuPanel : UIPanelMono
     {
         /// <summary>进玩法入口等进主游戏响应对齐时的看门狗超时(毫秒)。慢网偶发短等;超时按本地兜底放行,绝不卡死。</summary>
         private const int EnterReadyTimeoutMs = 8000;
@@ -19,7 +19,7 @@ namespace GameLogic
         /// <summary>进窗防重入。等待就绪期间二次点击「开始游戏」只进窗一次。</summary>
         private bool _entering;
 
-        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.RankWindow"/> 默认展示榜一致，个人最佳分投影读此榜。</summary>
+        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.UIRankPanel"/> 默认展示榜一致，个人最佳分投影读此榜。</summary>
         private const int MainRankId = 1;
 
         protected override void OnCreate()
@@ -40,7 +40,7 @@ namespace GameLogic
             UGuiFactory.CreateText(content, "Sub", cx, 590, 1008, 72, "合成订单 · 经典无尽融合", 37,
                 new Color32(0x88, 0xaa, 0xcc, 0xFF));
 
-            // 「开始游戏」单入口 → 融合玩法（MergeOrderWindow 承载完整经济，设计 29 §3.1）
+            // 「开始游戏」单入口 → 融合玩法（UIMergeOrderPanel 承载完整经济，设计 29 §3.1）
             var btn = UGuiFactory.CreateButton(content, "BtnStart", cx, 1037, 677, 216, "开始游戏", 75,
                 new Color32(0x44, 0x77, 0xff, 0xFF), Color.white, out _, out _);
             UGuiFactory.CreateText(content, "StartSub", cx, 1138, 677, 58, "落子·消除·合成·订单 · 完成 5 单通关", 32,
@@ -58,7 +58,7 @@ namespace GameLogic
                 new Color32(0x77, 0x88, 0x99, 0xFF), Color.white, out _, out _);
             btnSettings.onClick.AddListener(() =>
             {
-                GameModule.UI.ShowUIAsync<GameLogic.UI.SettingsWindow>();
+                GameModule.UI.ShowUIAsync<GameLogic.UI.UISettingsPanel>();
             });
 
             // 个人信息入口（设计 25 §八 D6：本轮入口落主菜单，照 BtnSettings 做法；玩法 HUD 顶栏头像入口后续轮）
@@ -66,7 +66,7 @@ namespace GameLogic
                 new Color32(0x99, 0x77, 0x88, 0xFF), Color.white, out _, out _);
             btnPlayerInfo.onClick.AddListener(() =>
             {
-                GameModule.UI.ShowUIAsync<GameLogic.UI.PlayerInfoWindow>();
+                GameModule.UI.ShowUIAsync<GameLogic.UI.UIPlayerInfoPanel>();
             });
 
             // 排行榜入口（设计 28 §八：本轮入口落主菜单，照 BtnPlayerInfo 做法；玩法 HUD / 结算窗入口后续轮）
@@ -74,7 +74,7 @@ namespace GameLogic
                 new Color32(0x88, 0x99, 0x77, 0xFF), Color.white, out _, out _);
             btnRank.onClick.AddListener(() =>
             {
-                GameModule.UI.ShowUIAsync<GameLogic.UI.RankWindow>();
+                GameModule.UI.ShowUIAsync<GameLogic.UI.UIRankPanel>();
             });
 
             // 背包入口（背包系统·客户端段）：左下角，开悬浮背包窗（非弹框，主菜单仍可见）。
@@ -82,7 +82,7 @@ namespace GameLogic
                 new Color32(0x7B, 0x86, 0xC2, 0xFF), Color.white, out _, out _);
             btnBackpack.onClick.AddListener(() =>
             {
-                GameModule.UI.ShowUIAsync<GameLogic.BackpackWindow>();
+                GameModule.UI.ShowUIAsync<GameLogic.UIBackpackPanel>();
             });
 
         }
@@ -91,7 +91,7 @@ namespace GameLogic
         /// 「开始游戏」进玩法编排:发一次进主游戏请求(EnterMainGame,决策②每次进入重新对齐),服务端一次性原子响应
         /// 回带订单快照(配看门狗超时)→ 关主菜单 + 开融合玩法窗。
         /// 由 Button.onClick 经 .Forget() 调用(等价 async void),故全程 try/catch 兜底、异常不外逃;
-        /// _entering 防重入保证等待期二次点击只进窗一次。就绪/超时后再 Close+Show,MergeOrderWindow.OnCreate 读到的本地键已是服务端对齐后投影。
+        /// _entering 防重入保证等待期二次点击只进窗一次。就绪/超时后再 Close+Show,UIMergeOrderPanel.OnCreate 读到的本地键已是服务端对齐后投影。
         /// </summary>
         private async UniTaskVoid EnterMergeOrder(Button btn)
         {
@@ -109,15 +109,15 @@ namespace GameLogic
                     await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(EnterReadyTimeoutMs, ignoreTimeScale: true));
                 }
 
-                GameModule.UI.CloseUI<MainMenuWindow>();
-                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+                GameModule.UI.CloseUI<UIMainMenuPanel>();
+                GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
             }
             catch (System.Exception e)
             {
                 // 任何异常都不得让 async void 逃逸崩主菜单:本地兜底放行。
-                Log.Warning($"[MainMenuWindow] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
-                GameModule.UI.CloseUI<MainMenuWindow>();
-                GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+                Log.Warning($"[UIMainMenuPanel] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
+                GameModule.UI.CloseUI<UIMainMenuPanel>();
+                GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
             }
             // 不重置 _entering / 按钮 interactable:成功路径下本窗已 Close 销毁,无需还原。
         }

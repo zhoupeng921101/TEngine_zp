@@ -24,8 +24,8 @@ namespace GameLogic.UI
     ///
     /// 点赞按钮默认省略（效果图无该钮，设计 28 §七 D2）；接线点见 <see cref="OnPraisePlaceholder"/> 注释。
     /// </remarks>
-    [Window(UILayer.Top, location: "RankWindow", fullScreen: false)]
-    public sealed class RankWindow : UIWindowMono
+    [Window(UILayer.Top, location: "UIRankPanel", fullScreen: false)]
+    public sealed class UIRankPanel : UIPanelMono
     {
         private const string Atlas = "Sheet_settings";   // 复用设置窗精灵表（设计 23 §三）
         private const int RankId = 1;                     // 本屏默认展示榜 id（单榜，§七 D1；多榜则换页签选中 id）
@@ -340,6 +340,6 @@ namespace GameLogic.UI
         // 奖经邮件发进收件箱（不在本窗弹奖，设计 22 §3.5），末尾 OnRefresh() 刷态。窗口不自写领取逻辑（W4）。
         // private void OnPraisePlaceholder() { var r = Svc.ClaimPraise(RankId); /* switch(r.Status) ... */ OnRefresh(); }
 
-        // 关闭走基类 UIWindowMono.Close()（= UIModule.CloseUI(GetType())，等价 CloseUI<RankWindow>()）。
+        // 关闭走基类 UIPanelMono.Close()（= UIModule.CloseUI(GetType())，等价 CloseUI<UIRankPanel>()）。
     }
 }

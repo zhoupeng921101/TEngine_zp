@@ -27,8 +27,8 @@ namespace GameLogic.UI
     /// 响应回带最新 Nickname/RenameCount/Diamond 覆盖 <see cref="PlayerAttrService"/> 视图。客户端不本地扣钻、不本地写名、不落 blob。
     /// 生日（D2）：3 下拉纯 UI 占位，不绑数据、不入存档（数据层无生日字段）。
     /// </remarks>
-    [Window(UILayer.Top, location: "PlayerInfoWindow", fullScreen: false)]
-    public sealed class PlayerInfoWindow : UIWindowMono
+    [Window(UILayer.Top, location: "UIPlayerInfoPanel", fullScreen: false)]
+    public sealed class UIPlayerInfoPanel : UIPanelMono
     {
         private const string Atlas = "Sheet_settings";   // 复用设置窗精灵表（设计 23 §三）
 
@@ -112,8 +112,8 @@ namespace GameLogic.UI
         /// 代码动态生成「我的流水」按钮挂 NameBlock 下方(设计 46 §4.2)。
         /// </summary>
         /// <remarks>
-        /// 沿 RankWindow 全代码生成范式:不动 25 PlayerInfoWindow prefab 节点(美术 Tier 2+ 补图后即用,本子单不阻塞);
-        /// 占位色 + 文案,语义连续(玩家进 PlayerInfoWindow 看个人信息 → 自然顺手看流水)。
+        /// 沿 UIRankPanel 全代码生成范式:不动 25 UIPlayerInfoPanel prefab 节点(美术 Tier 2+ 补图后即用,本子单不阻塞);
+        /// 占位色 + 文案,语义连续(玩家进 UIPlayerInfoPanel 看个人信息 → 自然顺手看流水)。
         /// NameBlock 父节点缺失时返 null,调用方 null-safe 跳过(PV12)。
         /// </remarks>
         private Button BuildLedgerEntryButton()
@@ -159,10 +159,10 @@ namespace GameLogic.UI
             return btn;
         }
 
-        /// <summary>点「我的流水」按钮 → 打开 PlayerAttrLedgerWindow(设计 46 §4.2)。</summary>
+        /// <summary>点「我的流水」按钮 → 打开 UIPlayerAttrLedgerPanel(设计 46 §4.2)。</summary>
         private void OnLedgerEntryClicked()
         {
-            GameModule.UI.ShowUIAsync<PlayerAttrLedgerWindow>();
+            GameModule.UI.ShowUIAsync<UIPlayerAttrLedgerPanel>();
         }
 
         protected override void OnCreate()
@@ -389,7 +389,7 @@ namespace GameLogic.UI
         private void OnConfirmAndClose()
         {
             GameContext.Instance.SavePlayer();   // 确定再保险存一次（改名时已存过）
-            GameModule.UI.CloseUI<PlayerInfoWindow>();
+            GameModule.UI.CloseUI<UIPlayerInfoPanel>();
         }
 
         /// <summary>占位统一反馈（同设计 23：工程暂无 Toast / 飘字 → 临时 Log.Info；待建后替换为真实弹字）。</summary>

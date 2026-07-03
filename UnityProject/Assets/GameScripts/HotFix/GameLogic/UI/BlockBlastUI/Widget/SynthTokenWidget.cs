@@ -6,7 +6,7 @@ using GameLogic.BlockBlast;
 namespace GameLogic
 {
     /// <summary>
-    /// 合成 Token Widget（MergeOrderWindow 合成区可变数量池，由 AdjustIconNum 管理实例数）。
+    /// 合成 Token Widget（UIMergeOrderPanel 合成区可变数量池，由 AdjustIconNum 管理实例数）。
     /// 每个实例对应一种合成元素（类型×等级），显示图标和数量文字。
     /// 绑定字段由 SynthTokenWidget_Gen.g.cs 的 ScriptGenerator() 负责，本文件不重复定义。
     /// </summary>

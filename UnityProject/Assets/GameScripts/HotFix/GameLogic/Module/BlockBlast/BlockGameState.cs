@@ -545,7 +545,7 @@ namespace GameLogic.BlockBlast
             MergeState.ApplyTimeRegen(MergeMetaPersistence.NowUnixSec());
 
             // 局内叠加层续存:cosmetic + 合成经济叠加层作为不透明切片存服务端(GameSessionDoc.SliceJson),
-            // 续局 / 快照恢复时由宿主(MergeOrderWindow)从服务端回带的切片 import(经 ServerDealSync.PendingSliceJson →
+            // 续局 / 快照恢复时由宿主(UIMergeOrderPanel)从服务端回带的切片 import(经 ServerDealSync.PendingSliceJson →
             // MergeIngameSave.Deserialize → ImportIngame),覆盖本步建好的缺省空盘。本地无磁盘投影,本步只建缺省现场:
             // 首次 / 无切片(新建局)即以此空盘 + 下方补满 3 块起步。
             if (board != null) board.ConvertFromArr(SaveArr);

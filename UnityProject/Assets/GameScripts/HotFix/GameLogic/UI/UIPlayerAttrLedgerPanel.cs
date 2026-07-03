@@ -21,8 +21,8 @@ namespace GameLogic.UI
     /// 设计 46 §4.3 / O3,Tier 2+ 加 untilTs 字段才能翻);Window 销毁解绑 + 用 _fetchToken 防响应回来时已 dispose 致 NRE
     /// (设计 46 §5.1 表)。
     /// </remarks>
-    [Window(UILayer.Top, location: "PlayerAttrLedgerWindow", fullScreen: false)]
-    public sealed class PlayerAttrLedgerWindow : UIWindowMono
+    [Window(UILayer.Top, location: "UIPlayerAttrLedgerPanel", fullScreen: false)]
+    public sealed class UIPlayerAttrLedgerPanel : UIPanelMono
     {
         // 拉取参数(设计 46 §4.1 O2 默认 50 条)
         private const int DefaultLimit = 50;
@@ -75,7 +75,7 @@ namespace GameLogic.UI
             // 子节点(行 / 按钮 / Text)由 GameObject 销毁链自动清,无需手动 Destroy
         }
 
-        // ════════════ UI 布局(全代码生成,1080×1920 坐标系,沿 28 RankWindow 范式)════════════
+        // ════════════ UI 布局(全代码生成,1080×1920 坐标系,沿 28 UIRankPanel 范式)════════════
 
         private void BuildLayout()
         {
@@ -121,7 +121,7 @@ namespace GameLogic.UI
             listFrame.anchoredPosition = new Vector2(0f, -40f);
             AddImage2(listFrame, new Color(0.92f, 0.88f, 0.78f));
             listFrame.gameObject.AddComponent<RectMask2D>(); // 裁剪超出列表框的行
-            // Viewport / Content 同位铺满,沿 28 RankWindow 结构
+            // Viewport / Content 同位铺满,沿 28 UIRankPanel 结构
             var viewport = NewRect("Viewport", listFrame, 760f, 760f);
             viewport.anchorMin = viewport.anchorMax = viewport.pivot = new Vector2(0.5f, 0.5f);
             viewport.anchoredPosition = Vector2.zero;
@@ -258,7 +258,7 @@ namespace GameLogic.UI
                 case AttrLedgerQueryCode.InvalidRequest:
                 default:
                     SetStatus("请求参数异常,请联系客服");
-                    Log.Error($"[PlayerAttrLedgerWindow] 收到 InvalidRequest 结果码,可能是客户端 bug");
+                    Log.Error($"[UIPlayerAttrLedgerPanel] 收到 InvalidRequest 结果码,可能是客户端 bug");
                     break;
             }
         }
@@ -317,7 +317,7 @@ namespace GameLogic.UI
                 e.BalanceBefore + " → " + e.BalanceAfter);
         }
 
-        // ════════════ 列表行 UGUI 生成(沿 28 RankWindow BuildRowGo 范式)════════════
+        // ════════════ 列表行 UGUI 生成(沿 28 UIRankPanel BuildRowGo 范式)════════════
 
         private static GameObject BuildRowGo(Transform parent, AttrLedgerEntry e, int index, DateTime nowUtc)
         {
@@ -444,6 +444,6 @@ namespace GameLogic.UI
             return txt;
         }
 
-        private void Close() => GameModule.UI.CloseUI<PlayerAttrLedgerWindow>();
+        private void Close() => GameModule.UI.CloseUI<UIPlayerAttrLedgerPanel>();
     }
 }

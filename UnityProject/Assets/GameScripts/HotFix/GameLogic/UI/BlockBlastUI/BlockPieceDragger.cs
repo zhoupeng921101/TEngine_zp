@@ -21,7 +21,7 @@ namespace GameLogic
 
         /// <summary>
         /// 拾起放大倍数覆写（自适应棋盘用）。为 null 时回退 <see cref="BlockLayout.DragScale"/>（固定常量棋盘）。
-        /// MergeOrderWindow 棋盘格尺寸随 BoardLayer 自适应，须传「自适应格尺寸 / SlotCell」让拖起的块与棋盘格等大。
+        /// UIMergeOrderPanel 棋盘格尺寸随 BoardLayer 自适应，须传「自适应格尺寸 / SlotCell」让拖起的块与棋盘格等大。
         /// </summary>
         public float? OverrideScale;
 

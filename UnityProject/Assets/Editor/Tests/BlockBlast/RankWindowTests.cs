@@ -131,7 +131,7 @@ namespace GameLogic.BlockBlast.Tests
             InjectRank(FixedSource(500, 100, fillers), new RecordingMailService());
             var board = GameContext.Instance.Rank.GetBoard(BoardWeekly);
 
-            var rows = RankWindow.BuildRowModels(board);
+            var rows = UIRankPanel.BuildRowModels(board);
             Assert.AreEqual(board.Entries.Count, rows.Count, "行数 == Entries.Count");
 
             // 首行 = 名次1 / 800 分（陪榜，非本机）
@@ -157,9 +157,9 @@ namespace GameLogic.BlockBlast.Tests
             var board = GameContext.Instance.Rank.GetBoard(BoardWeekly);
 
             Assert.AreEqual(2, board.SelfRank, "900 第1，本机 700 第2");
-            Assert.AreEqual("2", RankWindow.MyRankText(board), "我的名次文本 == SelfRank");
-            Assert.AreEqual("★700", RankWindow.MyScoreText(board), "我的成绩文本 == ★SelfScore");
-            Assert.AreEqual("玩家110820", RankWindow.MyNameText(board), "我的名字 = 占位本机名");
+            Assert.AreEqual("2", UIRankPanel.MyRankText(board), "我的名次文本 == SelfRank");
+            Assert.AreEqual("★700", UIRankPanel.MyScoreText(board), "我的成绩文本 == ★SelfScore");
+            Assert.AreEqual("玩家110820", UIRankPanel.MyNameText(board), "我的名字 = 占位本机名");
         }
 
         // ════════════ W6：未入榜 / 空榜 / null 不崩 ════════════
@@ -173,12 +173,12 @@ namespace GameLogic.BlockBlast.Tests
             var board = GameContext.Instance.Rank.GetBoard(BoardWeekly);
 
             Assert.AreEqual(0, board.SelfRank, "未达入榜要求 → SelfRank 0");
-            Assert.AreEqual("--", RankWindow.MyRankText(board), "未入榜名次显 --");
-            Assert.AreEqual("未上榜", RankWindow.MyNameText(board), "未入榜名字显「未上榜」");
-            Assert.AreEqual("★50", RankWindow.MyScoreText(board), "未入榜仍显当前最佳分");
+            Assert.AreEqual("--", UIRankPanel.MyRankText(board), "未入榜名次显 --");
+            Assert.AreEqual("未上榜", UIRankPanel.MyNameText(board), "未入榜名字显「未上榜」");
+            Assert.AreEqual("★50", UIRankPanel.MyScoreText(board), "未入榜仍显当前最佳分");
 
             // 行列表只含入榜的陪榜，不含本机 50 分，且不抛
-            var rows = RankWindow.BuildRowModels(board);
+            var rows = UIRankPanel.BuildRowModels(board);
             foreach (var r in rows) Assert.AreNotEqual("50", r.Score, "本机 50 分未入榜，不在行列表");
         }
 
@@ -188,24 +188,24 @@ namespace GameLogic.BlockBlast.Tests
             // board == null（榜不存在）
             Assert.DoesNotThrow(() =>
             {
-                var rows = RankWindow.BuildRowModels(null);
+                var rows = UIRankPanel.BuildRowModels(null);
                 Assert.AreEqual(0, rows.Count, "null board → 空行列表");
-                Assert.AreEqual("--", RankWindow.MyRankText(null));
-                Assert.AreEqual("未上榜", RankWindow.MyNameText(null));
-                Assert.AreEqual("★0", RankWindow.MyScoreText(null));
+                Assert.AreEqual("--", UIRankPanel.MyRankText(null));
+                Assert.AreEqual("未上榜", UIRankPanel.MyNameText(null));
+                Assert.AreEqual("★0", UIRankPanel.MyScoreText(null));
             });
 
             // Entries 为 null 的 board
             Assert.DoesNotThrow(() =>
             {
-                var rows = RankWindow.BuildRowModels(new RankBoard { Id = 1, Entries = null });
+                var rows = UIRankPanel.BuildRowModels(new RankBoard { Id = 1, Entries = null });
                 Assert.AreEqual(0, rows.Count, "Entries==null → 空行列表");
             });
 
             // 空 Entries 的 board
             Assert.DoesNotThrow(() =>
             {
-                var rows = RankWindow.BuildRowModels(new RankBoard { Id = 1, Entries = new List<RankEntry>() });
+                var rows = UIRankPanel.BuildRowModels(new RankBoard { Id = 1, Entries = new List<RankEntry>() });
                 Assert.AreEqual(0, rows.Count, "空 Entries → 空行列表");
             });
         }
@@ -220,8 +220,8 @@ namespace GameLogic.BlockBlast.Tests
             Assert.IsNull(board, "榜不存在 → GetBoard 返 null");
             Assert.DoesNotThrow(() =>
             {
-                Assert.AreEqual(0, RankWindow.BuildRowModels(board).Count);
-                Assert.AreEqual("--", RankWindow.MyRankText(board));
+                Assert.AreEqual(0, UIRankPanel.BuildRowModels(board).Count);
+                Assert.AreEqual("--", UIRankPanel.MyRankText(board));
             });
         }
     }

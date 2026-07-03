@@ -59,7 +59,7 @@ namespace GameLogic
 
         /// <summary>
         /// 异步预载全部玩法 widget / 特效预制并持有模板引用。
-        /// 必须在打开 MergeOrderWindow 之前 await 完成。逐项失败不阻断（记 Error，尽力放行其余）。
+        /// 必须在打开 UIMergeOrderPanel 之前 await 完成。逐项失败不阻断（记 Error，尽力放行其余）。
         /// 幂等：已缓存的 location 跳过（清档软重启重跑时去重）。
         /// </summary>
         public static async UniTask PreloadGameplayWidgetsAsync()

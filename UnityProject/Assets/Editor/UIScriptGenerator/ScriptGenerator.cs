@@ -94,7 +94,7 @@ namespace TEngine.Editor.UI
                     else
                     {
                         strFile.Append($"\t[Window(UILayer.UI,location:\"{root.name}\")]\n");
-                        strFile.Append("\tpublic partial class " + root.name + " : UIWindowMono\n");
+                        strFile.Append("\tpublic partial class " + root.name + " : UIPanelMono\n");
                     }
 
                     strFile.Append("\t{\n");

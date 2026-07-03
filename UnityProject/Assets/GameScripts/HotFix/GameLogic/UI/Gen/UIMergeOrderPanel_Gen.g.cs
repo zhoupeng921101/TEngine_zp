@@ -12,7 +12,7 @@ using TEngine;
 
 namespace GameLogic
 {
-	public partial class MergeOrderWindow : UIWindowMono
+	public partial class UIMergeOrderPanel : UIPanelMono
 	{
 		#region 脚本工具生成的代码
 

@@ -11,7 +11,7 @@ namespace GameLogic
 {
     /// <summary>
     /// UI管理模块。
-    /// 窗口体系统一为 MonoBehaviour（<see cref="UIWindowMono"/>）：脚本挂 prefab 根、引用走 [SerializeField]。
+    /// 窗口体系统一为 MonoBehaviour（<see cref="UIPanelMono"/>）：脚本挂 prefab 根、引用走 [SerializeField]。
     /// 实例须先加载 prefab 再 GetComponent 取得，故无法像纯 C# 窗口那样加载前同步入栈，
     /// 加载期由 <see cref="_pendingMono"/> 占位去重并承接「加载途中请求关闭」的竞态。
     /// </summary>
@@ -21,7 +21,7 @@ namespace GameLogic
         private static Transform _instanceRoot = null;          // UI根节点变换组件
         private bool _enableErrorLog = true;                    // 是否启用错误日志
         private Camera _uiCamera = null;                        // UI专用摄像机
-        private readonly List<UIWindowMono> _uiStack = new List<UIWindowMono>(128); // 窗口堆栈
+        private readonly List<UIPanelMono> _uiStack = new List<UIPanelMono>(128); // 窗口堆栈
         // Mono 窗口加载中状态表。键 = 窗口名（类型 FullName），值 = 加载途中是否已请求关闭。
         // 实例在加载完成后才存在，无法加载前入栈去重，故用此表在加载期占位。
         // 加载途中 CloseUI/CloseAll 命中时把值置 true；LoadMonoWindow 在 await 后据此放弃入栈并销毁实例
@@ -194,7 +194,7 @@ namespace GameLogic
                 return string.Empty;
             }
 
-            UIWindowMono topWindow = _uiStack[^1];
+            UIPanelMono topWindow = _uiStack[^1];
             return topWindow.WindowName;
         }
 
@@ -203,7 +203,7 @@ namespace GameLogic
         /// </summary>
         public string GetTopWindow(int layer)
         {
-            UIWindowMono lastOne = null;
+            UIPanelMono lastOne = null;
             for (int i = 0; i < _uiStack.Count; i++)
             {
                 if (_uiStack[i].WindowLayer == layer)
@@ -255,7 +255,7 @@ namespace GameLogic
         /// 异步打开窗口。
         /// </summary>
         /// <param name="userDatas">用户自定义数据。</param>
-        public void ShowUIAsync<T>(params System.Object[] userDatas) where T : UIWindowMono
+        public void ShowUIAsync<T>(params System.Object[] userDatas) where T : UIPanelMono
         {
             ShowUIImp(typeof(T), true, userDatas);
         }
@@ -275,7 +275,7 @@ namespace GameLogic
         /// </summary>
         /// <typeparam name="T">窗口类。</typeparam>
         /// <param name="userDatas">用户自定义数据。</param>
-        public void ShowUI<T>(params System.Object[] userDatas) where T : UIWindowMono
+        public void ShowUI<T>(params System.Object[] userDatas) where T : UIPanelMono
         {
             ShowUIImp(typeof(T), false, userDatas);
         }
@@ -284,9 +284,9 @@ namespace GameLogic
         /// 异步打开窗口并等待返回实例。
         /// </summary>
         /// <param name="userDatas">用户自定义数据。</param>
-        public async UniTask<T> ShowUIAsyncAwait<T>(params System.Object[] userDatas) where T : UIWindowMono
+        public async UniTask<T> ShowUIAsyncAwait<T>(params System.Object[] userDatas) where T : UIPanelMono
         {
-            UIWindowMono window = await ShowUIAwaitImp(typeof(T), true, userDatas);
+            UIPanelMono window = await ShowUIAwaitImp(typeof(T), true, userDatas);
             return window as T;
         }
 
@@ -301,7 +301,7 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 打开窗口（<see cref="UIWindowMono"/> 子类）：先加载 prefab，再 <c>GetComponent</c> 取实例。
+        /// 打开窗口（<see cref="UIPanelMono"/> 子类）：先加载 prefab，再 <c>GetComponent</c> 取实例。
         /// 已在栈中（已加载完成的复用）→ 重新置顶并触发刷新回调；正在加载中 → 去重忽略本次请求。
         /// </summary>
         private void ShowUIImp(Type type, bool isAsync, params System.Object[] userDatas)
@@ -311,7 +311,7 @@ namespace GameLogic
             // 已在栈中（已加载完成的复用）→ 重新置顶并触发刷新回调。
             if (IsContains(windowName))
             {
-                UIWindowMono exist = GetWindow(windowName);
+                UIPanelMono exist = GetWindow(windowName);
                 Pop(exist);
                 Push(exist);
                 exist.TryInvoke(OnWindowPrepare, userDatas);
@@ -334,7 +334,7 @@ namespace GameLogic
         /// 复用 <see cref="ShowUIImp"/> 触发加载，再轮询 _uiStack 直至命中实例且 IsLoadDone（60s 超时兜底）。
         /// 已在栈中则即时返回。
         /// </summary>
-        private async UniTask<UIWindowMono> ShowUIAwaitImp(Type type, bool isAsync, System.Object[] userDatas)
+        private async UniTask<UIPanelMono> ShowUIAwaitImp(Type type, bool isAsync, System.Object[] userDatas)
         {
             string windowName = type.FullName;
             ShowUIImp(type, isAsync, userDatas);
@@ -342,7 +342,7 @@ namespace GameLogic
             float time = 0f;
             while (true)
             {
-                UIWindowMono window = GetWindow(windowName);
+                UIPanelMono window = GetWindow(windowName);
                 if (window != null && window.IsLoadDone)
                 {
                     return window;
@@ -378,7 +378,7 @@ namespace GameLogic
                 int hideTimeToClose = attribute != null ? attribute.HideTimeToClose : 10;
                 bool fromResources = attribute != null && attribute.FromResources;
 
-                // 加载分支：fromResources 走 UnityEngine.Resources.Load 同步实例化（LogUI 等内置资源依赖，
+                // 加载分支：fromResources 走 UnityEngine.Resources.Load 同步实例化（UILogPanel 等内置资源依赖，
                 // 非 YooAsset bundle，不受 WebGL 同步加载限制）；否则一律走 YooAsset 异步加载。
                 // 注：isAsync 仅影响调用方是否 await 实例返回（ShowUIAwaitImp），不再切换同步/异步资源加载——
                 // 客户端运行时禁用同步资源加载 API（WebGL 不支持），故 YooAsset 路径恒异步。
@@ -408,12 +408,12 @@ namespace GameLogic
                     return;
                 }
 
-                UIWindowMono window = panel.GetComponent<UIWindowMono>();
+                UIPanelMono window = panel.GetComponent<UIPanelMono>();
                 if (window == null)
                 {
                     _pendingMono.Remove(windowName);
                     UnityEngine.Object.Destroy(panel);
-                    Log.Error($"Mono window prefab has no {nameof(UIWindowMono)} component: {windowName}");
+                    Log.Error($"Mono window prefab has no {nameof(UIPanelMono)} component: {windowName}");
                     return;
                 }
 
@@ -436,7 +436,7 @@ namespace GameLogic
         /// 关闭窗口。
         /// </summary>
         /// <typeparam name="T">窗口类型</typeparam>
-        public void CloseUI<T>() where T : UIWindowMono
+        public void CloseUI<T>() where T : UIPanelMono
         {
             CloseUI(typeof(T));
         }
@@ -452,7 +452,7 @@ namespace GameLogic
                 return;
             }
 
-            UIWindowMono window = GetWindow(windowName);
+            UIPanelMono window = GetWindow(windowName);
             if (window == null)
                 return;
 
@@ -462,7 +462,7 @@ namespace GameLogic
             OnSetWindowVisible();
         }
 
-        public void HideUI<T>() where T : UIWindowMono
+        public void HideUI<T>() where T : UIPanelMono
         {
             HideUI(typeof(T));
         }
@@ -470,7 +470,7 @@ namespace GameLogic
         public void HideUI(Type type)
         {
             string windowName = type.FullName;
-            UIWindowMono window = GetWindow(windowName);
+            UIPanelMono window = GetWindow(windowName);
             if (window == null)
             {
                 return;
@@ -506,7 +506,7 @@ namespace GameLogic
 
             for (int i = 0; i < _uiStack.Count; i++)
             {
-                UIWindowMono window = _uiStack[i];
+                UIPanelMono window = _uiStack[i];
                 window.InternalDestroy(isShutDown);
             }
 
@@ -516,13 +516,13 @@ namespace GameLogic
         /// <summary>
         /// 关闭所有窗口除了。
         /// </summary>
-        public void CloseAllWithOut(UIWindowMono withOut)
+        public void CloseAllWithOut(UIPanelMono withOut)
         {
             MarkAllPendingClose();
 
             for (int i = _uiStack.Count - 1; i >= 0; i--)
             {
-                UIWindowMono window = _uiStack[i];
+                UIPanelMono window = _uiStack[i];
                 if (ReferenceEquals(window, withOut))
                 {
                     continue;
@@ -536,13 +536,13 @@ namespace GameLogic
         /// <summary>
         /// 关闭所有窗口除了。
         /// </summary>
-        public void CloseAllWithOut<T>() where T : UIWindowMono
+        public void CloseAllWithOut<T>() where T : UIPanelMono
         {
             MarkAllPendingClose();
 
             for (int i = _uiStack.Count - 1; i >= 0; i--)
             {
-                UIWindowMono window = _uiStack[i];
+                UIPanelMono window = _uiStack[i];
                 if (window.GetType() == typeof(T))
                 {
                     continue;
@@ -572,10 +572,10 @@ namespace GameLogic
 
         /// <summary>
         /// 窗口被外部直接销毁（场景卸载 / 手动 Destroy GameObject）时的兜底出栈。
-        /// 由 <see cref="UIWindowMono.OnDestroy"/> 在框架显式 InternalDestroy 未先行时调用：
+        /// 由 <see cref="UIPanelMono.OnDestroy"/> 在框架显式 InternalDestroy 未先行时调用：
         /// 从栈摘除、重排同层深度、重算可见性（缺陷 C 的窗口侧修复）。
         /// </summary>
-        internal void NotifyWindowDestroyed(UIWindowMono window)
+        internal void NotifyWindowDestroyed(UIPanelMono window)
         {
             if (window == null)
             {
@@ -593,7 +593,7 @@ namespace GameLogic
             OnSetWindowVisible();
         }
 
-        private void OnWindowPrepare(UIWindowMono window)
+        private void OnWindowPrepare(UIPanelMono window)
         {
             window.InternalCreate();
             window.InternalRefresh();
@@ -619,7 +619,7 @@ namespace GameLogic
             bool isHideNext = false;
             for (int i = _uiStack.Count - 1; i >= 0; i--)
             {
-                UIWindowMono window = _uiStack[i];
+                UIPanelMono window = _uiStack[i];
                 if (isHideNext == false)
                 {
                     if (window.IsHide)
@@ -642,7 +642,7 @@ namespace GameLogic
         /// <summary>
         /// 异步获取窗口。
         /// </summary>
-        public async UniTask<T> GetUIAsyncAwait<T>(CancellationToken cancellationToken = default) where T : UIWindowMono
+        public async UniTask<T> GetUIAsyncAwait<T>(CancellationToken cancellationToken = default) where T : UIPanelMono
         {
             string windowName = typeof(T).FullName;
             var window = GetWindow(windowName);
@@ -680,7 +680,7 @@ namespace GameLogic
         /// 异步获取窗口。
         /// </summary>
         /// <param name="callback">回调。</param>
-        public void GetUIAsync<T>(Action<T> callback) where T : UIWindowMono
+        public void GetUIAsync<T>(Action<T> callback) where T : UIPanelMono
         {
             string windowName = typeof(T).FullName;
             var window = GetWindow(windowName);
@@ -714,11 +714,11 @@ namespace GameLogic
             }
         }
 
-        private UIWindowMono GetWindow(string windowName)
+        private UIPanelMono GetWindow(string windowName)
         {
             for (int i = 0; i < _uiStack.Count; i++)
             {
-                UIWindowMono window = _uiStack[i];
+                UIPanelMono window = _uiStack[i];
                 if (window.WindowName == windowName)
                 {
                     return window;
@@ -732,7 +732,7 @@ namespace GameLogic
         {
             for (int i = 0; i < _uiStack.Count; i++)
             {
-                UIWindowMono window = _uiStack[i];
+                UIPanelMono window = _uiStack[i];
                 if (window.WindowName == windowName)
                 {
                     return true;
@@ -742,7 +742,7 @@ namespace GameLogic
             return false;
         }
 
-        private void Push(UIWindowMono window)
+        private void Push(UIPanelMono window)
         {
             // 如果已经存在
             if (IsContains(window.WindowName))
@@ -782,7 +782,7 @@ namespace GameLogic
             _uiStack.Insert(insertIndex, window);
         }
 
-        private void Pop(UIWindowMono window)
+        private void Pop(UIPanelMono window)
         {
             // 从堆栈里移除
             _uiStack.Remove(window);

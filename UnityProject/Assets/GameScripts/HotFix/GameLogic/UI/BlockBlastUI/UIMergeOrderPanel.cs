@@ -18,15 +18,15 @@ namespace GameLogic
     /// 「再来一局」关本窗重开 = 新局（服务端已删档，GameStart 走 Resumed=false）。订单无限、体力时基恢复（含离线）+
     /// 消除道具（主动清一行一列、代价体力、只受体力门控）仍是局内常态机制。
     /// </summary>
-    [Window(UILayer.UI, location: "MergeOrderWindow", fullScreen: true)]
-    public sealed partial class MergeOrderWindow : UIWindowMono
+    [Window(UILayer.UI, location: "UIMergeOrderPanel", fullScreen: true)]
+    public sealed partial class UIMergeOrderPanel : UIPanelMono
     {
         // 静态视觉壳（sprite + tint）烤进 prefab 绑定节点（_Gen.g.cs 的 m_*）的 m_Sprite / m_Color，prefab 为唯一来源，
         // 代码不运行时 SetSprite 这些节点。动态内容（棋盘格 / ghost / 候选块 / 元素图标 / 订单卡 / 合成 token）由代码生成、
         // 运行时 SetSprite 填进空层节点；消除道具 gate 染色由 RefreshClearTool 运行时按体力门控写入。
         private const int N = BlockLayout.BoardSize;
 
-        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.RankWindow"/> / 主菜单 BEST 一致，终局权威最佳分刷进此榜投影。</summary>
+        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.UIRankPanel"/> / 主菜单 BEST 一致，终局权威最佳分刷进此榜投影。</summary>
         private const int MainRankId = 1;
 
         private BlockGameState _state;
@@ -220,7 +220,7 @@ namespace GameLogic
         private async UniTaskVoid StartServerGameThenProject(GameLogic.BlockBlast.Player.ServerDealSync deal)
         {
             try { await deal.StartGameAsync(); }
-            catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] C2G_GameStart 异常,保留本地兜底:{e.Message}"); }
+            catch (System.Exception e) { Log.Warning($"[UIMergeOrderPanel] C2G_GameStart 异常,保留本地兜底:{e.Message}"); }
         }
 
         /// <summary>
@@ -249,10 +249,10 @@ namespace GameLogic
             _resyncing = true;
             try
             {
-                Log.Info($"[MergeOrderWindow] 对局重同步({trigger}):重发 C2G_GameStart 恢复服务端权威态。");
+                Log.Info($"[UIMergeOrderPanel] 对局重同步({trigger}):重发 C2G_GameStart 恢复服务端权威态。");
                 await deal.StartGameAsync();
             }
-            catch (System.Exception e) { Log.Warning($"[MergeOrderWindow] 对局重同步异常({trigger}):{e.Message}"); }
+            catch (System.Exception e) { Log.Warning($"[UIMergeOrderPanel] 对局重同步异常({trigger}):{e.Message}"); }
             finally { _resyncing = false; }
         }
 
@@ -364,9 +364,9 @@ namespace GameLogic
             _orderContent = m_rect_OrderLayer.GetComponent<ScrollRect>()?.content;
             _synthContent = m_img_ElemBar.GetComponent<ScrollRect>()?.content;
             if (_orderContent == null)
-                Log.Error("[MergeOrderWindow] m_rect_OrderLayer 上缺少 ScrollRect 或其 Content 未设置，订单区无法渲染，请检查 prefab。");
+                Log.Error("[UIMergeOrderPanel] m_rect_OrderLayer 上缺少 ScrollRect 或其 Content 未设置，订单区无法渲染，请检查 prefab。");
             if (_synthContent == null)
-                Log.Error("[MergeOrderWindow] m_img_ElemBar 上缺少 ScrollRect 或其 Content 未设置，合成区无法渲染，请检查 prefab。");
+                Log.Error("[UIMergeOrderPanel] m_img_ElemBar 上缺少 ScrollRect 或其 Content 未设置，合成区无法渲染，请检查 prefab。");
 
             // 消除道具按钮（左下角，设计 49 §3.1）：图标 gate 染色由 RefreshClearTool 运行时按体力门控写入 m_btn_ClearTool.image。
             // 关掉 Button 自带 ColorTint 过渡：prefab 上该按钮 Transition=ColorTint 且 TargetGraphic=图标自身，
@@ -469,7 +469,7 @@ namespace GameLogic
             _orderCards = new OrderCardWidget[MergeOrderConfig.ActiveOrders];
             if (_orderContent == null)
             {
-                Log.Error("[MergeOrderWindow] 订单滚动容器缺失（OrderLayer 的 ScrollRect.content），订单卡未创建。");
+                Log.Error("[UIMergeOrderPanel] 订单滚动容器缺失（OrderLayer 的 ScrollRect.content），订单卡未创建。");
                 return;
             }
             for (int slot = 0; slot < _orderCards.Length; slot++)
@@ -478,7 +478,7 @@ namespace GameLogic
                 var card = CreateWidgetByType<OrderCardWidget>(_orderContent);
                 if (card == null)
                 {
-                    Log.Error($"[MergeOrderWindow] OrderCardWidget 加载失败（资源定位名 OrderCardWidget），订单卡 {slot} 未创建。");
+                    Log.Error($"[UIMergeOrderPanel] OrderCardWidget 加载失败（资源定位名 OrderCardWidget），订单卡 {slot} 未创建。");
                     continue;
                 }
                 // 横向布局自行定位，卡保持 prefab 原始尺寸（LayoutElement 提供首选宽高），仅校正缩放。
@@ -500,26 +500,26 @@ namespace GameLogic
             {
                 _energyCountdown = CreateWidgetByType<CountdownWidget>(m_rect_EnergyCountdownSlot);
                 if (_energyCountdown == null)
-                    Log.Error("[MergeOrderWindow] CountdownWidget（体力）加载失败（资源定位名 CountdownWidget），体力倒计时未创建。");
+                    Log.Error("[UIMergeOrderPanel] CountdownWidget（体力）加载失败（资源定位名 CountdownWidget），体力倒计时未创建。");
                 else if (_energyCountdown.rectTransform != null)
                     _energyCountdown.rectTransform.localScale = Vector3.one;
             }
             else
             {
-                Log.Error("[MergeOrderWindow] m_rect_EnergyCountdownSlot 缺失，体力倒计时未创建，请检查 prefab 锚点绑定。");
+                Log.Error("[UIMergeOrderPanel] m_rect_EnergyCountdownSlot 缺失，体力倒计时未创建，请检查 prefab 锚点绑定。");
             }
 
             if (m_rect_OrderCountdownSlot != null)
             {
                 _orderCountdown = CreateWidgetByType<CountdownWidget>(m_rect_OrderCountdownSlot);
                 if (_orderCountdown == null)
-                    Log.Error("[MergeOrderWindow] CountdownWidget（订单）加载失败（资源定位名 CountdownWidget），订单倒计时未创建。");
+                    Log.Error("[UIMergeOrderPanel] CountdownWidget（订单）加载失败（资源定位名 CountdownWidget），订单倒计时未创建。");
                 else if (_orderCountdown.rectTransform != null)
                     _orderCountdown.rectTransform.localScale = Vector3.one;
             }
             else
             {
-                Log.Error("[MergeOrderWindow] m_rect_OrderCountdownSlot 缺失，订单倒计时未创建，请检查 prefab 锚点绑定。");
+                Log.Error("[UIMergeOrderPanel] m_rect_OrderCountdownSlot 缺失，订单倒计时未创建，请检查 prefab 锚点绑定。");
             }
         }
 
@@ -665,7 +665,7 @@ namespace GameLogic
                 var tk = CreateWidgetByType<SynthTokenWidget>(_synthContent);
                 if (tk == null)
                 {
-                    Log.Error($"[MergeOrderWindow] SynthTokenWidget 加载失败（资源定位名 SynthTokenWidget），合成 token {key} 未创建。");
+                    Log.Error($"[UIMergeOrderPanel] SynthTokenWidget 加载失败（资源定位名 SynthTokenWidget），合成 token {key} 未创建。");
                     continue;
                 }
                 if (tk.rectTransform != null) tk.rectTransform.localScale = Vector3.one;
@@ -734,11 +734,11 @@ namespace GameLogic
             }
         }
 
-        // ── 「神庙」按钮（m_btn_Temple，生成代码接线）：叠层打开 TempleWindow（不关本窗、不丢局），关闭后刷新虔诚币 ──
+        // ── 「神庙」按钮（m_btn_Temple，生成代码接线）：叠层打开 UITemplePanel（不关本窗、不丢局），关闭后刷新虔诚币 ──
         private partial void OnClick_TempleBtn()
         {
             CancelClearToolArming(); // 开神庙叠层打断指定格模式
-            GameModule.UI.ShowUIAsync<TempleWindow>((System.Action)RefreshPiety);
+            GameModule.UI.ShowUIAsync<UITemplePanel>((System.Action)RefreshPiety);
         }
 
         // ── 开盒（m_btn_OpenBox，生成代码接线，设计 12 §五）：扣 1 → 掷奖 → 发放 → 内联弹字 + 刷新计数/合成区/体力 ──
@@ -913,7 +913,7 @@ namespace GameLogic
                         // GameNotFound 额外兜底自愈:重连后对局失效即重同步重建(与 Place 同,_resyncing 守卫防并发风暴)。
                         if (result.Code == GameLogic.BlockBlast.Player.DealResultCode.GameNotFound)
                         {
-                            Log.Warning("[MergeOrderWindow] C2G_ClearTool 回 GameNotFound(对局已失效),触发重同步重建对局。");
+                            Log.Warning("[UIMergeOrderPanel] C2G_ClearTool 回 GameNotFound(对局已失效),触发重同步重建对局。");
                             ResyncServerGameAsync("ClearTool-GameNotFound").Forget();
                         }
                         break;
@@ -921,7 +921,7 @@ namespace GameLogic
             }
             catch (System.Exception e)
             {
-                Log.Warning($"[MergeOrderWindow] C2G_ClearTool 异常,保留本地态:{e.Message}");
+                Log.Warning($"[UIMergeOrderPanel] C2G_ClearTool 异常,保留本地态:{e.Message}");
             }
         }
 
@@ -1137,7 +1137,7 @@ namespace GameLogic
                             block = CreateWidgetByType<BlockWidget>(m_rect_BoardLayer);
                             if (block == null)
                             {
-                                Log.Error("[MergeOrderWindow] BlockWidget 加载失败（资源定位名 BlockWidget），棋盘格底块未创建。");
+                                Log.Error("[UIMergeOrderPanel] BlockWidget 加载失败（资源定位名 BlockWidget），棋盘格底块未创建。");
                                 continue;
                             }
                             // 自适应：格尺寸与位置按 BoardLayer.rect 现算（BoardCellSize / BoardCellLocalPos），随 BoardLayer 缩放。
@@ -1190,7 +1190,7 @@ namespace GameLogic
                             elem = CreateWidgetByType<ElementWidget>(m_rect_BoardLayer);
                             if (elem == null)
                             {
-                                Log.Error("[MergeOrderWindow] ElementWidget 加载失败（资源定位名 ElementWidget），棋盘元素图标未创建。");
+                                Log.Error("[UIMergeOrderPanel] ElementWidget 加载失败（资源定位名 ElementWidget），棋盘元素图标未创建。");
                                 continue;
                             }
                             // 父层 m_rect_BoardLayer + BoardLayer 本地坐标（与棋盘格同源），居中摆根。
@@ -1571,7 +1571,7 @@ namespace GameLogic
                         case GameLogic.BlockBlast.Player.DealResultCode.GameNotFound:
                             // 兜底自愈:通常由重连重登的 OnLoggedIn 先触发重同步;此处覆盖「重连后重同步尚未完成又落子」等漏网时序。
                             // _resyncing 守卫使并发的多条 GameNotFound 只重建一次。
-                            Log.Warning("[MergeOrderWindow] C2G_Place 回 GameNotFound(对局已失效),触发重同步重建对局。");
+                            Log.Warning("[UIMergeOrderPanel] C2G_Place 回 GameNotFound(对局已失效),触发重同步重建对局。");
                             ResyncServerGameAsync("Place-GameNotFound").Forget();
                             break;
                         // 其余(断网/服务不可用/未登录/非法):保留本地乐观态,基线排除已抬平不误报,不拿 NewEnergy(=0) 覆盖。
@@ -1583,7 +1583,7 @@ namespace GameLogic
             }
             catch (System.Exception e)
             {
-                Log.Warning($"[MergeOrderWindow] C2G_Place 异常,保留本地态:{e.Message}");
+                Log.Warning($"[UIMergeOrderPanel] C2G_Place 异常,保留本地态:{e.Message}");
             }
         }
 
@@ -1823,8 +1823,8 @@ namespace GameLogic
             // 元层(最高分/女神/盲盒等)落盘后丢弃 MergeState,与退出同口径,避免重开 OnCreate 的 ResetForMergeOrder 读到脏态。
             FlushSaveIfDirty();
             _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<MergeOrderWindow>();
-            GameModule.UI.ShowUIAsync<MergeOrderWindow>();
+            GameModule.UI.CloseUI<UIMergeOrderPanel>();
+            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
 
         /// <summary>结算面板「返回」:复用退出路径回主菜单(落盘 + 关门控 + 关窗 + 回主菜单)。</summary>
@@ -1832,8 +1832,8 @@ namespace GameLogic
         {
             FlushSaveIfDirty();
             _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<MergeOrderWindow>();
-            GameModule.UI.ShowUIAsync<MainMenuWindow>();
+            GameModule.UI.CloseUI<UIMergeOrderPanel>();
+            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
 
         // ── ghost 落点高亮（与 GameWindow 同构） ──
@@ -2030,8 +2030,8 @@ namespace GameLogic
             // 局内态续存：先落盘对局现场，再 ExitMergeOrder 丢弃 MergeState/ElementArr（顺序不可换，否则写空盘覆盖有效快照）。
             FlushSaveIfDirty();
             _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<MergeOrderWindow>();
-            GameModule.UI.ShowUIAsync<MainMenuWindow>();
+            GameModule.UI.CloseUI<UIMergeOrderPanel>();
+            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
 
         // ── 女神满档领取按钮（m_btn_GoddessClaim，生成代码接线，设计 11 §十）──

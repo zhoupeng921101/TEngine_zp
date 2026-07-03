@@ -5,7 +5,7 @@ using TEngine;
 namespace GameLogic
 {
     /// <summary>
-    /// 棋盘元素图标 Widget（MergeOrderWindow 棋盘每个含元素的格一个实例，叠在格底块之上，由窗口池化复用）。
+    /// 棋盘元素图标 Widget（UIMergeOrderPanel 棋盘每个含元素的格一个实例，叠在格底块之上，由窗口池化复用）。
     /// 棋盘元素恒为 Lv1 原料（无等级层），图标 sprite 由窗口按 MergeElementVisual.SpriteName(el,1) 解析后传入。
     /// 同一 widget 也用作合成/交付飞行图标的视觉本体（FlyToTargetFx 创建并驱动运动）。
     /// 绑定字段 m_eximg_Icon 由 ElementWidget_Gen.g.cs 声明、prefab 序列化引用，本文件不重复定义。

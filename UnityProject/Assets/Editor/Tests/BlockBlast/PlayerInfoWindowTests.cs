@@ -16,7 +16,7 @@ namespace GameLogic.BlockBlast.Tests
     /// 两类断言，都不依赖 Play / 真实 prefab：
     /// 1. GameContext 持有 PlayerInfo 往返（H2）——经测试注入入口 <see cref="GameContext.InitPlayerFromMeta"/>
     ///    灌 DTO / 无 DTO，断言字段。
-    /// 2. 窗口逻辑（W3/W5）——bare new 一个 <see cref="PlayerInfoWindow"/>（不 Activate、不加载 prefab，
+    /// 2. 窗口逻辑（W3/W5）——bare new 一个 <see cref="UIPlayerInfoPanel"/>（不 Activate、不加载 prefab，
     ///    UI 组件字段全 null，窗口方法对 null 字段已做空守卫），反射调私有方法断言：
     ///    改名走服务端权威 RPC（<see cref="IRenameGateway"/>）—— 观察 PlayerAttrService.Nickname/RenameCount/Diamond
     ///    按服务端响应对齐、本地不扣钻不写名；占位点击不抛。窗口真实视觉绑定 / OnRefresh 文本刷新（W2/W4）属 V 组 Play 实测。
@@ -102,21 +102,21 @@ namespace GameLogic.BlockBlast.Tests
         // ② 合法则发 C2G_Rename（仅上报新昵称）；③ 据响应对齐 PlayerAttrService.Nickname/RenameCount/Diamond。
         // 客户端不本地扣钻、不本地写名。用桩 IRenameGateway 注各分支响应，观察 PlayerAttrService 视图与 RPC 调用参数。
 
-        // PlayerInfoWindow 迁 MonoBehaviour 体系（UIWindowMono）后不能 new 构造：挂到临时 GameObject 上。
+        // UIPlayerInfoPanel 迁 MonoBehaviour 体系（UIPanelMono）后不能 new 构造：挂到临时 GameObject 上。
         // 不 Setup / 不加载 prefab，UI 组件字段（[SerializeField]）全 null，窗口方法对 null 字段已做空守卫。
         // 建出的 GameObject 在 TearDown 销毁。
         private GameObject _bareGo;
 
-        private PlayerInfoWindow NewBareWindow()
+        private UIPlayerInfoPanel NewBareWindow()
         {
             if (_bareGo != null) UnityEngine.Object.DestroyImmediate(_bareGo);
             _bareGo = new GameObject("PlayerInfoWindow_BareTest");
-            return _bareGo.AddComponent<PlayerInfoWindow>();
+            return _bareGo.AddComponent<UIPlayerInfoPanel>();
         }
 
-        private static void InvokeRenameSubmit(PlayerInfoWindow w, string newName)
+        private static void InvokeRenameSubmit(UIPlayerInfoPanel w, string newName)
         {
-            var m = typeof(PlayerInfoWindow).GetMethod("OnRenameSubmit",
+            var m = typeof(UIPlayerInfoPanel).GetMethod("OnRenameSubmit",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(m, "应有私有方法 OnRenameSubmit");
             m.Invoke(w, new object[] { newName });
@@ -247,9 +247,9 @@ namespace GameLogic.BlockBlast.Tests
 
         // ═══════════════════════ W5：占位项点击不抛 ═══════════════════════
 
-        private static void InvokeNoArgPrivate(PlayerInfoWindow w, string method)
+        private static void InvokeNoArgPrivate(UIPlayerInfoPanel w, string method)
         {
-            var m = typeof(PlayerInfoWindow).GetMethod(method,
+            var m = typeof(UIPlayerInfoPanel).GetMethod(method,
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.IsNotNull(m, $"应有私有方法 {method}");
             Assert.DoesNotThrow(() => m.Invoke(w, Array.Empty<object>()),
@@ -277,7 +277,7 @@ namespace GameLogic.BlockBlast.Tests
         [Test]
         public void StableColorFor_SameId_SameColor()
         {
-            var m = typeof(PlayerInfoWindow).GetMethod("StableColorFor",
+            var m = typeof(UIPlayerInfoPanel).GetMethod("StableColorFor",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.IsNotNull(m, "应有静态私有 StableColorFor");
             var c1 = (Color)m.Invoke(null, new object[] { 7 });

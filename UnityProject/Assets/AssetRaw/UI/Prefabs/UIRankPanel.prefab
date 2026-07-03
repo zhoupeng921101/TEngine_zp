@@ -488,7 +488,7 @@ GameObject:
   - component: {fileID: 1010804213854395758}
   - component: {fileID: 3808445247913311757}
   m_Layer: 0
-  m_Name: RankWindow
+  m_Name: UIRankPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -567,7 +567,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f727d2f960839fd4baa033b3ae29eb5c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: GameLogic::GameLogic.UI.RankWindow
+  m_EditorClassIdentifier: GameLogic::GameLogic.UI.UIRankPanel
   _btnMask: {fileID: 3042403277418635409}
   _btnClose: {fileID: 1911647383917814863}
   _btnBottom: {fileID: 5957069273032437015}

@@ -20,7 +20,7 @@ namespace GameLogic
         public const float CellSize = 121f;             // 每格像素（1080 原生空间绝对值）
 
         // 棋盘格视觉内缩间隙（单格视觉边长 = 格距 - 此值）：单一事实源。
-        // 自适应棋盘渲染（MergeOrderWindow）单格 = BoardCellSize() - BoardCellGap，格距 = BoardCellSize()；
+        // 自适应棋盘渲染（UIMergeOrderPanel）单格 = BoardCellSize() - BoardCellGap，格距 = BoardCellSize()；
         // 候选块单格 base 反推此值除以拖起放大倍数，使放大后单格视觉与棋盘格精确相等。
         public const float BoardCellGap = 6f;
         public const float BoardPixels = CellSize * BoardSize;  // 968
