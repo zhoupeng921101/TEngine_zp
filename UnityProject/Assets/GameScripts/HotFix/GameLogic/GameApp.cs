@@ -204,7 +204,7 @@ public partial class GameApp
             }
             FantasyClient.FantasyNetwork.Shutdown();
             GameModule.UI.CloseUI<GameLogic.UI.UIConnectingPanel>();
-            GameModule.UI.ShowUIAsync<GameLogic.UI.UILoginPanel>(reason);
+            GameModule.UI.ShowUIAsync<GameLogic.UILoginPanel>(reason);
         };
 #endif
         // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
@@ -234,7 +234,7 @@ public partial class GameApp
         else
         {
             // 无已存账号(首次)→ 先出登录窗,不发起 Boot;由用户输入账号点登录经 BeginLogin 发起。
-            GameModule.UI.ShowUIAsync<GameLogic.UI.UILoginPanel>();
+            GameModule.UI.ShowUIAsync<GameLogic.UILoginPanel>();
         }
 #else
         // 网络模块未启用(无 Fantasy 栈,无登录流程):直接开玩法窗,避免闸永不满足而卡死。
