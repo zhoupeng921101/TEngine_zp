@@ -16,7 +16,7 @@ description: 轻型 AI 流水线,用于小/低风险开发任务,支持客户端
 ## 适用范围
 
 - **本管线(/pipeline-lite)**:小/低风险任务,无需设计稿沉淀——当前唯一在用的流水线入口。
-- **需 design-docs 设计稿 / 独立验证 / 高风险方案取舍**的任务:重型 `/pipeline`(含 plan/ui/test 角色)已归档停用;确有此类需要时先恢复入口(`skills/pipeline/SKILL.md.archived` 改回 `SKILL.md`)再走。
+- **需 design-docs 设计稿 / 独立验证 / 高风险方案取舍**的任务:重型 `/pipeline`(含 plan/ui/test 角色)已移出工程,归档于仓库外 `D:\work\_pipeline-archive\.claude\`;确有此类需要时,把该处的 `skills/pipeline/`、`agents/pipeline-*`、`workflows/pipeline-auto.js.archived` 拷回 `.claude/` 对应位置,并将 `skills/pipeline/SKILL.md.archived` 改名回 `SKILL.md` 再走。
 
 本管线全程在对话内推进:不建过程状态文件、不建 design-docs、不归档。上下文被压缩后状态不留存——用户在场,需要时重述任务即可。
 
@@ -32,7 +32,7 @@ description: 轻型 AI 流水线,用于小/低风险开发任务,支持客户端
 
 任务含**新 UI 窗口或 prefab 搭建** → 先调 `pipeline-lite-ui` 搭 prefab(节点层级/组件/容器/布局 + 按命名前缀表生成 `UIBindComponent` 绑定 `_Gen.g.cs` + impl 脚手架),再调 `pipeline-lite-dev` 填业务逻辑(拿 ui 段产出的节点清单直接用)。纯逻辑 / 无新 UI 的任务跳过本环节直接 dev。
 
-与重型 `pipeline-ui` 并行:lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 BindComponent + `_Gen.g.cs`(合 frog-client),新窗采用、旧窗维持内联不强迁。
+lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 BindComponent + `_Gen.g.cs`(合 frog-client),新窗采用、旧窗维持内联不强迁。
 
 ## 流程
 

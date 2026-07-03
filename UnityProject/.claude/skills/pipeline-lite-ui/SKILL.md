@@ -5,7 +5,7 @@ description: 轻型流水线 UI 制作段。在 Unity 里搭建 UGUI prefab(节�
 
 # 轻型流水线 · UI 制作段
 
-pipeline-lite 主会话在含新 UI 窗口/prefab 的 client 段调用本 skill:把 UI 意图**直接在 Unity 里搭成完整 UGUI prefab**——节点层级、组件、容器、锚点布局,按命名前缀表生成绑定骨架(`UIBindComponent` + `_Gen.g.cs`)。产出的节点清单进主流程,业务逻辑由后续 client 实现段填。**不走 html-to-ugui**(那是重型 pipeline-ui 的路)——直接 MCP 搭建,精确可控。
+pipeline-lite 主会话在含新 UI 窗口/prefab 的 client 段调用本 skill:把 UI 意图**直接在 Unity 里搭成完整 UGUI prefab**——节点层级、组件、容器、锚点布局,按命名前缀表生成绑定骨架(`UIBindComponent` + `_Gen.g.cs`)。产出的节点清单进主流程,业务逻辑由后续 client 实现段填。**不走 html-to-ugui**——直接 MCP 搭建,精确可控。
 
 ## 强制工作流 / 红线(继承项目规范,不复制)
 - UIWindow/UIWidget 生命周期、节点绑定、事件:读 `.claude/skills/tengine-dev/references/ui-lifecycle.md` + `ui-patterns.md`;命名规范 `naming-rules.md#ui-节点命名规范`。
@@ -15,7 +15,7 @@ pipeline-lite 主会话在含新 UI 窗口/prefab 的 client 段调用本 skill:
 
 ## 开工前(碰 Unity 前)
 - 先跑 `/unity-check` 确认 MCP 连到正确实例(按名 UnityProject)。搭树全程依赖 Unity 响应,连不上时先解决连接再搭。
-- 读共享 UI 经验库 `.claude/agent-memory/pipeline-ui/`(与重型 pipeline-ui 同一库,本 skill 不被自动注入,手动 Read)。
+- 读共享 UI 经验库 `.claude/agent-memory/pipeline-ui/`(本 skill 不被自动注入,手动 Read)。
 
 ## 输入
 主会话的 self-contained 简报:UI 意图(窗口/控件清单、布局关系、参照范式如「照 SettingsWindow」)+ 数据/交互期望。**无 design-docs、无 plan.md**。
@@ -70,4 +70,4 @@ pipeline-lite 主会话在含新 UI 窗口/prefab 的 client 段调用本 skill:
 - 写持久文件前遵 `.claude/rules/conventions.md`。
 
 ## 收尾
-仅当一条经验是**规则型、可复用、能改变未来同类任务行为**时,才沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`(共享经验库,重型 pipeline-ui 也受益)。准入按 `.claude/rules/conventions.md`§规则准入:举得出「没有这条、下次会做错」的**复发**场景才写;单次事件、「修过 X / 解决了 Y」式过程记录、模型默认就会的事一律不写——这些进 git 历史,不进记忆。结构:独立结构化文件,frontmatter name/description/type,body rule + **Why:** + **How to apply:**;加索引到 MEMORY.md。
+仅当一条经验是**规则型、可复用、能改变未来同类任务行为**时,才沉淀到 `.claude/agent-memory/pipeline-ui/<slug>.md`(共享经验库)。准入按 `.claude/rules/conventions.md`§规则准入:举得出「没有这条、下次会做错」的**复发**场景才写;单次事件、「修过 X / 解决了 Y」式过程记录、模型默认就会的事一律不写——这些进 git 历史,不进记忆。结构:独立结构化文件,frontmatter name/description/type,body rule + **Why:** + **How to apply:**;加索引到 MEMORY.md。
