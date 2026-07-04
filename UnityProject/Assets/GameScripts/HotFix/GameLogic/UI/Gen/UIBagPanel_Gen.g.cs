@@ -12,7 +12,7 @@ using TEngine;
 
 namespace GameLogic
 {
-	public partial class UIBackpackPanel : UIPanelMono
+	public partial class UIBagPanel : UIPanelMono
 	{
 		#region 脚本工具生成的代码
 
