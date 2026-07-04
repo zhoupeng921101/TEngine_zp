@@ -465,7 +465,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: BLOCK BLAST
+  m_Text: "\u5854\u7F57\u65B9\u5757"
 --- !u!1 &4564218804106782340
 GameObject:
   m_ObjectHideFlags: 0
