@@ -127,4 +127,4 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
   m_DrawOnNull: 0
   m_AdaptiveSize: 0
-  spriteAtlas: {fileID: 100100200, guid: 1f0b11651d56f814bb06a92cd794a0a0, type: 3}
+  spriteAtlas: {fileID: 100100200, guid: c5fb45f9cd5e4964ebd59ca1e7e79a16, type: 3}

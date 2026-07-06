@@ -7,7 +7,7 @@ namespace GameLogic.BlockBlast
     /// 合成 / 订单 / 体力 / 多消元素产出(纯 N 函数) / 兜底多为硬编码可调常量 + 手编循环订单池。
     /// 其中订单数 / 订单刷新间隔 / 体力恢复间隔 / 体力上限四项运行时读 Luban global 键值表（经 <see cref="GlobalConfigMgr"/>，缺键回退默认）。
     /// 改数即调难度。常量默认值取自设计文档 §五配置表；走配置的四项默认值与 global 表初值一致。
-    /// 表现（glyph / 纯色）直接复用 <see cref="MergeElementVisual.Glyph"/> / <see cref="MergeElementVisual.ColorOf"/>。
+    /// 表现（glyph）直接复用 <see cref="MergeElementVisual.Glyph"/>。
     /// </summary>
     public static class MergeOrderConfig
     {
