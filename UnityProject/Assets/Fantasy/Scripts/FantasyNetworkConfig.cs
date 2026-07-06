@@ -7,7 +7,7 @@ namespace FantasyClient
     /// <summary>
     /// Fantasy 网络配置（运行时可改 + PlayerPrefs 持久化）。
     /// 连接地址 = Host:Port，协议在 KCP / WebSocket 间切换；三者经本地存储跨启动保留。
-    /// 默认连接目标按运行平台分流（编译期符号）：编辑器连本机 127.0.0.1:20000(KCP)；
+    /// 默认连接目标按运行平台分流（编译期符号）：编辑器连本机 127.0.0.1:20001(WebSocket)；
     /// WebGL 连主域 tarot-block.lulurob.cn:443(WebSocket，https 页面经 Caddy 反代为 wss)；其余平台（Standalone / Android / iOS）连外网 121.199.24.31:20000(KCP)。
     /// 这三者只是 PlayerPrefs 缺省值——经 <see cref="GameLogic.UI.ServerConfigWindow"/> 手动改并 <see cref="Save"/> 落盘后，
     /// 存盘值优先生效、不被平台默认覆盖；连接前由 <see cref="FantasyNetwork.Boot"/> 现读 <see cref="ServerAddress"/> / <see cref="Protocol"/>。
@@ -18,10 +18,11 @@ namespace FantasyClient
         private const string RemoteHost = "121.199.24.31";
 
 #if UNITY_EDITOR
-        // 编辑器内运行（含 Play Mode，无论当前 BuildTarget）始终连本机 KCP Gate(20000)，便于单机联调。
+        // 编辑器内运行（含 Play Mode，无论当前 BuildTarget）始终连本机 WebSocket Gate(20001)，便于单机联调。
+        // 与外网部署版服务端对齐：该部署只开 WebSocket Gate(20001)，未开 KCP Gate(20000)。
         public const string DefaultHost = "127.0.0.1";
-        public const int DefaultPort = 20000;
-        public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.KCP;
+        public const int DefaultPort = 20001;
+        public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.WebSocket;
 #elif FANTASY_WEBGL
         // WebGL（浏览器）只能用 WebSocket，连主域 443；Caddy 终结 TLS 后按 Upgrade 头反代到本机 ws Gate(20001)。
         // https 页面经 UseSsl 自动拼 wss://，与浏览器混合内容策略一致。
