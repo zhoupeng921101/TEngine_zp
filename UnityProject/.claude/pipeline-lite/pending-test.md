@@ -17,9 +17,4 @@
 
 ## 待检条目
 
-### [ ] 消除道具「卡死才显示」+ 取消总局/终局/结算 · 2026-07-06
-- 基线:1350d10f
-- 改动文件:Assets/GameScripts/HotFix/GameLogic/UI/BlockBlastUI/UIMergeOrderPanel.cs
-- 关键 EditMode 测试:无新增测试;受影响面为 UIMergeOrderPanel 编译(新增 IsBoardJammed、改 RefreshClearTool 显隐、移除 _gameOver/结算三方法/MainRankId)
-- 期望:0 编译错误 + 全量 EditMode 绿
-- 备注:交付时 UnityMCP 无 Editor 实例,故入队补跑;服务端 Fantasy Hotfix.csproj 已内联 dotnet build 通过(0 错 0 警),不入本队列
+(空)

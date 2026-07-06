@@ -19,22 +19,32 @@ namespace GameLogic
         public int DisplayCount { get; private set; }
 
         /// <summary>
-        /// 刷新 token 显示数据。
+        /// 刷新固定槽显示数据。库存 &gt;0（拥有）→ 默认材质彩色 + 显数量;=0（未拥有）→ 灰度材质去色 + 隐藏数量。
+        /// 图标本身始终可见（灰或彩），槽位常驻不空。
         /// </summary>
         /// <param name="type">元素类型（飞行落点按类型匹配）。</param>
         /// <param name="glyphSpriteName">元素图标 sprite 名称。</param>
         /// <param name="level">元素等级。</param>
-        /// <param name="count">数量。</param>
-        public void SetData(MergeElement type, string glyphSpriteName, int level, int count)
+        /// <param name="count">数量（0 表示未拥有，置灰）。</param>
+        /// <param name="grayMat">未拥有时图标所用去色材质（UI/Grayscale，宿主共享一份）。</param>
+        public void SetData(MergeElement type, string glyphSpriteName, int level, int count, Material grayMat)
         {
             ElementType = type;
             DisplayCount = count;
             if (!string.IsNullOrEmpty(glyphSpriteName)) m_eximg_Glyph.SpriteName = glyphSpriteName;
 
-            // 仅显示数量；等级已由图标分级（{type}_{level}）表现，文字不再重复等级。
-            m_text_Info.text = count.ToString();
-            // 复用 token 实例时重置为可见，避免上一轮收集飞行的隐藏态残留（池化实例可能上次被隐藏未及恢复）。
-            SetContentVisible(true);
+            bool owned = count > 0;
+            // 等级已由图标分级（{type}_{level}）表现，文字只显数量、不重复等级。
+            if (m_eximg_Glyph != null)
+            {
+                m_eximg_Glyph.material = owned ? null : grayMat; // 未拥有走灰度材质去色，拥有回默认材质彩色
+                m_eximg_Glyph.enabled = true;                    // 图标常显（灰或彩）
+            }
+            if (m_text_Info != null)
+            {
+                m_text_Info.text = owned ? count.ToString() : string.Empty;
+                m_text_Info.enabled = owned;                     // 数量仅拥有时显
+            }
         }
 
         /// <summary>

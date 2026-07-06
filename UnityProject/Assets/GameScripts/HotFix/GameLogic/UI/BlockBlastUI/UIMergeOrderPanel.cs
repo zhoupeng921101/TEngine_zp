@@ -63,12 +63,18 @@ namespace GameLogic
         // 必须在 OnCreate 分配、不可写成字段初始化器：字段初始化器在 MonoBehaviour 构造函数内运行，此刻读 ActiveOrders 会触发 global 表的 YooAsset 同步加载，
         // 加载途中 YooAsset 调 GetActiveScene——Unity 禁止在构造函数内调用，抛异常后 GlobalConfigMgr 缓存被灌空字典且整局不再重载，全局配置静默退默认值。
         private OrderCardWidget[] _orderCards;
-        // 合成区 token 实例池：_synthTokens 是按 (类型→等级) 排序的「当前展示顺序」live 列表（收集飞行/交付飞行落点匹配按它取），
-        // _synthByKey 是 (类型,等级) → 稳定 token 实例映射（增删滑动需要稳定身份：同一 (类型,等级) 恒对应同一 token，
-        // 才能做「某 token 滑入/滑出/补位」的位置 tween）。两者每次 RefreshSynthesis 同步重建，_synthByKey 为单一事实源、
-        // _synthTokens 由它按排序导出。不再用 AdjustIconNum（按数量增减、身份不稳定，无法做补位滑动）。
+        // 合成区固定 20 槽（4 类型 × 5 等级）：进窗一次性建满、常驻（与订单卡常驻实例同构），不随库存增删。
+        // _synthByKey 为 (类型,等级) → 槽实例单一事实源;_synthTokens 为其列表镜像（按 类型→等级 序建，收集飞行按序取该类型最低已拥有等级为落点）。
+        // RefreshSynthesis 只更新各槽 拥有/置灰 态 + 数量（未拥有走 _synthGrayMat 去色）。布局为 2 行 × 10 列网格（见 NeutralizeSynthContainerForGrid）。
         private readonly List<SynthTokenWidget> _synthTokens = new();
         private readonly Dictionary<(MergeElement type, int level), SynthTokenWidget> _synthByKey = new();
+        // 未拥有槽的去色材质（UI/Grayscale，CreateSynthGrid 建一次共享，所有未拥有槽复用）。
+        private Material _synthGrayMat;
+        // 合成区网格列数（2 行 × 10 列 = 20 槽，同类 5 等级连续为一组:行1 = 类型0+1、行2 = 类型2+3）。
+        private const int SynthGridColumns = 10;
+        // 合成区四类型迭代序（与 _synthTokens 建序一致，收集飞行「该类型最低已拥有等级」依赖此序）。
+        private static readonly MergeElement[] SynthTypes =
+            { MergeElement.Butterfly, MergeElement.Chalice, MergeElement.Scroll, MergeElement.Star };
 
         // 通用倒计时 widget（OnCreate 各建一个，宿主每秒喂剩余秒数 + 显隐；组件本身业务无关）：
         // 体力倒计时挂体力栏下方锚点 m_rect_EnergyCountdownSlot——体力满（不再恢复）时隐藏；
@@ -185,6 +191,7 @@ namespace GameLogic
 
             BuildStaticUI();
             CreateOrderCards();
+            CreateSynthGrid();
             CreateCountdowns();
             InitGhostPool();
             InitGlowPool();
@@ -370,7 +377,7 @@ namespace GameLogic
             _openBoxBtnLabel = m_btn_OpenBox.GetComponentInChildren<Text>();
 
             // 卡片容器（沿用 ScrollRect.content 作挂载点）：订单 = OrderLayer 的 content（滚动/直线布局随后被 NeutralizeOrderContainerForFan 关闭、改代码驱动扇形）；
-            // 合成 token = ElemBar 的 content（仍为 HorizontalLayoutGroup 横滑列表）。
+            // 合成 token = ElemBar 的 content（滚动/横向布局随后被 NeutralizeSynthContainerForGrid 关闭、改代码驱动固定网格）。
             _orderContent = m_rect_OrderLayer.GetComponent<ScrollRect>()?.content;
             _synthContent = m_img_ElemBar.GetComponent<ScrollRect>()?.content;
             if (_orderContent == null)
@@ -466,9 +473,6 @@ namespace GameLogic
         private void RefreshEnergy()
         {
             m_text_Energy.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
-            m_text_Energy.color = _merge.CanAffordPlace
-                ? new Color32(0x66, 0xff, 0xaa, 0xFF)
-                : new Color32(0xff, 0x66, 0x66, 0xFF);
             m_text_Goal.text = $"完成 {_merge.CompletedOrders} 单";
             // 顶部体力槽数字（EnergyIcon 对应）。
             if (m_text_EnergyNum != null) m_text_EnergyNum.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
@@ -525,7 +529,7 @@ namespace GameLogic
             }
 
             if (m_rect_OrderCountdownSlot != null)
-            {
+            {   
                 _orderCountdown = CreateWidgetByType<CountdownWidget>(m_rect_OrderCountdownSlot);
                 if (_orderCountdown == null)
                     Log.Error("[UIMergeOrderPanel] CountdownWidget（订单）加载失败（资源定位名 CountdownWidget），订单倒计时未创建。");
@@ -556,7 +560,7 @@ namespace GameLogic
                 else
                 {
                     int interval = (int)MergeOrderConfig.RegenIntervalSec;
-                    int remain = CountdownRemain(now, _merge.LastEnergyRegenTime, interval, periodic: true);
+                    int remain = CountdownMath.Remain(now, _merge.LastEnergyRegenTime, interval, periodic: true);
                     _energyCountdown.SetVisible(true);
                     _energyCountdown.SetRemainingSeconds(remain);
                 }
@@ -566,27 +570,10 @@ namespace GameLogic
             if (_orderCountdown != null)
             {
                 int interval = MergeOrderConfig.OrderRefreshIntervalSec;
-                int remain = CountdownRemain(now, _merge.LastOrderRefreshTime, interval, periodic: false);
+                int remain = CountdownMath.Remain(now, _merge.LastOrderRefreshTime, interval, periodic: false);
                 _orderCountdown.SetVisible(true);
                 _orderCountdown.SetRemainingSeconds(remain);
             }
-        }
-
-        /// <summary>
-        /// 计算到下一次结算的剩余秒（倒计时显示用，纯函数、不改状态）。
-        /// <paramref name="periodic"/>=true（体力）：剩余 = interval - 已过秒 % interval（每满间隔重置，循环恢复）。
-        /// <paramref name="periodic"/>=false（订单）：剩余 = interval - 已过秒（到点一次性整批刷新）。
-        /// 防御：interval ≤ 0（配置错）→ 返 0；lastTime ≤ 0（尚无记录 / 首次）或 now &lt; lastTime（时钟回拨）→ 显整周期 interval（不出负数）。
-        /// </summary>
-        private static int CountdownRemain(long now, long lastTime, int interval, bool periodic)
-        {
-            if (interval <= 0) return 0;
-            if (lastTime <= 0 || now < lastTime) return interval; // 尚无记录 / 回拨：显整周期，避免负数错乱
-            long elapsed = now - lastTime;
-            long remain = periodic ? interval - (elapsed % interval) : interval - elapsed;
-            if (remain < 0) remain = 0;       // 订单：已过点（轮询将刷新，此刻先显 0）
-            if (remain > interval) remain = interval;
-            return (int)remain;
         }
 
         // 订单区改代码驱动扇形定位：中性化直线布局与滚动/裁剪组件，让各卡位置/旋转由 RefreshOrders 独占现算。
@@ -734,70 +721,102 @@ namespace GameLogic
                 _orderDisplay[idx].rectTransform.SetSiblingIndex(sibling++);
         }
 
-        // ── 合成区面板（SynthTokenWidget 稳定池建于 ElemBar 的 ScrollRect Content = m_rect_SynthLayer，HorizontalLayoutGroup 横向排布、超出可横滑） ──
-        // 稳定池：(类型,等级) → 同一 token 实例恒定映射（_synthByKey）。新增键 → 建 token（直接落到 HLG 目标位、不滑入）；
-        // 消失键 → 销毁 token；留存键 → 原实例 SetData + 滑动补位。增删/补位的滑动由 LayoutReflowAnimator 统一处理
-        // （刷新前 CaptureBefore 记录旧位 → 重排 sibling → AnimateReflow 让留存 token 从旧位滑到新位）。
-        // _synthTokens 为按 (类型→等级) 排序的 live 列表（收集飞行/交付飞行落点匹配按它取），由 _synthByKey 同步导出。
-        // 条目上限 = 4 类型 × 5 等级 = 20，规模小故全量常驻（不做循环复用）。
-        private void RefreshSynthesis()
+        // ── 合成区固定 20 槽创建（OnCreate 一次性，4 类型 × 5 等级，与订单卡常驻实例同构）──
+        // 容器由横滑列表改为固定网格（2 行 × 10 列，同类型 5 等级连续为一组）。按 类型→等级 序建 20 槽，存入 _synthByKey / _synthTokens；
+        // 数据刷新由 RefreshSynthesis 只更新各槽 拥有/置灰 态 + 数量，不增删实例。
+        private void CreateSynthGrid()
         {
-            // 稳定排序：按类型枚举值、再按等级
-            var keys = new List<(MergeElement type, int level)>(_merge.Inventory.Keys);
-            keys.Sort((a, b) =>
+            if (_synthContent == null)
             {
-                int t = ((int)a.type).CompareTo((int)b.type);
-                return t != 0 ? t : a.level.CompareTo(b.level);
-            });
-
-            // 补位滑动：刷新前先记录容器内各 token 旧位（含正在滑动中的实时位置）。
-            var reflow = _synthContent != null ? LayoutReflowAnimator.GetOrAdd(_synthContent) : null;
-            reflow?.CaptureBefore();
-
-            var desired = new HashSet<(MergeElement type, int level)>(keys);
-
-            // 消失键 → 销毁 token 并出 map（库存清空 / 该级被合并升走）。
-            var toRemove = new List<(MergeElement type, int level)>();
-            foreach (var kv in _synthByKey)
-                if (!desired.Contains(kv.Key)) toRemove.Add(kv.Key);
-            foreach (var key in toRemove)
-            {
-                var tk = _synthByKey[key];
-                _synthByKey.Remove(key);
-                if (tk != null && tk.gameObject != null) Object.Destroy(tk.gameObject);
+                Log.Error("[UIMergeOrderPanel] 合成区内容容器缺失（ElemBar 的 ScrollRect.content），固定元素格未创建。");
+                return;
             }
 
-            // 新增键 → 建稳定 token（资源定位名 == 类名 "SynthTokenWidget"，CreateWidgetByType 走 AddressByFileName）。
-            foreach (var key in keys)
+            // 去色材质：未拥有槽图标用。UI/Grayscale 已入 Always Included Shaders，运行时 Shader.Find 可得;缺失则退化为不去色（保持彩色）。
+            var grayShader = Shader.Find("UI/Grayscale");
+            if (grayShader != null) _synthGrayMat = new Material(grayShader);
+            else Log.Error("[UIMergeOrderPanel] 未找到 UI/Grayscale shader，未拥有元素格无法去色（将保持彩色，请检查 shader 是否入 Always Included Shaders）。");
+
+            NeutralizeSynthContainerForGrid();
+
+            // 固定建 20 槽，按 类型→等级 序（类型0 L1-5、类型1 L1-5…）。10 列网格从左到右从上到下填充 → 行1=类型0+1、行2=类型2+3。
+            foreach (var type in SynthTypes)
             {
-                if (_synthByKey.ContainsKey(key)) continue;
-                var tk = CreateWidgetByType<SynthTokenWidget>(_synthContent);
-                if (tk == null)
+                for (int level = 1; level <= MergeOrderConfig.MaxLevel; level++)
                 {
-                    Log.Error($"[UIMergeOrderPanel] SynthTokenWidget 加载失败（资源定位名 SynthTokenWidget），合成 token {key} 未创建。");
-                    continue;
+                    var tk = CreateWidgetByType<SynthTokenWidget>(_synthContent);
+                    if (tk == null)
+                    {
+                        Log.Error($"[UIMergeOrderPanel] SynthTokenWidget 加载失败（资源定位名 SynthTokenWidget），元素格 {type}-{level} 未创建。");
+                        continue;
+                    }
+                    if (tk.rectTransform != null) tk.rectTransform.localScale = Vector3.one;
+                    _synthByKey[(type, level)] = tk;
+                    _synthTokens.Add(tk);
                 }
-                if (tk.rectTransform != null) tk.rectTransform.localScale = Vector3.one;
-                _synthByKey[key] = tk;
             }
-
-            // 按排序重建 live 列表 + SetData + 重排 sibling（HLG 按子节点序排布）。
-            _synthTokens.Clear();
-            int siblingIndex = 0;
-            foreach (var key in keys)
-            {
-                if (!_synthByKey.TryGetValue(key, out var tk) || tk == null) continue;
-                int count = _merge.Inventory[key];
-                tk.SetData(key.type, MergeElementVisual.IconSpriteName(key.type, key.level), key.level, count);
-                if (tk.rectTransform != null) tk.rectTransform.SetSiblingIndex(siblingIndex++);
-                _synthTokens.Add(tk);
-            }
-
-            // 重排后执行补位滑动（留存 token 旧位→新位）。新建 token 无旧位记录，直接落到目标位。
-            reflow?.AnimateReflow(SlideReflowDuration);
         }
 
-        /// <summary>列表重排补位滑动时长（订单左滑 / 元素区增删补位共用，手感参数，交用户手测调）。</summary>
+        // 合成区容器改代码驱动固定网格：禁掉横滑 ScrollRect 与 HorizontalLayoutGroup/ContentSizeFitter，挂 GridLayoutGroup。
+        // 固定 10 列、左上起从左到右从上到下填充：前 10 槽落第 1 行、后 10 槽落第 2 行。格边长按内容宽自适应（10 列填满），
+        // 内容宽此刻未就绪则回退兜底边长。间距/格尺寸为手感参数，交用户手测调。
+        private void NeutralizeSynthContainerForGrid()
+        {
+            if (m_img_ElemBar != null)
+            {
+                var scroll = m_img_ElemBar.GetComponent<ScrollRect>();
+                if (scroll != null) scroll.enabled = false;
+            }
+            if (_synthContent == null) return;
+
+            var hlg = _synthContent.GetComponent<HorizontalLayoutGroup>();
+            if (hlg != null) hlg.enabled = false;
+            var csf = _synthContent.GetComponent<ContentSizeFitter>();
+            if (csf != null) csf.enabled = false;
+
+            // 内容容器填满 Viewport（父），使其宽度 = 可见区宽，格尺寸据此自适应。
+            if (_synthContent.parent is RectTransform viewport)
+            {
+                _synthContent.anchorMin = Vector2.zero;
+                _synthContent.anchorMax = Vector2.one;
+                _synthContent.offsetMin = Vector2.zero;
+                _synthContent.offsetMax = Vector2.zero;
+                _synthContent.pivot = new Vector2(0.5f, 0.5f);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(viewport);
+            }
+
+            var grid = _synthContent.GetComponent<GridLayoutGroup>();
+            if (grid == null) grid = _synthContent.gameObject.AddComponent<GridLayoutGroup>();
+            grid.enabled = true;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = SynthGridColumns;
+            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+            grid.childAlignment = TextAnchor.MiddleCenter;
+
+            const float spacing = 6f; // 格间距（手感参数）
+            float w = _synthContent.rect.width;
+            float cell = w > 1f ? (w - spacing * (SynthGridColumns - 1)) / SynthGridColumns : 64f; // 宽未就绪时兜底 64
+            if (cell < 1f) cell = 64f;
+            grid.spacing = new Vector2(spacing, spacing);
+            grid.cellSize = new Vector2(cell, cell);
+        }
+
+        // ── 合成区刷新（固定 20 槽，只更新 拥有/置灰 态 + 数量，不增删实例）──
+        // 每个 (类型,等级) 槽：库存 >0 → 彩色图标 + 显数量;=0（未拥有）→ 灰度去色图标 + 隐藏数量。槽位常驻、位置不变。
+        private void RefreshSynthesis()
+        {
+            foreach (var kv in _synthByKey)
+            {
+                var (type, level) = kv.Key;
+                var tk = kv.Value;
+                if (tk == null) continue;
+                int count = _merge.Inventory.TryGetValue((type, level), out var c) ? c : 0;
+                tk.SetData(type, MergeElementVisual.IconSpriteName(type, level), level, count, _synthGrayMat);
+            }
+        }
+
+        /// <summary>订单卡交付重排补位滑动时长（手感参数，交用户手测调）。</summary>
         private const float SlideReflowDuration = 0.22f;
 
         // ── 盲盒计数 + 开盒按钮态（设计 12 §五） ──
@@ -848,6 +867,7 @@ namespace GameLogic
         {
             // CancelClearToolArming(); // 开神庙叠层打断指定格模式
             // GameModule.UI.ShowUIAsync<UITemplePanel>((System.Action)RefreshPiety);
+            Close();
             GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
 
@@ -1784,8 +1804,8 @@ namespace GameLogic
 
         /// <summary>
         /// 为每个被消元素生成一个飞行图标：起点=棋盘格、终点=合成区该类型 token 的图标，错开起飞时间。
-        /// 必须在 RefreshSynthesis 之后调用（token 池稳定）。落点按元素类型匹配（升级后等级变、类型不变），
-        /// 同类型多等级 token 取第一个（RefreshSynthesis 已按类型→等级排序，即该类型最低等级）。
+        /// 必须在 RefreshSynthesis 之后调用（各槽 拥有/数量 态已更新）。落点按元素类型匹配（升级后等级变、类型不变），
+        /// 同类型取最低已拥有等级槽（固定槽按 类型→等级 序建，跳过未拥有的灰槽）。
         /// 两端世界坐标都转到 transform 本地空间再插值，避免父层偏移错算（同交付庆祝爆破的坐标换算）。
         /// </summary>
         private void SpawnCollectFly(List<(MergeElement type, Vector2 boardLocal)> sources)
@@ -1793,12 +1813,13 @@ namespace GameLogic
             if (sources == null || sources.Count == 0) return;
             if (transform == null || m_rect_BoardLayer == null) return;
 
-            // 落点取自合成区 token 的世界坐标，而 token 池由 RefreshSynthesis 同帧新建/重排、HorizontalLayoutGroup
-            // 当帧尚未布局，新建 token（尤其全新类型首次出现）的 position 仍是默认值。先强制立即布局，确保落点准确。
+            // 落点取自合成区固定槽的世界坐标。槽虽常驻，但网格布局可能当帧尚未 rebuild（首帧/尺寸变更），position 仍为默认值。
+            // 先强制立即布局，确保落点准确。
             if (m_rect_SynthLayer != null)
                 LayoutRebuilder.ForceRebuildLayoutImmediate(m_rect_SynthLayer);
 
-            // 类型 → token 映射：同类型取首个（最低等级）。token 池已由 RefreshSynthesis 按类型→等级排序填好。
+            // 类型 → 落点槽映射：固定 20 槽按 类型→等级 序建，取该类型「最低已拥有等级」槽（跳过未拥有的灰槽）为落点。
+            // 该类型无任何已拥有槽 → 不入映射，本次该类型飞行跳过（与旧动态池「无 token 即跳过」一致）。
             var typeToToken = new Dictionary<MergeElement, SynthTokenWidget>();
             foreach (var token in _synthTokens)
             {
@@ -1807,6 +1828,7 @@ namespace GameLogic
                 if (glyph == null) continue;
                 var type = token.ElementType;
                 if (type == MergeElement.None) continue;
+                if (token.DisplayCount <= 0) continue; // 跳过未拥有（灰）槽，落点取该类型最低已拥有等级
                 if (!typeToToken.ContainsKey(type)) typeToToken[type] = token;
             }
 
