@@ -30,12 +30,16 @@ namespace GameLogic
         /// 色值沿用旧 RefreshOrders：可交付背景 0x33aa55 + 白字；不可交付背景 0x44444c + 灰字 0x888888。
         /// </summary>
         /// <param name="glyphSpriteName">元素图标 sprite 名称（SetSprite 加载，内置缓存池无需手动释放）。</param>
+        /// <param name="frameSpriteName">底框 sprite 名称（card_underframe 图集，按订单等级取品质框）；传空则保持当前底框。</param>
         /// <param name="reqLabel">需求文字，如 "Lv2\n×3"。</param>
         /// <param name="canDeliver">是否满足交付条件。</param>
-        public void SetData(string glyphSpriteName, string reqLabel, bool canDeliver)
+        public void SetData(string glyphSpriteName, string frameSpriteName, string reqLabel, bool canDeliver)
         {
             if (!string.IsNullOrEmpty(glyphSpriteName)) m_eximg_Glyph.SpriteName = glyphSpriteName;
-            
+
+            // 底框按订单等级换品质框（m_eximg_Frame 图集已指向 Atlas_game_card_underframe）。旧 prefab 未含该节点时为 null，静默跳过。
+            if (m_eximg_Frame != null && !string.IsNullOrEmpty(frameSpriteName)) m_eximg_Frame.SpriteName = frameSpriteName;
+
             m_text_Req.text = reqLabel;
 
             m_btn_Deliver.interactable = canDeliver;

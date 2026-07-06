@@ -601,7 +601,7 @@ namespace GameLogic
                 if (!hasOrder) continue;
 
                 var o = orders[slot];
-                card.SetData(MergeElementVisual.SpriteName(o.Type, o.Level), $"×{o.Count}", _merge.CanDeliver(slot));
+                card.SetData(MergeElementVisual.SpriteName(o.Type, o.Level), MergeElementVisual.FrameSpriteName(o.Level), $"×{o.Count}", _merge.CanDeliver(slot));
             }
 
             // 可交付优先重排：按 slot 升序两趟扫描（先取可交付、再取不可交付），组内保持 slot 原序（稳定）。

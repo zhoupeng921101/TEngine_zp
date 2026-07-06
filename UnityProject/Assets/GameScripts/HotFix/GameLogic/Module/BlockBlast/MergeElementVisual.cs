@@ -59,5 +59,19 @@ namespace GameLogic.BlockBlast
             else if (level > LevelColorNames.Length) level = LevelColorNames.Length; // 与 MaxLevel 同为 5；MaxLevel 扩容而美术未扩时回落最高色
             return $"{name}_{LevelColorNames[level - 1]}";
         }
+
+        /// <summary>订单卡底框(等级品质框)张数：card_underframe_0..4 共 5 张。等级独立于花色，故与 LevelColorNames 同长但各自成规。</summary>
+        private const int FrameCount = 5;
+
+        /// <summary>
+        /// 等级 → 订单卡底框(card_underframe 图集)寻址名：card_underframe_{level-1}（Atlas_game_card_underframe 内按文件名定位）。
+        /// 等级越高框品质色越高。<paramref name="level"/> 夹到 [1, <see cref="FrameCount"/>] 防越界（MaxLevel 扩容而底框美术未扩时回落最高框）。
+        /// </summary>
+        public static string FrameSpriteName(int level)
+        {
+            if (level < 1) level = 1;
+            else if (level > FrameCount) level = FrameCount;
+            return $"card_underframe_{level - 1}";
+        }
     }
 }

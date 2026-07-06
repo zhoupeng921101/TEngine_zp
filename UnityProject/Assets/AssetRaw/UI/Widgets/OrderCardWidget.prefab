@@ -51,6 +51,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d7c45ff7459068479bee5dd78365bfe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameLogic::GameLogic.OrderCardWidget
+  m_eximg_Frame: {fileID: 5658868025576561410}
   m_eximg_Glyph: {fileID: 2619110861524292615}
   m_text_Req: {fileID: 2597210099509693438}
   m_btn_Deliver: {fileID: 6481112887421259379}
@@ -345,7 +346,7 @@ GameObject:
   - component: {fileID: 7962832756300865697}
   - component: {fileID: 5658868025576561410}
   m_Layer: 0
-  m_Name: bg
+  m_Name: m_eximg_Frame
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -391,14 +392,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.8}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: faed85118d121354c9a5b56d8d146eb8, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 06c50f0f20ec4ec478baee4237d1b5b2, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -410,7 +411,7 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
   m_DrawOnNull: 0
   m_AdaptiveSize: 0
-  spriteAtlas: {fileID: 100100200, guid: 123240a9379acc64d9097f7e1b5aaa11, type: 3}
+  spriteAtlas: {fileID: 100100200, guid: ed1ea27712227b84bb0ee1d367f59eb0, type: 3}
 --- !u!1 &8097101289522903189
 GameObject:
   m_ObjectHideFlags: 0

@@ -16,6 +16,7 @@ namespace GameLogic
 	{
 		#region 脚本工具生成的代码
 
+		[SerializeField] private ExImage m_eximg_Frame;
 		[SerializeField] private ExImage m_eximg_Glyph;
 		[SerializeField] private Text m_text_Req;
 		[SerializeField] private Button m_btn_Deliver;
