@@ -769,8 +769,10 @@ namespace GameLogic
             }
             if (_synthContent == null) return;
 
+            // HorizontalLayoutGroup 与 GridLayoutGroup 同属 LayoutGroup（[DisallowMultipleComponent]），二者不能共存，
+            // 故必须移除 HLG 才能挂 Grid;且须 DestroyImmediate 同步移除——Object.Destroy 延迟到帧末，同帧内 AddComponent 仍会撞已存在的 HLG 返回 null。
             var hlg = _synthContent.GetComponent<HorizontalLayoutGroup>();
-            if (hlg != null) hlg.enabled = false;
+            if (hlg != null) Object.DestroyImmediate(hlg);
             var csf = _synthContent.GetComponent<ContentSizeFitter>();
             if (csf != null) csf.enabled = false;
 
@@ -787,6 +789,11 @@ namespace GameLogic
 
             var grid = _synthContent.GetComponent<GridLayoutGroup>();
             if (grid == null) grid = _synthContent.gameObject.AddComponent<GridLayoutGroup>();
+            if (grid == null)
+            {
+                Log.Error("[UIMergeOrderPanel] 合成区 GridLayoutGroup 挂载失败，固定网格布局未生效。");
+                return;
+            }
             grid.enabled = true;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = SynthGridColumns;
