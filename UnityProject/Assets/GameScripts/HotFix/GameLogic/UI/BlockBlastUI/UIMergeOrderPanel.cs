@@ -10,13 +10,11 @@ namespace GameLogic
 {
     /// <summary>
     /// 融合主玩法窗口（设计 29）：承载完整经济（体力 / 合成 / 订单 / 盲盒 / 女神 / 神庙）+ 塔罗木质换皮。
-    /// 棋盘 / 拖拽 / ghost / 落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 订单卡横滑列表（手动交付，可交付优先）/
+    /// 棋盘 / 拖拽 / ghost / 落子流程与 <see cref="GameWindow"/> 同构；叠加体力条 / 订单卡手牌式扇形（手动交付，可交付优先）/
     /// 合成区面板 / 消除道具按钮。全程 MergeOrderMode=on（OnCreate 开启，OnDestroy 关闭）。唯一主玩法入口（设计 29 §4.2）。
     ///
-    /// 终局：以<b>服务端 GameOver 信号</b>为准（落子对账 <c>C2G_Place</c> 回带 GameOver/FinalScore/BestScore，服务端判 jam 终局并删档、
-    /// 权威分入榜），客户端不靠本地判 jam。收到 GameOver=true → 弹结算面板（最终分 / 服务端权威最佳分）+ 停止落子；
-    /// 「再来一局」关本窗重开 = 新局（服务端已删档，GameStart 走 Resumed=false）。订单无限、体力时基恢复（含离线）+
-    /// 消除道具（主动清一行一列、代价体力、只受体力门控）仍是局内常态机制。
+    /// 对局永续：无「总局 / 终局 / 结算」概念，服务端不判 jam 终局、不删档，落子后持续存盘。订单无限、体力时基恢复（含离线）。
+    /// 盘面卡死（当前候选无一可放）时显示消除道具（主动清一行一列、代价体力）供玩家清行列脱困；体力不足则等时基恢复后再用。
     /// </summary>
     [Window(UILayer.UI, location: "UIMergeOrderPanel", fullScreen: true)]
     public sealed partial class UIMergeOrderPanel : UIPanelMono
@@ -25,9 +23,6 @@ namespace GameLogic
         // 代码不运行时 SetSprite 这些节点。动态内容（棋盘格 / ghost / 候选块 / 元素图标 / 订单卡 / 合成 token）由代码生成、
         // 运行时 SetSprite 填进空层节点；消除道具 gate 染色由 RefreshClearTool 运行时按体力门控写入。
         private const int N = BlockLayout.BoardSize;
-
-        /// <summary>主榜(周榜)id：与 <see cref="GameLogic.UI.UIRankPanel"/> / 主菜单 BEST 一致，终局权威最佳分刷进此榜投影。</summary>
-        private const int MainRankId = 1;
 
         private BlockGameState _state;
         private MergeOrderState _merge;
@@ -86,20 +81,33 @@ namespace GameLogic
         /// 飞行期间锁交互——忽略再次点交付、忽略落子、跳过订单按时轮询刷新——防飞行途中库存被并发改动使「飞达才扣库存」语义错乱。
         /// </summary>
         private bool _deliverFlying;
-        // 横滑列表容器（BuildStaticUI 缓存）：订单 = OrderLayer 的 ScrollRect.content；合成 token = ElemBar 的 ScrollRect.content。
+        // 卡片内容容器（BuildStaticUI 缓存，均取 ScrollRect.content 作挂载点）：
+        // _orderContent = 订单区（滚动/直线布局关闭、代码驱动扇形，见下方扇形布局注释）；_synthContent = 合成 token 横滑列表。
         private RectTransform _orderContent;
         private RectTransform _synthContent;
 
+        // ── 订单卡手牌式扇形布局（代码驱动定位，单一事实源，设计稿不参与）──────────────────────
+        // 订单区弃用 HorizontalLayoutGroup/ScrollRect 的直线左对齐布局，改由 RefreshOrders 现算各卡位置 + 倾角。
+        // 可见卡按显示序求居中对称 offset（M 张：centerIdx=(M-1)/2，offset=i-centerIdx），相对订单容器中心：
+        //   x = offset * FanSpacingX                       水平中心距（间距）
+        //   y = FanBaseY - FanArcDrop * offset*offset       上凸弧（中间 offset=0 最高，两侧下沉）
+        //   localRotation.z = -offset * FanTiltDeg          向外倾斜（中间直立）
+        // 三个几何量相互独立，便于单独手调间距 / 弧度 / 倾角（手感参数，交用户手测微调）。
+        private const float FanSpacingX = 180f;
+        private const float FanArcDrop = 22f;
+        private const float FanTiltDeg = 10f;
+        private const float FanBaseY = 0f;
+
+        // 扇形补位状态：刷新前各活跃卡的旧位置 + 旋转（交付后其余卡从旧位滑动+旋转到新居中位）；
+        // _orderDisplay = 本次刷新的显示序（可交付优先）；_orderSibScratch = 渲染层级排序用临时表。
+        private readonly Dictionary<OrderCardWidget, (Vector2 pos, float rotZ)> _orderFanBefore = new();
+        private readonly List<OrderCardWidget> _orderDisplay = new();
+        private readonly List<(int idx, float abs)> _orderSibScratch = new();
+        // 首次布局直接落位（不从卡创建时的堆叠原点飞入），此后交付重排才滑动补位。
+        private bool _orderFanReady;
+
         /// <summary>消除道具「等待玩家指定棋盘格」模式（点过按钮、未点格前为 true）。</summary>
         private bool _clearToolArming;
-
-        /// <summary>
-        /// 终局态(服务端落子对账回 GameOver=true 后置位):落子被拒、结算面板已弹出。
-        /// 终局判定<b>以服务端信号为准</b>(<see cref="GameLogic.BlockBlast.Player.ServerDealSync.GameOver"/>),
-        /// 不靠本地判 jam。结算面板挂在本字段引用的运行时节点,「再来一局」关本窗重开 = 新局(服务端已删档,GameStart 走新建)。
-        /// </summary>
-        private bool _gameOver;
-        private RectTransform _gameOverPanel;
 
         /// <summary>对局重同步(断线重连自愈)进行中标志:见 <see cref="ResyncServerGameAsync"/>,防重连重登与多条 GameNotFound 并发重建。</summary>
         private bool _resyncing;
@@ -285,6 +293,7 @@ namespace GameLogic
             RefreshEnergy();
             RefreshOrders();
             RefreshSynthesis();
+            RefreshClearTool(); // 候选/盘面经权威态重投影后，消除道具卡死显隐须重判
         }
 
         /// <summary>
@@ -360,7 +369,8 @@ namespace GameLogic
             _openBoxBtnBg = m_btn_OpenBox.GetComponent<Image>();
             _openBoxBtnLabel = m_btn_OpenBox.GetComponentInChildren<Text>();
 
-            // 横滑列表容器：订单卡建到 OrderLayer 的 ScrollRect.content，合成 token 建到 ElemBar 的 ScrollRect.content。
+            // 卡片容器（沿用 ScrollRect.content 作挂载点）：订单 = OrderLayer 的 content（滚动/直线布局随后被 NeutralizeOrderContainerForFan 关闭、改代码驱动扇形）；
+            // 合成 token = ElemBar 的 content（仍为 HorizontalLayoutGroup 横滑列表）。
             _orderContent = m_rect_OrderLayer.GetComponent<ScrollRect>()?.content;
             _synthContent = m_img_ElemBar.GetComponent<ScrollRect>()?.content;
             if (_orderContent == null)
@@ -368,12 +378,17 @@ namespace GameLogic
             if (_synthContent == null)
                 Log.Error("[UIMergeOrderPanel] m_img_ElemBar 上缺少 ScrollRect 或其 Content 未设置，合成区无法渲染，请检查 prefab。");
 
-            // 消除道具按钮（左下角，设计 49 §3.1）：图标 gate 染色由 RefreshClearTool 运行时按体力门控写入 m_btn_ClearTool.image。
+            NeutralizeOrderContainerForFan();
+
+            // 消除道具按钮（左下角，设计 49 §3.1）：默认隐藏，仅盘面卡死时由 RefreshClearTool 显示 + 按体力门控染色。
             // 关掉 Button 自带 ColorTint 过渡：prefab 上该按钮 Transition=ColorTint 且 TargetGraphic=图标自身，
-            // ColorTint 会覆盖 RefreshClearTool 写入的 gate 染色（置灰/arming 高亮失效）。
-            // 设为 None 让手动染色成为唯一权威。按钮始终保持 interactable=true（体力门控只染色不拦点击，见 RefreshClearTool），
-            // 体力不足时点击仍落到 OnClick_ClearToolBtn 给出文字提示。
-            if (m_btn_ClearTool != null) m_btn_ClearTool.transition = Selectable.Transition.None;
+            // ColorTint 会覆盖 RefreshClearTool 写入的 gate 染色（置灰/arming 高亮失效）。设为 None 让手动染色成为唯一权威。
+            // 显示时始终保持 interactable=true（体力门控只染色不拦点击，见 RefreshClearTool），体力不足时点击仍给文字提示。
+            if (m_btn_ClearTool != null)
+            {
+                m_btn_ClearTool.transition = Selectable.Transition.None;
+                m_btn_ClearTool.gameObject.SetActive(false); // 初始隐藏，OnCreate 末尾 RefreshClearTool 按盘面态刷新
+            }
 
             // 消除道具提示条：绑定隐藏节点（prefab 已初始隐藏）。
             m_img_ClearHintBg.gameObject.SetActive(false);
@@ -460,8 +475,8 @@ namespace GameLogic
         }
 
         // ── 订单卡常驻实例创建（OnCreate 一次性，张数 = MergeOrderConfig.ActiveOrders） ──
-        // 卡建到 OrderLayer 横滑列表的 Content 下，由 HorizontalLayoutGroup 横向排布（卡尺寸取 OrderCardWidget 的 LayoutElement）；
-        // 交付回调注入对应槽位闭包。卡结构 / 视觉由 OrderCardWidget.prefab 提供，本窗不再绑卡内部节点。
+        // 卡建到订单内容容器（_orderContent）下；位置 / 倾角由 RefreshOrders 按扇形几何现算（容器的直线布局已被 NeutralizeOrderContainerForFan 关闭）。
+        // 交付回调注入对应槽位闭包。卡结构 / 视觉由 OrderCardWidget.prefab 提供（根锚点居中、尺寸 252×144），本窗不再绑卡内部节点。
         private void CreateOrderCards()
         {
             // 数组按配置张数分配（OnCreate 时机，YooAsset / GetActiveScene 合法）；即使下方容器缺失提前返回，数组也已分配，
@@ -574,19 +589,80 @@ namespace GameLogic
             return (int)remain;
         }
 
-        // ── 订单卡刷新（常驻实例，只 SetData + 显隐 + 可交付优先重排，含交付按钮点亮/置灰） ──
+        // 订单区改代码驱动扇形定位：中性化直线布局与滚动/裁剪组件，让各卡位置/旋转由 RefreshOrders 独占现算。
+        // 禁用 ScrollRect（3 张固定扇不滚动）与 Viewport 的 RectMask2D（否则裁掉扇形外扩/旋转的卡角），
+        // 禁用内容容器上的 HorizontalLayoutGroup + ContentSizeFitter，并把内容容器重设为填满 Viewport、pivot 居中，
+        // 使其局部原点 = 订单区中心（扇形对称参考；订单卡根锚点本就居中，anchoredPosition 即相对此中心）。
+        private void NeutralizeOrderContainerForFan()
+        {
+            if (m_rect_OrderLayer != null)
+            {
+                var scroll = m_rect_OrderLayer.GetComponent<ScrollRect>();
+                if (scroll != null) scroll.enabled = false;
+            }
+            if (_orderContent == null) return;
+
+            var hlg = _orderContent.GetComponent<HorizontalLayoutGroup>();
+            if (hlg != null) hlg.enabled = false;
+            var csf = _orderContent.GetComponent<ContentSizeFitter>();
+            if (csf != null) csf.enabled = false;
+
+            // Viewport（内容容器的父）的 RectMask2D 会裁掉扇形外扩/旋转的卡角，扇形无需裁剪。
+            if (_orderContent.parent is RectTransform viewport)
+            {
+                var mask = viewport.GetComponent<RectMask2D>();
+                if (mask != null) mask.enabled = false;
+            }
+
+            // 内容容器填满 Viewport、pivot 居中，局部原点落到订单区中心。
+            _orderContent.anchorMin = Vector2.zero;
+            _orderContent.anchorMax = Vector2.one;
+            _orderContent.pivot = new Vector2(0.5f, 0.5f);
+            _orderContent.offsetMin = Vector2.zero;
+            _orderContent.offsetMax = Vector2.zero;
+            _orderContent.anchoredPosition = Vector2.zero;
+        }
+
+        /// <summary>
+        /// 显示序 <paramref name="displayIndex"/>（共 <paramref name="visibleCount"/> 张可见卡）→ 手牌式扇形目标（相对订单容器中心的 anchoredPosition + z 旋转度）。
+        /// 居中对称：centerIdx=(visibleCount-1)/2，offset=displayIndex-centerIdx。中间卡 offset=0 → 位于中心、y 最高、直立。
+        /// </summary>
+        private static (Vector2 pos, float rotZ) OrderFanTarget(int displayIndex, int visibleCount)
+        {
+            float centerIdx = (visibleCount - 1) * 0.5f;
+            float offset = displayIndex - centerIdx;
+            float x = offset * FanSpacingX;
+            float y = FanBaseY - FanArcDrop * offset * offset;
+            float rotZ = -offset * FanTiltDeg;
+            return (new Vector2(x, y), rotZ);
+        }
+
+        /// <summary>把 localEulerAngles.z（0~360 环绕）折算回带符号小角（扇形倾角恒在 ±180 内），供旋转缓动起点无跳变。</summary>
+        private static float SignedZ(float eulerZ) => eulerZ > 180f ? eulerZ - 360f : eulerZ;
+
+        // ── 订单卡刷新（常驻实例，SetData + 显隐 + 可交付优先求显示序 + 扇形摆位/补位，含交付按钮点亮/置灰） ──
         // 卡面只显「元素图标 + ×数量」（等级由图标分级 {type}_{level} 表现，不再写 Lv 文字，与合成 token "×{count}" 同口径）。
-        // 显示排序：可交付（CanDeliver）的卡排在前、不可交付的在后，组内保持 slot 原序（稳定）。
-        // 卡是常驻实例、各自 OnDeliver 绑死真实 slot——排序只改 sibling 顺序（HLG 按子节点序排布），
-        // 不改 slot 映射，SetData 仍用该卡真实 slot 的 orders[slot]/CanDeliver(slot)。事件驱动刷新，每次重算、稳定无抖动。
+        // 显示排序：可交付（CanDeliver）的卡排在前、不可交付的在后，组内保持 slot 原序（稳定）——显示序即扇形从左到右位次。
+        // 卡是常驻实例、各自 OnDeliver 绑死真实 slot——排序只改扇形位次与渲染层级，不改 slot 映射，
+        // SetData 仍用该卡真实 slot 的 orders[slot]/CanDeliver(slot)。事件驱动刷新，每次重算、稳定无抖动。
+        // 补位：交付使某卡隐藏、可见数减一后，其余卡沿扇形从旧位滑动+旋转到新居中位（LocalMoveFx 位置+旋转联动）。
         private void RefreshOrders()
         {
             var orders = _merge.ActiveOrders;
 
-            // 补位左滑：刷新前先记录订单容器内各卡旧位（含正在滑动中的实时位置）。
-            // 交付后空槽卡 SetActive(false) 退出 HLG → 其余卡 HLG 目标位左移，AnimateReflow 让它们从旧位滑到新位（左滑补位）。
-            var reflow = _orderContent != null ? LayoutReflowAnimator.GetOrAdd(_orderContent) : null;
-            reflow?.CaptureBefore();
+            // 刷新前捕获各活跃卡当前位置 + 旋转（含正在滑动中的实时值），作扇形补位起点。首次布局跳过捕获→直接落位（不从堆叠原点飞入）。
+            _orderFanBefore.Clear();
+            bool firstLayout = !_orderFanReady;
+            _orderFanReady = true;
+            if (!firstLayout)
+            {
+                for (int slot = 0; slot < _orderCards.Length; slot++)
+                {
+                    var card = _orderCards[slot];
+                    if (card == null || card.rectTransform == null || !card.rectTransform.gameObject.activeSelf) continue;
+                    _orderFanBefore[card] = (card.rectTransform.anchoredPosition, SignedZ(card.rectTransform.localEulerAngles.z));
+                }
+            }
 
             // 先按真实 slot 填数据 + 显隐，互不依赖排序。
             for (int slot = 0; slot < _orderCards.Length; slot++)
@@ -595,7 +671,7 @@ namespace GameLogic
                 if (card == null) continue;
 
                 // 空槽判定须看 Order.IsValid：交付后该槽置 default(Order)（IsValid==false），数组长度仍为 ActiveOrders（slot<Length 恒真），
-                // 仅凭索引在界内会把空槽卡判为「有单」而保持显示——故空槽卡须隐藏退出 HLG，其余卡才左滑补位。
+                // 仅凭索引在界内会把空槽卡判为「有单」而保持显示——故空槽卡须隐藏退出扇形，其余卡才补位居中。
                 bool hasOrder = orders != null && slot < orders.Length && orders[slot].IsValid;
                 card.Visible = hasOrder;
                 if (!hasOrder) continue;
@@ -604,9 +680,8 @@ namespace GameLogic
                 card.SetData(MergeElementVisual.SpriteName(o.Type, o.Level), MergeElementVisual.FrameSpriteName(o.Level), $"×{o.Count}", _merge.CanDeliver(slot));
             }
 
-            // 可交付优先重排：按 slot 升序两趟扫描（先取可交付、再取不可交付），组内保持 slot 原序（稳定）。
-            // 逐张 SetSiblingIndex(展示位)，HLG 按子节点顺序横向排布，即把可交付的卡推到列表前端。
-            int siblingIndex = 0;
+            // 可交付优先求显示序：按 slot 升序两趟扫描（先取可交付、再取不可交付），组内保持 slot 原序（稳定）。
+            _orderDisplay.Clear();
             for (int pass = 0; pass < 2; pass++)
             {
                 bool wantDeliverable = pass == 0;
@@ -615,14 +690,48 @@ namespace GameLogic
                     var card = _orderCards[slot];
                     if (card == null || card.rectTransform == null) continue;
                     bool hasOrder = orders != null && slot < orders.Length && orders[slot].IsValid;
-                    if (!hasOrder) continue; // 无单卡已隐藏，不参与排序（留在尾部）
+                    if (!hasOrder) continue; // 无单卡已隐藏，不参与扇形
                     if (_merge.CanDeliver(slot) != wantDeliverable) continue;
-                    card.rectTransform.SetSiblingIndex(siblingIndex++);
+                    _orderDisplay.Add(card);
                 }
             }
 
-            // 重排后执行补位滑动（其余订单卡旧位→新位，向左对齐补位）。
-            reflow?.AnimateReflow(SlideReflowDuration);
+            // 按扇形几何摆位：刷新前已存在的卡从旧位滑动+旋转到目标，新出现（或几乎没动）的卡直接落位。
+            int count = _orderDisplay.Count;
+            for (int i = 0; i < count; i++)
+            {
+                var card = _orderDisplay[i];
+                var rt = card.rectTransform;
+                var (pos, rotZ) = OrderFanTarget(i, count);
+                bool moved = _orderFanBefore.TryGetValue(card, out var old)
+                    && ((old.pos - pos).sqrMagnitude >= 0.25f || Mathf.Abs(old.rotZ - rotZ) >= 0.1f);
+                var fx = rt.GetComponent<LocalMoveFx>();
+                if (moved)
+                {
+                    if (fx == null) fx = rt.gameObject.AddComponent<LocalMoveFx>();
+                    fx.Play(old.pos, pos, old.rotZ, rotZ, SlideReflowDuration);
+                }
+                else if (fx != null)
+                {
+                    // 有残留 tween 但目标≈当前：以退化 Play 停在目标（不直接改 anchoredPosition，避免同帧被残留 Update 抢回）。
+                    fx.Play(pos, pos, rotZ, rotZ, SlideReflowDuration);
+                }
+                else
+                {
+                    rt.anchoredPosition = pos;
+                    rt.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+                }
+            }
+
+            // 渲染层级：越靠中心的卡越靠上（自然的手牌叠压）。按 |offset| 降序设 sibling —— |offset| 大者靠后渲染、中心卡置顶。
+            _orderSibScratch.Clear();
+            float centerIdx = (count - 1) * 0.5f;
+            for (int i = 0; i < count; i++)
+                _orderSibScratch.Add((i, Mathf.Abs(i - centerIdx)));
+            _orderSibScratch.Sort((a, b) => b.abs.CompareTo(a.abs));
+            int sibling = 0;
+            foreach (var (idx, _) in _orderSibScratch)
+                _orderDisplay[idx].rectTransform.SetSiblingIndex(sibling++);
         }
 
         // ── 合成区面板（SynthTokenWidget 稳定池建于 ElemBar 的 ScrollRect Content = m_rect_SynthLayer，HorizontalLayoutGroup 横向排布、超出可横滑） ──
@@ -737,8 +846,9 @@ namespace GameLogic
         // ── 「神庙」按钮（m_btn_Temple，生成代码接线）：叠层打开 UITemplePanel（不关本窗、不丢局），关闭后刷新虔诚币 ──
         private partial void OnClick_TempleBtn()
         {
-            CancelClearToolArming(); // 开神庙叠层打断指定格模式
-            GameModule.UI.ShowUIAsync<UITemplePanel>((System.Action)RefreshPiety);
+            // CancelClearToolArming(); // 开神庙叠层打断指定格模式
+            // GameModule.UI.ShowUIAsync<UITemplePanel>((System.Action)RefreshPiety);
+            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
 
         // ── 开盒（m_btn_OpenBox，生成代码接线，设计 12 §五）：扣 1 → 掷奖 → 发放 → 内联弹字 + 刷新计数/合成区/体力 ──
@@ -757,16 +867,37 @@ namespace GameLogic
             MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：开盒改盲盒计数/灵力/体力元层 → 标脏 + 落盘
         }
 
-        // ── 消除道具（设计 49 §3.1）：主动清一行一列、代价体力、只受体力门控 ──
+        // ── 消除道具（设计 49 §3.1）：主动清一行一列、代价体力。默认隐藏，仅盘面卡死（当前候选无一可放）时显示 ──
 
         /// <summary>
-        /// 消除道具按钮态：按钮始终可点击，体力门控只表现为图标染色（可用=白本色，体力不足=暗灰），arming 时高亮（亮橙）。
-        /// 体力不足时按钮显灰但仍可点，点击落到 OnClick_ClearToolBtn 给出「体力不足」文字提示——不再用 interactable 拦点击
-        /// （拦掉则点击事件不分发，玩家点灰按钮无任何反馈）。
+        /// 盘面是否卡死：存在候选块但无一能放到盘面任意位置（消除道具显示判据）。
+        /// 补牌间隙（三槽皆空、尚未补入新批）返回 false，避免整批消耗后、补牌前的一帧误显道具。
+        /// </summary>
+        private bool IsBoardJammed()
+        {
+            bool anyCandidate = false;
+            for (int i = 0; i < 3; i++)
+            {
+                var piece = _state.OperaArr[i];
+                if (piece == null) continue;
+                anyCandidate = true;
+                if (_board.CanPut(piece.ShapeId)) return false; // 有候选可放 → 未卡死
+            }
+            return anyCandidate; // 有候选但全放不下 → 卡死；无候选 → 未卡死
+        }
+
+        /// <summary>
+        /// 消除道具按钮态：默认隐藏，仅盘面卡死（<see cref="IsBoardJammed"/>）或 arming 进行中时显示。
+        /// 显示时按钮始终可点击，体力门控只表现为图标染色（可用=白本色，体力不足=暗灰），arming 时高亮（亮橙）；
+        /// 体力不足时按钮显灰但仍可点，点击落到 OnClick_ClearToolBtn 给出「体力不足」文字提示。
         /// </summary>
         private void RefreshClearTool()
         {
             if (m_btn_ClearTool == null) return;
+            // 显隐门控：默认隐藏，盘面卡死才现（arming 期间恒显，保证「再点取消」开关可用）。
+            bool show = _clearToolArming || IsBoardJammed();
+            m_btn_ClearTool.gameObject.SetActive(show);
+            if (!show) return;
             bool can = _merge.CanUseClearTool;
             // 按钮始终可点击：体力门控由 OnClick_ClearToolBtn 内部判定（够则进 arming，不够则弹提示），不再 gate interactable。
             m_btn_ClearTool.interactable = true;
@@ -1070,7 +1201,7 @@ namespace GameLogic
             RefreshClearTool(); // 体力随交付变化，按钮 gate 态须刷新
 
             MarkAndFlushSave(); // 跨会话存档（设计 14 §3.4）：交付改元层(含体力) → 标脏 + 落盘
-            // 订单交付后该槽置空、不补单；全部交付完则上面 TryRefreshIfAllDelivered 整批补回。订单本身无终点，交付不触发结算（结算只由服务端 jam 终局信号触发）。
+            // 订单交付后该槽置空、不补单；全部交付完则上面 TryRefreshIfAllDelivered 整批补回。订单本身无终点。
         }
 
         /// <summary>
@@ -1311,9 +1442,8 @@ namespace GameLogic
         // ── 拖拽回调（与 GameWindow 同构） ──
         private void OnPieceBegin(int slotIdx)
         {
-            // 终局后停止落子（服务端 GameOver=true，本局已删档，结算面板已弹出）。配合 OnPieceEnd 的锁，终局后落子整体无效。
             // 交付飞行进行中：忽略落子拖拽（不进入拖拽态、不显示 ghost）。配合 OnPieceEnd 的锁，飞行期间落子整体无效。
-            if (_gameOver || _deliverFlying) { _draggingShapeId = -1; return; }
+            if (_deliverFlying) { _draggingShapeId = -1; return; }
             CancelClearToolArming(); // 拖拽落子打断指定格模式（玩家改主意去落子）
             var piece = _state.OperaArr[slotIdx];
             _draggingShapeId = piece?.ShapeId ?? -1;
@@ -1332,13 +1462,6 @@ namespace GameLogic
             ClearGhost();
             int shapeId = _draggingShapeId;
             _draggingShapeId = -1;
-
-            // 终局后停止落子（服务端 GameOver=true）：候选块归位、不落子、不弹提示，玩家在结算面板操作。
-            if (_gameOver)
-            {
-                _slotContainers[slotIdx]?.GetComponent<BlockPieceDragger>()?.ResetToOrigin();
-                return;
-            }
 
             // 交付飞行进行中：忽略落子结算（否则飞行途中落子消除会改库存，破坏「飞达才扣库存」语义）。
             // 候选块归位、不落子、不弹提示（玩家短暂等飞行结束即可再落）。
@@ -1377,8 +1500,8 @@ namespace GameLogic
 
         /// <summary>
         /// 落子 → 扣体力 → 消除返体力 + 元素入合成区（自动升级）→ 结算（连消 / 多消 / 全清 / 女神 / 盲盒 / 皮肤）→ 刷新 → 落盘。
-        /// 终局判定不在本地做：本步乐观推进 + 经济结算照常，是否终局由随后的 <see cref="SendPlaceAndReconcile"/> 读服务端
-        /// 对账信号（GameOver）决定 —— 终局则弹结算 + 停止落子。体力归零 / 卡死靠时基恢复 + 消除道具兜底，不在此结束。
+        /// 对局永续，无终局：本步乐观推进 + 经济结算照常，随后 <see cref="SendPlaceAndReconcile"/> 与服务端对账权威态。
+        /// 盘面卡死靠消除道具（卡死时显示）清行列脱困；体力归零靠时基恢复 / 订单补，不在此结束游戏。
         /// </summary>
         private void PlaceAndResolve(int slotIdx, BlockShape shape, int col, int row)
         {
@@ -1524,12 +1647,12 @@ namespace GameLogic
             {
                 _state.RefillPieces(_board);
                 RenderSlots();
+                RefreshClearTool(); // 补入新批候选后重判卡死态（上方 RefreshClearTool 在补牌前跑，取到的是已空候选）
             }
 
             // 服务端权威发牌(M3):本地乐观结算完毕,发 C2G_Place 上报输入并对账。对账若覆盖(预测与权威不一致)
             // 经 OnAuthoritativeChanged → ReprojectServerState 整屏重绘。失败码(GameNotFound/未登录/断网)按本地兜底续玩。
-            // 终局检测在 SendPlaceAndReconcile 内（读服务端对账回带的 GameOver）：终局 → 弹结算 + 停止落子。
-            // 卡死但未终局（服务端未判 jam）：玩家用消除道具清一行一列；体力归零：等时基恢复 / 订单补 / 用消除道具。
+            // 对局永续:服务端不判 jam 终局。盘面卡死时显示消除道具清一行一列脱困;体力归零:等时基恢复 / 订单补 / 用消除道具。
             if (deal != null && serverBaseStep >= 0)
             {
                 // 落子已本地乐观结算完毕:此刻的局内叠加层(盘面颜色/元素/手牌/合成区/订单/连消)即要搭车上行的切片。
@@ -1577,9 +1700,6 @@ namespace GameLogic
                         // 其余(断网/服务不可用/未登录/非法):保留本地乐观态,基线排除已抬平不误报,不拿 NewEnergy(=0) 覆盖。
                     }
                 }
-                // 终局以服务端信号为准:对账后 deal.GameOver=true 即走结算 + 停止落子(本局服务端已删档)。
-                if (deal.GameOver)
-                    ShowGameOverSettlement(deal.FinalScore, deal.BestScore);
             }
             catch (System.Exception e)
             {
@@ -1765,75 +1885,6 @@ namespace GameLogic
         {
             var needed = _merge.NeededTypes();
             return needed.Count > 0 ? needed[0] : MergeElement.None;
-        }
-
-        /// <summary>
-        /// 终局结算面板（服务端 GameOver=true 触发）：全屏半透明遮罩盖住棋盘 + 居中卡片显示最终分 / 最佳分 +
-        /// 「再来一局」「返回」按钮。终局判定<b>以服务端信号为准</b>（落子对账回带 GameOver/FinalScore/BestScore），
-        /// 不靠本地判 jam。最佳分取服务端权威 <paramref name="bestScore"/>，客户端只投影展示（不新增本地权威分存储）。
-        /// 运行时构建（无独立 prefab）：遮罩 raycastTarget=true 吃掉穿透点击 = 停止棋盘交互的第二道防线（第一道为 _gameOver 门控）。
-        /// 「再来一局」关本窗重开 → OnCreate 走 C2G_GameStart，服务端已删档故回 Resumed=false = 新局（空盘）。
-        /// </summary>
-        private void ShowGameOverSettlement(int finalScore, long bestScore)
-        {
-            if (_gameOver) return; // 幂等:重复 GameOver 信号(理论不应有)只弹一次面板
-            _gameOver = true;
-
-            // 最高分展示 = 服务端 BestScore 的本地投影:服务端终局入榜后回带的权威最佳分刷进排行榜个人最佳缓存
-            // (主菜单 BEST 读同一投影 RankService.GetMyBest),使退出/重开后 BEST 与服务端最佳分一致,无需再等一次查榜 RPC。
-            // BestScore=0(入榜服务不可用)时 SubmitScore 取较大者不抹既有缓存。highScore 已不入 blob、不再作权威载体。
-            if (bestScore > 0)
-                GameContext.Instance?.Rank?.SubmitScore(MainRankId, bestScore);
-
-            float cx = BlockLayout.DesignWidth / 2f;
-            float cy = BlockLayout.DesignHeight / 2f;
-
-            // 全屏遮罩(吃掉点击,挡住棋盘交互)。raycastTarget 必须 true,故不用 UGuiFactory.CreateText(其 raycastTarget=false)。
-            var panel = UGuiFactory.CreateImage(transform, "GameOverPanel", cx, cy,
-                BlockLayout.DesignWidth, BlockLayout.DesignHeight, new Color(0f, 0f, 0f, 0.72f));
-            panel.raycastTarget = true;
-            _gameOverPanel = panel.rectTransform;
-
-            // 居中卡片背景
-            UGuiFactory.CreateImage(_gameOverPanel, "Card", cx, cy, 760, 760, new Color32(0x2a, 0x24, 0x3a, 0xFF));
-
-            UGuiFactory.CreateText(_gameOverPanel, "Title", cx, cy + 250, 700, 120, "游戏结束", 80,
-                new Color32(0xff, 0xe4, 0x4a, 0xFF));
-            UGuiFactory.CreateText(_gameOverPanel, "FinalLabel", cx, cy + 60, 700, 80, "本局得分", 48,
-                new Color32(0xcc, 0xcc, 0xdd, 0xFF));
-            UGuiFactory.CreateText(_gameOverPanel, "FinalScore", cx, cy - 20, 700, 110, finalScore.ToString(), 96,
-                new Color32(0xff, 0xff, 0xff, 0xFF));
-            UGuiFactory.CreateText(_gameOverPanel, "BestScore", cx, cy - 130, 700, 80, $"最佳分  {bestScore}", 48,
-                new Color32(0xaa, 0xbb, 0xdd, 0xFF));
-
-            // 再来一局:关本窗重开 → 新局(服务端已删档,GameStart 走新建)。
-            var againBtn = UGuiFactory.CreateButton(_gameOverPanel, "AgainBtn", cx, cy - 270, 520, 120,
-                "再来一局", 56, new Color32(0x4a, 0xc0, 0x6a, 0xFF), Color.white, out _, out _);
-            againBtn.onClick.AddListener(RestartForNewGame);
-
-            // 返回(主菜单已移除:落盘元层 + 关门控 + 关窗 + 重开玩法)。
-            var backBtn = UGuiFactory.CreateButton(_gameOverPanel, "BackBtn", cx, cy - 410, 520, 110,
-                "返回", 50, new Color32(0x55, 0x4a, 0x6a, 0xFF), Color.white, out _, out _);
-            backBtn.onClick.AddListener(BackFromSettlement);
-        }
-
-        /// <summary>「再来一局」:关本窗 + 重开本窗。重开触发 OnCreate → C2G_GameStart,服务端已删本局档故回 Resumed=false = 新局。</summary>
-        private void RestartForNewGame()
-        {
-            // 元层(最高分/女神/盲盒等)落盘后丢弃 MergeState,与退出同口径,避免重开 OnCreate 的 ResetForMergeOrder 读到脏态。
-            FlushSaveIfDirty();
-            _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<UIMergeOrderPanel>();
-            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
-        }
-
-        /// <summary>结算面板「返回」(主菜单已移除):落盘 + 关门控 + 关窗 + 重开玩法。</summary>
-        private void BackFromSettlement()
-        {
-            FlushSaveIfDirty();
-            _state.ExitMergeOrder();
-            GameModule.UI.CloseUI<UIMergeOrderPanel>();
-            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
         }
 
         // ── ghost 落点高亮（与 GameWindow 同构） ──
