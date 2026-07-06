@@ -47,17 +47,35 @@ namespace GameLogic.BlockBlast
         private static readonly string[] LevelColorNames = { "white", "green", "blue", "purple", "gold" };
 
         /// <summary>
-        /// 元素图标的寻址名：card_element 图标库（Assets/AssetRaw/UI/Atlas/game/card_element/）中对应 PNG 的文件名（去扩展名），
-        /// 按「花色 + 品质色」取图（等级以卡面品质色区分，文件名形如 sword_blue）。经 SetSprite 按文件名直接定位 Sprite。
-        /// <paramref name="level"/> 夹到 [1, 品质色数]（与 MergeOrderConfig.MaxLevel 同为 5）防越界。None 返回空串（无图）。
+        /// 「花色_品质色」基名（如 sword_blue）：花色取 <see cref="TypeName"/>、品质色取等级对应色阶。
+        /// 两套元素图集（card_element 大卡面 / samll_icon2 小图标）共用此基名，各自寻址方法在其上加前缀区分，避免按文件名全局定位时撞名。
+        /// <paramref name="level"/> 夹到 [1, 品质色数]（与 MergeOrderConfig.MaxLevel 同为 5）防越界；MaxLevel 扩容而美术未扩时回落最高色。None 返回空串。
         /// </summary>
-        public static string SpriteName(MergeElement type, int level)
+        private static string SuitColor(MergeElement type, int level)
         {
             string name = TypeName(type);
             if (string.IsNullOrEmpty(name)) return string.Empty;
             if (level < 1) level = 1;
-            else if (level > LevelColorNames.Length) level = LevelColorNames.Length; // 与 MaxLevel 同为 5；MaxLevel 扩容而美术未扩时回落最高色
+            else if (level > LevelColorNames.Length) level = LevelColorNames.Length;
             return $"{name}_{LevelColorNames[level - 1]}";
+        }
+
+        /// <summary>
+        /// 订单卡元素图标的寻址名：card_element 图标库（Assets/AssetRaw/UI/Atlas/game/card_element/）中对应 PNG 文件名（去扩展名），
+        /// 即「花色_品质色」基名（如 sword_blue）。仅订单卡（大塔罗卡面）取此库；棋盘 / 候选 / 合成 / 飞行的小图标见 <see cref="IconSpriteName"/>。
+        /// 经 SetSprite 按文件名直接定位 Sprite。None 返回空串（无图）。
+        /// </summary>
+        public static string SpriteName(MergeElement type, int level) => SuitColor(type, level);
+
+        /// <summary>
+        /// 棋盘 / 候选 / 合成 / 飞行元素图标的寻址名：samll_icon2_sliced 小图标库（Assets/AssetRaw/UI/Atlas/samll_icon2_sliced/）中对应 PNG 文件名，
+        /// 即「icon2_花色_品质色」（如 icon2_sword_blue）。前缀避免与 card_element 的同基名在按文件名全局定位时撞名。
+        /// 订单卡另取大卡面（见 <see cref="SpriteName"/>）。None 返回空串（无图）。
+        /// </summary>
+        public static string IconSpriteName(MergeElement type, int level)
+        {
+            string suitColor = SuitColor(type, level);
+            return string.IsNullOrEmpty(suitColor) ? string.Empty : $"icon2_{suitColor}";
         }
 
         /// <summary>订单卡底框(等级品质框)张数：card_underframe_0..4 共 5 张。等级独立于花色，故与 LevelColorNames 同长但各自成规。</summary>

@@ -348,13 +348,13 @@ public partial class GameApp
                 await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(8000, ignoreTimeScale: true));
             }
 
-            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
+            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
         catch (System.Exception e)
         {
             // 任何异常都不得让 async void 逃逸崩启动:本地兜底放行进玩法。
             Log.Warning($"[GameApp] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
-            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
+            GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
     }
 

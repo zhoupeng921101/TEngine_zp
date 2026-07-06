@@ -7,6 +7,54 @@
         {
             "zh": "寻找图片按钮",
             "en": "FindImageButton"
+        },
+        {
+            "zh": "任务按钮",
+            "en": "TaskButton"
+        },
+        {
+            "zh": "背包按钮",
+            "en": "BackpackButton"
+        },
+        {
+            "zh": "商城按钮",
+            "en": "WooCommerceButton"
+        },
+        {
+            "zh": "限时活动按钮",
+            "en": "LimitedTimeEventButton"
+        },
+        {
+            "zh": "新手庆典按钮",
+            "en": "StarterCelebrationButton"
+        },
+        {
+            "zh": "特殊卡池按钮",
+            "en": "SpecialPoolButton"
+        },
+        {
+            "zh": "个人信息按钮",
+            "en": "PersonalInformationButton"
+        },
+        {
+            "zh": "签到按钮",
+            "en": "CheckInButton"
+        },
+        {
+            "zh": "每日占卜按钮",
+            "en": "DailyDivinationButton"
+        },
+        {
+            "zh": "邀请有礼按钮",
+            "en": "InviteCourtesyButton"
+        },
+        {
+            "zh": "塔罗牌按钮",
+            "en": "TarotButton"
+        },
+        {
+            "zh": "折叠菜单按钮",
+            "en": "CollapseMenuButton"
         }
     ]
 }

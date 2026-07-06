@@ -10,59 +10,76 @@ namespace GameLogic
 	public partial class UIMainMenuPanel
 	{
 		#region 事件
-
-		private partial void OnClick_MenuBtn()
-		{
-		}
-
-		private partial void OnClick_ProfileBtn()
-		{
-		}
-
-		private partial void OnClick_SignInBtn()
-		{
-		}
-
-		private partial void OnClick_DailyTarotBtn()
-		{
-		}
-
-		private partial void OnClick_InviteBtn()
-		{
-		}
-
-		private partial void OnClick_TarotBtn()
-		{
-		}
-
-		private partial void OnClick_ShopBtn()
-		{
-		}
-
-		private partial void OnClick_ActivityBtn()
-		{
-		}
-
-		private partial void OnClick_NewbieBtn()
-		{
-		}
-
-		private partial void OnClick_SpecialPoolBtn()
-		{
-		}
-
-		private partial void OnClick_BagBtn()
-		{
-		}
-
-		private partial void OnClick_TaskBtn()
-		{
-		}
+		
 
 		private partial void OnClick_FindImageBtn()
 		{
+            GameModule.UI.ShowUIAsync<UIMergeOrderPanel>();
+			
 		}
 
+		private partial void OnClick_CollapseMenuButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_PersonalInformationButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_CheckInButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_DailyDivinationButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_InviteCourtesyButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_TarotButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_WooCommerceButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_LimitedTimeEventButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_StarterCelebrationButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_SpecialPoolButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_BackpackButtonBtn()
+		{
+			
+		}
+
+		private partial void OnClick_TaskButtonBtn()
+		{
+			
+		}
 		#endregion
+
+		
+		
 	}
 }

@@ -35,7 +35,11 @@ namespace GameLogic
         /// <param name="canDeliver">是否满足交付条件。</param>
         public void SetData(string glyphSpriteName, string frameSpriteName, string reqLabel, bool canDeliver)
         {
-            if (!string.IsNullOrEmpty(glyphSpriteName)) m_eximg_Glyph.SpriteName = glyphSpriteName;
+            if (!string.IsNullOrEmpty(glyphSpriteName))
+            {
+                m_eximg_Glyph.SpriteName = glyphSpriteName;
+                m_eximg_Glyph.SetNativeSize();
+            }
 
             // 底框按订单等级换品质框（m_eximg_Frame 图集已指向 Atlas_game_card_underframe）。旧 prefab 未含该节点时为 null，静默跳过。
             if (m_eximg_Frame != null && !string.IsNullOrEmpty(frameSpriteName)) m_eximg_Frame.SpriteName = frameSpriteName;

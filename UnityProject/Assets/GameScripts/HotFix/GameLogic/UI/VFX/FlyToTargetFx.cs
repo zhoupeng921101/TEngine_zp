@@ -42,7 +42,7 @@ namespace GameLogic
         /// <param name="parent">飞行父层（如 m_rect_Content）。</param>
         /// <param name="localStart">起点（父层本地坐标）。</param>
         /// <param name="localEnd">终点（父层本地坐标）。</param>
-        /// <param name="spriteName">元素图标 sprite 寻址名（MergeElementVisual.SpriteName）。</param>
+        /// <param name="spriteName">元素图标 sprite 寻址名（棋盘 / 合成 / 飞行取 MergeElementVisual.IconSpriteName 小图标库）。</param>
         /// <param name="size">图标边长（设计像素）。</param>
         /// <param name="startDelay">起飞前延迟（用于多图标错开 stagger）。</param>
         /// <param name="onArrive">到达终点时回调（目标 punch）。可空。</param>

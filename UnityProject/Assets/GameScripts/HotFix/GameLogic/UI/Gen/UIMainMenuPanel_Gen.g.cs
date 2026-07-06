@@ -16,46 +16,53 @@ namespace GameLogic
 	{
 		#region 脚本工具生成的代码
 
-		[SerializeField] private Button m_btn_Menu = null!;
-		[SerializeField] private Button m_btn_Profile = null!;
-		[SerializeField] private Button m_btn_SignIn = null!;
-		[SerializeField] private Button m_btn_DailyTarot = null!;
-		[SerializeField] private Button m_btn_Invite = null!;
-		[SerializeField] private Button m_btn_Tarot = null!;
-		[SerializeField] private Button m_btn_Shop = null!;
-		[SerializeField] private Button m_btn_Activity = null!;
-		[SerializeField] private Button m_btn_Newbie = null!;
-		[SerializeField] private Button m_btn_SpecialPool = null!;
-		[SerializeField] private Button m_btn_Bag = null!;
-		[SerializeField] private Button m_btn_Task = null!;
+		[SerializeField] private RectTransform m_rect_EnergyCountdownSlot = null!;
+		[SerializeField] private Image m_img_CoinIcon = null!;
+		[SerializeField] private Text m_text_CoinNum = null!;
+		[SerializeField] private Image m_img_Energy = null!;
+		[SerializeField] private Text m_text_Energy = null!;
+		[SerializeField] private Image m_img_GemIcon = null!;
+		[SerializeField] private Text m_text_GemNum = null!;
+		[SerializeField] private Button m_btn_CollapseMenuButton = null!;
+		[SerializeField] private Button m_btn_PersonalInformationButton = null!;
+		[SerializeField] private Button m_btn_CheckInButton = null!;
+		[SerializeField] private Button m_btn_DailyDivinationButton = null!;
+		[SerializeField] private Button m_btn_InviteCourtesyButton = null!;
+		[SerializeField] private Button m_btn_TarotButton = null!;
+		[SerializeField] private Button m_btn_WooCommerceButton = null!;
+		[SerializeField] private Button m_btn_LimitedTimeEventButton = null!;
+		[SerializeField] private Button m_btn_StarterCelebrationButton = null!;
+		[SerializeField] private Button m_btn_SpecialPoolButton = null!;
+		[SerializeField] private Button m_btn_BackpackButton = null!;
+		[SerializeField] private Button m_btn_TaskButton = null!;
 		[SerializeField] private Button m_btn_FindImage = null!;
 
 		protected override void ScriptGenerator()
 		{
-			m_btn_Menu.onClick.RemoveAllListeners();
-			m_btn_Menu.onClick.AddListener(OnClick_MenuBtn);
-			m_btn_Profile.onClick.RemoveAllListeners();
-			m_btn_Profile.onClick.AddListener(OnClick_ProfileBtn);
-			m_btn_SignIn.onClick.RemoveAllListeners();
-			m_btn_SignIn.onClick.AddListener(OnClick_SignInBtn);
-			m_btn_DailyTarot.onClick.RemoveAllListeners();
-			m_btn_DailyTarot.onClick.AddListener(OnClick_DailyTarotBtn);
-			m_btn_Invite.onClick.RemoveAllListeners();
-			m_btn_Invite.onClick.AddListener(OnClick_InviteBtn);
-			m_btn_Tarot.onClick.RemoveAllListeners();
-			m_btn_Tarot.onClick.AddListener(OnClick_TarotBtn);
-			m_btn_Shop.onClick.RemoveAllListeners();
-			m_btn_Shop.onClick.AddListener(OnClick_ShopBtn);
-			m_btn_Activity.onClick.RemoveAllListeners();
-			m_btn_Activity.onClick.AddListener(OnClick_ActivityBtn);
-			m_btn_Newbie.onClick.RemoveAllListeners();
-			m_btn_Newbie.onClick.AddListener(OnClick_NewbieBtn);
-			m_btn_SpecialPool.onClick.RemoveAllListeners();
-			m_btn_SpecialPool.onClick.AddListener(OnClick_SpecialPoolBtn);
-			m_btn_Bag.onClick.RemoveAllListeners();
-			m_btn_Bag.onClick.AddListener(OnClick_BagBtn);
-			m_btn_Task.onClick.RemoveAllListeners();
-			m_btn_Task.onClick.AddListener(OnClick_TaskBtn);
+			m_btn_CollapseMenuButton.onClick.RemoveAllListeners();
+			m_btn_CollapseMenuButton.onClick.AddListener(OnClick_CollapseMenuButtonBtn);
+			m_btn_PersonalInformationButton.onClick.RemoveAllListeners();
+			m_btn_PersonalInformationButton.onClick.AddListener(OnClick_PersonalInformationButtonBtn);
+			m_btn_CheckInButton.onClick.RemoveAllListeners();
+			m_btn_CheckInButton.onClick.AddListener(OnClick_CheckInButtonBtn);
+			m_btn_DailyDivinationButton.onClick.RemoveAllListeners();
+			m_btn_DailyDivinationButton.onClick.AddListener(OnClick_DailyDivinationButtonBtn);
+			m_btn_InviteCourtesyButton.onClick.RemoveAllListeners();
+			m_btn_InviteCourtesyButton.onClick.AddListener(OnClick_InviteCourtesyButtonBtn);
+			m_btn_TarotButton.onClick.RemoveAllListeners();
+			m_btn_TarotButton.onClick.AddListener(OnClick_TarotButtonBtn);
+			m_btn_WooCommerceButton.onClick.RemoveAllListeners();
+			m_btn_WooCommerceButton.onClick.AddListener(OnClick_WooCommerceButtonBtn);
+			m_btn_LimitedTimeEventButton.onClick.RemoveAllListeners();
+			m_btn_LimitedTimeEventButton.onClick.AddListener(OnClick_LimitedTimeEventButtonBtn);
+			m_btn_StarterCelebrationButton.onClick.RemoveAllListeners();
+			m_btn_StarterCelebrationButton.onClick.AddListener(OnClick_StarterCelebrationButtonBtn);
+			m_btn_SpecialPoolButton.onClick.RemoveAllListeners();
+			m_btn_SpecialPoolButton.onClick.AddListener(OnClick_SpecialPoolButtonBtn);
+			m_btn_BackpackButton.onClick.RemoveAllListeners();
+			m_btn_BackpackButton.onClick.AddListener(OnClick_BackpackButtonBtn);
+			m_btn_TaskButton.onClick.RemoveAllListeners();
+			m_btn_TaskButton.onClick.AddListener(OnClick_TaskButtonBtn);
 			m_btn_FindImage.onClick.RemoveAllListeners();
 			m_btn_FindImage.onClick.AddListener(OnClick_FindImageBtn);
 		}
@@ -64,29 +71,29 @@ namespace GameLogic
 
 		#region 事件
 
-		private partial void OnClick_MenuBtn();
+		private partial void OnClick_CollapseMenuButtonBtn();
 
-		private partial void OnClick_ProfileBtn();
+		private partial void OnClick_PersonalInformationButtonBtn();
 
-		private partial void OnClick_SignInBtn();
+		private partial void OnClick_CheckInButtonBtn();
 
-		private partial void OnClick_DailyTarotBtn();
+		private partial void OnClick_DailyDivinationButtonBtn();
 
-		private partial void OnClick_InviteBtn();
+		private partial void OnClick_InviteCourtesyButtonBtn();
 
-		private partial void OnClick_TarotBtn();
+		private partial void OnClick_TarotButtonBtn();
 
-		private partial void OnClick_ShopBtn();
+		private partial void OnClick_WooCommerceButtonBtn();
 
-		private partial void OnClick_ActivityBtn();
+		private partial void OnClick_LimitedTimeEventButtonBtn();
 
-		private partial void OnClick_NewbieBtn();
+		private partial void OnClick_StarterCelebrationButtonBtn();
 
-		private partial void OnClick_SpecialPoolBtn();
+		private partial void OnClick_SpecialPoolButtonBtn();
 
-		private partial void OnClick_BagBtn();
+		private partial void OnClick_BackpackButtonBtn();
 
-		private partial void OnClick_TaskBtn();
+		private partial void OnClick_TaskButtonBtn();
 
 		private partial void OnClick_FindImageBtn();
 

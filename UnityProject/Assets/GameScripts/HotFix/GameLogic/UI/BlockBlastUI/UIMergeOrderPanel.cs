@@ -788,7 +788,7 @@ namespace GameLogic
             {
                 if (!_synthByKey.TryGetValue(key, out var tk) || tk == null) continue;
                 int count = _merge.Inventory[key];
-                tk.SetData(key.type, MergeElementVisual.SpriteName(key.type, key.level), key.level, count);
+                tk.SetData(key.type, MergeElementVisual.IconSpriteName(key.type, key.level), key.level, count);
                 if (tk.rectTransform != null) tk.rectTransform.SetSiblingIndex(siblingIndex++);
                 _synthTokens.Add(tk);
             }
@@ -1152,7 +1152,7 @@ namespace GameLogic
 
             float iconSize = BoardCellSize() * 0.7f; // 与棋盘元素图标同尺寸口径，飞行视觉连贯
             const float Stagger = 0.06f;             // count 个图标错开起飞
-            string flySprite = MergeElementVisual.SpriteName(order.Type, order.Level);
+            string flySprite = MergeElementVisual.IconSpriteName(order.Type, order.Level);
 
             // 聚合计数器：count 个飞行各自到达 -1，归 0 时才真正 Deliver + 刷新 + 庆祝 + 解锁。
             int remaining = count;
@@ -1333,7 +1333,7 @@ namespace GameLogic
                             rt.anchoredPosition = BoardCellLocalPos(c, r);
                             _elemWidgets[r, c] = elem;
                         }
-                        elem.SetIcon(MergeElementVisual.SpriteName(el, 1)); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
+                        elem.SetIcon(MergeElementVisual.IconSpriteName(el, 1)); // 棋盘元素 = Lv1 原料（无等级层），取 Lv1 图
                         elem.transform.SetAsLastSibling();                  // 元素图标与棋盘格同父，置顶避免被新建格底块盖住
                     }
                 }
@@ -1420,7 +1420,7 @@ namespace GameLogic
                             grt.SetParent(crt, false);
                             grt.anchorMin = Vector2.zero; grt.anchorMax = Vector2.one;
                             grt.offsetMin = Vector2.zero; grt.offsetMax = Vector2.zero;
-                            gt.SetIcon(MergeElementVisual.SpriteName(el, 1));
+                            gt.SetIcon(MergeElementVisual.IconSpriteName(el, 1));
                         }
                         cellIdx++;
                     }
@@ -1852,7 +1852,7 @@ namespace GameLogic
 
                 var target = token;
                 FlyToTargetFx.Spawn(this, transform.GetComponent<RectTransform>(), startLocal, endLocal,
-                    MergeElementVisual.SpriteName(type, 1), iconSize, idx * Stagger, // 飞行的是 Lv1 原料，取 Lv1 图
+                    MergeElementVisual.IconSpriteName(type, 1), iconSize, idx * Stagger, // 飞行的是 Lv1 原料，取 Lv1 图
                     () =>
                     {
                         if (target == null) return;
