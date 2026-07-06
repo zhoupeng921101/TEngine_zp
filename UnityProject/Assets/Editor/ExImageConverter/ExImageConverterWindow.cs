@@ -10,11 +10,16 @@ using UnityEngine.UI;
 namespace GameLogic.EditorTools
 {
     /// <summary>
-    /// 批量把指定目录下 prefab 内「引用了 UI 图集贴图」的 UnityEngine.UI.Image 组件改写为 GameLogic.ExImage，
-    /// 并自动绑定其贴图所属的 SpriteAtlas。改写仅替换 m_Script 并补 spriteAtlas 字段，Source Image 与其余字段/引用全部保留。
+    /// 批量校正指定目录下 prefab 内引用了 UI 图集贴图的 UI 组件，使其成为绑定了 SpriteAtlas 的 GameLogic.ExImage。
+    /// 两类处理并入同一扫描/Apply：
+    ///   · 转换（Convert）——纯 UnityEngine.UI.Image：替换 m_Script 为 ExImage 并补 spriteAtlas。
+    ///   · 补绑（RebindAtlas）——已是 ExImage 但 spriteAtlas 缺失（null）、Source Image 命中唯一图集：仅补写 spriteAtlas 字段。
+    /// 两者均只补图集引用，Source Image 与其余字段/引用全部保留，零视觉变化。
     ///
     /// 判定来源：Assets/AssetArt/Atlas/ 下所有 .spriteatlasv2 的 packables（贴图 guid → 所属图集映射）。
-    /// 只有当 Image 的 m_Sprite 贴图 guid 命中映射时才改写；一张贴图被多图集打包时记冲突日志并跳过。
+    /// 只有当组件 m_Sprite 的贴图 guid 命中映射时才处理；一张贴图被多图集打包时记冲突日志并跳过。
+    /// 已是 ExImage 且已绑定任一图集的静默跳过：spriteAtlas 供运行时 SpriteName 动态换图，可故意与静态 Source Image
+    /// 所属图集不同，工具不据 Source Image 覆盖既有图集，只补「从无到有」。
     ///
     /// Scan 与 Apply 各自独立 LoadPrefabContents、各自重新判定每个组件——不跨两次加载传递组件身份。
     /// 原因：LoadPrefabContents 出来的对象无稳定 localFileId（TryGetGUIDAndLocalFileIdentifier 返回 false/0），
@@ -38,25 +43,40 @@ namespace GameLogic.EditorTools
         private readonly List<PreviewItem> _pending = new List<PreviewItem>();
         private readonly List<string> _skips = new List<string>();
 
+        // _pending 按类别的计数，仅在 Scan 结束时刷新，供每帧 OnGUI 直接读，避免重绘时重复 LINQ。
+        private int _convertCount;
+        private int _rebindCount;
+
+        /// <summary>一条预览记录处理的性质。</summary>
+        private enum ItemKind
+        {
+            Convert,     // 纯 Image → ExImage（换脚本 + 绑图集）
+            RebindAtlas, // 已是 ExImage，仅补绑/纠正 spriteAtlas
+        }
+
         /// <summary>一条预览记录：仅用于 Dry-Run 展示，不携带跨加载的组件句柄。</summary>
         private class PreviewItem
         {
+            public ItemKind Kind;
             public string PrefabPath;
             public string NodePath;
             public string SpriteName;
             public string AtlasName;
+            public string Note;
         }
 
         /// <summary>单个组件的判定结果。</summary>
         private enum Decision
         {
-            NotImage,       // 非纯 Image（含已是 ExImage）→ 静默跳过
+            NotImage,       // 非纯 Image 且非 ExImage（其它 Image 子类）→ 静默跳过
             NoSprite,       // 无 sprite → 静默跳过
             NotAtlased,     // sprite 贴图不在任何图集 → 静默跳过
             Conflict,       // 贴图被多图集打包 → 记冲突、跳过
             FromOtherPrefab,// 来自其它 prefab 源（变体继承 / 嵌套实例）→ 记跳过，应在源 prefab 上转换
             AtlasMissing,   // 命中图集但资源加载失败 → 记跳过
-            Convert         // 改写
+            Convert,        // 纯 Image → ExImage
+            RebindAtlas,    // 已是 ExImage 但 spriteAtlas 缺失、sprite 命中唯一图集 → 补绑该图集
+            AlreadyBound    // 已是 ExImage 且已绑定图集 → 静默跳过（不据 Source Image 二次裁定）
         }
 
         [MenuItem("GameLogic/UI/Image 转 ExImage（批量绑图集）")]
@@ -70,7 +90,8 @@ namespace GameLogic.EditorTools
         private void OnGUI()
         {
             EditorGUILayout.HelpBox(
-                "把扫描目录下 prefab 中引用了 UI 图集贴图的 Image 改写为 ExImage 并绑定图集。\n" +
+                "把扫描目录下 prefab 中引用了 UI 图集贴图的 Image 改写为 ExImage 并绑定图集；\n" +
+                "同时检测已是 ExImage 但缺图集(spriteAtlas 为空)的组件，按其 Source Image 所属图集补绑。\n" +
                 "仅补图集引用，保留 Source Image，零视觉变化。先扫描预览，确认后再 Apply。",
                 MessageType.Info);
 
@@ -87,7 +108,7 @@ namespace GameLogic.EditorTools
                 using (new EditorGUI.DisabledScope(_pending.Count == 0))
                 {
                     GUI.backgroundColor = new Color(0.7f, 1f, 0.7f);
-                    if (GUILayout.Button($"Apply（改写 {_pending.Count} 处）", GUILayout.Height(28)))
+                    if (GUILayout.Button($"Apply（处理 {_pending.Count} 处）", GUILayout.Height(28)))
                     {
                         Apply();
                     }
@@ -153,7 +174,9 @@ namespace GameLogic.EditorTools
             }
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField($"将改写 {_pending.Count} 处，跳过/冲突 {_skips.Count} 处", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                $"待处理 {_pending.Count} 处（转换 {_convertCount} · 补绑图集 {_rebindCount}），跳过/冲突 {_skips.Count} 处",
+                EditorStyles.boldLabel);
 
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
 
@@ -161,8 +184,13 @@ namespace GameLogic.EditorTools
             {
                 using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                 {
-                    EditorGUILayout.LabelField(Path.GetFileName(c.PrefabPath) + "  ·  " + c.NodePath, EditorStyles.boldLabel);
+                    string tag = c.Kind == ItemKind.Convert ? "[转换]" : "[补绑图集]";
+                    EditorGUILayout.LabelField(tag + "  " + Path.GetFileName(c.PrefabPath) + "  ·  " + c.NodePath, EditorStyles.boldLabel);
                     EditorGUILayout.LabelField($"sprite: {c.SpriteName}    →  图集: {c.AtlasName}");
+                    if (!string.IsNullOrEmpty(c.Note))
+                    {
+                        EditorGUILayout.LabelField(c.Note, EditorStyles.miniLabel);
+                    }
                     EditorGUILayout.LabelField(c.PrefabPath, EditorStyles.miniLabel);
                 }
             }
@@ -218,9 +246,11 @@ namespace GameLogic.EditorTools
                 EditorUtility.ClearProgressBar();
             }
 
+            _convertCount = _pending.Count(p => p.Kind == ItemKind.Convert);
+            _rebindCount = _pending.Count(p => p.Kind == ItemKind.RebindAtlas);
             _summary =
-                $"扫描完成：{prefabGuids.Length} 个 prefab，命中图集 Image {hitImages} 处，" +
-                $"待改写 {_pending.Count} 处，跳过/冲突 {_skips.Count} 处。";
+                $"扫描完成：{prefabGuids.Length} 个 prefab，命中图集 {hitImages} 处，" +
+                $"待处理 {_pending.Count} 处（转换 {_convertCount} · 补绑图集 {_rebindCount}），跳过/冲突 {_skips.Count} 处。";
             Debug.Log("[ExImageConverter] " + _summary);
         }
 
@@ -239,7 +269,9 @@ namespace GameLogic.EditorTools
                 foreach (var img in root.GetComponentsInChildren<Image>(true))
                 {
                     var decision = Evaluate(img, out string atlasGuid, out SpriteAtlas atlas, out string note);
-                    if (decision == Decision.NotImage || decision == Decision.NoSprite || decision == Decision.NotAtlased)
+                    // 无需处理的判定（含已配置的 ExImage）静默跳过，不计入命中数。
+                    if (decision == Decision.NotImage || decision == Decision.NoSprite ||
+                        decision == Decision.NotAtlased || decision == Decision.AlreadyBound)
                     {
                         continue;
                     }
@@ -253,10 +285,22 @@ namespace GameLogic.EditorTools
                         case Decision.Convert:
                             _pending.Add(new PreviewItem
                             {
+                                Kind = ItemKind.Convert,
                                 PrefabPath = prefabPath,
                                 NodePath = nodePath,
                                 SpriteName = spriteName,
                                 AtlasName = atlas.name,
+                            });
+                            break;
+                        case Decision.RebindAtlas:
+                            _pending.Add(new PreviewItem
+                            {
+                                Kind = ItemKind.RebindAtlas,
+                                PrefabPath = prefabPath,
+                                NodePath = nodePath,
+                                SpriteName = spriteName,
+                                AtlasName = atlas.name,
+                                Note = note,
                             });
                             break;
                         case Decision.Conflict:
@@ -322,7 +366,7 @@ namespace GameLogic.EditorTools
                 AssetDatabase.Refresh();
             }
 
-            _summary = $"Apply 完成：改写 {changed} 处，涉及 {prefabCount} 个 prefab，失败 {failed.Count} 处。";
+            _summary = $"Apply 完成：处理 {changed} 处，涉及 {prefabCount} 个 prefab，失败 {failed.Count} 处。";
             Debug.Log("[ExImageConverter] " + _summary);
             foreach (var f in failed)
             {
@@ -333,7 +377,7 @@ namespace GameLogic.EditorTools
             Scan();
         }
 
-        /// <summary>对单个 prefab 在一次加载内完成：重判每个组件 + 就地改写需转的，返回本 prefab 改写数。</summary>
+        /// <summary>对单个 prefab 在一次加载内完成：重判每个组件，转换纯 Image、补绑图集缺失的 ExImage，返回本 prefab 处理数。</summary>
         private int ApplyToPrefab(string prefabPath, MonoScript exScript, ref int prefabCount, List<string> failed)
         {
             int changed = 0;
@@ -347,33 +391,52 @@ namespace GameLogic.EditorTools
 
             try
             {
-                // 先收集需改写的目标 GameObject（改写会令 Image 句柄失效，故不在遍历中边改边引用旧句柄）。
-                var targets = new List<KeyValuePair<GameObject, SpriteAtlas>>();
+                // 先收集目标 GameObject（改写会令组件句柄失效，故不在遍历中边改边引用旧句柄）。
+                var targets = new List<(GameObject go, SpriteAtlas atlas, ItemKind kind)>();
                 foreach (var img in root.GetComponentsInChildren<Image>(true))
                 {
                     var decision = Evaluate(img, out _, out SpriteAtlas atlas, out _);
                     if (decision == Decision.Convert)
                     {
-                        targets.Add(new KeyValuePair<GameObject, SpriteAtlas>(img.gameObject, atlas));
+                        targets.Add((img.gameObject, atlas, ItemKind.Convert));
+                    }
+                    else if (decision == Decision.RebindAtlas)
+                    {
+                        targets.Add((img.gameObject, atlas, ItemKind.RebindAtlas));
                     }
                 }
 
-                foreach (var kv in targets)
+                foreach (var (go, atlas, kind) in targets)
                 {
-                    var go = kv.Key;
-                    var img = go.GetComponent<Image>();
-                    if (img == null || img is ExImage)
+                    bool ok;
+                    if (kind == ItemKind.Convert)
                     {
-                        continue;
+                        var img = go.GetComponent<Image>();
+                        if (img == null || img is ExImage)
+                        {
+                            continue;
+                        }
+                        ok = SwapToExImage(img, exScript, atlas);
                     }
-                    if (SwapToExImage(img, exScript, kv.Value))
+                    else
+                    {
+                        var ex = go.GetComponent<ExImage>();
+                        if (ex == null)
+                        {
+                            continue;
+                        }
+                        ok = BindAtlas(ex, atlas);
+                    }
+
+                    if (ok)
                     {
                         changed++;
                         dirty = true;
                     }
                     else
                     {
-                        failed.Add($"{prefabPath} · {GetNodePath(root.transform, go.transform)}（改写失败）");
+                        string action = kind == ItemKind.Convert ? "改写" : "补绑";
+                        failed.Add($"{prefabPath} · {GetNodePath(root.transform, go.transform)}（{action}失败）");
                     }
                 }
 
@@ -412,21 +475,27 @@ namespace GameLogic.EditorTools
             scriptProp.objectReferenceValue = exScript;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            // 重新取变身后的 ExImage（img 引用此刻可能已失效）。
+            // 重新取变身后的 ExImage（img 引用此刻可能已失效）后，走同一图集写入路径。
             var ex = go.GetComponent<ExImage>();
             if (ex == null)
             {
                 return false;
             }
 
-            var so2 = new SerializedObject(ex);
-            var atlasProp = so2.FindProperty("spriteAtlas");
+            return BindAtlas(ex, atlas);
+        }
+
+        /// <summary>把 spriteAtlas 写入一个已是 ExImage 的组件（补绑 / 纠正），不动脚本与其余字段。</summary>
+        private static bool BindAtlas(ExImage ex, SpriteAtlas atlas)
+        {
+            var so = new SerializedObject(ex);
+            var atlasProp = so.FindProperty("spriteAtlas");
             if (atlasProp == null)
             {
                 return false;
             }
             atlasProp.objectReferenceValue = atlas;
-            so2.ApplyModifiedPropertiesWithoutUndo();
+            so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(ex);
             return true;
@@ -439,10 +508,20 @@ namespace GameLogic.EditorTools
             atlas = null;
             note = null;
 
-            // 幂等 + 只处理纯 UnityEngine.UI.Image。ExImage 是 Image 子类，GetType() 判等已涵盖。
-            if (img.GetType() != typeof(Image))
+            // 只处理纯 UnityEngine.UI.Image（待转换）与 ExImage（仅补绑缺失图集）；其它 Image 子类跳过。
+            var type = img.GetType();
+            bool isExImage = type == typeof(ExImage);
+            if (!isExImage && type != typeof(Image))
             {
                 return Decision.NotImage;
+            }
+
+            // 已是 ExImage 且已绑定任一图集：视为已配置，直接跳过，不再据 Source Image 二次裁定。
+            // spriteAtlas 供运行时 SpriteName 动态换图，可故意与静态 Source Image 所属图集不同；据 Source Image
+            // 覆盖会把这类动态图集改错、令按名取图 GetSprite 返 null。故只补「缺图集」，绝不改「已有图集」。
+            if (isExImage && ((ExImage)img).spriteAtlas != null)
+            {
+                return Decision.AlreadyBound;
             }
 
             var sprite = img.sprite;
@@ -481,6 +560,13 @@ namespace GameLogic.EditorTools
             {
                 note = $"图集资源加载失败 guid={atlasGuid}";
                 return Decision.AtlasMissing;
+            }
+
+            // 到此：spriteAtlas 非空的 ExImage 已在前面短路。ExImage 走到这里即「缺图集」，补绑 Source Image 所属图集。
+            if (isExImage)
+            {
+                note = $"缺图集，补绑 {atlas.name}";
+                return Decision.RebindAtlas;
             }
 
             return Decision.Convert;
