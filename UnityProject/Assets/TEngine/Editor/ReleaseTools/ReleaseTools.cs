@@ -118,18 +118,27 @@ namespace TEngine
         /// </summary>
         public static void BuildWithConfig(BuildConfig config, bool buildPlayer)
         {
-            // 前置校验:WebGL + Remote + 内置文件拷贝=None 是必崩组合。
-            // 该组合下 StreamingAssets 不会生成 BuildinCatalog,WebGL 运行时内置文件系统初始化必失败
-            // (读不到内置清单,卡在最开头、走不到 CDN)。构建期直接中止,不静默出坏包。
+            // 前置校验:WebGL + Remote 下,StreamingAssets 若没有任何内置目录会导致运行时资源初始化必失败
+            // (读不到 BuildinCatalog,卡在最开头、走不到 CDN)。以下两种组合会造成"内置目录为空",构建期直接中止:
+            //   1. 内置文件拷贝=None —— 什么都不拷。
+            //   2. 内置文件拷贝=ByTags 但『首包保留 Tag』为空 —— 没有 Tag 命中,等同什么都不拷。
             if (config.BuildTarget == BuildTarget.WebGL
-                && Settings.UpdateSetting.GetLoadResWayWebGL() == LoadResWayWebGL.Remote
-                && config.BuildinFileCopyOption == EBuildinFileCopyOption.None)
+                && Settings.UpdateSetting.GetLoadResWayWebGL() == LoadResWayWebGL.Remote)
             {
-                string err = "WebGL + Remote 模式下『内置文件拷贝』不能为 None:" +
-                             "StreamingAssets 将缺少 BuildinCatalog,Player 运行时资源初始化必失败、下载不到资源。" +
-                             "请改用 ClearAndCopyAll(或 ClearAndCopyByTags)。";
-                Debug.LogError($"[BuildWithConfig] {err}");
-                throw new Exception(err);
+                bool noneCopy = config.BuildinFileCopyOption == EBuildinFileCopyOption.None;
+                bool byTags = config.BuildinFileCopyOption == EBuildinFileCopyOption.ClearAndCopyByTags
+                              || config.BuildinFileCopyOption == EBuildinFileCopyOption.OnlyCopyByTags;
+                bool byTagsEmpty = byTags && string.IsNullOrWhiteSpace(config.BuildinFileCopyParams);
+                if (noneCopy || byTagsEmpty)
+                {
+                    string err = noneCopy
+                        ? "WebGL + Remote 模式下『内置文件拷贝』不能为 None:StreamingAssets 将缺少 BuildinCatalog," +
+                          "Player 运行时资源初始化必失败、下载不到资源。请改用 ClearAndCopyAll,或用 ClearAndCopyByTags 并填『首包保留 Tag』。"
+                        : "WebGL + Remote 模式下选择了 ByTags 拷贝,但『首包保留 Tag』为空:不会有任何 bundle 进 StreamingAssets," +
+                          "等同 None、运行时必失败。请填写要留在首包的 Tag(如 buildin)。";
+                    Debug.LogError($"[BuildWithConfig] {err}");
+                    throw new Exception(err);
+                }
             }
 
             // 1. [可选] 编译热更DLL
@@ -263,7 +272,7 @@ namespace TEngine
             buildParameters.SingleReferencedPackAlone = false;
             buildParameters.FileNameStyle = config.FileNameStyle;
             buildParameters.BuildinFileCopyOption = config.BuildinFileCopyOption;
-            buildParameters.BuildinFileCopyParams = string.Empty;
+            buildParameters.BuildinFileCopyParams = config.BuildinFileCopyParams ?? string.Empty;
             buildParameters.EncryptionServices = GetEncryptionFromType(config.EncryptionType);
             buildParameters.ClearBuildCacheFiles = config.ClearBuildCache;
             buildParameters.UseAssetDependencyDB = config.UseAssetDependencyDB;

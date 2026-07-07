@@ -25,6 +25,8 @@ namespace TEngine
         public bool ClearBuildCache;
         public bool VerifyBuildingResult = true;
         public EBuildinFileCopyOption BuildinFileCopyOption = EBuildinFileCopyOption.ClearAndCopyAll;
+        // ByTags 拷贝时,指定哪些 Tag 的 bundle 进首包(StreamingAssets)。多个用分号分隔。
+        public string BuildinFileCopyParams = "";
         public EFileNameStyle FileNameStyle = EFileNameStyle.BundleName_HashName;
 
         // 热更DLL设置

@@ -38,7 +38,8 @@ lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 Bind
 
 1. **理解需求**:歧义当场问用户一句(用户在场,不积压)。
 2. **形成需求级方案**:必要时轻量 grep / 读码确认可行性与大致指向;**不深读到实现级**——具体改哪个类/方法/接缝在实现段读工程现场推导。
-3. **记基线**:记录 target 对应仓库的 `git rev-parse HEAD` 作基线(client→UnityProject;server→Fantasy;供回退到本轮提交前)。
+3. **记基线 + 锚工作树**:记录 target 对应仓库的 `git rev-parse HEAD` 作基线(client→UnityProject;server→Fantasy;供回退到本轮提交前)。开工前把工作树里已有的未提交改动(含未跟踪新文件)锚进 git 留恢复点:`git stash -u` 后立即 `git stash apply`——工作副本原样恢复,stash 项留作可 `git stash pop` / reflog 找回的锚;工作树干净则跳过。
+   > 流水线的 commit 精确 add 本轮文件、不含用户并发的未提交改动,这些改动始终裸留工作树;不先锚,任何全树操作或误删都无处恢复。未跟踪新文件最脆弱,故用 `-u`。
 4. **实现**:按 target 用 Skill 工具调用对应子 skill(client=`pipeline-lite-dev`,含新 UI 窗口先 `pipeline-lite-ui`;server=`pipeline-lite-server-dev`),在会话内直接实现;子 skill 跑完回到本流程继续。
 5. **自检**:
    - **客户端**:实现段先探 UnityMCP(`unity-check` 三步探针,会话没挂载 `mcp__unityMCP__*` 视同不可用)。**连到活的 UnityProject** → 即时 `mcp__unityMCP__run_tests`(mode=EditMode)驱动已开 Editor 跑全量、当场判绿,交付即过。**不可用**(server 没起 / 未挂载 / Unity 没开)→ 把自检条目入队 `.claude/pipeline-lite/pending-test.md`,交付标注「自检待跑」,由用户 `/pipeline-lite-selftest` 用 junction 孪生工程 `UnityProject_selftest`(主 Editor 可开着)batchmode 补跑。
@@ -46,7 +47,8 @@ lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 Bind
    - **这是本管线唯一的自动验证兜底**——去用户手测后,EditMode/编译测不到的路径无结构化验证。
 6. **自审(裁定权仍以非作者视角自持)**:对本次改动跑 `/code-review`(默认 low/med——少而准、合轻量;大改可升 high),以本轮文件清单为范围,忽略工作树里的并发无关改动。查出真缺陷 → 本轮内自行修复(客户端:即时通道复跑 `run_tests` / 队列通道同步更新条目;服务端复跑 `dotnet build` 并再次更新重启本机开发服)。改动触及安全面(server 鉴权/网络/持久化,或客户端处理不可信输入)才追加 `/security-review`,否则跳过。
 7. **提交(gate 实绿才提交)**:自检+自审均过、gate 实绿时自动提交本轮改动——精确 `git add` 本轮呈报文件清单(**禁 `git add -A`**:工作树常有并发无关改动)、conventions 格式 commit message + 结尾 `Co-Authored-By` trailer(按环境 git 约定)、**只 commit 不 push**;当前在主干(main)则先切分支再提。**队列通道例外**:客户端自检入队(交付标『自检待跑』、gate 未实绿)时本步推迟,由 `/pipeline-lite-selftest` PASS 时补提交。
-8. **呈报**:把改动摘要 + 文件清单 + 审查结论 + 本轮 commit hash 呈报用户;回退提示 `git reset --hard <基线 HEAD>`(退到本轮提交前)。
+8. **呈报**:把改动摘要 + 文件清单 + 审查结论 + 本轮 commit hash 呈报用户;回退提示只用**非破坏性、且只针对本轮文件**的方式,禁全树 `git reset --hard`:未 push 用 `git checkout <基线HEAD> -- <本轮文件清单>` 或 `git revert <本轮commit>` 撤本轮改动,保留工作树里其它未提交改动。
+   > 全树 `git reset --hard <基线>` 会连同用户并发的未提交改动(如手写业务代码)一并删除;流水线的 commit 逐文件精确、本不含这些改动,回退也只该 scoped 到本轮文件。
 
 > 自审与写码同一上下文,隔离弱于原 boss/dev 分离(conventions「交叉检」:改动者刚写完最盲)。本管线靠低风险定位 + `/code-review` 独立框架兜底,不再有非作者裁定层。
 > **覆盖缺口(去手测后)**:自检门只覆盖编译 + EditMode;PlayMode / UI 手感 / 真机 / 真服路径无自动验证,呈报时提示用户这些路径需自行运行核对。
@@ -61,6 +63,6 @@ lite-ui **直接 MCP 搭建**(精确可控),不走 html-to-ugui。绑定走 Bind
 
 ## 红线
 
-- 自检+自审 gate 实绿即自动提交本轮改动(每轮一 commit):精确 `git add` 本轮文件清单(禁 `git add -A`)、conventions commit message + `Co-Authored-By` trailer、只 commit 不 push、在主干先切分支;客户端队列通道推迟到 `/pipeline-lite-selftest` PASS 补提交。实现前记 target 对应仓库基线 HEAD 供回退(退到提交前)。
+- 自检+自审 gate 实绿即自动提交本轮改动(每轮一 commit):精确 `git add` 本轮文件清单(禁 `git add -A`)、conventions commit message + `Co-Authored-By` trailer、只 commit 不 push、在主干先切分支;客户端队列通道推迟到 `/pipeline-lite-selftest` PASS 补提交。实现前记 target 对应仓库基线 HEAD、并把已有未提交改动锚进 git(`git stash -u` 后 `git stash apply`)供恢复;回退只用非破坏性、scoped 到本轮文件的方式(`git checkout <基线> -- <文件清单>` / `git revert`),禁全树 `git reset --hard`。
 - 不建过程状态/归档文件、不写 design-docs。
 - 写任何持久文件前遵 `.claude/rules/conventions.md`。

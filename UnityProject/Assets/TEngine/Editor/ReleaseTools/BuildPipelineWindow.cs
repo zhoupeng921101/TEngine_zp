@@ -319,6 +319,21 @@ namespace TEngine
                     _config.BuildinFileCopyOption = (EBuildinFileCopyOption)EditorGUILayout.Popup(
                         "内置文件拷贝", (int)_config.BuildinFileCopyOption, CopyOptionNames);
 
+                    // ByTags 拷贝需指定首包保留的 Tag(仅 ByTags 档位有效)
+                    bool isByTags = _config.BuildinFileCopyOption == EBuildinFileCopyOption.ClearAndCopyByTags
+                                    || _config.BuildinFileCopyOption == EBuildinFileCopyOption.OnlyCopyByTags;
+                    if (isByTags)
+                    {
+                        _config.BuildinFileCopyParams = EditorGUILayout.TextField(
+                            new GUIContent("首包保留Tag", "ByTags 拷贝:带这些 Tag 的 bundle 进首包(StreamingAssets),其余走 CDN。多个用分号分隔,如 buildin"),
+                            _config.BuildinFileCopyParams);
+                        EditorGUILayout.HelpBox(
+                            string.IsNullOrWhiteSpace(_config.BuildinFileCopyParams)
+                                ? "首包保留 Tag 为空:WebGL+Remote 下会被拦截(等同 None)。填入要留在首包的 Tag,如 buildin。"
+                                : $"首包只保留带 [{_config.BuildinFileCopyParams}] Tag 的 bundle,其余从 CDN 加载。",
+                            string.IsNullOrWhiteSpace(_config.BuildinFileCopyParams) ? MessageType.Warning : MessageType.Info);
+                    }
+
                     _config.FileNameStyle = (EFileNameStyle)EditorGUILayout.Popup(
                         "文件名风格", (int)_config.FileNameStyle, FileNameStyleNames);
                 }
@@ -1011,6 +1026,7 @@ namespace TEngine
             _config.VerifyBuildingResult = EditorPrefs.GetBool("TEngine_BP_VerifyResult", true);
             // 默认 ClearAndCopyAll:WebGL 恒需 StreamingAssets 内置目录,None 会导致运行时资源初始化失败。
             _config.BuildinFileCopyOption = (EBuildinFileCopyOption)EditorPrefs.GetInt("TEngine_BP_CopyOption", (int)EBuildinFileCopyOption.ClearAndCopyAll);
+            _config.BuildinFileCopyParams = EditorPrefs.GetString("TEngine_BP_CopyParams", "");
             _config.FileNameStyle = (EFileNameStyle)EditorPrefs.GetInt("TEngine_BP_FileNameStyle", 1);
 
             _config.BuildHotFixDll = EditorPrefs.GetBool("TEngine_BP_BuildDll", true);
@@ -1053,6 +1069,7 @@ namespace TEngine
             EditorPrefs.SetBool("TEngine_BP_ClearCache", _config.ClearBuildCache);
             EditorPrefs.SetBool("TEngine_BP_VerifyResult", _config.VerifyBuildingResult);
             EditorPrefs.SetInt("TEngine_BP_CopyOption", (int)_config.BuildinFileCopyOption);
+            EditorPrefs.SetString("TEngine_BP_CopyParams", _config.BuildinFileCopyParams ?? "");
             EditorPrefs.SetInt("TEngine_BP_FileNameStyle", (int)_config.FileNameStyle);
             EditorPrefs.SetBool("TEngine_BP_BuildDll", _config.BuildHotFixDll);
             EditorPrefs.SetBool("TEngine_BP_BuildPlayer", _config.BuildPlayer);
@@ -1114,6 +1131,7 @@ namespace TEngine
                 ClearBuildCache = source.ClearBuildCache,
                 VerifyBuildingResult = source.VerifyBuildingResult,
                 BuildinFileCopyOption = source.BuildinFileCopyOption,
+                BuildinFileCopyParams = source.BuildinFileCopyParams,
                 FileNameStyle = source.FileNameStyle,
                 BuildHotFixDll = source.BuildHotFixDll,
                 BuildPlayer = source.BuildPlayer,
