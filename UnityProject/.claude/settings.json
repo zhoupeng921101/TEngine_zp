@@ -15,11 +15,6 @@
       "mcp__ccd_session_mgmt__send_message",
       "mcp__ccd_session_mgmt__list_sessions",
       "mcp__ccd_session_mgmt__search_session_transcripts"
-    ],
-    "deny": [
-      "Bash(git push:*)",
-      "PowerShell(git push:*)",
-      "Bash(rm -rf:*)"
     ]
   }
 }

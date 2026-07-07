@@ -497,6 +497,16 @@ namespace TEngine
             {
                 EditorGUILayout.BeginVertical("HelpBox");
                 {
+                    EditorGUILayout.HelpBox(
+                        "发布流程(WebGL + CDN),按序执行:\n" +
+                        "① 高级设置:内置文件拷贝 = ClearAndCopyByTags,首包保留Tag = buildin,文件名风格 = BundleName_HashName\n" +
+                        "② 点『本地检查』→ 全绿再继续\n" +
+                        "③ 点『一键部署 AB』(必须在前)\n" +
+                        "④ 点『一键部署 Player』(必须在后:AB 与 Player 版本要对齐,顺序反了会漏)\n" +
+                        "⑤ 点『线上检查』→ 确认 CDN 版本一致、非首包 bundle 可达",
+                        MessageType.None);
+                    GUILayout.Space(3);
+
                     EditorGUILayout.BeginHorizontal();
                     if (GUILayout.Button("本地检查(配置+产物)", GUILayout.Height(26)))
                     {
