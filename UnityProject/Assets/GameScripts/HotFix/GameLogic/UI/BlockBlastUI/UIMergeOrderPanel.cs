@@ -434,12 +434,19 @@ namespace GameLogic
         // 行 / 列两份材质 _Vertical 分别为 0 / 1；_CoreFrac = 1/BandScale，使描边落在 quad 拉伸后真实行/列的边缘处。
         private void InitGlowPool()
         {
-            _glowMatRow = new Material(Shader.Find("UI/GlowCell"));
-            _glowMatRow.SetFloat("_Vertical", 0f);
-            _glowMatRow.SetFloat("_CoreFrac", 1f / BandScale);
-            _glowMatCol = new Material(Shader.Find("UI/GlowCell"));
-            _glowMatCol.SetFloat("_Vertical", 1f);
-            _glowMatCol.SetFloat("_CoreFrac", 1f / BandScale);
+            // UI_GlowCell shader 由 UIPreloader 启动期从 AB 预载并持有引用，按引用建行/列两份材质（绕开 WebGL 下
+            // 失效的 Shader.Find：其只认 Always Included / 已驻留 shader，未驻留 bundle 的 shader 找不到）。
+            var glowShader = GameLogic.UIPreloader.GetShader("UI_GlowCell");
+            if (glowShader != null)
+            {
+                _glowMatRow = new Material(glowShader);
+                _glowMatRow.SetFloat("_Vertical", 0f);
+                _glowMatRow.SetFloat("_CoreFrac", 1f / BandScale);
+                _glowMatCol = new Material(glowShader);
+                _glowMatCol.SetFloat("_Vertical", 1f);
+                _glowMatCol.SetFloat("_CoreFrac", 1f / BandScale);
+            }
+            else Log.Error("[UIMergeOrderPanel] 未预载 UI_GlowCell shader，消行预览辉光无自定义材质（退默认材质，请检查 UIPreloader.GameplayShaderLocations）。");
 
             float cell = BoardCellSize();
             // 行内填充池：先建（在边缘辉光之前），默认材质纯色半透明绿、不挂 GlowPulse、初始隐藏。
@@ -732,10 +739,11 @@ namespace GameLogic
                 return;
             }
 
-            // 去色材质：未拥有槽图标用。UI/Grayscale 已入 Always Included Shaders，运行时 Shader.Find 可得;缺失则退化为不去色（保持彩色）。
-            var grayShader = Shader.Find("UI/Grayscale");
+            // 去色材质：未拥有槽图标用。UI_Grayscale shader 由 UIPreloader 启动期从 AB 预载并持有引用，按引用建材质
+            // （绕开 WebGL 下失效的 Shader.Find）;未预载则退化为不去色（保持彩色）。
+            var grayShader = GameLogic.UIPreloader.GetShader("UI_Grayscale");
             if (grayShader != null) _synthGrayMat = new Material(grayShader);
-            else Log.Error("[UIMergeOrderPanel] 未找到 UI/Grayscale shader，未拥有元素格无法去色（将保持彩色，请检查 shader 是否入 Always Included Shaders）。");
+            else Log.Error("[UIMergeOrderPanel] 未预载 UI_Grayscale shader，未拥有元素格无法去色（将保持彩色，请检查 UIPreloader.GameplayShaderLocations）。");
 
             NeutralizeSynthContainerForGrid();
 

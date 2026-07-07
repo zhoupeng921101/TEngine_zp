@@ -313,6 +313,15 @@ public partial class GameApp
             Log.Error($"[GameApp] UI 字体预载异常，UGuiFactory 文本可能落回同步加载（WebGL 将报错、回退内置字体）：{e}");
         }
 
+        try
+        {
+            await GameLogic.UIPreloader.PreloadShadersAsync();
+        }
+        catch (System.Exception e)
+        {
+            Log.Error($"[GameApp] UI shader 预载异常，玩法窗建材质取不到 shader（WebGL 下 Shader.Find 失效、去色/辉光将退化）：{e}");
+        }
+
 #if FANTASY_UNITY
         // 入口闸第三信号：预载完成。置位后触发放行检查——若登录 + 快照已先到，此刻补齐预载即放行开玩法窗（widget 已驻留）。
         _preloadDone = true;

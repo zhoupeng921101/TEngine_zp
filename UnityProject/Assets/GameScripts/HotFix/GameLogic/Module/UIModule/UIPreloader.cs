@@ -33,6 +33,10 @@ namespace GameLogic
         /// <summary>location → 已加载字体引用（常驻）。</summary>
         private static readonly Dictionary<string, Font> FontCache = new();
 
+        /// <summary>location → 已加载 shader 引用（常驻）。持有引用使运行时按引用建材质，绕开 Shader.Find（后者只认
+        /// Always Included / 已驻留 shader，WebGL 下未驻留 bundle 的 shader 找不到）。</summary>
+        private static readonly Dictionary<string, Shader> ShaderCache = new();
+
         /// <summary>
         /// 玩法窗内被实例化的 widget / 特效预制定位名（== AssetRaw/UI/Widgets、AssetRaw/Effects 下文件名）。
         /// 新增一个被玩法窗 CreateWidgetByType / Instantiate 的预制，须同步加入此清单，否则运行时取用会
@@ -55,6 +59,17 @@ namespace GameLogic
         private static readonly string[] FontLocations =
         {
             "GBK",
+        };
+
+        /// <summary>
+        /// 玩法窗内经代码 new Material 取用的 shader 定位名（== AssetRaw/Shaders 下文件名）。
+        /// 运行时按预载引用建材质（不走 Shader.Find）。新增一种被玩法窗取用的 shader 须同步加入此清单，
+        /// 否则运行时 GetShader 返 null（调用方兜底：Grayscale 退不去色、GlowCell 退无材质）。
+        /// </summary>
+        private static readonly string[] GameplayShaderLocations =
+        {
+            "UI_Grayscale",
+            "UI_GlowCell",
         };
 
         /// <summary>
@@ -124,6 +139,39 @@ namespace GameLogic
         }
 
         /// <summary>
+        /// 异步预载全部玩法 shader 并持有引用。必须在打开 UIMergeOrderPanel 之前 await 完成
+        /// （建材质取本类缓存引用，绕开 WebGL 下失效的 Shader.Find）。逐项失败不阻断（记 Error，尽力放行其余）。
+        /// 幂等：已缓存的 location 跳过（清档软重启重跑时去重）。
+        /// </summary>
+        public static async UniTask PreloadShadersAsync()
+        {
+            foreach (var location in GameplayShaderLocations)
+            {
+                if (ShaderCache.ContainsKey(location))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    // 用非实例化的 LoadAssetAsync<Shader> 加载 shader 资源并持有引用（驻留、不 UnloadAsset）。
+                    var shader = await Resource.LoadAssetAsync<Shader>(location);
+                    if (shader == null)
+                    {
+                        Log.Error($"[UIPreloader] 预载 shader 失败（返回 null）：{location}。运行时建材质将拿不到 shader。");
+                        continue;
+                    }
+
+                    ShaderCache[location] = shader;
+                }
+                catch (System.Exception e)
+                {
+                    Log.Error($"[UIPreloader] 预载 shader 异常：{location}。{e}");
+                }
+            }
+        }
+
+        /// <summary>
         /// 取已预载的预制模板。未命中返回 null（暴露漏预载，不静默触发同步加载）。
         /// </summary>
         public static GameObject GetPrefab(string location)
@@ -163,6 +211,20 @@ namespace GameLogic
             if (FontCache.TryGetValue(location, out var font) && font != null)
             {
                 return font;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// 取已预载的 shader。未命中返回 null（暴露漏预载，不静默触发 Shader.Find / 同步加载）。
+        /// 调用方按引用建材质并自行兜底 null（不去色 / 无材质）。
+        /// </summary>
+        public static Shader GetShader(string location)
+        {
+            if (ShaderCache.TryGetValue(location, out var shader) && shader != null)
+            {
+                return shader;
             }
 
             return null;
