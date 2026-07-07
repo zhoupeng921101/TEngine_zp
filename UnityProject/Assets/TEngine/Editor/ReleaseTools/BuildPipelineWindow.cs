@@ -336,6 +336,15 @@ namespace TEngine
 
                     _config.FileNameStyle = (EFileNameStyle)EditorGUILayout.Popup(
                         "文件名风格", (int)_config.FileNameStyle, FileNameStyleNames);
+
+                    if (_config.BuildTarget == BuildTarget.WebGL
+                        && _config.FileNameStyle == EFileNameStyle.BundleName)
+                    {
+                        EditorGUILayout.HelpBox(
+                            "BundleName 给 bundle 固定文件名,内容变了 URL 不变,CDN 会用旧缓存冒充新文件、导致 CRC Mismatch。" +
+                            "WebGL 部署请改用 BundleName_HashName 或 HashName(文件名带内容哈希)。",
+                            MessageType.Warning);
+                    }
                 }
                 EditorGUILayout.EndVertical();
             }
@@ -1027,7 +1036,8 @@ namespace TEngine
             // 默认 ClearAndCopyAll:WebGL 恒需 StreamingAssets 内置目录,None 会导致运行时资源初始化失败。
             _config.BuildinFileCopyOption = (EBuildinFileCopyOption)EditorPrefs.GetInt("TEngine_BP_CopyOption", (int)EBuildinFileCopyOption.ClearAndCopyAll);
             _config.BuildinFileCopyParams = EditorPrefs.GetString("TEngine_BP_CopyParams", "");
-            _config.FileNameStyle = (EFileNameStyle)EditorPrefs.GetInt("TEngine_BP_FileNameStyle", 1);
+            // 默认 BundleName_HashName:文件名带内容哈希,内容变则 URL 变,规避 CDN 缓存导致的 CRC Mismatch。
+            _config.FileNameStyle = (EFileNameStyle)EditorPrefs.GetInt("TEngine_BP_FileNameStyle", (int)EFileNameStyle.BundleName_HashName);
 
             _config.BuildHotFixDll = EditorPrefs.GetBool("TEngine_BP_BuildDll", true);
 

@@ -53,7 +53,7 @@ MonoBehaviour:
         UserData: '*.bytes'
     - GroupName: DLL
       GroupDesc: 
-      AssetTags: 
+      AssetTags: buildin
       ActiveRuleName: EnableGroup
       Collectors:
       - CollectPath: Assets/AssetRaw/DLL
@@ -121,7 +121,7 @@ MonoBehaviour:
       AssetTags: 
       ActiveRuleName: EnableGroup
       Collectors:
-      - CollectPath: Assets/AssetRaw/UI/Prefabs
+      - CollectPath: Assets/AssetRaw/UI
         CollectorGUID: 27e87d83814156648b58f380b834e046
         CollectorType: 0
         AddressRuleName: AddressByFileName
@@ -130,7 +130,7 @@ MonoBehaviour:
         AssetTags: 
         UserData: 
       - CollectPath: Assets/AssetRaw/UI/Widgets
-        CollectorGUID: 7884b0789a924bd7b5d458ee29a6d1ce
+        CollectorGUID: 
         CollectorType: 0
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
@@ -161,6 +161,19 @@ MonoBehaviour:
         AddressRuleName: AddressByFileName
         PackRuleName: PackSeparately
         FilterRuleName: CollectSprite
+        AssetTags: 
+        UserData: 
+    - GroupName: Shader
+      GroupDesc: 
+      AssetTags: 
+      ActiveRuleName: EnableGroup
+      Collectors:
+      - CollectPath: Assets/AssetRaw/Shaders
+        CollectorGUID: 2a4bceb84ed685447ace957f497eb810
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectShader
         AssetTags: 
         UserData: 
   - PackageName: OtherPackage

@@ -139,6 +139,19 @@ namespace TEngine
                     Debug.LogError($"[BuildWithConfig] {err}");
                     throw new Exception(err);
                 }
+
+                // 文件名风格校验:BundleName(无哈希)会给每个 bundle 固定 URL,内容变了名字不变。
+                // CDN 按 URL 缓存,重新部署后清单(带版本号、URL 每版不同)已刷新为新 CRC,而稳定名 bundle
+                // 仍被 CDN 命中旧缓存 → 下到的字节 CRC 与清单对不上,YooAsset 判损坏拒载(CRC Mismatch)。
+                // HashName / BundleName_HashName 把内容哈希编进文件名,内容一变 URL 就变,CDN 无从用旧缓存冒充。
+                if (config.FileNameStyle == EFileNameStyle.BundleName)
+                {
+                    string err = "WebGL + Remote 模式下『文件名风格』不能用 BundleName(无哈希):bundle URL 固定不变," +
+                                 "重新部署时 CDN 会用旧缓存冒充新文件,导致 CRC Mismatch、资源加载失败。" +
+                                 "请改用 BundleName_HashName 或 HashName(文件名带内容哈希,内容变则 URL 变)。";
+                    Debug.LogError($"[BuildWithConfig] {err}");
+                    throw new Exception(err);
+                }
             }
 
             // 1. [可选] 编译热更DLL

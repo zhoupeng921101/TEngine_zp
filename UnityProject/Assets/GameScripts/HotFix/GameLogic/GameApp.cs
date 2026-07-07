@@ -255,8 +255,11 @@ public partial class GameApp
     {
         try
         {
-            // 构建配置 Tables:ConfigSystem 为同步 Load(仅建懒加载 loader,各表首次访问才读字节),不做异步全表预载。
+            // 构建配置 Tables 并异步预载全部表字节进缓存:WebGL 禁运行时同步加载未驻留 bundle,各表首次访问
+            // (如玩法窗内 GlobalConfigMgr.GetInt)须命中预载字节。预载在此 await、天然并入入口闸 _preloadDone,
+            // 保证首个配置消费者(玩法窗)打开前字节已就绪。
             ConfigSystem.Instance.Load();
+            await ConfigSystem.Instance.PreloadAsync();
         }
         catch (System.Exception e)
         {
