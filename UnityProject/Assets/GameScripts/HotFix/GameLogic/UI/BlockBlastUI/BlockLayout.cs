@@ -27,10 +27,17 @@ namespace GameLogic
         public const float BoardOriginX = (DesignWidth - BoardPixels) / 2f;  // 居中 ≈56
         public const float BoardOriginY = 432f;         // 棋盘左上 Y（设计坐标，向下）
 
-        // 候选槽
-        public const float SlotCell = 68f;              // 槽内格尺寸
-        public const float SlotSpacing = 312f;          // 槽水平间距
+        // 候选槽（下列为「设计基准空间」的值：待选区几何以此为基准，
+        // 运行时按 m_rect_SlotLayer 实际 rect 相对 DesignSlotLayer 尺寸等比缩放，见 UIMergeOrderPanel.RenderSlots）。
+        public const float SlotCell = 68f;              // 槽内格尺寸（设计基准）
+        public const float SlotSpacing = 312f;          // 槽水平间距（设计基准）
         public const float SlotCenterX = DesignWidth / 2f;
+
+        // 待选区容器 m_rect_SlotLayer 的设计基准 rect 尺寸（取自 prefab 当前值）：
+        // RenderSlots 以 scale = min(SlotLayer.rect.w / 此宽, SlotLayer.rect.h / 此高) 等比缩放候选块几何，
+        // scale=1 时与设计基准一致；改 prefab 里 SlotLayer 节点尺寸，待选区整体随之缩放（自适应盘子）。
+        public const float DesignSlotLayerWidth = 771.8872f;
+        public const float DesignSlotLayerHeight = 262.83f;
 
         // 拖拽
         public static float DragScale => CellSize / SlotCell;   // 拖起放大倍数 ≈1.78

@@ -1385,9 +1385,21 @@ namespace GameLogic
 
             // 自适应棋盘格尺寸取一次，供本帧所有候选块复用：拖起放大倍数与单格 base 尺寸同源，避免两处重算不一致。
             float boardCell = BoardCellSize();
-            // 候选块单格 base 尺寸：本地空间下放大 boardCell/SlotCell 倍后正好 = boardCell - BoardCellGap（与棋盘格本地视觉边长相等）。
-            // base = (boardCell - BoardCellGap) / (boardCell/SlotCell) = (boardCell - BoardCellGap) * SlotCell / boardCell。
-            float slotCellBase = (boardCell - BlockLayout.BoardCellGap) * BlockLayout.SlotCell / boardCell;
+
+            // 待选区自适应：候选块几何按 m_rect_SlotLayer 实际 rect 相对设计基准等比缩放
+            //（取宽/高两比的较小者，非等比拉伸时以短边约束、防溢出）。改 prefab 里 SlotLayer 节点尺寸，
+            // 下列 slotCell/slotSpacing/slotZone 随之缩放，待选区整体等比变大变小；scale=1 时与设计基准一致。
+            var slotRect = m_rect_SlotLayer.rect;
+            float slotScale = Mathf.Min(slotRect.width / BlockLayout.DesignSlotLayerWidth,
+                                        slotRect.height / BlockLayout.DesignSlotLayerHeight);
+            float slotCell = BlockLayout.SlotCell * slotScale;
+            float slotSpacing = BlockLayout.SlotSpacing * slotScale;
+            float slotZoneWidth = BlockLayout.SlotZoneWidth * slotScale;
+            float slotZoneHeight = BlockLayout.SlotZoneHeight * slotScale;
+
+            // 候选块单格 base 尺寸：本地空间下放大 boardCell/slotCell 倍后正好 = boardCell - BoardCellGap（与棋盘格本地视觉边长相等）。
+            // base = (boardCell - BoardCellGap) / (boardCell/slotCell) = (boardCell - BoardCellGap) * slotCell / boardCell。
+            float slotCellBase = (boardCell - BlockLayout.BoardCellGap) * slotCell / boardCell;
 
             // 拖起放大倍数需补偿两条分支的世界缩放差（设计基线：拖起块屏幕单格 == 棋盘屏幕单格）。
             // 候选块挂 m_rect_SlotLayer 分支，棋盘格挂 m_rect_BoardLayer 分支；两分支父链 localScale 不同
@@ -1398,7 +1410,7 @@ namespace GameLogic
             float slotLossy = m_rect_SlotLayer.lossyScale.x;
             float boardLossy = m_rect_BoardLayer.lossyScale.x;
             float worldScaleRatio = Mathf.Approximately(slotLossy, 0f) ? 1f : boardLossy / slotLossy;
-            float overrideScale = (boardCell / BlockLayout.SlotCell) * worldScaleRatio;
+            float overrideScale = (boardCell / slotCell) * worldScaleRatio;
 
             for (int i = 0; i < 3; i++)
             {
@@ -1413,23 +1425,23 @@ namespace GameLogic
                 if (shape == null) continue;
 
                 var container = UGuiFactory.CreateNode(m_rect_SlotLayer, $"slot_{i}");
-                float totalW = shape.Width * BlockLayout.SlotCell;
-                float totalH = shape.Height * BlockLayout.SlotCell;
+                float totalW = shape.Width * slotCell;
+                float totalH = shape.Height * slotCell;
                 // 候选块容器相对父层 m_rect_SlotLayer（底部紫色待选区背景内）本地居中定位，不用绝对设计坐标。
                 // 父层中心不在屏幕中心，故旧 PlaceByDesignCenter（锚屏幕中心 + DesignToAnchored）会把容器甩出待选区。
-                // 横向按槽间距铺开（中槽 i=1 居中、左右槽 ±SlotSpacing），纵向居中于槽层；
-                // 容器尺寸取单槽命中区（SlotZoneWidth≈298 / SlotZoneHeight=360），避免 3 个容器占满整层相互重叠。
+                // 横向按槽间距铺开（中槽 i=1 居中、左右槽 ±slotSpacing），纵向居中于槽层；
+                // 容器尺寸取单槽命中区（slotZoneWidth / slotZoneHeight，均为设计基准值 × 自适应 slotScale），避免 3 个容器占满整层相互重叠。
                 container.anchorMin = container.anchorMax = new Vector2(0.5f, 0.5f);
                 container.pivot = new Vector2(0.5f, 0.5f);
-                container.sizeDelta = new Vector2(BlockLayout.SlotZoneWidth, BlockLayout.SlotZoneHeight);
-                container.anchoredPosition = new Vector2((i - 1) * BlockLayout.SlotSpacing, 0f);
+                container.sizeDelta = new Vector2(slotZoneWidth, slotZoneHeight);
+                container.anchoredPosition = new Vector2((i - 1) * slotSpacing, 0f);
 
                 var hit = container.gameObject.AddComponent<Image>();
                 hit.color = new Color(1, 1, 1, 0);
                 hit.raycastTarget = true;
 
-                float offX = -totalW / 2f + BlockLayout.SlotCell / 2f;
-                float offY = totalH / 2f - BlockLayout.SlotCell / 2f;
+                float offX = -totalW / 2f + slotCell / 2f;
+                float offY = totalH / 2f - slotCell / 2f;
                 int cellIdx = 0;
                 for (int r = 0; r < shape.Height; r++)
                 {
@@ -1442,7 +1454,7 @@ namespace GameLogic
                         crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
                         crt.pivot = new Vector2(0.5f, 0.5f);
                         crt.sizeDelta = new Vector2(slotCellBase, slotCellBase);
-                        crt.anchoredPosition = new Vector2(offX + c * BlockLayout.SlotCell, offY - r * BlockLayout.SlotCell);
+                        crt.anchoredPosition = new Vector2(offX + c * slotCell, offY - r * slotCell);
                         cell.SetSkin(mono ? monoLoc : BlockSkinCatalog.ColoredSpriteName((int)piece.Color));
                         
                         if (piece.Elements != null && cellIdx < piece.Elements.Length
