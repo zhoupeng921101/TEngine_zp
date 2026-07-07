@@ -92,6 +92,9 @@ namespace TEngine
         private string _deployAbRemoteDir;
         private string _deployPlayerRemoteDir;
 
+        // 上次部署 AB 时使用的资源版本号:用于在同版本号重复部署时提示确认(防资源改动却漏 bump)。
+        private const string LastDeployedAbVersionKey = "TEngine_BP_LastDeployedAbVersion";
+
         [MenuItem("TEngine/Build/打包工具窗口", false, 0)]
         public static void ShowWindow()
         {
@@ -660,6 +663,33 @@ namespace TEngine
                 _config.PackageVersion = BuildConfig.GetDefaultPackageVersion();
                 AddLog($"版本号为空，自动生成: {_config.PackageVersion}");
             }
+            else if (_config.PackageVersion == EditorPrefs.GetString(LastDeployedAbVersionKey, ""))
+            {
+                // 版本号与上次部署相同:资源若有改动却未 bump,客户端会命中旧缓存 / 清单哈希不匹配。
+                // 仅在重试上传同一份产物时才该沿用同版本,故此处要求显式确认,不静默复用。
+                int choice = EditorUtility.DisplayDialogComplex(
+                    "资源版本号确认",
+                    $"当前资源版本号 [{_config.PackageVersion}] 与上次部署相同。\n\n" +
+                    "若本次资源有改动,应先 bump 版本号——否则客户端可能命中旧缓存,或清单哈希不匹配导致加载失败。\n" +
+                    "仅在重试上传同一份产物时才应沿用当前版本。",
+                    "生成新版本号并继续", // 返回 0
+                    "取消", // 返回 1
+                    "仍用当前版本继续"); // 返回 2
+                if (choice == 1)
+                {
+                    AddLog("已取消部署(资源版本号未确认)。");
+                    _showBuildLog = true;
+                    Repaint();
+                    return;
+                }
+
+                if (choice == 0)
+                {
+                    _config.PackageVersion = BuildConfig.GetDefaultPackageVersion();
+                    SaveSettings();
+                    AddLog($"已生成新版本号: {_config.PackageVersion}");
+                }
+            }
 
             try
             {
@@ -672,6 +702,9 @@ namespace TEngine
 
                 string localDir = ReleaseTools.GetAssetBundleOutputDirectory(cfg);
                 RunDeployScript(localDir, _deployAbRemoteDir, "AB");
+
+                // 记录本次部署版本号,供下次同版本号重复部署时提示确认。
+                EditorPrefs.SetString(LastDeployedAbVersionKey, cfg.PackageVersion);
             }
             catch (Exception e)
             {
