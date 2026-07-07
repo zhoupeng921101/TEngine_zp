@@ -394,6 +394,7 @@ namespace GameLogic
             {
                 m_btn_ClearTool.transition = Selectable.Transition.None;
                 m_btn_ClearTool.gameObject.SetActive(false); // 初始隐藏，OnCreate 末尾 RefreshClearTool 按盘面态刷新
+                m_img_ClearBg.gameObject.SetActive(false);
             }
 
             // 消除道具提示条：绑定隐藏节点（prefab 已初始隐藏）。
@@ -896,6 +897,7 @@ namespace GameLogic
             // 显隐门控：默认隐藏，盘面卡死才现（arming 期间恒显，保证「再点取消」开关可用）。
             bool show = _clearToolArming || IsBoardJammed();
             m_btn_ClearTool.gameObject.SetActive(show);
+            m_img_ClearBg.gameObject.SetActive(show);
             if (!show) return;
             bool can = _merge.CanUseClearTool;
             // 按钮始终可点击：体力门控由 OnClick_ClearToolBtn 内部判定（够则进 arming，不够则弹提示），不再 gate interactable。

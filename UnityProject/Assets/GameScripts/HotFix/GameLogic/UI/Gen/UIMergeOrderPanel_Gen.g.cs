@@ -32,6 +32,7 @@ namespace GameLogic
 		[SerializeField] private RectTransform m_rect_BoardLayer = null!;
 		[SerializeField] private Image m_img_ElemBar = null!;
 		[SerializeField] private RectTransform m_rect_SynthLayer = null!;
+		[SerializeField] private Image m_img_ClearBg = null!;
 		[SerializeField] private Button m_btn_ClearTool = null!;
 		[SerializeField] private Button m_btn_Temple = null!;
 		[SerializeField] private Button m_btn_Bag = null!;
