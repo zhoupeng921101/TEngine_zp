@@ -66,6 +66,11 @@ public class ConfigSystem
     /// </summary>
     public void Load()
     {
+        if (_init)
+        {
+            return; // 幂等:Tables 懒汉式(各表 getter 首访才读),重复 Load 只会重建 loader 壳、丢弃已懒载表并从缓存重载,徒增 churn。
+        }
+
         _tables = new Tables(LoadByteBuf);
         _init = true;
     }

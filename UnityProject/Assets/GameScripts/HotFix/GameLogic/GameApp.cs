@@ -207,9 +207,38 @@ public partial class GameApp
             GameModule.UI.ShowUIAsync<GameLogic.UILoginPanel>(reason);
         };
 #endif
-        // 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load）。
-        // 接 AudioSink，把设置开关推到真实音频模块（设计 23 §五；落点在热更入口而非
-        // 非热更区 ProcedureLaunch——后者引用不到热更区 GameContext，热更边界所致）。
+        // 启动尾段(GameContext 初始化 → 音频设置 → 入口分流登录/闸窗 → UI 预制/字体预载)整体移入异步:
+        // 首个配置消费者 GameContext.OnInit→LoadPlayer 读 avatar 配置,须先 await 配置字节预载再触发 GameContext.Instance;
+        // 配置 await 在发起登录之前完成,登录回调必晚于闸窗摆上(无 CloseUI 落空)。见 PreloadConfigThenStart。
+        PreloadConfigThenStart().Forget();
+    }
+
+    /// <summary>
+    /// 异步启动尾段(时序:配置 → GameContext → 登录 → UI 预载)：
+    /// ① 先 await 全部配置表字节预载(WebGL 禁运行时同步加载未驻留 bundle),使最早的配置消费者
+    ///    (GameContext.OnInit→LoadPlayer 读 avatar、登录快照回调 BootstrapCosmeticUnlocks 读 avatar)命中预载字节;
+    /// ② 配置就绪后首次访问 GameContext 触发 OnInit,LoadPlayer 的头像校验真正生效;接 AudioSink 推音频设置;
+    /// ③ 入口分流发起登录 / 摆闸窗——配置 await 已在此之前完成,登录回调必晚于闸窗摆上(无 CloseUI 落空);
+    /// ④ 预载玩法 UI/特效预制与字体(与登录并行),末尾置入口闸第三信号 _preloadDone 并触发放行检查。
+    /// 各步失败不阻断启动(逐项记 Error,尽力放行)。
+    /// </summary>
+    private static async UniTaskVoid PreloadConfigThenStart()
+    {
+        // ① 配置字节预载:提到首个配置消费者(GameContext.OnInit 读 avatar)与登录发起之前。
+        // WebGL 禁运行时同步加载未驻留 bundle,各表首次访问须命中预载字节。
+        try
+        {
+            ConfigSystem.Instance.Load();
+            await ConfigSystem.Instance.PreloadAsync();
+        }
+        catch (System.Exception e)
+        {
+            Log.Error($"[GameApp] 配置构建异常：{e}");
+        }
+
+        // ② 运行期通用服务上下文：首次 Instance 触发 OnInit（new SettingsService + Load + LoadPlayer；
+        // 此刻 avatar 配置已就绪,LoadPlayer 的头像 id 校验真正生效）。接 AudioSink，把设置开关推到真实音频模块
+        //（设计 23 §五；落点在热更入口而非非热更区 ProcedureLaunch——后者引用不到热更区 GameContext，热更边界所致）。
         var settings = GameContext.Instance.Settings;
         settings.AudioSink = (musicOn, soundOn) =>
         {
@@ -220,9 +249,9 @@ public partial class GameApp
         settings.SetMusic(settings.Audio.MusicOn);
         settings.SetSound(settings.Audio.SoundOn);
 
-        // 入口分流(账号驱动登录):本地已存账号 → 直接用它自动登录 + 立即摆闸窗;无 → 先出登录窗由用户输入账号,
-        // 点登录才发起(见 BeginLogin)。闸窗须走同步路径立即摆上——网络登录与异步预载并行,登录回调回来时闸窗必已在栈,
-        // CloseUI 才能命中(修复回归:闸窗曾被推到 await 之后才 show,导致登录先到时 CloseUI 落空、闸窗后摆且无人关)。
+        // ③ 入口分流(账号驱动登录):本地已存账号 → 直接用它自动登录 + 立即摆闸窗;无 → 先出登录窗由用户输入账号,
+        // 点登录才发起(见 BeginLogin)。Boot 与 ShowConnectingGate 同步紧邻(其间无 await),登录回调回来时闸窗必已在栈,
+        // CloseUI 才能命中(配置预载已在 ① await 完,登录发起晚于闸窗摆上,无 CloseUI 落空)。
 #if FANTASY_UNITY
         string savedAccount = GameLogic.LoginAccountStore.Get();
         if (!string.IsNullOrEmpty(savedAccount))
@@ -241,23 +270,23 @@ public partial class GameApp
         GameModule.UI.ShowUIAsync<GameLogic.UIMergeOrderPanel>();
 #endif
 
-        // 配置 / UI 预制依赖配置的启动尾段移到异步：WebGL 禁止同步加载未驻留 bundle，故先 await 预载
-        // 全部配置二进制 + 玩法 UI 预制到内存 / 资源池，并置预载完成信号入闸。
+        // ④ 玩法 UI 预制 + 字体预载 + 置放行信号:复用 PreloadThenStart(与清档软重启 RestartAfterDataReset 同款尾段;
+        // 其内配置预载对本路径为幂等缓存命中,不重复下载)。与登录并行。
         PreloadThenStart().Forget();
     }
 
     /// <summary>
-    /// 异步启动尾段：构建配置 Tables（ConfigSystem.Load）+ 预载玩法 UI/特效预制与字体（UIPreloader），
-    /// 让玩法窗内同步实例化的 widget 命中资源池、UGuiFactory 文本命中已驻留字体。各步失败不阻断启动
-    ///（逐项记 Error，尽力放行）。末尾置入口闸第三信号 _preloadDone 并触发放行检查：保证玩法窗只在预制必已驻留后才开。
+    /// 预载尾段(配置幂等 + 玩法 UI/特效预制 + 字体)：让玩法窗内同步实例化的 widget 命中资源池、
+    /// UGuiFactory 文本命中已驻留字体。各步失败不阻断启动（逐项记 Error，尽力放行）。末尾置入口闸第三信号
+    /// _preloadDone 并触发放行检查：保证玩法窗只在预制必已驻留后才开。
+    /// 主入口尾段(<see cref="PreloadConfigThenStart"/> ④)与清档软重启(<see cref="RestartAfterDataReset"/>)共用:
+    /// 主入口已在更前面单独 await 过配置(供 GameContext.OnInit 读 avatar 命中),软重启时配置缓存跨重启存活,
+    /// 故此处配置预载对两路径均为幂等缓存命中。
     /// </summary>
     private static async UniTaskVoid PreloadThenStart()
     {
         try
         {
-            // 构建配置 Tables 并异步预载全部表字节进缓存:WebGL 禁运行时同步加载未驻留 bundle,各表首次访问
-            // (如玩法窗内 GlobalConfigMgr.GetInt)须命中预载字节。预载在此 await、天然并入入口闸 _preloadDone,
-            // 保证首个配置消费者(玩法窗)打开前字节已就绪。
             ConfigSystem.Instance.Load();
             await ConfigSystem.Instance.PreloadAsync();
         }
