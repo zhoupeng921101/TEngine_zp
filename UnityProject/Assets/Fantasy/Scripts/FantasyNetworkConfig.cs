@@ -5,12 +5,10 @@ using UnityEngine;
 namespace FantasyClient
 {
     /// <summary>
-    /// Fantasy 网络配置（运行时可改 + PlayerPrefs 持久化）。
-    /// 连接地址 = Host:Port，协议在 KCP / WebSocket 间切换；三者经本地存储跨启动保留。
-    /// 默认连接目标按运行平台分流（编译期符号）：编辑器连本机 127.0.0.1:20001(WebSocket)；
+    /// Fantasy 网络配置。连接地址 = Host:Port，协议在 KCP / WebSocket 间切换。
+    /// 连接目标按运行平台分流（编译期符号）：编辑器连本机 127.0.0.1:20001(WebSocket)；
     /// WebGL 连主域 tarot-block.lulurob.cn:443(WebSocket，https 页面经 Caddy 反代为 wss)；其余平台（Standalone / Android / iOS）连外网 121.199.24.31:20000(KCP)。
-    /// 这三者只是 PlayerPrefs 缺省值——经 <see cref="GameLogic.UI.ServerConfigWindow"/> 手动改并 <see cref="Save"/> 落盘后，
-    /// 存盘值优先生效、不被平台默认覆盖；连接前由 <see cref="FantasyNetwork.Boot"/> 现读 <see cref="ServerAddress"/> / <see cref="Protocol"/>。
+    /// 连接前由 <see cref="FantasyNetwork.Boot"/> 现读 <see cref="ServerAddress"/> / <see cref="Protocol"/>。
     /// </summary>
     public static class FantasyNetworkConfig
     {
@@ -36,50 +34,17 @@ namespace FantasyClient
         public const NetworkProtocolType DefaultProtocol = NetworkProtocolType.KCP;
 #endif
 
-        private const string PrefHost = "Fantasy.Net.Host";
-        private const string PrefPort = "Fantasy.Net.Port";
-        private const string PrefProtocol = "Fantasy.Net.Protocol";
-
-        private static bool _loaded;
-        private static string _host;
-        private static int _port;
-        private static NetworkProtocolType _protocol;
-
-        private static void EnsureLoaded()
-        {
-            if (_loaded) return;
-            _host = PlayerPrefs.GetString(PrefHost, DefaultHost);
-            _port = PlayerPrefs.GetInt(PrefPort, DefaultPort);
-            _protocol = (NetworkProtocolType)PlayerPrefs.GetInt(PrefProtocol, (int)DefaultProtocol);
-            _loaded = true;
-        }
-
-        /// <summary>服务器主机（IP 或域名，如外网 121.199.24.31 / 本机 127.0.0.1）。set 改内存值，须调 <see cref="Save"/> 才落盘。</summary>
-        public static string Host
-        {
-            get { EnsureLoaded(); return _host; }
-            set { EnsureLoaded(); _host = value; }
-        }
+        /// <summary>服务器主机（IP 或域名，如外网 121.199.24.31 / 本机 127.0.0.1）。按运行平台取编译期默认。</summary>
+        public static string Host => DefaultHost;
 
         /// <summary>服务器 Gate 端口（KCP 默认 20000 / WebSocket 默认 20001）。</summary>
-        public static int Port
-        {
-            get { EnsureLoaded(); return _port; }
-            set { EnsureLoaded(); _port = value; }
-        }
+        public static int Port => DefaultPort;
 
         /// <summary>连接协议（KCP / WebSocket）。</summary>
-        public static NetworkProtocolType Protocol
-        {
-            get { EnsureLoaded(); return _protocol; }
-            set { EnsureLoaded(); _protocol = value; }
-        }
+        public static NetworkProtocolType Protocol => DefaultProtocol;
 
         /// <summary>Fantasy 连接接口所需地址，格式 IP:Port（传输层据此拼成 ws://IP:Port 或 wss://IP:Port，scheme 由 <see cref="UseSsl"/> 决定）。</summary>
-        public static string ServerAddress
-        {
-            get { EnsureLoaded(); return $"{_host}:{_port}"; }
-        }
+        public static string ServerAddress => $"{DefaultHost}:{DefaultPort}";
 
         /// <summary>
         /// WebSocket 是否启用 TLS(wss)。WebGL 下默认 true(加密)，仅宿主页面显式 http:// 时才降级明文 ws；其余平台默认 false(明文 ws)。
@@ -100,26 +65,6 @@ namespace FantasyClient
                 return false;
 #endif
             }
-        }
-
-        /// <summary>把当前 Host / Port / Protocol 写入本地存储，下次启动自动带出。</summary>
-        public static void Save()
-        {
-            EnsureLoaded();
-            PlayerPrefs.SetString(PrefHost, _host);
-            PlayerPrefs.SetInt(PrefPort, _port);
-            PlayerPrefs.SetInt(PrefProtocol, (int)_protocol);
-            PlayerPrefs.Save();
-        }
-
-        /// <summary>恢复为当前平台默认 Host / 端口 / 协议并落盘（编辑器为 127.0.0.1，其余平台为外网），便于改过地址后一键还原。</summary>
-        public static void ResetToDefault()
-        {
-            EnsureLoaded();
-            _host = DefaultHost;
-            _port = DefaultPort;
-            _protocol = DefaultProtocol;
-            Save();
         }
 
         /// <summary>

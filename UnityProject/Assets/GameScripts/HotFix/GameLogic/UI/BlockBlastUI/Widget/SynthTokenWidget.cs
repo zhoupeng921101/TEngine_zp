@@ -34,6 +34,7 @@ namespace GameLogic
             if (!string.IsNullOrEmpty(glyphSpriteName)) m_eximg_Glyph.SpriteName = glyphSpriteName;
 
             bool owned = count > 0;
+            m_eximg_infobg.gameObject.SetActive(owned);
             // 等级已由图标分级（{type}_{level}）表现，文字只显数量、不重复等级。
             if (m_eximg_Glyph != null)
             {

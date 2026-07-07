@@ -24,6 +24,13 @@ namespace GameLogic.BlockBlast.Tests
             RandomSource.SetSeed(20260612);
             // DynamicWeightDiff 现为 BlockGameState 的逐局实例字段,随 BlockGameState 释放,无独立单例可释。
             if (BlockGameState.IsValid) BlockGameState.Instance.Release();
+            // 服务端权威接线经 BlockGameState 类级静态 hook(GameApp 仅在 Play 装配)跨 EditMode 域存活:
+            // Release 只清单例实例、清不掉静态字段,交互式 Editor 跑过 Play 后残留的 hook 会在 ResetForMergeOrder
+            // 末尾被触发,把本应本地权威的单测活态误切服务端分支——置 ServerDeal(后续 RefillPieces 走服务端投影→
+            // OperaArr 空→NRE)+ 置 ServerAuthoritativeOrders(Deliver 不本地发体力→奖励丢失)。清空静态 hook,
+            // 使本地权威基线不受 Play 污染(纯逻辑单测本就不接服务端栈)。
+            BlockGameState.OnMergeStateReady = null;
+            BlockGameState.OnMergeStateClosed = null;
         }
 
         [TearDown]
