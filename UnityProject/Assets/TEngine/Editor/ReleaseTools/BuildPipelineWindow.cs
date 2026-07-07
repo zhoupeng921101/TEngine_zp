@@ -83,6 +83,11 @@ namespace TEngine
         private List<string> _buildLogs = new List<string>();
         private Vector2 _logScrollPosition;
 
+        // 发布前自检
+        private bool _showPreCheck = true;
+        private List<ReleasePreCheck.CheckItem> _localCheckResults;
+        private List<ReleasePreCheck.CheckItem> _remoteCheckResults;
+
         // 部署设置（构建后经 Git Bash + ssh/scp 增量上传；地址可在面板填写）
         private bool _showDeploySettings = true;
         private string _deployHost;
@@ -122,6 +127,7 @@ namespace TEngine
                 DrawDllSettings();
                 DrawPlayerSettings();
                 DrawDeploySettings();
+                DrawPreCheckSection();
                 DrawActionButtons();
                 DrawBuildLog();
             }
@@ -479,6 +485,76 @@ namespace TEngine
         #endregion
 
         #region 操作按钮
+
+        #region 发布前自检
+
+        private void DrawPreCheckSection()
+        {
+            _showPreCheck = EditorGUILayout.BeginFoldoutHeaderGroup(_showPreCheck,
+                new GUIContent("发布前自检", "把打包/发布反复踩的坑固化成检查项:本地(配置+产物)与线上(CDN 可达+版本一致)"));
+
+            if (_showPreCheck)
+            {
+                EditorGUILayout.BeginVertical("HelpBox");
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    if (GUILayout.Button("本地检查(配置+产物)", GUILayout.Height(26)))
+                    {
+                        _localCheckResults = ReleasePreCheck.RunLocalChecks(_config);
+                    }
+
+                    if (GUILayout.Button("线上检查(CDN)", GUILayout.Height(26)))
+                    {
+                        try
+                        {
+                            EditorUtility.DisplayProgressBar("发布前自检", "正在核对线上 CDN...", 0.5f);
+                            _remoteCheckResults = ReleasePreCheck.RunRemoteChecks(_config);
+                        }
+                        finally
+                        {
+                            EditorUtility.ClearProgressBar();
+                        }
+                    }
+
+                    EditorGUILayout.EndHorizontal();
+
+                    DrawCheckResults("本地", _localCheckResults);
+                    DrawCheckResults("线上", _remoteCheckResults);
+                }
+                EditorGUILayout.EndVertical();
+            }
+
+            EditorGUILayout.EndFoldoutHeaderGroup();
+            GUILayout.Space(5);
+        }
+
+        private void DrawCheckResults(string group, List<ReleasePreCheck.CheckItem> results)
+        {
+            if (results == null)
+                return;
+
+            int fail = 0, warn = 0;
+            foreach (var r in results)
+            {
+                if (r.Status == ReleasePreCheck.CheckStatus.Fail) fail++;
+                else if (r.Status == ReleasePreCheck.CheckStatus.Warn) warn++;
+            }
+
+            EditorGUILayout.LabelField($"{group}检查:{results.Count} 项,失败 {fail},警告 {warn}", EditorStyles.boldLabel);
+
+            foreach (var r in results)
+            {
+                var type = r.Status == ReleasePreCheck.CheckStatus.Fail ? MessageType.Error
+                    : r.Status == ReleasePreCheck.CheckStatus.Warn ? MessageType.Warning
+                    : MessageType.Info;
+                string text = $"{r.Name}:{r.Message}";
+                if (!string.IsNullOrEmpty(r.Fix))
+                    text += $"\n→ 修复:{r.Fix}";
+                EditorGUILayout.HelpBox(text, type);
+            }
+        }
+
+        #endregion
 
         private void DrawActionButtons()
         {
