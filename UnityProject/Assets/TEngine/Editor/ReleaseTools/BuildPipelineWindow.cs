@@ -57,7 +57,7 @@ namespace TEngine
             "OnlyCopyAll (仅拷贝全部)",
             "OnlyCopyByTags (仅按Tag拷贝)",
         };
-        
+
         private static readonly string[] FileNameStyleNames = new string[]
         {
             "HashName (哈希名)",
@@ -161,6 +161,7 @@ namespace TEngine
                 SaveSettings();
                 AddLog("已重置为默认配置");
             }
+
             EditorGUILayout.EndHorizontal();
 
             GUILayout.Space(5);
@@ -209,6 +210,7 @@ namespace TEngine
                     {
                         _config.PackageVersion = BuildConfig.GetDefaultPackageVersion();
                     }
+
                     EditorGUILayout.EndHorizontal();
 
                     // 输出目录
@@ -223,6 +225,7 @@ namespace TEngine
                             _config.OutputRoot = string.IsNullOrEmpty(projectPath) ? selected : projectPath;
                         }
                     }
+
                     EditorGUILayout.EndHorizontal();
 
                     EditorGUILayout.Space(3);
@@ -230,6 +233,7 @@ namespace TEngine
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
             GUILayout.Space(5);
         }
@@ -273,6 +277,7 @@ namespace TEngine
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
             GUILayout.Space(5);
         }
@@ -316,6 +321,7 @@ namespace TEngine
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
             GUILayout.Space(5);
         }
@@ -339,6 +345,7 @@ namespace TEngine
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
             GUILayout.Space(5);
         }
@@ -379,11 +386,13 @@ namespace TEngine
                                 _config.PlayerOutputPath = selected;
                             }
                         }
+
                         EditorGUILayout.EndHorizontal();
                     }
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
             GUILayout.Space(5);
         }
@@ -423,6 +432,7 @@ namespace TEngine
                             _deployKey = selected;
                         }
                     }
+
                     EditorGUILayout.EndHorizontal();
 
                     EditorGUILayout.Space(3);
@@ -434,6 +444,7 @@ namespace TEngine
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
             GUILayout.Space(5);
         }
@@ -463,7 +474,7 @@ namespace TEngine
                 }
 
                 if (GUILayout.Button("构建 Player", abStyle, GUILayout.Height(35)))
-                { 
+                {
                     SaveSettings();
                     ExecuteBuildPlayerOnly();
                 }
@@ -497,13 +508,13 @@ namespace TEngine
 
             EditorGUILayout.BeginHorizontal();
             {
-                if (GUILayout.Button("一键部署 AB", deployStyle, GUILayout.Height(35)))
+                if (GUILayout.Button("一键构建+部署 AB", deployStyle, GUILayout.Height(35)))
                 {
                     SaveSettings();
                     ExecuteDeployAssetBundle();
                 }
 
-                if (GUILayout.Button("一键部署 Player", deployStyle, GUILayout.Height(35)))
+                if (GUILayout.Button("一键构建+部署 Player", deployStyle, GUILayout.Height(35)))
                 {
                     SaveSettings();
                     ExecuteDeployPlayer();
@@ -544,6 +555,7 @@ namespace TEngine
                 }
                 EditorGUILayout.EndVertical();
             }
+
             EditorGUILayout.EndFoldoutHeaderGroup();
         }
 
@@ -728,6 +740,7 @@ namespace TEngine
                 {
                     localDir = System.IO.Path.GetDirectoryName(localDir);
                 }
+
                 RunDeployScript(localDir, _deployPlayerRemoteDir, "Player");
             }
             catch (Exception e)
@@ -755,6 +768,7 @@ namespace TEngine
                 AddLog($"[错误] {tag} 上传地址为空，已取消上传。");
                 return;
             }
+
             if (string.IsNullOrWhiteSpace(_deployHost))
             {
                 AddLog("[错误] 服务器地址为空，已取消上传。");
@@ -806,8 +820,14 @@ namespace TEngine
             var buffer = new System.Collections.Concurrent.ConcurrentQueue<string>();
             using (var p = new System.Diagnostics.Process { StartInfo = psi })
             {
-                p.OutputDataReceived += (s, e) => { if (e.Data != null) buffer.Enqueue(e.Data); };
-                p.ErrorDataReceived += (s, e) => { if (e.Data != null) buffer.Enqueue("[sh] " + e.Data); };
+                p.OutputDataReceived += (s, e) =>
+                {
+                    if (e.Data != null) buffer.Enqueue(e.Data);
+                };
+                p.ErrorDataReceived += (s, e) =>
+                {
+                    if (e.Data != null) buffer.Enqueue("[sh] " + e.Data);
+                };
                 p.Start();
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
@@ -897,6 +917,7 @@ namespace TEngine
                 char drive = char.ToLowerInvariant(winPath[0]);
                 winPath = "/" + drive + winPath.Substring(2);
             }
+
             return winPath;
         }
 
@@ -936,6 +957,7 @@ namespace TEngine
             {
                 _platformIndex = GetActivePlatformIndex();
             }
+
             _config.BuildTarget = PlatformTargets[_platformIndex];
 
             int pipelineIndex = EditorPrefs.GetInt("TEngine_BP_BuildPipeline", 0);
@@ -967,6 +989,7 @@ namespace TEngine
             {
                 _playerPlatformIndex = GetActivePlatformIndex();
             }
+
             _config.PlayerPlatform = PlatformTargets[_playerPlatformIndex];
 
             _config.PlayerOutputPath = EditorPrefs.GetString("TEngine_BP_PlayerOutput",
@@ -1019,6 +1042,7 @@ namespace TEngine
                 if (PlatformTargets[i] == active)
                     return i;
             }
+
             return 0;
         }
 
