@@ -118,6 +118,20 @@ namespace TEngine
         /// </summary>
         public static void BuildWithConfig(BuildConfig config, bool buildPlayer)
         {
+            // 前置校验:WebGL + Remote + 内置文件拷贝=None 是必崩组合。
+            // 该组合下 StreamingAssets 不会生成 BuildinCatalog,WebGL 运行时内置文件系统初始化必失败
+            // (读不到内置清单,卡在最开头、走不到 CDN)。构建期直接中止,不静默出坏包。
+            if (config.BuildTarget == BuildTarget.WebGL
+                && Settings.UpdateSetting.GetLoadResWayWebGL() == LoadResWayWebGL.Remote
+                && config.BuildinFileCopyOption == EBuildinFileCopyOption.None)
+            {
+                string err = "WebGL + Remote 模式下『内置文件拷贝』不能为 None:" +
+                             "StreamingAssets 将缺少 BuildinCatalog,Player 运行时资源初始化必失败、下载不到资源。" +
+                             "请改用 ClearAndCopyAll(或 ClearAndCopyByTags)。";
+                Debug.LogError($"[BuildWithConfig] {err}");
+                throw new Exception(err);
+            }
+
             // 1. [可选] 编译热更DLL
             if (config.BuildHotFixDll)
             {

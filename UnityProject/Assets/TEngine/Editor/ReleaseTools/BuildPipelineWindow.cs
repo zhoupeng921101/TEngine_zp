@@ -603,6 +603,13 @@ namespace TEngine
             AddLog($"========== 仅构建 Player ==========");
             AddLog($"平台: {_config.PlayerPlatform} | 输出: {_config.PlayerOutputPath}");
 
+            if (_config.PlayerPlatform == BuildTarget.WebGL && !CheckWebGLBuildinCatalogReady())
+            {
+                _showBuildLog = true;
+                Repaint();
+                return;
+            }
+
             try
             {
                 Application.logMessageReceived += OnBuildLogReceived;
@@ -668,11 +675,43 @@ namespace TEngine
             Repaint();
         }
 
+        /// <summary>
+        /// WebGL Player 构建前校验:StreamingAssets 内置目录 BuildinCatalog.bytes 必须存在。
+        /// 缺失时 Player 会卡在内置文件系统初始化(读不到内置清单)而下载不到资源。
+        /// 分开按钮流程下 Player 只打包当前 StreamingAssets、不重建 AB,顺序反了或漏打 AB 会静默出坏包,故此处拦截。
+        /// </summary>
+        private bool CheckWebGLBuildinCatalogReady()
+        {
+            // 文件名对应 YooAsset DefaultBuildinFileSystemDefine.BuildinCatalogBinaryFileName;
+            // 该常量所在类为 internal 且在 YooAsset 程序集内,跨程序集不可引用,故此处用字面量。
+            // GetStreamingAssetsRoot() 已含 yoo/package 子目录;包名固定 "DefaultPackage"(与 ReleaseTools 构建参数一致)。
+            string catalogPath = System.IO.Path.Combine(
+                AssetBundleBuilderHelper.GetStreamingAssetsRoot(), "DefaultPackage", "BuildinCatalog.bytes");
+            if (System.IO.File.Exists(catalogPath))
+            {
+                return true;
+            }
+
+            string msg = "WebGL 内置目录 BuildinCatalog.bytes 缺失,Player 会因资源初始化失败而下载不到资源。\n" +
+                         "请先执行『一键部署 AB』(『内置文件拷贝』需设为 ClearAndCopyAll)把内置目录拷进 StreamingAssets,再打 Player。\n\n" +
+                         $"缺失路径: {catalogPath}";
+            AddLog($"[错误] {msg}");
+            EditorUtility.DisplayDialog("WebGL Player 构建中止", msg, "知道了");
+            return false;
+        }
+
         private void ExecuteDeployPlayer()
         {
             _buildLogs.Clear();
             AddLog("========== 一键部署 Player ==========");
             AddLog($"平台: {_config.PlayerPlatform} | 输出: {_config.PlayerOutputPath}");
+
+            if (_config.PlayerPlatform == BuildTarget.WebGL && !CheckWebGLBuildinCatalogReady())
+            {
+                _showBuildLog = true;
+                Repaint();
+                return;
+            }
 
             try
             {
@@ -915,7 +954,8 @@ namespace TEngine
             _config.UseAssetDependencyDB = EditorPrefs.GetBool("TEngine_BP_UseDepDB", true);
             _config.ClearBuildCache = EditorPrefs.GetBool("TEngine_BP_ClearCache", false);
             _config.VerifyBuildingResult = EditorPrefs.GetBool("TEngine_BP_VerifyResult", true);
-            _config.BuildinFileCopyOption = (EBuildinFileCopyOption)EditorPrefs.GetInt("TEngine_BP_CopyOption", 0);
+            // 默认 ClearAndCopyAll:WebGL 恒需 StreamingAssets 内置目录,None 会导致运行时资源初始化失败。
+            _config.BuildinFileCopyOption = (EBuildinFileCopyOption)EditorPrefs.GetInt("TEngine_BP_CopyOption", (int)EBuildinFileCopyOption.ClearAndCopyAll);
             _config.FileNameStyle = (EFileNameStyle)EditorPrefs.GetInt("TEngine_BP_FileNameStyle", 1);
 
             _config.BuildHotFixDll = EditorPrefs.GetBool("TEngine_BP_BuildDll", true);
