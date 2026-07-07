@@ -76,10 +76,9 @@ namespace GameLogic
         private static readonly MergeElement[] SynthTypes =
             { MergeElement.Butterfly, MergeElement.Chalice, MergeElement.Scroll, MergeElement.Star };
 
-        // 通用倒计时 widget（OnCreate 各建一个，宿主每秒喂剩余秒数 + 显隐；组件本身业务无关）：
-        // 体力倒计时挂体力栏下方锚点 m_rect_EnergyCountdownSlot——体力满（不再恢复）时隐藏；
+        // 通用倒计时 widget（OnCreate 建一个，宿主每秒喂剩余秒数 + 显隐；组件本身业务无关）：
         // 订单倒计时挂订单区下方锚点 m_rect_OrderCountdownSlot——整批刷新单一时间戳，常显。
-        private CountdownWidget _energyCountdown;
+        // 体力倒计时由 Top 层 HUD(UITopHudPanel)承载,本窗不再持有。
         private CountdownWidget _orderCountdown;
 
         /// <summary>
@@ -479,9 +478,8 @@ namespace GameLogic
         // 无尽模型（设计 49）：完成单数无终点，作累计计数展示（订单持续刷新，无通关）。
         private void RefreshEnergy()
         {
-            m_text_Energy.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
             m_text_Goal.text = $"完成 {_merge.CompletedOrders} 单";
-            // 顶部体力槽数字（EnergyIcon 对应）。
+            // 局内体力槽数字（EnergyIcon 对应）。
             if (m_text_EnergyNum != null) m_text_EnergyNum.text = $"{_merge.Energy}/{MergeOrderConfig.EnergyCap}";
         }
 
@@ -516,25 +514,12 @@ namespace GameLogic
             }
         }
 
-        // ── 倒计时 widget 创建（OnCreate 一次性，各挂上游搭好的锚点）──
+        // ── 倒计时 widget 创建（OnCreate 一次性，挂上游搭好的锚点）──
         // 资源定位名 == 类名 "CountdownWidget"（AssetRaw/UI 走 AddressByFileName），CreateWidgetByType 可加载。
-        // 体力倒计时挂 m_rect_EnergyCountdownSlot（体力栏下），订单倒计时挂 m_rect_OrderCountdownSlot（订单区下）。
-        // 喂数 + 显隐由 OnUpdate 每秒轮询统一处理（复用既有 ApplyTimeRegen/ApplyOrderRefresh 的 now）。
+        // 订单倒计时挂 m_rect_OrderCountdownSlot（订单区下）；体力倒计时已移至 Top 层 HUD(UITopHudPanel)。
+        // 喂数 + 显隐由 OnUpdate 每秒轮询统一处理（复用既有 ApplyOrderRefresh 的 now）。
         private void CreateCountdowns()
         {
-            if (m_rect_EnergyCountdownSlot != null)
-            {
-                _energyCountdown = CreateWidgetByType<CountdownWidget>(m_rect_EnergyCountdownSlot);
-                if (_energyCountdown == null)
-                    Log.Error("[UIMergeOrderPanel] CountdownWidget（体力）加载失败（资源定位名 CountdownWidget），体力倒计时未创建。");
-                else if (_energyCountdown.rectTransform != null)
-                    _energyCountdown.rectTransform.localScale = Vector3.one;
-            }
-            else
-            {
-                Log.Error("[UIMergeOrderPanel] m_rect_EnergyCountdownSlot 缺失，体力倒计时未创建，请检查 prefab 锚点绑定。");
-            }
-
             if (m_rect_OrderCountdownSlot != null)
             {   
                 _orderCountdown = CreateWidgetByType<CountdownWidget>(m_rect_OrderCountdownSlot);
@@ -550,29 +535,12 @@ namespace GameLogic
         }
 
         /// <summary>
-        /// 每秒刷新两个倒计时（OnUpdate 轮询调用，<paramref name="now"/> 取与 ApplyTimeRegen/ApplyOrderRefresh 一致的 Unix 秒）。
-        /// 体力倒计时 = max(0, interval - (now - LastEnergyRegenTime) % interval)；体力满（≥软上限，不再恢复）时隐藏。
+        /// 每秒刷新订单倒计时（OnUpdate 轮询调用，<paramref name="now"/> 取与 ApplyOrderRefresh 一致的 Unix 秒）。
         /// 订单倒计时 = max(0, OrderRefreshIntervalSec - (now - LastOrderRefreshTime))；整批刷新单一时间戳，常显。
-        /// 记录时刻为 0（尚无记录 / 首次）或 now 早于记录时刻（玩家回拨时钟）时，剩余按整周期显示（不出现负数 / 错乱，与恢复/刷新「首次以 now 初始化、本次不补」一致）。
+        /// 记录时刻为 0（尚无记录 / 首次）或 now 早于记录时刻（玩家回拨时钟）时，剩余按整周期显示（不出现负数 / 错乱，与刷新「首次以 now 初始化、本次不补」一致）。
         /// </summary>
         private void RefreshCountdowns(long now)
         {
-            // 体力倒计时：体力满时不再恢复 → 隐藏；未满则显本周期剩余秒。
-            if (_energyCountdown != null)
-            {
-                if (_merge.Energy >= MergeOrderConfig.EnergyCap)
-                {
-                    _energyCountdown.SetVisible(false);
-                }
-                else
-                {
-                    int interval = (int)MergeOrderConfig.RegenIntervalSec;
-                    int remain = CountdownMath.Remain(now, _merge.LastEnergyRegenTime, interval, periodic: true);
-                    _energyCountdown.SetVisible(true);
-                    _energyCountdown.SetRemainingSeconds(remain);
-                }
-            }
-
             // 订单倒计时：到点整批刷新，单一时间戳，常显。
             if (_orderCountdown != null)
             {
@@ -839,8 +807,6 @@ namespace GameLogic
         {
             // ◈（BMP，LegacyRuntime 字体可渲染）替代 🔮（补充平面 emoji 在该字体下渲染不出，设计 §五允许 🔮 或 ◈）。
             m_text_BlindBox.text = $"◈ ×{_merge.BlindBoxCount}";
-            // 顶部盲盒槽数字（GemIcon 对应）。
-            if (m_text_GemNum != null) m_text_GemNum.text = $"{_merge.BlindBoxCount}";
             bool can = _merge.CanOpenBlindBox;
             m_btn_OpenBox.interactable = can;
             _openBoxBtnBg.color = can ? new Color32(0x7a, 0x4a, 0xb8, 0xFF) : new Color32(0x3a, 0x33, 0x44, 0xFF);
@@ -851,8 +817,6 @@ namespace GameLogic
         private void RefreshPiety()
         {
             m_text_Piety.text = $"✦ {NumericDisplay.Format(_merge.Piety)}";
-            // 顶部虔诚币槽数字（CoinIcon 对应）。
-            if (m_text_CoinNum != null) m_text_CoinNum.text = NumericDisplay.Format(_merge.Piety);
         }
 
         // ── 女神满档领取（设计 11 §十）：进度文本 + 满档红点 + 领取按钮态。开窗 / 全清结算 / 领取后刷新 ──
@@ -2173,6 +2137,11 @@ namespace GameLogic
                     ShowClearToolHint("领取失败，请稍后再试", autoHide: true);
                     break;
             }
+        }
+
+        private partial void OnClick_BagBtn()
+        {
+            
         }
     }
 }

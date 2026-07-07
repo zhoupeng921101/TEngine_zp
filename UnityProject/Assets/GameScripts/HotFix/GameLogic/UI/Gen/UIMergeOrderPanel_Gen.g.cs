@@ -19,13 +19,6 @@ namespace GameLogic
 		[SerializeField] private Image m_img_EnergyIcon = null!;
 		[SerializeField] private Text m_text_EnergyNum = null!;
 		[SerializeField] private Text m_text_Goal = null!;
-		[SerializeField] private Image m_img_Energy = null!;
-		[SerializeField] private Text m_text_Energy = null!;
-		[SerializeField] private RectTransform m_rect_EnergyCountdownSlot = null!;
-		[SerializeField] private Image m_img_CoinIcon = null!;
-		[SerializeField] private Text m_text_CoinNum = null!;
-		[SerializeField] private Image m_img_GemIcon = null!;
-		[SerializeField] private Text m_text_GemNum = null!;
 		[SerializeField] private Image m_img_BoxCard = null!;
 		[SerializeField] private Button m_btn_OpenBox = null!;
 		[SerializeField] private Text m_text_BlindBox = null!;
@@ -33,14 +26,15 @@ namespace GameLogic
 		[SerializeField] private RectTransform m_rect_OrderLayer = null!;
 		[SerializeField] private RectTransform m_rect_OrderContent = null!;
 		[SerializeField] private RectTransform m_rect_OrderCountdownSlot = null!;
-		[SerializeField] private Image m_img_ElemBar = null!;
-		[SerializeField] private RectTransform m_rect_SynthLayer = null!;
-		[SerializeField] private Image m_img_BoardOuter = null!;
-		[SerializeField] private RectTransform m_rect_BoardLayer = null!;
 		[SerializeField] private Image m_img_SlotBg = null!;
 		[SerializeField] private RectTransform m_rect_SlotLayer = null!;
+		[SerializeField] private Image m_img_BoardOuter = null!;
+		[SerializeField] private RectTransform m_rect_BoardLayer = null!;
+		[SerializeField] private Image m_img_ElemBar = null!;
+		[SerializeField] private RectTransform m_rect_SynthLayer = null!;
 		[SerializeField] private Button m_btn_ClearTool = null!;
 		[SerializeField] private Button m_btn_Temple = null!;
+		[SerializeField] private Button m_btn_Bag = null!;
 		[SerializeField] private Button m_btn_Exit = null!;
 		[SerializeField] private Image m_img_ClearOverlay = null!;
 		[SerializeField] private Image m_img_ClearHintBg = null!;
@@ -58,6 +52,8 @@ namespace GameLogic
 			m_btn_ClearTool.onClick.AddListener(OnClick_ClearToolBtn);
 			m_btn_Temple.onClick.RemoveAllListeners();
 			m_btn_Temple.onClick.AddListener(OnClick_TempleBtn);
+			m_btn_Bag.onClick.RemoveAllListeners();
+			m_btn_Bag.onClick.AddListener(OnClick_BagBtn);
 			m_btn_Exit.onClick.RemoveAllListeners();
 			m_btn_Exit.onClick.AddListener(OnClick_ExitBtn);
 			m_btn_GoddessClaim.onClick.RemoveAllListeners();
@@ -73,6 +69,8 @@ namespace GameLogic
 		private partial void OnClick_ClearToolBtn();
 
 		private partial void OnClick_TempleBtn();
+
+		private partial void OnClick_BagBtn();
 
 		private partial void OnClick_ExitBtn();
 

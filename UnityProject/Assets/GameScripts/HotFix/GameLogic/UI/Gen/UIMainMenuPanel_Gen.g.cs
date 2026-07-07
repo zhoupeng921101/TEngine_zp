@@ -16,13 +16,6 @@ namespace GameLogic
 	{
 		#region 脚本工具生成的代码
 
-		[SerializeField] private RectTransform m_rect_EnergyCountdownSlot = null!;
-		[SerializeField] private Image m_img_CoinIcon = null!;
-		[SerializeField] private Text m_text_CoinNum = null!;
-		[SerializeField] private Image m_img_Energy = null!;
-		[SerializeField] private Text m_text_Energy = null!;
-		[SerializeField] private Image m_img_GemIcon = null!;
-		[SerializeField] private Text m_text_GemNum = null!;
 		[SerializeField] private Button m_btn_CollapseMenuButton = null!;
 		[SerializeField] private Button m_btn_PersonalInformationButton = null!;
 		[SerializeField] private Button m_btn_CheckInButton = null!;

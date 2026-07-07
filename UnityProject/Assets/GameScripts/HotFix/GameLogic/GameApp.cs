@@ -267,6 +267,8 @@ public partial class GameApp
         }
 #else
         // 网络模块未启用(无 Fantasy 栈,无登录流程):直接开玩法窗,避免闸永不满足而卡死。
+        // 本路径不经入口闸 EnterMergeOrder,须在此单独显示 HUD;否则玩法窗顶部的头像 / 货币栏(由 HUD 承载)无处显示。
+        EnsureTopHud();
         GameModule.UI.ShowUIAsync<GameLogic.UIMergeOrderPanel>();
 #endif
 
@@ -389,13 +391,25 @@ public partial class GameApp
                 await UniTask.WhenAny(enter.EnterAsync(), UniTask.Delay(8000, ignoreTimeScale: true));
             }
 
+            EnsureTopHud();
             GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
         }
         catch (System.Exception e)
         {
             // 任何异常都不得让 async void 逃逸崩启动:本地兜底放行进玩法。
             Log.Warning($"[GameApp] 进玩法发进主游戏请求异常,按本地兜底放行:{e.Message}");
+            EnsureTopHud();
             GameModule.UI.ShowUIAsync<UIMainMenuPanel>();
+        }
+    }
+
+    /// <summary>显示 Top 层持久 HUD(头像 + 货币栏),跨界面常驻。幂等:已存在则不重复创建,
+    /// 使清档软重启重跑 EnterMergeOrder 时不重复实例化。</summary>
+    private static void EnsureTopHud()
+    {
+        if (!GameModule.UI.HasWindow<UITopHudPanel>())
+        {
+            GameModule.UI.ShowUIAsync<UITopHudPanel>();
         }
     }
 
